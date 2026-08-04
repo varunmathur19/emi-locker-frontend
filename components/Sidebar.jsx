@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { getRoleId } from "@/utils/token";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import {
   RiDashboardLine,
@@ -20,10 +21,15 @@ import {
 export default function Sidebar({sidebarOpen}) {
   const roleId = getRoleId();
 
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const activeRole = searchParams.get("role");
+
   const logout = () => {
-  localStorage.removeItem("token");
-  window.location.href = "/login";
-};
+    localStorage.removeItem("token");
+    window.location.href = "/login";
+  };
 
   return (
 <aside
@@ -51,12 +57,19 @@ export default function Sidebar({sidebarOpen}) {
 
       <div className="space-y-2 flex-1 overflow-y-auto pb-24 scrollbar-hide">
 
-        <Link
+       <Link
  href="/dashboard"
- className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
+ className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
+   pathname === "/dashboard" && !activeRole
+   ? "bg-blue-400 text-black"
+   : "hover:bg-gray-700"
+ }`}
 >
-<RiDashboardLine />
-Dashboard
+ <RiDashboardLine 
+  size={18}
+  className="text-[1.4rem]"
+/>
+  Dashboard
 </Link>
 
 
@@ -76,11 +89,16 @@ Dashboard
 
         {/* Admin */}
         {roleId < 1 && (
-          <Link
+         <Link
  href="/dashboard?role=1"
- className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
+ className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
+   activeRole === "1"
+   ? "bg-blue-400 text-black"
+   : "hover:bg-gray-700"
+ }`}
 >
-<RiShieldUserLine />
+<RiShieldUserLine  size={18}
+  className="text-[1.4rem]" />
 Admin
 </Link>
         )}
@@ -89,9 +107,14 @@ Admin
         {roleId < 2 && (
          <Link
  href="/dashboard?role=2"
- className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
+ className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
+   activeRole === "2"
+   ? "bg-blue-400 text-black"
+   : "hover:bg-gray-700"
+ }`}
 >
-<RiUserStarLine />
+<RiUserStarLine  size={18}
+  className="text-[1.4rem]"/>
 CNF
 </Link>
         )}
@@ -100,20 +123,30 @@ CNF
         {roleId < 3 && (
           <Link
  href="/dashboard?role=3"
- className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
+ className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
+   activeRole === "3"
+   ? "bg-blue-400 text-black"
+   : "hover:bg-gray-700"
+ }`}
 >
-<RiBuilding2Line />
+<RiBuilding2Line  size={18}
+  className="text-[1.4rem]" />
 Super Distributor
 </Link>
         )}
 
         {/* Distributor */}
         {roleId < 4 && (
-          <Link
+         <Link
  href="/dashboard?role=4"
- className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
+ className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
+   activeRole === "4"
+   ? "bg-blue-400 text-black"
+   : "hover:bg-gray-700"
+ }`}
 >
-<RiStore2Line />
+<RiStore2Line  size={18}
+  className="text-[1.4rem]" />
 Distributor
 </Link>
         )}
@@ -122,9 +155,14 @@ Distributor
         {roleId < 5 && (
           <Link
  href="/dashboard?role=5"
- className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
+ className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
+   activeRole === "5"
+   ? "bg-blue-400 text-black"
+   : "hover:bg-gray-700"
+ }`}
 >
-<RiUserLocationLine />
+<RiUserLocationLine  size={18}
+  className="text-[1.4rem]" />
 FOS
 </Link>
         )}
@@ -133,31 +171,41 @@ FOS
         {roleId < 6 && (
          <Link
  href="/dashboard?role=6"
- className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
+ className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
+   activeRole === "6"
+   ? "bg-blue-400 text-black"
+   : "hover:bg-gray-700"
+ }`}
 >
-<RiStore2Line />
+<RiStore2Line  size={18}
+  className="text-[1.4rem]" />
 Retailer
 </Link>
         )}
 
         {/* Employee */}
         {roleId < 7 && (
-          <Link
+         <Link
  href="/dashboard?role=7"
- className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
+ className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
+   activeRole === "7"
+   ? "bg-blue-400 text-black"
+   : "hover:bg-gray-700"
+ }`}
 >
-<RiUser3Line />
+<RiUser3Line  size={18}
+  className="text-[1.4rem]" />
 Employee
 </Link>
         )}
 
-        <Link
+        {/* <Link
           href="/settings"
           className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
         >
           <RiSettingsLine />
           Settings
-        </Link>
+        </Link> */}
        <button
   onClick={logout}
   className="fixed bottom-5 left-5 w-[216px] flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-3 rounded-md hover:bg-red-600 transition-all cursor-pointer"
