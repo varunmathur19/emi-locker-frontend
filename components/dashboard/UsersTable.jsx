@@ -42,7 +42,7 @@ export default function UsersTable({
 
           <button
             onClick={() => setOpenForm(true)}
-            className="bg-blue-500 text-white px-4 py-2 rounded-sm hover:bg-blue-600 cursor-pointer"
+            className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 cursor-pointer"
           >
             {roleButtons[selectedRole]}
           </button>
