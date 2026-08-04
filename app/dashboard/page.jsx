@@ -9,9 +9,17 @@ import Sidebar from "@/components/Sidebar";
 import { getAllStaffData } from "@/services/api";
 import { getRoleId } from "@/utils/token";
 import UsersTable from "../../components/dashboard/UsersTable";
+import { useRouter } from "next/navigation";
+
 
 
 export default function Dashboard() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    const handleRoleList = (role) => {
+  router.push(`/dashboard?role=${role}`);
+};
+const router = useRouter();
 
 const [allUsers,setAllUsers] = useState([]);
   const roleId = getRoleId() ?? 999;
@@ -312,31 +320,37 @@ console.log(error);
 
   return (
 
-<div className="flex min-h-screen bg-gray-100">
+<div className="flex h-screen overflow-hidden bg-gray-100">
 
 
-<Sidebar/>
-
-
-
-<div className="flex-1">
-
-
-<Navbar/>
+<Sidebar
+  sidebarOpen={sidebarOpen}
+/>
 
 
 
-<main className="p-6">
+
+<div
+  className={`flex-1 transition-all duration-300 ${
+    sidebarOpen ? "ml-64" : "ml-0"
+  }`}
+>
+
+
+<Navbar
+  sidebarOpen={sidebarOpen}
+  setSidebarOpen={setSidebarOpen}
+/>
+
+
+
+<main className="pt-20 p-6 h-screen overflow-y-auto">
 
 
 
 <h1 className="text-3xl font-bold mb-6">
 Welcome Dashboard
 </h1>
-
-
-
-
 
 {
 isDashboardHome && (
@@ -403,17 +417,13 @@ className="bg-white p-5 rounded-xl shadow"
 !isDashboardHome && (
 
 <UsersTable
-
-users={users}
-
-page={page}
-
-pagination={pagination}
-
-setPage={setPage}
-
-getRoleName={getRoleName}
-
+  users={users}
+  page={page}
+  pagination={pagination}
+  setPage={setPage}
+  getRoleName={getRoleName}
+  selectedRole={Number(selectedRole)}
+  handleRoleList={handleRoleList}
 />
 
 )
