@@ -14,27 +14,50 @@ import {
   RiStore2Line,
   RiUserLocationLine,
   RiUser3Line,
+    RiLogoutBoxLine,
 } from "react-icons/ri";
 
-export default function Sidebar() {
+export default function Sidebar({sidebarOpen}) {
   const roleId = getRoleId();
 
+  const logout = () => {
+  localStorage.removeItem("token");
+  window.location.href = "/login";
+};
+
   return (
-    <aside className="w-64 min-h-screen bg-gray-900 text-white p-5">
+<aside
+  className={`
+    fixed
+    top-0
+    left-0
+    h-screen
+    bg-gray-900
+    text-white
+    flex
+    flex-col
+    overflow-hidden
+    transition-all
+    duration-300
+    ease-in-out
+    z-40
+    ${sidebarOpen ? "w-64 p-5" : "w-0 p-0"}
+  `}
+>
 
       <h2 className="text-2xl font-bold mb-8">
         Dashboard
       </h2>
 
-      <div className="space-y-2">
+      <div className="space-y-2 flex-1 overflow-y-auto pb-24 scrollbar-hide">
 
-        {/* <Link
-          href="/dashboard"
-          className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
-        >
-          <RiDashboardLine />
-          Dashboard
-        </Link> */}
+        <Link
+ href="/dashboard"
+ className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
+>
+<RiDashboardLine />
+Dashboard
+</Link>
 
 
 
@@ -135,6 +158,13 @@ Employee
           <RiSettingsLine />
           Settings
         </Link>
+       <button
+  onClick={logout}
+  className="fixed bottom-5 left-5 w-[216px] flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-3 rounded-md hover:bg-red-600 transition-all cursor-pointer"
+>
+  <RiLogoutBoxLine />
+  Logout
+</button>
 
       </div>
     </aside>

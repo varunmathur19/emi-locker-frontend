@@ -8,9 +8,18 @@ import Sidebar from "@/components/Sidebar";
 
 import { getAllStaffData } from "@/services/api";
 import { getRoleId } from "@/utils/token";
+import UsersTable from "../../components/dashboard/UsersTable";
+import { useRouter } from "next/navigation";
+
 
 
 export default function Dashboard() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    const handleRoleList = (role) => {
+  router.push(`/dashboard?role=${role}`);
+};
+const router = useRouter();
 
 const [allUsers,setAllUsers] = useState([]);
   const roleId = getRoleId() ?? 999;
@@ -18,6 +27,7 @@ const [allUsers,setAllUsers] = useState([]);
   const searchParams = useSearchParams();
 
   const selectedRole = searchParams.get("role");
+  const isDashboardHome = !selectedRole;
   const defaultRole = selectedRole 
 ? Number(selectedRole) 
 : Number(roleId);
@@ -84,9 +94,9 @@ try{
 
 // 1. Cards ke liye all users
 const countRes = await getAllStaffData(
-1,
-10000,
-""
+  1,
+  10000,
+  ""
 );
 
 
@@ -169,25 +179,40 @@ setCounts(roleCounts);
 
 
 
-// 2. Table ke liye selected role data
+// 2. Dashboard home par sirf cards show honge
+if(isDashboardHome){
 
+  setUsers([]);
+
+  setPagination({});
+
+  return;
+
+}
+
+
+
+
+
+// 3. Sidebar se role select hua hai
 let roleFilter = selectedRole;
 
 
-// agar sidebar se click nahi hua
+
+// 4. Agar sidebar se role select nahi hua
 if(!roleFilter){
 
 
-  // Master Admin ke liye default Admin show hoga
+  // Master Admin ka default Admin
   if(roleId === 0){
 
     roleFilter = 1;
 
+  }
+  else{
 
-  }else{
 
-
-    // baaki roles ka existing logic same rahega
+    // baki roles ka next level
     roleFilter = Number(roleId) + 1;
 
 
@@ -196,11 +221,15 @@ if(!roleFilter){
 }
 
 
+
+
+// 5. Table ke liye users fetch
 const res = await getAllStaffData(
-page,
-10,
-roleFilter
+  page,
+  10,
+  roleFilter
 );
+
 
 
 setUsers(res.data);
@@ -291,21 +320,31 @@ console.log(error);
 
   return (
 
-<div className="flex min-h-screen bg-gray-100">
+<div className="flex h-screen overflow-hidden bg-gray-100">
 
 
-<Sidebar/>
-
-
-
-<div className="flex-1">
-
-
-<Navbar/>
+<Sidebar
+  sidebarOpen={sidebarOpen}
+/>
 
 
 
-<main className="p-6">
+
+<div
+  className={`flex-1 transition-all duration-300 ${
+    sidebarOpen ? "ml-64" : "ml-0"
+  }`}
+>
+
+
+<Navbar
+  sidebarOpen={sidebarOpen}
+  setSidebarOpen={setSidebarOpen}
+/>
+
+
+
+<main className="pt-20 p-6 h-screen overflow-y-auto">
 
 
 
@@ -313,9 +352,8 @@ console.log(error);
 Welcome Dashboard
 </h1>
 
-
-
-
+{
+isDashboardHome && (
 
 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
 
@@ -328,7 +366,6 @@ cards
 
 
 // Master Admin sab dekhega
-
 if(roleId === 0){
 
 return true;
@@ -336,8 +373,7 @@ return true;
 }
 
 
-// baaki role apne niche wale dekhenge
-
+// baki role apne niche wale dekhenge
 return card.roleId > roleId;
 
 
@@ -374,191 +410,24 @@ className="bg-white p-5 rounded-xl shadow"
 
 </div>
 
-
-
-
-
-
-
-
-<div className="mt-8 bg-white rounded-xl shadow p-6">
-
-  <h2 className="text-xl font-bold mb-4">
-    Recent Users
-  </h2>
-
-
-  <table className="w-full">
-
-    <thead>
-
-      <tr className="border-b">
-
-        <th className="text-left p-3">
-          S.No
-        </th>
-
-
-        <th className="text-left p-3">
-          Name
-        </th>
-
-
-        <th className="text-left p-3">
-          Phone
-        </th>
-
-
-        <th className="text-left p-3">
-          Role
-        </th>
-
-
-        <th className="text-left p-3">
-          Status
-        </th>
-
-
-      </tr>
-
-    </thead>
-
-
-
-   <tbody>
+)
+}
 
 {
-users.length > 0 ?
+!isDashboardHome && (
 
-users.map((user,index)=>(
+<UsersTable
+  users={users}
+  page={page}
+  pagination={pagination}
+  setPage={setPage}
+  getRoleName={getRoleName}
+  selectedRole={Number(selectedRole)}
+  handleRoleList={handleRoleList}
+/>
 
-<tr
-key={user.id}
-className="border-b"
->
-
-<td className="p-3">
-{((page - 1) * 10) + index + 1}
-</td>
-
-
-<td className="p-3">
-{user.name}
-</td>
-
-
-<td>
-{user.phone}
-</td>
-
-
-<td>
-{getRoleName(user.role_id)}
-</td>
-
-
-<td>
-<span className="text-green-600 font-semibold">
-Active
-</span>
-</td>
-
-
-</tr>
-
-
-))
-
-
-:
-
-<tr>
-
-<td
-colSpan="5"
-className="text-center p-5"
->
-No Users Found
-</td>
-
-</tr>
-
+)
 }
-
-
-</tbody>
-
-
-
-
-  </table>
-  <div className="flex justify-center items-center gap-3 mt-5">
-
-
-<button
-
-disabled={page <= 1}
-
-onClick={()=>setPage(page - 1)}
-
-className={`px-4 py-2 rounded ${
-page <= 1 
-? "bg-gray-200 cursor-not-allowed"
-: "bg-blue-500 text-white"
-}`}
-
->
-
-Previous
-
-</button>
-
-
-
-
-<span className="px-4 py-2 font-semibold">
-
-Page {pagination.currentPage || page} 
-/
-{pagination.totalPages || 1}
-
-</span>
-
-
-
-
-
-<button
-
-disabled={
-page >= (pagination.totalPages || 1)
-}
-
-onClick={()=>setPage(page + 1)}
-
-className={`px-4 py-2 rounded ${
-page >= (pagination.totalPages || 1)
-? "bg-gray-200 cursor-not-allowed"
-: "bg-blue-500 text-white"
-}`}
-
->
-
-Next
-
-</button>
-
-
-
-</div>
-
-
-</div>
-
-
-
-
-
 </main>
 
 
