@@ -18,6 +18,9 @@ const [allUsers,setAllUsers] = useState([]);
   const searchParams = useSearchParams();
 
   const selectedRole = searchParams.get("role");
+  const defaultRole = selectedRole 
+? Number(selectedRole) 
+: Number(roleId);
 const [page,setPage]=useState(1);
 const [pagination,setPagination]=useState({});
   const [users, setUsers] = useState([]);
@@ -168,10 +171,35 @@ setCounts(roleCounts);
 
 // 2. Table ke liye selected role data
 
+let roleFilter = selectedRole;
+
+
+// agar sidebar se click nahi hua
+if(!roleFilter){
+
+
+  // Master Admin ke liye default Admin show hoga
+  if(roleId === 0){
+
+    roleFilter = 1;
+
+
+  }else{
+
+
+    // baaki roles ka existing logic same rahega
+    roleFilter = Number(roleId) + 1;
+
+
+  }
+
+}
+
+
 const res = await getAllStaffData(
 page,
 10,
-selectedRole || ""
+roleFilter
 );
 
 

@@ -52,7 +52,7 @@ export default function Sidebar() {
         )} */}
 
         {/* Admin */}
-        {roleId <= 1 && (
+        {roleId < 1 && (
           <Link
  href="/dashboard?role=1"
  className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
@@ -63,7 +63,7 @@ Admin
         )}
 
         {/* CNF */}
-        {roleId <= 2 && (
+        {roleId < 2 && (
          <Link
  href="/dashboard?role=2"
  className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
@@ -74,7 +74,7 @@ CNF
         )}
 
         {/* Super Distributor */}
-        {roleId <= 3 && (
+        {roleId < 3 && (
           <Link
  href="/dashboard?role=3"
  className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
@@ -85,7 +85,7 @@ Super Distributor
         )}
 
         {/* Distributor */}
-        {roleId <= 4 && (
+        {roleId < 4 && (
           <Link
  href="/dashboard?role=4"
  className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
@@ -96,7 +96,7 @@ Distributor
         )}
 
         {/* FOS */}
-        {roleId <= 5 && (
+        {roleId < 5 && (
           <Link
  href="/dashboard?role=5"
  className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
@@ -107,7 +107,7 @@ FOS
         )}
 
         {/* Retailer */}
-        {roleId <= 6 && (
+        {roleId < 6 && (
          <Link
  href="/dashboard?role=6"
  className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
@@ -118,7 +118,7 @@ Retailer
         )}
 
         {/* Employee */}
-        {roleId <= 7 && (
+        {roleId < 7 && (
           <Link
  href="/dashboard?role=7"
  className="flex items-center gap-3 p-3 rounded hover:bg-gray-700"
