@@ -51,9 +51,13 @@ export default function Sidebar({sidebarOpen}) {
   `}
 >
 
-      <h2 className="text-2xl font-bold mb-8">
+      {/* <h2 className="text-2xl font-bold mb-4 ">
         Dashboard
-      </h2>
+      </h2> */}
+      <h2 className="relative text-2xl font-bold mb-6 after:content-[''] after:absolute after:left-0 after:-bottom-3 after:w-full after:h-[1px] after:bg-gray-300">
+  Dashboard
+</h2>
+     
 
       <div className="space-y-2 flex-1 overflow-y-auto pb-24 scrollbar-hide">
 
