@@ -22,3 +22,15 @@ return response.data;
 
 
 };
+
+
+export const addStaff = async (data) => {
+
+  const response = await api.post(
+    "/add-staff",
+    data
+  );
+
+  return response.data;
+
+};

@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 export default function UsersTable({
   users,
@@ -21,7 +22,6 @@ export default function UsersTable({
     8: "Add Staff",
   };
 
-
   return (
     <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6 max-w-full overflow-hidden">
 
@@ -37,12 +37,12 @@ export default function UsersTable({
             {getRoleName(selectedRole)} List
           </button>
 
-
-          <button
-            className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 cursor-pointer whitespace-nowrap"
-          >
-            {roleButtons[selectedRole]}
-          </button>
+<Link
+  href={`/dashboard/form?role_id=${selectedRole}`}
+  className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 cursor-pointer whitespace-nowrap inline-block"
+>
+  {roleButtons[selectedRole]}
+</Link>
 
 
         </div>
@@ -84,10 +84,14 @@ export default function UsersTable({
                 <th className="text-left p-3">
                   Role
                 </th>
+                <th className="text-left p-3">
+  Created At
+</th>
 
                 <th className="text-left p-3">
                   Status
                 </th>
+
 
               </tr>
 
@@ -125,6 +129,17 @@ export default function UsersTable({
                     <td className="p-3">
                       {getRoleName(user.role_id)}
                     </td>
+                    <td className="p-3">
+  {user.created_at
+    ? new Date(user.created_at).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "-"}
+</td>
 
 
                     <td className="p-3">
