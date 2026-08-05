@@ -212,7 +212,11 @@ Employee
         </Link> */}
        <button
   onClick={logout}
-  className="fixed bottom-5 left-5 w-[216px] flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-3 rounded-md hover:bg-red-600 transition-all cursor-pointer"
+  className={`fixed bottom-5 left-5 w-[216px] flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-3 rounded-md hover:bg-red-600 transition-all cursor-pointer ${
+    sidebarOpen 
+    ? "opacity-100 translate-x-0" 
+    : "opacity-0 -translate-x-10 pointer-events-none"
+  }`}
 >
   <RiLogoutBoxLine />
   Logout

@@ -26,7 +26,7 @@ export default function UsersTable({
   };
 
   return (
-    <div className="mt-8 bg-white rounded-xl shadow p-6">
+    <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6 overflow-x-auto">
 
       <div className="flex justify-between items-center mb-4">
 
@@ -52,8 +52,8 @@ export default function UsersTable({
       <h2 className="text-xl font-bold mb-4">
         Recent Users
       </h2>
-
-      <table className="w-full">
+<div className="w-full overflow-x-auto">
+      <table className="min-w-[700px] w-full ">
 
         <thead>
 
@@ -139,6 +139,7 @@ export default function UsersTable({
         </tbody>
 
       </table>
+      </div>
 
       <div className="flex justify-center items-center gap-3 mt-5">
 

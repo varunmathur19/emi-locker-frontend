@@ -324,7 +324,7 @@ console.log(error);
 
 
 
-<h1 className="text-3xl font-bold mb-6">
+<h1 className="md:text-3xl font-bold md:mb-6  mb-0 text-[20px]">
 Welcome Dashboard
 </h1>
 
