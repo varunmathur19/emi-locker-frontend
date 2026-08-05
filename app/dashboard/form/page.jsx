@@ -3,6 +3,7 @@ import { addStaff } from "@/services/api";
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "react-toastify";
 
 export default function Page() {
   const [formData, setFormData] = useState({
@@ -89,11 +90,15 @@ useEffect(()=>{
 const handleSubmit = async (e) => {
   e.preventDefault();
 
-  if (formData.password !== formData.confirm_password) {
-    alert("Password and Confirm Password do not match!");
+  if (!formData.role_id) {
+    toast.error("Role ID missing. Please select role again");
     return;
   }
 
+  if (formData.password !== formData.confirm_password) {
+    toast.error("Password and Confirm Password do not match!");
+    return;
+  }
 
   try {
 
@@ -101,12 +106,14 @@ const handleSubmit = async (e) => {
 
     console.log("Staff Created:", res);
 
-    alert("Staff Created Successfully");
+    toast.success(
+      res?.message || "Staff Created Successfully"
+    );
 
 
     setFormData({
       organization_name: "",
-      role_id: 8,
+      role_id: formData.role_id,
       name: "",
       email: "",
       phone: "",
@@ -123,8 +130,9 @@ const handleSubmit = async (e) => {
 
     console.log(error);
 
-    alert(
-      error?.response?.data?.message || 
+
+    toast.error(
+      error?.response?.data?.message ||
       "Something went wrong"
     );
 
@@ -218,15 +226,22 @@ const handleSubmit = async (e) => {
                 <label className="text-sm font-medium text-slate-700">
                   Phone Number <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  placeholder="+91 98765 43210"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
+             <input
+  type="tel"
+  name="phone"
+  placeholder="+91 98765 43210"
+  value={formData.phone}
+  onChange={(e) =>
+    setFormData({
+      ...formData,
+      phone: e.target.value.replace(/[^\d+\s]/g, ""),
+    })
+  }
+  required
+  pattern="^(\+91\s?)?[6-9]\d{9}$"
+  title="Enter a valid Indian mobile number"
+  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+/>
               </div>
 
               {/* Company Address */}
