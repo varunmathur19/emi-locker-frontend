@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import Navbar from "@/components/Navbar";
-import Sidebar from "@/components/Sidebar";
+
 
 import { getAllStaffData } from "@/services/api";
 import { getRoleId } from "@/utils/token";
@@ -14,7 +13,6 @@ import { useRouter } from "next/navigation";
 
 
 export default function Dashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
     const handleRoleList = (role) => {
   router.push(`/dashboard?role=${role}`);
@@ -320,35 +318,13 @@ console.log(error);
 
   return (
 
-<div className="flex h-screen overflow-hidden bg-gray-100">
+<div className="  bg-gray-100">
 
-
-<Sidebar
-  sidebarOpen={sidebarOpen}
-/>
+<main className="pt-0 p-0 ">
 
 
 
-
-<div
-  className={`flex-1 transition-all duration-300 ${
-    sidebarOpen ? "ml-64" : "ml-0"
-  }`}
->
-
-
-<Navbar
-  sidebarOpen={sidebarOpen}
-  setSidebarOpen={setSidebarOpen}
-/>
-
-
-
-<main className="pt-20 p-6 h-screen overflow-y-auto">
-
-
-
-<h1 className="text-3xl font-bold mb-6">
+<h1 className="md:text-3xl font-bold md:mb-6  mb-0 text-[20px]">
 Welcome Dashboard
 </h1>
 
@@ -434,7 +410,7 @@ className="bg-white p-5 rounded-xl shadow"
 </div>
 
 
-</div>
+
 
 
 );

@@ -51,9 +51,13 @@ export default function Sidebar({sidebarOpen}) {
   `}
 >
 
-      <h2 className="text-2xl font-bold mb-8">
+      {/* <h2 className="text-2xl font-bold mb-4 ">
         Dashboard
-      </h2>
+      </h2> */}
+      <h2 className="relative text-2xl font-bold mb-6 after:content-[''] after:absolute after:left-0 after:-bottom-3 after:w-full after:h-[1px] after:bg-gray-300">
+  Dashboard
+</h2>
+     
 
       <div className="space-y-2 flex-1 overflow-y-auto pb-24 scrollbar-hide">
 
@@ -208,7 +212,11 @@ Employee
         </Link> */}
        <button
   onClick={logout}
-  className="fixed bottom-5 left-5 w-[216px] flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-3 rounded-md hover:bg-red-600 transition-all cursor-pointer"
+  className={`fixed bottom-5 left-5 w-[216px] flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-3 rounded-md hover:bg-red-600 transition-all cursor-pointer ${
+    sidebarOpen 
+    ? "opacity-100 translate-x-0" 
+    : "opacity-0 -translate-x-10 pointer-events-none"
+  }`}
 >
   <RiLogoutBoxLine />
   Logout

@@ -49,7 +49,7 @@
 
         {/* Left */}
        {/* Left */}
-<div className="flex items-center gap-4">
+<div className="flex items-center md:gap-4 gap-1">
 
  <button
   onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -59,13 +59,13 @@
 </button>
 
   <div>
-    <h1 className="text-2xl font-bold text-blue-600">
+    <h1 className="md:text-2xl font-bold text-blue-600 text-[20px]">
       RechargeKit
     </h1>
 
-    <p className="text-sm text-gray-500">
-      Welcome, <span className="font-semibold">{roleName}</span>
-    </p>
+    {/* <p className="text-sm text-gray-500">
+      Welcome, <span className="font-semibold md:text-[18px]">{roleName}</span>
+    </p> */}
   </div>
 
 </div>
@@ -73,11 +73,11 @@
         {/* Right */}
         <div className="flex items-center gap-5">
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center md:gap-2 gap-1">
             <RiUserLine size={22} />
 
             <div>
-              <p className="font-semibold text-2xl">
+              <p className="font-semibold md:text-2xl text-[15px]">
                 {user.name || roleName}
               </p>
               {/* <span className="text-sm text-gray-500">

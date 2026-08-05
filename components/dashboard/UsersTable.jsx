@@ -1,8 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import AddUserForm from "./AddUserForm";
-
 export default function UsersTable({
   users,
   page,
@@ -12,8 +9,6 @@ export default function UsersTable({
   selectedRole,
   handleRoleList,
 }) {
-
-  const [openForm, setOpenForm] = useState(false);
 
   const roleButtons = {
     1: "Add Admin",
@@ -26,8 +21,10 @@ export default function UsersTable({
     8: "Add Staff",
   };
 
+
   return (
-    <div className="mt-8 bg-white rounded-xl shadow p-6">
+    <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6 max-w-full overflow-hidden">
+
 
       <div className="flex justify-between items-center mb-4">
 
@@ -35,188 +32,181 @@ export default function UsersTable({
 
           <button
             onClick={() => handleRoleList(selectedRole)}
-            className="bg-gray-700 text-white px-4 py-2 rounded-sm hover:bg-gray-800 cursor-pointer"
+            className="bg-gray-700 text-white px-4 py-2 rounded-sm hover:bg-gray-800 cursor-pointer whitespace-nowrap"
           >
             {getRoleName(selectedRole)} List
           </button>
 
+
           <button
-            onClick={() => setOpenForm(true)}
-            className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 cursor-pointer"
+            className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 cursor-pointer whitespace-nowrap"
           >
             {roleButtons[selectedRole]}
           </button>
+
 
         </div>
 
       </div>
 
+
+
       <h2 className="text-xl font-bold mb-4">
         Recent Users
       </h2>
 
-      <table className="w-full">
 
-        <thead>
 
-          <tr className="border-b">
+      {/* Horizontal Scroll */}
+      <div className="w-full overflow-x-auto">
 
-            <th className="text-left p-3">
-              S.No
-            </th>
+        <div className="min-w-[700px]">
 
-            <th className="text-left p-3">
-              Name
-            </th>
+          <table className="w-full">
 
-            <th className="text-left p-3">
-              Phone
-            </th>
 
-            <th className="text-left p-3">
-              Role
-            </th>
+            <thead>
 
-            <th className="text-left p-3">
-              Status
-            </th>
+              <tr className="border-b">
 
-          </tr>
+                <th className="text-left p-3">
+                  S.No
+                </th>
 
-        </thead>
+                <th className="text-left p-3">
+                  Name
+                </th>
 
-        <tbody>
+                <th className="text-left p-3">
+                  Phone
+                </th>
 
-          {
-            users.length > 0 ?
+                <th className="text-left p-3">
+                  Role
+                </th>
 
-              users.map((user, index) => (
+                <th className="text-left p-3">
+                  Status
+                </th>
 
-                <tr
-                  key={user.id}
-                  className="border-b"
-                >
+              </tr>
 
-                  <td className="p-3">
-                    {((page - 1) * 10) + index + 1}
-                  </td>
+            </thead>
 
-                  <td className="p-3">
-                    {user.name}
-                  </td>
 
-                  <td className="p-3">
-                    {user.phone}
-                  </td>
 
-                  <td className="p-3">
-                    {getRoleName(user.role_id)}
-                  </td>
+            <tbody>
 
-                  <td className="p-3">
-                    <span className="text-green-600 font-semibold">
-                      Active
-                    </span>
+              {
+                users.length > 0 ?
+
+                users.map((user,index)=>(
+
+                  <tr
+                    key={user.id}
+                    className="border-b"
+                  >
+
+                    <td className="p-3">
+                      {((page - 1) * 10) + index + 1}
+                    </td>
+
+
+                    <td className="p-3">
+                      {user.name}
+                    </td>
+
+
+                    <td className="p-3">
+                      {user.phone}
+                    </td>
+
+
+                    <td className="p-3">
+                      {getRoleName(user.role_id)}
+                    </td>
+
+
+                    <td className="p-3">
+                      <span className="text-green-600 font-semibold">
+                        Active
+                      </span>
+                    </td>
+
+
+                  </tr>
+
+                ))
+
+                :
+
+                <tr>
+
+                  <td
+                    colSpan="5"
+                    className="text-center p-5"
+                  >
+                    No Users Found
                   </td>
 
                 </tr>
 
-              ))
+              }
 
-              :
 
-              <tr>
+            </tbody>
 
-                <td
-                  colSpan="5"
-                  className="text-center p-5"
-                >
-                  No Users Found
-                </td>
 
-              </tr>
+          </table>
 
-          }
-
-        </tbody>
-
-      </table>
-
-      <div className="flex justify-center items-center gap-3 mt-5">
-
-        <button
-
-          disabled={page <= 1}
-
-          onClick={() => setPage(page - 1)}
-
-          className={`px-4 py-2 rounded ${
-
-            page <= 1
-
-              ?
-
-              "bg-gray-200 cursor-not-allowed"
-
-              :
-
-              "bg-blue-500 text-white"
-
-            }`}
-
-        >
-
-          Previous
-
-        </button>
-
-        <span className="px-4 py-2 font-semibold">
-
-          Page {pagination.currentPage || page}
-
-          /
-
-          {pagination.totalPages || 1}
-
-        </span>
-
-        <button
-
-          disabled={
-
-            page >= (pagination.totalPages || 1)
-
-          }
-
-          onClick={() => setPage(page + 1)}
-
-          className={`px-4 py-2 rounded ${
-
-            page >= (pagination.totalPages || 1)
-
-              ?
-
-              "bg-gray-200 cursor-not-allowed"
-
-              :
-
-              "bg-blue-500 text-white"
-
-            }`}
-
-        >
-
-          Next
-
-        </button>
+        </div>
 
       </div>
 
-      <AddUserForm
-        open={openForm}
-        onClose={() => setOpenForm(false)}
-        title={roleButtons[selectedRole]}
-      />
+
+
+      {/* Pagination */}
+
+      <div className="flex justify-center items-center gap-3 mt-5">
+
+
+        <button
+          disabled={page <= 1}
+          onClick={() => setPage(page - 1)}
+          className={`px-4 py-2 rounded cursor-pointer ${
+            page <= 1
+            ? "bg-gray-200 cursor-not-allowed"
+            : "bg-blue-500 text-white"
+          }`}
+        >
+          Previous
+        </button>
+
+
+
+        <span className="px-4 py-2 font-semibold">
+          Page {pagination.currentPage || page}
+          /
+          {pagination.totalPages || 1}
+        </span>
+
+
+
+        <button
+          disabled={page >= (pagination.totalPages || 1)}
+          onClick={() => setPage(page + 1)}
+          className={`px-4 py-2 rounded cursor-pointer ${
+            page >= (pagination.totalPages || 1)
+            ? "bg-gray-200 cursor-not-allowed"
+            : "bg-blue-500 text-white"
+          }`}
+        >
+          Next
+        </button>
+
+
+      </div>
+
 
     </div>
   );
