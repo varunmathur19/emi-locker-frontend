@@ -24,7 +24,8 @@ export default function Sidebar({sidebarOpen}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const activeRole = searchParams.get("role");
+  const activeRole =
+  searchParams.get("role") || searchParams.get("role_id");
 
   const logout = () => {
     localStorage.removeItem("token");
