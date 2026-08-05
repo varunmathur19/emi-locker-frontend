@@ -38,7 +38,7 @@ export default function UsersTable({
           </button>
 
 <Link
-  href={`/dashboard/form?role_id=${selectedRole}`}
+  href={`/dashboard/form?role=${selectedRole}&role_id=${selectedRole}`}
   className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 cursor-pointer whitespace-nowrap inline-block"
 >
   {roleButtons[selectedRole]}

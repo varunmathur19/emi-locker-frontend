@@ -59,7 +59,7 @@
 </button>
 
   <div>
-    <h1 className="md:text-2xl font-bold text-blue-600 text-[20px]">
+    <h1 className="md:text-2xl font-bold text-blue-500 text-[20px]">
       RechargeKit
     </h1>
 

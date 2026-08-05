@@ -1,5 +1,6 @@
 "use client";
 import { addStaff } from "@/services/api";
+import { RiEyeLine, RiEyeOffLine } from "react-icons/ri";
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
@@ -18,7 +19,17 @@ export default function Page() {
     country: "",
     state: "",
     city: "",
+     new_device: 0,
+  old_device: 0,
+  supreme_device: 0,
+  pro_star: 0,
+  lite: 0,
+  google_tv: 0,
+  supreme_lock: 0,
   });
+  
+  const [showPassword, setShowPassword] = useState(false);
+const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -262,35 +273,67 @@ const handleSubmit = async (e) => {
 
               {/* Password */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Password <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  placeholder="Enter password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
-              </div>
+  <label className="text-sm font-medium text-slate-700">
+    Password <span className="text-red-500">*</span>
+  </label>
+
+  <div className="relative">
+    <input
+      type={showPassword ? "text" : "password"}
+      name="password"
+      placeholder="Enter password"
+      value={formData.password}
+      onChange={handleChange}
+      required
+      className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+    />
+
+    <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      className="absolute cursor-pointer right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600"
+    >
+      {showPassword ? (
+        <RiEyeOffLine size={20} />
+      ) : (
+        <RiEyeLine size={20} />
+      )}
+    </button>
+  </div>
+</div>
 
               {/* Confirm Password */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Confirm Password <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  name="confirm_password"
-                  placeholder="Re-enter password"
-                  value={formData.confirm_password}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
-              </div>
+  <label className="text-sm font-medium text-slate-700">
+    Confirm Password <span className="text-red-500">*</span>
+  </label>
+
+  <div className="relative">
+    <input
+      type={showConfirmPassword ? "text" : "password"}
+      name="confirm_password"
+      placeholder="Re-enter password"
+      value={formData.confirm_password}
+      onChange={handleChange}
+      required
+      className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+    />
+
+    <button
+      type="button"
+      onClick={() =>
+        setShowConfirmPassword(!showConfirmPassword)
+      }
+      className="absolute cursor-pointer right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600"
+    >
+      {showConfirmPassword ? (
+        <RiEyeOffLine size={20} />
+      ) : (
+        <RiEyeLine size={20} />
+      )}
+    </button>
+  </div>
+</div>
 
               {/* Country Dropdown */}
               <div className="space-y-1.5">
@@ -356,13 +399,59 @@ const handleSubmit = async (e) => {
                   ))}
                 </select>
               </div>
+              {/* Retailer Device Permissions */}
+{Number(formData.role_id) === 6 && (
+  <div className="md:col-span-3 space-y-4">
+    <h3 className="text-lg font-semibold text-slate-700">
+      Device Permissions
+    </h3>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {[
+        { label: "New Device", name: "new_device" },
+        { label: "Old Device", name: "old_device" },
+        { label: "Supreme Device", name: "supreme_device" },
+        { label: "Pro Star", name: "pro_star" },
+        { label: "Lite", name: "lite" },
+        { label: "Google TV", name: "google_tv" },
+        { label: "Supreme Lock", name: "supreme_lock" },
+      ].map((item) => (
+        <label
+          key={item.name}
+          className={`flex items-center justify-between px-4 py-3 rounded-lg border transition cursor-pointer
+            ${
+              formData[item.name] === 1
+                ? "border-blue-500 bg-blue-50"
+                : "border-slate-300 bg-white hover:border-blue-400"
+            }`}
+        >
+          <span className="text-sm font-medium text-slate-700">
+            {item.label}
+          </span>
+
+          <input
+            type="checkbox"
+            checked={formData[item.name] === 1}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                [item.name]: e.target.checked ? 1 : 0,
+              }))
+            }
+            className="h-5 w-5 accent-blue-600 cursor-pointer"
+          />
+        </label>
+      ))}
+    </div>
+  </div>
+)}
             </div>
 
             {/* Submit Button */}
             <div className="mt-8 flex justify-end">
               <button
                 type="submit"
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98]"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98] cursor-pointer"
               >
                 Create Staff
               </button>
