@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import AddUserForm from "./AddUserForm";
 
 export default function UsersTable({
   users,
@@ -13,7 +12,7 @@ export default function UsersTable({
   handleRoleList,
 }) {
 
-  const [openForm, setOpenForm] = useState(false);
+ 
 
   const roleButtons = {
     1: "Add Admin",
@@ -41,7 +40,6 @@ export default function UsersTable({
           </button>
 
           <button
-            onClick={() => setOpenForm(true)}
             className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 cursor-pointer"
           >
             {roleButtons[selectedRole]}
@@ -150,7 +148,7 @@ export default function UsersTable({
 
           onClick={() => setPage(page - 1)}
 
-          className={`px-4 py-2 rounded ${
+          className={`px-4 py-2 rounded cursor-pointer ${
 
             page <= 1
 
@@ -190,7 +188,7 @@ export default function UsersTable({
 
           onClick={() => setPage(page + 1)}
 
-          className={`px-4 py-2 rounded ${
+          className={`px-4 py-2 rounded cursor-pointer ${
 
             page >= (pagination.totalPages || 1)
 
@@ -212,12 +210,8 @@ export default function UsersTable({
 
       </div>
 
-      <AddUserForm
-        open={openForm}
-        onClose={() => setOpenForm(false)}
-        title={roleButtons[selectedRole]}
-      />
+    
 
     </div>
   );
-}
+} 
