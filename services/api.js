@@ -34,3 +34,42 @@ export const addStaff = async (data) => {
   return response.data;
 
 };
+
+
+export const getDropdownUsers = async (role_id, parent_id = null) => {
+  const params = new URLSearchParams();
+
+  params.append("role_id", role_id);
+
+  if (parent_id) {
+    params.append("parent_id", parent_id);
+  }
+
+  const res = await api.get(
+    `/hierarchy-dropdown?${params.toString()}`
+  );
+
+  return res.data;
+};
+
+
+export const logoutStaff = async () => {
+
+  const token = localStorage.getItem("token");
+
+  // console.log("Logout Token:", token);
+
+  const response = await axios.post(
+    "/logout-staff",
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  // console.log("Logout API Response:", response.data);
+
+  return response.data;
+};

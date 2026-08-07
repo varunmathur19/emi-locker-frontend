@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
+import AuthGuard from "@/components/AuthGuard";
 
 export default function DashboardLayout({
   children,
@@ -37,7 +38,9 @@ export default function DashboardLayout({
 
 
         <main className="flex-1 min-w-0 overflow-y-auto p-6 pt-22">
+          <AuthGuard>
           {children}
+          </AuthGuard>
         </main>
 
 

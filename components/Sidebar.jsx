@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { getRoleId } from "@/utils/token";
+import { getRoleId, removeToken } from "@/utils/token";
+import { logoutStaff } from "@/services/api";
 import { usePathname, useSearchParams } from "next/navigation";
 
 import {
   RiDashboardLine,
-  RiUserAddLine,
-  RiTeamLine,
-  RiSettingsLine,
+  // RiUserAddLine,
+  // RiTeamLine,
+  // RiSettingsLine,
   RiShieldUserLine,
   RiUserStarLine,
   RiBuilding2Line,
@@ -27,10 +28,32 @@ export default function Sidebar({sidebarOpen}) {
   const activeRole =
   searchParams.get("role") || searchParams.get("role_id");
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    window.location.href = "/login";
-  };
+const logout = async () => {
+  console.log("Logout button clicked");
+
+  try {
+    // console.log("Calling logout API...");
+
+    const response = await logoutStaff();
+
+    // console.log("Logout API response:", response);
+
+    removeToken();
+    localStorage.removeItem("user");
+
+    window.location.href = "/";
+
+  } catch (error) {
+
+    // console.error("Logout API error:", error);
+ 
+    // API fail ho tab bhi local logout
+    removeToken();
+    localStorage.removeItem("user");
+
+    window.location.href = "/";
+  }
+};
 
   return (
 <aside
@@ -212,7 +235,10 @@ Employee
           Settings
         </Link> */}
        <button
-  onClick={logout}
+   onClick={()=>{
+   console.log("Logout clicked");
+   logout();
+ }}
   className={`fixed bottom-5 left-5 w-[216px] flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-3 rounded-md hover:bg-red-600 transition-all cursor-pointer ${
     sidebarOpen 
     ? "opacity-100 translate-x-0" 

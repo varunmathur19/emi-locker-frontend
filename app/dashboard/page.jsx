@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 
 
 
 import { getAllStaffData } from "@/services/api";
-import { getRoleId } from "@/utils/token";
+import { getRoleId  } from "@/utils/token";
 import UsersTable from "../../components/dashboard/UsersTable";
-import { useRouter } from "next/navigation";
 
 
 
@@ -18,17 +18,45 @@ export default function Dashboard() {
   router.push(`/dashboard?role=${role}`);
 };
 const router = useRouter();
+// useEffect(() => { const token = getToken();  if (!token) { router.replace("/"); } }, [router]);
 
 const [allUsers,setAllUsers] = useState([]);
   const roleId = getRoleId() ?? 999;
+  const allowedRoles = {
+
+  0:[1,2,3,4,5,6,7,8],
+
+  1:[2,3,4,5,6,7,8],
+
+  2:[3,4,5,6,7,8],
+
+  3:[4,5,6,7,8],
+
+  4:[5,6,7,8],
+
+  5:[6,7,8],
+
+  6:[7,8],
+
+  7:[8],
+
+  8:[]
+
+};
 
   const searchParams = useSearchParams();
 
-  const selectedRole = searchParams.get("role");
+  const urlRole = Number(searchParams.get("role"));
+
+
+const selectedRole =
+urlRole &&
+allowedRoles[roleId]?.includes(urlRole)
+
+? urlRole
+
+: null;
   const isDashboardHome = !selectedRole;
-  const defaultRole = selectedRole 
-? Number(selectedRole) 
-: Number(roleId);
 const [page,setPage]=useState(1);
 const [pagination,setPagination]=useState({});
   const [users, setUsers] = useState([]);
@@ -74,7 +102,25 @@ const [pagination,setPagination]=useState({});
 
 
 
+useEffect(()=>{
 
+const urlRole = Number(searchParams.get("role"));
+
+
+if(
+urlRole &&
+urlRole !== roleId &&
+!allowedRoles[roleId]?.includes(urlRole)
+){
+
+toast.error("You are not allowed to access this role");
+
+router.replace(`/dashboard?role=${roleId}`);
+
+}
+
+
+},[searchParams,roleId]);
 useEffect(()=>{
 
 fetchUsers();
@@ -200,21 +246,7 @@ let roleFilter = selectedRole;
 // 4. Agar sidebar se role select nahi hua
 if(!roleFilter){
 
-
-  // Master Admin ka default Admin
-  if(roleId === 0){
-
-    roleFilter = 1;
-
-  }
-  else{
-
-
-    // baki roles ka next level
-    roleFilter = Number(roleId) + 1;
-
-
-  }
+  roleFilter = Number(roleId) + 1;
 
 }
 
