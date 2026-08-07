@@ -322,7 +322,7 @@ const handleSubmit = async (e) => {
   {/* Parent Role Dropdowns */}
 {selectedRole > 2 && parentRoles[selectedRole]?.length > 0 && (
   <div className="mt-5">
-    <h3 className="text-sm font-medium text-slate-700 mb-3">
+    <h3 className="text-[20px] font-bold text-blue-500 mb-3">
       Select Parent
     </h3>
 
