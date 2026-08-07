@@ -1,5 +1,6 @@
 "use client";
 import {  addStaff, getDropdownUsers } from "@/services/api";
+import { getUserFromToken } from "@/utils/token";
 import { RiEyeLine, RiEyeOffLine , RiArrowDownSLine  } from "react-icons/ri";
 import Link from "next/link";
 import {
@@ -58,36 +59,46 @@ const parentRoles = {
   8: [1, 2, 3, 4, 5, 6, 7],
 };
 
-const loadParentUsers = async (roleId, parentId = null) => {
+const loadParentUsers = async (roleId) => {
   try {
-    const res = await getDropdownUsers(roleId, parentId);
 
-    setParentUsers((prev) => ({
+    console.log("Loading role:", roleId);
+
+    const res = await getDropdownUsers(roleId);
+
+    console.log("Data:", res.data);
+
+    setParentUsers((prev)=>({
       ...prev,
-      [roleId]: res?.data || [],
+      [roleId]: res.data || []
     }));
 
-  } catch (error) {
-    console.error(
-      `Failed to load ${getRoleName(roleId)} users`,
-      error
-    );
+  } catch(error){
 
-    setParentUsers((prev) => ({
-      ...prev,
-      [roleId]: [],
-    }));
+    console.log(error);
+
   }
 };
 
 useEffect(() => {
+
   if (!selectedRole || selectedRole <= 2) return;
+
+  const user = getUserFromToken();
 
   const parents = parentRoles[selectedRole] || [];
 
   if (parents.length > 0) {
-    loadParentUsers(parents[0]);
+
+    // Admin hide hai, isliye uski id token se bhejenge
+    if (parents[0] === 1) {
+      loadParentUsers(parents[1], user.id);
+    } else {
+      loadParentUsers(parents[0]);
+    }
+
   }
+
 }, [selectedRole]);
 
 const getRoleName = (roleId) => {
@@ -160,18 +171,21 @@ const cities =
       return updated;
     });
   };
-  const handleParentChange = async (parentRoleId, parentId) => {
-  const parents = parentRoles[selectedRole] || [];
+ const handleParentChange = async (parentRoleId, parentId) => {
 
-  const currentIndex = parents.indexOf(parentRoleId);
+ const parents = parentRoles[selectedRole] || [];
 
-  // Current selection save karo
+
+  const currentIndex = parents.indexOf(Number(parentRoleId));
+
+
   setFormData((prev) => ({
     ...prev,
     [`parent_${parentRoleId}`]: parentId,
   }));
 
-  // Neeche wale dropdowns clear karo
+
+  // next dropdown clear
   const updatedParentUsers = { ...parentUsers };
 
   parents.slice(currentIndex + 1).forEach((roleId) => {
@@ -180,14 +194,23 @@ const cities =
 
   setParentUsers(updatedParentUsers);
 
+
   if (!parentId) return;
 
-  // Next role load karo
+
+  // next role load
   const nextRoleId = parents[currentIndex + 1];
 
+
+  console.log("Selected Role:", parentRoleId);
+  console.log("Selected User:", parentId);
+  console.log("Next Role:", nextRoleId);
+
+
   if (nextRoleId) {
-    await loadParentUsers(nextRoleId, parentId);
+    await loadParentUsers(nextRoleId);
   }
+
 };
 
 const handleSubmit = async (e) => {
@@ -291,74 +314,95 @@ const handleSubmit = async (e) => {
 
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-      {parentRoles[selectedRole].map((parentRoleId, index) => {
+    {parentRoles[selectedRole]
+.map((parentRoleId, index) => {
 
-        const previousRoleId =
-          parentRoles[selectedRole][index - 1];
+  const visibleParents = parentRoles[selectedRole]
+    .filter((roleId) => roleId !== 1);
 
-        const previousSelectedId =
-          previousRoleId
-            ? formData[`parent_${previousRoleId}`]
-            : null;
 
-        const users = parentUsers[parentRoleId] || [];
+  if (parentRoleId === 1) return null;
 
-        const shouldShow =
-          index === 0 || Boolean(previousSelectedId);
 
-        if (!shouldShow) return null;
+  const visibleIndex = visibleParents.indexOf(parentRoleId);
 
-        return (
-          <div
-            key={parentRoleId}
-            className="space-y-1.5"
-          >
 
-            <label className="text-sm font-medium text-slate-700">
-              {getRoleName(parentRoleId)}
-            </label>
+  const previousRoleId =
+    visibleParents[visibleIndex - 1];
 
-            <div className="relative">
 
-             <select
-  value={
-    formData[`parent_${parentRoleId}`] || ""
-  }
-  onChange={(e) =>
-    handleParentChange(
-      parentRoleId,
-      e.target.value
-    )
-  }
-  required={shouldShow}
-  className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition cursor-pointer"
->
+  const previousSelectedId =
+    previousRoleId
+      ? formData[`parent_${previousRoleId}`]
+      : true;
 
-                <option value="">
-                  Select {getRoleName(parentRoleId)}
-                </option>
 
-                {users.map((user) => (
-                  <option
-                    key={user.id}
-                    value={user.id}
-                  >
-                    {user.name}
-                  </option>
-                ))}
+  const users = parentUsers[parentRoleId] || [];
 
-              </select>
 
-              <RiArrowDownSLine
-                size={22}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-              />
+  const shouldShow =
+    visibleIndex === 0 || Boolean(previousSelectedId);
 
-            </div>
 
-          </div>
-        );
-      })}
+  if (!shouldShow) return null;
+
+
+  return (
+    <div
+      key={parentRoleId}
+      className="space-y-1.5"
+    >
+
+      <label className="text-sm font-medium text-slate-700">
+        {getRoleName(parentRoleId)}
+      </label>
+
+
+      <div className="relative">
+
+        <select
+          value={
+            formData[`parent_${parentRoleId}`] || ""
+          }
+          onChange={(e)=>
+            handleParentChange(
+              parentRoleId,
+              e.target.value
+            )
+          }
+          required
+          className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white"
+        >
+
+          <option value="">
+            Select {getRoleName(parentRoleId)}
+          </option>
+
+
+          {users.map((user)=>(
+            <option
+              key={user.id}
+              value={user.id}
+            >
+              {user.name}
+            </option>
+          ))}
+
+
+        </select>
+
+
+        <RiArrowDownSLine
+          size={22}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+        />
+
+      </div>
+
+    </div>
+  );
+
+})}
 
     </div>
   </div>
