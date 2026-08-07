@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 
 
 import { getAllStaffData } from "@/services/api";
-import { getRoleId,getToken  } from "@/utils/token";
+import { getRoleId  } from "@/utils/token";
 import UsersTable from "../../components/dashboard/UsersTable";
 
 
@@ -18,7 +18,7 @@ export default function Dashboard() {
   router.push(`/dashboard?role=${role}`);
 };
 const router = useRouter();
-useEffect(() => { const token = getToken();  if (!token) { router.replace("/"); } }, [router]);
+// useEffect(() => { const token = getToken();  if (!token) { router.replace("/"); } }, [router]);
 
 const [allUsers,setAllUsers] = useState([]);
   const roleId = getRoleId() ?? 999;

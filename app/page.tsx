@@ -7,6 +7,9 @@ import { saveToken, getToken } from "@/utils/token";
 import { RiEyeLine, RiEyeOffLine } from "react-icons/ri";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
+import axios from "axios";
+import type { ChangeEvent, FormEvent } from "react";
+
 
 export default function Page() {
   const router = useRouter();
@@ -37,57 +40,48 @@ export default function Page() {
   // =====================================
   // INPUT CHANGE
   // =====================================
-  const handleChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-  };
+ const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+  setFormData((prev) => ({
+    ...prev,
+    [e.target.name]: e.target.value,
+  }));
+};
 
 
   // =====================================
   // LOGIN
   // =====================================
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const res = await login(formData);
+    const res = await login(formData);
 
-      console.log("Login Response:", res);
+    console.log("Login Response:", res);
 
-      if (res.token) {
-        // Token save
-        saveToken(res.token);
+    if (res.token) {
+      saveToken(res.token);
 
-        toast.success(
-          res.message || "Login Successfully"
-        );
+      toast.success(
+        res.message || "Login Successfully"
+      );
 
-        // Dashboard par redirect
-        router.replace("/dashboard");
+      router.replace("/dashboard");
 
-      } else {
-        toast.error("Token not found");
-      }
-
-    } catch (error) {
-      console.error("Login Error:", error);
-
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.response?.data?.errors?.[0]?.msg ||
-        "Something went wrong";
-
-      toast.error(message);
-
-    } finally {
-      setLoading(false);
+    } else {
+      toast.error("Token not found");
     }
-  };
+
+  } catch (error) {
+
+    console.error("Login Error:", error);
+
+  } finally {
+    setLoading(false);
+  }
+};
 
 
   return (
