@@ -51,3 +51,25 @@ export const getDropdownUsers = async (role_id, parent_id = null) => {
 
   return res.data;
 };
+
+
+export const logoutStaff = async () => {
+
+  const token = localStorage.getItem("token");
+
+  // console.log("Logout Token:", token);
+
+  const response = await axios.post(
+    "/logout-staff",
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  // console.log("Logout API Response:", response.data);
+
+  return response.data;
+};
