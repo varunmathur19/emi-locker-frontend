@@ -1,6 +1,6 @@
 "use client";
-import { addStaff } from "@/services/api";
-import { RiEyeLine, RiEyeOffLine } from "react-icons/ri";
+import {  addStaff, getDropdownUsers } from "@/services/api";
+import { RiEyeLine, RiEyeOffLine , RiArrowDownSLine  } from "react-icons/ri";
 import Link from "next/link";
 import {
   Country,
@@ -33,6 +33,7 @@ export default function Page() {
   google_tv: 0,
   supreme_lock: 0,
   });
+  const [parentUsers, setParentUsers] = useState({});
   const searchParams = useSearchParams();
   const selectedRole = Number(searchParams.get("role_id"));
   
@@ -46,6 +47,48 @@ export default function Page() {
   7: "Add Employee",
   8: "Add Staff",
 };
+
+const parentRoles = {
+  2: [1],
+  3: [1, 2],
+  4: [1, 2, 3],
+  5: [1, 2, 3, 4],
+  6: [1, 2, 3, 4, 5],
+  7: [1, 2, 3, 4, 5, 6],
+  8: [1, 2, 3, 4, 5, 6, 7],
+};
+
+const loadParentUsers = async (roleId, parentId = null) => {
+  try {
+    const res = await getDropdownUsers(roleId, parentId);
+
+    setParentUsers((prev) => ({
+      ...prev,
+      [roleId]: res?.data || [],
+    }));
+
+  } catch (error) {
+    console.error(
+      `Failed to load ${getRoleName(roleId)} users`,
+      error
+    );
+
+    setParentUsers((prev) => ({
+      ...prev,
+      [roleId]: [],
+    }));
+  }
+};
+
+useEffect(() => {
+  if (!selectedRole || selectedRole <= 2) return;
+
+  const parents = parentRoles[selectedRole] || [];
+
+  if (parents.length > 0) {
+    loadParentUsers(parents[0]);
+  }
+}, [selectedRole]);
 
 const getRoleName = (roleId) => {
   const roles = {
@@ -117,6 +160,35 @@ const cities =
       return updated;
     });
   };
+  const handleParentChange = async (parentRoleId, parentId) => {
+  const parents = parentRoles[selectedRole] || [];
+
+  const currentIndex = parents.indexOf(parentRoleId);
+
+  // Current selection save karo
+  setFormData((prev) => ({
+    ...prev,
+    [`parent_${parentRoleId}`]: parentId,
+  }));
+
+  // Neeche wale dropdowns clear karo
+  const updatedParentUsers = { ...parentUsers };
+
+  parents.slice(currentIndex + 1).forEach((roleId) => {
+    updatedParentUsers[roleId] = [];
+  });
+
+  setParentUsers(updatedParentUsers);
+
+  if (!parentId) return;
+
+  // Next role load karo
+  const nextRoleId = parents[currentIndex + 1];
+
+  if (nextRoleId) {
+    await loadParentUsers(nextRoleId, parentId);
+  }
+};
 
 const handleSubmit = async (e) => {
   e.preventDefault();
@@ -124,6 +196,18 @@ const handleSubmit = async (e) => {
   if (!formData.role_id) {
     toast.error("Role ID missing. Please select role again");
     return;
+  }
+
+  // Parent dropdown validation
+  const parents = parentRoles[formData.role_id] || [];
+
+  for (const roleId of parents) {
+    if (!formData[`parent_${roleId}`]) {
+      toast.error(
+        `Please select ${getRoleName(roleId)}`
+      );
+      return;
+    }
   }
 
   if (formData.password !== formData.confirm_password) {
@@ -154,13 +238,21 @@ const handleSubmit = async (e) => {
       country: "",
       state: "",
       city: "",
+
+      // device permissions reset
+      new_device: 0,
+      old_device: 0,
+      supreme_device: 0,
+      pro_star: 0,
+      lite: 0,
+      google_tv: 0,
+      supreme_lock: 0,
     });
 
 
   } catch(error){
 
     console.log(error);
-
 
     toast.error(
       error?.response?.data?.message ||
@@ -176,22 +268,102 @@ const handleSubmit = async (e) => {
       <div className="max-w-5xl mx-auto">
     
         <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden p-6">
-              <div className="flex justify-between items-center mb-0">
-  <div className="flex gap-3">
-    <Link
-      href={`/dashboard?role=${selectedRole}`}
-      className="bg-gray-700 text-white px-4 py-2 rounded-sm hover:bg-gray-800 whitespace-nowrap"
-    >
-      {getRoleName(selectedRole)} List
-    </Link>
+            <div className="mb-5">
 
-    {/* <Link
-      href={`/dashboard/form?role=${selectedRole}&role_id=${selectedRole}`}
-      className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 whitespace-nowrap"
-    >
-      {roleButtons[selectedRole]}
-    </Link> */}
+  {/* Top Buttons */}
+  <div className="flex justify-between items-center">
+    <div className="flex gap-3">
+      <Link
+        href={`/dashboard?role=${selectedRole}`}
+        className="bg-gray-700 text-white px-4 py-2 rounded-sm hover:bg-gray-800 whitespace-nowrap"
+      >
+        {getRoleName(selectedRole)} List
+      </Link>
+    </div>
   </div>
+
+  {/* Parent Role Dropdowns */}
+{selectedRole > 2 && parentRoles[selectedRole]?.length > 0 && (
+  <div className="mt-5">
+    <h3 className="text-sm font-medium text-slate-700 mb-3">
+      Select Parent
+    </h3>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+      {parentRoles[selectedRole].map((parentRoleId, index) => {
+
+        const previousRoleId =
+          parentRoles[selectedRole][index - 1];
+
+        const previousSelectedId =
+          previousRoleId
+            ? formData[`parent_${previousRoleId}`]
+            : null;
+
+        const users = parentUsers[parentRoleId] || [];
+
+        const shouldShow =
+          index === 0 || Boolean(previousSelectedId);
+
+        if (!shouldShow) return null;
+
+        return (
+          <div
+            key={parentRoleId}
+            className="space-y-1.5"
+          >
+
+            <label className="text-sm font-medium text-slate-700">
+              {getRoleName(parentRoleId)}
+            </label>
+
+            <div className="relative">
+
+             <select
+  value={
+    formData[`parent_${parentRoleId}`] || ""
+  }
+  onChange={(e) =>
+    handleParentChange(
+      parentRoleId,
+      e.target.value
+    )
+  }
+  required={shouldShow}
+  className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition cursor-pointer"
+>
+
+                <option value="">
+                  Select {getRoleName(parentRoleId)}
+                </option>
+
+                {users.map((user) => (
+                  <option
+                    key={user.id}
+                    value={user.id}
+                  >
+                    {user.name}
+                  </option>
+                ))}
+
+              </select>
+
+              <RiArrowDownSLine
+                size={22}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+              />
+
+            </div>
+
+          </div>
+        );
+      })}
+
+    </div>
+  </div>
+)}
+
 </div>
           {/* Header */}
           {/* <div className="bg-gradient-to-r from-blue-400 to-indigo-400 px-8 py-6">
