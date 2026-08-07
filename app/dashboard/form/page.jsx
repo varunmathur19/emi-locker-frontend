@@ -1,6 +1,12 @@
 "use client";
 import { addStaff } from "@/services/api";
 import { RiEyeLine, RiEyeOffLine } from "react-icons/ri";
+import Link from "next/link";
+import {
+  Country,
+  State,
+  City,
+} from "country-state-city";
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
@@ -27,11 +33,42 @@ export default function Page() {
   google_tv: 0,
   supreme_lock: 0,
   });
+  const searchParams = useSearchParams();
+  const selectedRole = Number(searchParams.get("role_id"));
   
+  const roleButtons = {
+  1: "Add Admin",
+  2: "Add CNF",
+  3: "Add Super Distributor",
+  4: "Add Distributor",
+  5: "Add FOS",
+  6: "Add Retailer",
+  7: "Add Employee",
+  8: "Add Staff",
+};
+
+const getRoleName = (roleId) => {
+  const roles = {
+    1: "Admin",
+    2: "CNF",
+    3: "Super Distributor",
+    4: "Distributor",
+    5: "FOS",
+    6: "Retailer",
+    7: "Employee",
+    8: "Staff",
+  };
+
+  return roles[roleId] || "User";
+};
+
+
+
+
   const [showPassword, setShowPassword] = useState(false);
 const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const searchParams = useSearchParams();
+
 
 useEffect(()=>{
 
@@ -49,35 +86,18 @@ useEffect(()=>{
 },[searchParams]);
 
   // Sample data – replace with API data later
-  const locationData = {
-    India: {
-      Maharashtra: ["Mumbai", "Pune", "Nagpur", "Nashik"],
-      Delhi: ["New Delhi", "North Delhi", "South Delhi"],
-      Karnataka: ["Bangalore", "Mysore", "Mangalore"],
-      Gujarat: ["Ahmedabad", "Surat", "Vadodara"],
-      "Uttar Pradesh": ["Lucknow", "Kanpur", "Varanasi"],
-    },
-    "United States": {
-      California: ["Los Angeles", "San Francisco", "San Diego"],
-      Texas: ["Houston", "Dallas", "Austin"],
-      "New York": ["New York City", "Buffalo", "Rochester"],
-    },
-    "United Kingdom": {
-      England: ["London", "Manchester", "Birmingham"],
-      Scotland: ["Edinburgh", "Glasgow"],
-    },
-    Canada: {
-      Ontario: ["Toronto", "Ottawa", "Mississauga"],
-      "British Columbia": ["Vancouver", "Victoria"],
-    },
-  };
+ 
 
-  const countries = Object.keys(locationData);
-  const states = formData.country ? Object.keys(locationData[formData.country] || {}) : [];
-  const cities =
-    formData.country && formData.state
-      ? locationData[formData.country]?.[formData.state] || []
-      : [];
+ const countries = Country.getAllCountries();
+
+const states = formData.country
+  ? State.getStatesOfCountry(formData.country)
+  : [];
+
+const cities =
+  formData.country && formData.state
+    ? City.getCitiesOfState(formData.country, formData.state)
+    : [];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -154,8 +174,25 @@ const handleSubmit = async (e) => {
   return (
     // <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-10 px-4">
       <div className="max-w-5xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
-          
+    
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden p-6">
+              <div className="flex justify-between items-center mb-0">
+  <div className="flex gap-3">
+    <Link
+      href={`/dashboard?role=${selectedRole}`}
+      className="bg-gray-700 text-white px-4 py-2 rounded-sm hover:bg-gray-800 whitespace-nowrap"
+    >
+      {getRoleName(selectedRole)} List
+    </Link>
+
+    {/* <Link
+      href={`/dashboard/form?role=${selectedRole}&role_id=${selectedRole}`}
+      className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 whitespace-nowrap"
+    >
+      {roleButtons[selectedRole]}
+    </Link> */}
+  </div>
+</div>
           {/* Header */}
           {/* <div className="bg-gradient-to-r from-blue-400 to-indigo-400 px-8 py-6">
             <h1 className="text-2xl md:text-3xl font-bold text-white">
@@ -165,7 +202,7 @@ const handleSubmit = async (e) => {
           </div> */}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 md:p-8">
+          <form onSubmit={handleSubmit} className="pt-6 md:pt-5 md:px-0">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
               {/* Organization Name */}
@@ -340,20 +377,21 @@ const handleSubmit = async (e) => {
                 <label className="text-sm font-medium text-slate-700">
                   Country <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="country"
-                  value={formData.country}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition appearance-none"
-                >
-                  <option value="">Select Country</option>
-                  {countries.map((country) => (
-                    <option key={country} value={country}>
-                      {country}
-                    </option>
-                  ))}
-                </select>
+              <select
+  name="country"
+  value={formData.country}
+  onChange={handleChange}
+  required
+  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition appearance-none"
+>
+  <option value="">Select Country</option>
+
+  {countries.map((country) => (
+    <option key={country.isoCode} value={country.isoCode}>
+      {country.name}
+    </option>
+  ))}
+</select>
               </div>
 
               {/* State Dropdown */}
@@ -361,21 +399,22 @@ const handleSubmit = async (e) => {
                 <label className="text-sm font-medium text-slate-700">
                   State <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="state"
-                  value={formData.state}
-                  onChange={handleChange}
-                  required
-                  disabled={!formData.country}
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition appearance-none disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
-                >
-                  <option value="">Select State</option>
-                  {states.map((state) => (
-                    <option key={state} value={state}>
-                      {state}
-                    </option>
-                  ))}
-                </select>
+              <select
+  name="state"
+  value={formData.state}
+  onChange={handleChange}
+  required
+  disabled={!formData.country}
+  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition appearance-none disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+>
+  <option value="">Select State</option>
+
+  {states.map((state) => (
+    <option key={state.isoCode} value={state.isoCode}>
+      {state.name}
+    </option>
+  ))}
+</select>
               </div>
 
               {/* City Dropdown */}
@@ -383,21 +422,22 @@ const handleSubmit = async (e) => {
                 <label className="text-sm font-medium text-slate-700">
                   City <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  required
-                  disabled={!formData.state}
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition appearance-none disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
-                >
-                  <option value="">Select City</option>
-                  {cities.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
-                  ))}
-                </select>
+           <select
+  name="city"
+  value={formData.city}
+  onChange={handleChange}
+  required
+  disabled={!formData.state}
+  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition appearance-none disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+>
+  <option value="">Select City</option>
+
+  {cities.map((city) => (
+    <option key={city.name} value={city.name}>
+      {city.name}
+    </option>
+  ))}
+</select>
               </div>
               {/* Retailer Device Permissions */}
 {Number(formData.role_id) === 6 && (
@@ -451,7 +491,7 @@ const handleSubmit = async (e) => {
             <div className="mt-8 flex justify-end">
               <button
                 type="submit"
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98] cursor-pointer"
+                className="bg-blue-400 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98] cursor-pointer"
               >
                 Create Staff
               </button>
