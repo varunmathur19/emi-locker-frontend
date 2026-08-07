@@ -4,13 +4,37 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 
-
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
 
 import { getAllStaffData } from "@/services/api";
 import { getRoleId  } from "@/utils/token";
 import UsersTable from "../../components/dashboard/UsersTable";
 
-
+// Colors for Pie chart slices
+const PIE_COLORS = [
+  "#6366f1", // Admin
+  "#22c55e", // CNF
+  "#f59e0b", // Super Distributor
+  "#ef4444", // Distributor
+  "#06b6d4", // FOS
+  "#a855f7", // Retailer
+  "#ec4899", // Employee
+  "#14b8a6", // Staff
+];
 
 export default function Dashboard() {
 
@@ -343,6 +367,12 @@ console.log(error);
 
   ];
 
+  // Data for charts — same role counts, but filtered same way as cards (role visibility)
+  const chartData = cards.filter((card) => {
+    if (roleId === 0) return true;
+    return card.roleId > roleId;
+  });
+
 
 
 
@@ -362,7 +392,7 @@ Welcome Dashboard
 
 {
 isDashboardHome && (
-
+<>
 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
 
 
@@ -418,6 +448,70 @@ className="bg-white p-5 rounded-xl shadow"
 
 </div>
 
+{/* ---------- Charts Section ---------- */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
+
+  {/* Bar Chart */}
+  <div className="bg-white p-5 rounded-xl shadow">
+    <h3 className="text-gray-700 font-semibold mb-4">
+      Role-wise Users (Bar Chart)
+    </h3>
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="title" tick={{ fontSize: 12 }} interval={0} angle={-20} textAnchor="end" height={60} />
+        <YAxis allowDecimals={false} />
+        <Tooltip />
+        <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+
+  {/* Pie Chart */}
+  <div className="bg-white p-5 rounded-xl shadow">
+    <h3 className="text-gray-700 font-semibold mb-4">
+      Role Distribution (Pie Chart)
+    </h3>
+    <ResponsiveContainer width="100%" height={300}>
+      <PieChart>
+        <Pie
+          data={chartData}
+          dataKey="count"
+          nameKey="title"
+          cx="50%"
+          cy="50%"
+          outerRadius={100}
+          label
+        >
+          {chartData.map((entry, index) => (
+            <Cell key={`cell-${entry.roleId}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+          ))}
+        </Pie>
+        <Tooltip />
+        <Legend />
+      </PieChart>
+    </ResponsiveContainer>
+  </div>
+
+  {/* Line Chart */}
+  <div className="bg-white p-5 rounded-xl shadow md:col-span-2">
+    <h3 className="text-gray-700 font-semibold mb-4">
+      Role-wise Users (Line Chart)
+    </h3>
+    <ResponsiveContainer width="100%" height={300}>
+      <LineChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="title" tick={{ fontSize: 12 }} interval={0} angle={-20} textAnchor="end" height={60} />
+        <YAxis allowDecimals={false} />
+        <Tooltip />
+        <Line type="monotone" dataKey="count" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+
+</div>
+{/* ---------- End Charts Section ---------- */}
+</>
 )
 }
 
