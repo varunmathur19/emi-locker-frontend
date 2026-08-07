@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { RiFilterLine } from "react-icons/ri";
 
 export default function UsersTable({
   users,
@@ -51,9 +52,33 @@ export default function UsersTable({
 
 
 
-      <h2 className="text-xl font-bold mb-4">
-        Recent Users
-      </h2>
+<div className="flex justify-between items-center mb-4 max-lg:flex-col max-lg:items-start max-lg:gap-3">
+
+  <h2 className="lg:text-xl md:text-[15px] font-bold">
+    Recent Users
+  </h2>
+
+
+  <div className="flex items-center gap-2 max-lg:w-full">
+
+    <button
+      className="flex items-center cursor-pointer gap-2 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-100"
+    >
+      <RiFilterLine size={18} />
+      Filter
+    </button>
+
+
+    <input
+      type="text"
+      placeholder="Search..."
+      className="border border-gray-300 rounded-md px-4 py-2 w-64 max-lg:flex-1 max-lg:w-auto max-lg:px-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+    />
+
+  </div>
+
+
+</div>
 
 
 
