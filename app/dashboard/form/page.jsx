@@ -50,23 +50,23 @@ export default function Page() {
 };
 
 const parentRoles = {
-  2: [1],
-  3: [1, 2],
-  4: [1, 2, 3],
-  5: [1, 2, 3, 4],
-  6: [1, 2, 3, 4, 5],
-  7: [1, 2, 3, 4, 5, 6],
-  8: [1, 2, 3, 4, 5, 6, 7],
+  3: [2],
+  4: [2,3],
+  5: [2,3,4],
+  6: [2,3,4,5],
+  7: [2,3,4,5,6],
+  8: [2,3,4,5,6,7],
 };
 
-const loadParentUsers = async (roleId) => {
+const loadParentUsers = async (roleId, parentId = null) => {
   try {
 
     console.log("Loading role:", roleId);
+    console.log("Parent ID:", parentId);
 
-    const res = await getDropdownUsers(roleId);
+    const res = await getDropdownUsers(roleId, parentId);
 
-    console.log("Data:", res.data);
+    console.log("Dropdown Data:", res);
 
     setParentUsers((prev)=>({
       ...prev,
@@ -74,27 +74,36 @@ const loadParentUsers = async (roleId) => {
     }));
 
   } catch(error){
-
     console.log(error);
-
   }
 };
 
 useEffect(() => {
 
-  if (!selectedRole || selectedRole <= 2) return;
-
-  const user = getUserFromToken();
+  if (!selectedRole || selectedRole <= 1) return;
 
   const parents = parentRoles[selectedRole] || [];
 
   if (parents.length > 0) {
 
-    // Admin hide hai, isliye uski id token se bhejenge
-    if (parents[0] === 1) {
-      loadParentUsers(parents[1], user.id);
+    const firstParentRole = parents[0];
+
+    if (firstParentRole === 1) {
+
+      const user = getUserFromToken();
+
+      loadParentUsers(
+        firstParentRole,
+        user.id
+      );
+
     } else {
-      loadParentUsers(parents[0]);
+
+      loadParentUsers(
+        firstParentRole,
+        null
+      );
+
     }
 
   }
@@ -207,9 +216,14 @@ const cities =
   console.log("Next Role:", nextRoleId);
 
 
-  if (nextRoleId) {
-    await loadParentUsers(nextRoleId);
-  }
+ if (nextRoleId) {
+
+  await loadParentUsers(
+    nextRoleId,
+    parentId
+  );
+
+}
 
 };
 
