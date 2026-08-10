@@ -15,25 +15,37 @@ import { toast } from "react-toastify";
 
 export default function Page() {
   const [formData, setFormData] = useState({
-    organization_name: "",
-    role_id: "",
-    name: "",
-    email: "",
-    phone: "",
-    password: "",
-    confirm_password: "",
-    company_address: "",
-    country: "",
-    state: "",
-    city: "",
-     new_device: 0,
+  organization_name: "",
+  role_id: "",
+  name: "",
+  email: "",
+  phone: "",
+  password: "",
+  confirm_password: "",
+  company_address: "",
+  country: "",
+  state: "",
+  city: "",
+
+  // Parent hierarchy
+  parent_admin_id: null,
+  parent_cnf_id: null,
+  parent_super_distributor_id: null,
+  parent_distributor_id: null,
+  parent_fos_id: null,
+  parent_retailer_id: null,
+  parent_employee_id: null,
+  parent_staff_id: null,
+
+  // Device permissions
+  new_device: 0,
   old_device: 0,
   supreme_device: 0,
   pro_star: 0,
   lite: 0,
   google_tv: 0,
   supreme_lock: 0,
-  });
+});
   const [parentUsers, setParentUsers] = useState({});
   const searchParams = useSearchParams();
   const selectedRole = Number(searchParams.get("role_id"));
@@ -50,63 +62,92 @@ export default function Page() {
 };
 
 const parentRoles = {
-  3: [2],
-  4: [2,3],
-  5: [2,3,4],
-  6: [2,3,4,5],
-  7: [2,3,4,5,6],
-  8: [2,3,4,5,6,7],
+  2: [],             // CNF -> Admin internally
+  3: [2],            // Super -> CNF
+  4: [2, 3],         // Distributor -> CNF -> Super
+  5: [2, 3, 4],      // FOS -> CNF -> Super -> Distributor
+  6: [2, 3, 4, 5],   // Retailer -> CNF -> Super -> Distributor -> FOS
+  7: [2, 3, 4, 5, 6], // Employee -> CNF -> Super -> Distributor -> FOS -> Retailer
+  8: []              // Staff -> Admin internally
 };
 
 const loadParentUsers = async (roleId, parentId = null) => {
   try {
-
-    console.log("Loading role:", roleId);
+    console.log("=================================");
+    console.log("Loading Dropdown");
+    console.log("Role ID:", roleId);
     console.log("Parent ID:", parentId);
 
-    const res = await getDropdownUsers(roleId, parentId);
+    const res = await getDropdownUsers(
+      Number(roleId),
+      parentId ? Number(parentId) : null
+    );
 
-    console.log("Dropdown Data:", res);
+    console.log("API Response:", res);
+    console.log("API Data:", res?.data);
 
-    setParentUsers((prev)=>({
+    // API response handle
+    const users =
+      Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res?.data?.data)
+        ? res.data.data
+        : [];
+
+    console.log("Users for dropdown:", users);
+
+    setParentUsers((prev) => ({
       ...prev,
-      [roleId]: res.data || []
+      [Number(roleId)]: users,
     }));
 
-  } catch(error){
-    console.log(error);
+  } catch (error) {
+
+    console.error(
+      "Dropdown Error:",
+      error?.response?.data || error
+    );
+
   }
 };
 
 useEffect(() => {
-
   if (!selectedRole || selectedRole <= 1) return;
+
+  const user = getUserFromToken();
+
+  if (!user?.id) {
+    console.log("Logged-in user not found");
+    return;
+  }
+
+  console.log("Logged User:", user);
+  console.log("Logged User ID:", user.id);
+  console.log("Logged User Role:", user.role_id);
+
+  // ==========================================
+  // ADMIN LOGIN
+  // Admin ki ID = parent_admin_id
+  // ==========================================
+
+  if (Number(user.role_id) === 1) {
+    setFormData((prev) => ({
+      ...prev,
+      parent_admin_id: Number(user.id),
+    }));
+  }
+
+  // ==========================================
+  // CNF / SUPER / DISTRIBUTOR / FOS / RETAILER
+  // ==========================================
 
   const parents = parentRoles[selectedRole] || [];
 
-  if (parents.length > 0) {
+  if (!parents.length) return;
 
-    const firstParentRole = parents[0];
+  const firstParentRole = parents[0];
 
-    if (firstParentRole === 1) {
-
-      const user = getUserFromToken();
-
-      loadParentUsers(
-        firstParentRole,
-        user.id
-      );
-
-    } else {
-
-      loadParentUsers(
-        firstParentRole,
-        null
-      );
-
-    }
-
-  }
+  loadParentUsers(firstParentRole, null);
 
 }, [selectedRole]);
 
@@ -180,92 +221,222 @@ const cities =
       return updated;
     });
   };
- const handleParentChange = async (parentRoleId, parentId) => {
+const handleParentChange = async (parentRoleId, parentId) => {
 
- const parents = parentRoles[selectedRole] || [];
+  const parents = parentRoles[selectedRole] || [];
 
+  const currentIndex = parents.indexOf(
+    Number(parentRoleId)
+  );
 
-  const currentIndex = parents.indexOf(Number(parentRoleId));
+  console.log("=================================");
+  console.log("PARENT CHANGED");
+  console.log("Selected Role:", selectedRole);
+  console.log("Selected Parent Role:", parentRoleId);
+  console.log("Selected Parent ID:", parentId);
+  console.log("Current Index:", currentIndex);
 
-
+  // Selected parent save
   setFormData((prev) => ({
     ...prev,
-    [`parent_${parentRoleId}`]: parentId,
+    [`parent_${parentRoleId}`]: parentId
+      ? Number(parentId)
+      : "",
   }));
 
+  // Aage ke dropdown clear
+  const updatedParentUsers = {
+    ...parentUsers,
+  };
 
-  // next dropdown clear
-  const updatedParentUsers = { ...parentUsers };
-
-  parents.slice(currentIndex + 1).forEach((roleId) => {
-    updatedParentUsers[roleId] = [];
-  });
+  parents
+    .slice(currentIndex + 1)
+    .forEach((roleId) => {
+      updatedParentUsers[roleId] = [];
+    });
 
   setParentUsers(updatedParentUsers);
 
+  // Agar value remove kar di
+  if (!parentId) {
+    return;
+  }
 
-  if (!parentId) return;
+  // Next parent role
+  const nextRoleId =
+    parents[currentIndex + 1];
 
+  console.log("Next Role ID:", nextRoleId);
 
-  // next role load
-  const nextRoleId = parents[currentIndex + 1];
+  if (!nextRoleId) {
+    return;
+  }
 
-
-  console.log("Selected Role:", parentRoleId);
-  console.log("Selected User:", parentId);
-  console.log("Next Role:", nextRoleId);
-
-
- if (nextRoleId) {
-
+  // IMPORTANT:
+  // Selected CNF ID -> next API parent_id
   await loadParentUsers(
     nextRoleId,
-    parentId
+    Number(parentId)
   );
-
-}
 
 };
 
 const handleSubmit = async (e) => {
   e.preventDefault();
 
-  if (!formData.role_id) {
+  const roleId = Number(formData.role_id);
+
+  if (!roleId) {
     toast.error("Role ID missing. Please select role again");
     return;
   }
 
-  // Parent dropdown validation
-  const parents = parentRoles[formData.role_id] || [];
+  const user = getUserFromToken();
 
-  for (const roleId of parents) {
-    if (!formData[`parent_${roleId}`]) {
+  if (!user?.id) {
+    toast.error("Logged-in user not found");
+    return;
+  }
+
+  console.log("=================================");
+  console.log("SUBMIT FORM");
+  console.log("Logged User:", user);
+  console.log("Logged User ID:", user.id);
+  console.log("Logged User Role:", user.role_id);
+  console.log("Creating Role:", roleId);
+  console.log("Form Data Before Submit:", formData);
+
+  // =====================================================
+  // ADMIN -> CNF
+  // =====================================================
+
+  if (
+    roleId === 2 &&
+    Number(user.role_id) === 1
+  ) {
+    formData.parent_admin_id = Number(user.id);
+  }
+
+  // =====================================================
+  // ADMIN -> STAFF
+  // =====================================================
+
+  if (
+    roleId === 8 &&
+    Number(user.role_id) === 1
+  ) {
+    formData.parent_admin_id = Number(user.id);
+  }
+
+  // =====================================================
+  // PARENT VALIDATION
+  // =====================================================
+
+  const parents = parentRoles[roleId] || [];
+
+  for (const parentRoleId of parents) {
+
+    const parentValue =
+      formData[`parent_${parentRoleId}`];
+
+    if (!parentValue) {
+
       toast.error(
-        `Please select ${getRoleName(roleId)}`
+        `Please select ${getRoleName(parentRoleId)}`
       );
+
       return;
     }
   }
 
-  if (formData.password !== formData.confirm_password) {
-    toast.error("Password and Confirm Password do not match!");
+  // =====================================================
+  // PASSWORD VALIDATION
+  // =====================================================
+
+  if (
+    formData.password !==
+    formData.confirm_password
+  ) {
+    toast.error(
+      "Password and Confirm Password do not match!"
+    );
+
     return;
   }
 
+  // =====================================================
+  // CREATE FINAL PAYLOAD
+  // =====================================================
+
+  const payload = {
+    ...formData,
+
+    role_id: roleId,
+
+    // Make sure parent IDs are numbers
+    parent_admin_id:
+      formData.parent_admin_id
+        ? Number(formData.parent_admin_id)
+        : null,
+
+    parent_cnf_id:
+      formData.parent_2
+        ? Number(formData.parent_2)
+        : null,
+
+    parent_super_distributor_id:
+      formData.parent_3
+        ? Number(formData.parent_3)
+        : null,
+
+    parent_distributor_id:
+      formData.parent_4
+        ? Number(formData.parent_4)
+        : null,
+
+    parent_fos_id:
+      formData.parent_5
+        ? Number(formData.parent_5)
+        : null,
+
+    parent_retailer_id:
+      formData.parent_6
+        ? Number(formData.parent_6)
+        : null,
+
+    parent_employee_id:
+      formData.parent_7
+        ? Number(formData.parent_7)
+        : null,
+
+    parent_staff_id:
+      formData.parent_8
+        ? Number(formData.parent_8)
+        : null,
+  };
+
+  console.log(
+    "FINAL PAYLOAD:",
+    payload
+  );
+
   try {
 
-    const res = await addStaff(formData);
+    const res = await addStaff(payload);
 
-    console.log("Staff Created:", res);
-
-    toast.success(
-      res?.message || "Staff Created Successfully"
+    console.log(
+      "Staff Created:",
+      res
     );
 
+    toast.success(
+      res?.message ||
+      "Staff Created Successfully"
+    );
 
     setFormData({
       organization_name: "",
-      role_id: formData.role_id,
+      role_id: roleId,
       name: "",
       email: "",
       phone: "",
@@ -276,7 +447,15 @@ const handleSubmit = async (e) => {
       state: "",
       city: "",
 
-      // device permissions reset
+      parent_admin_id: null,
+      parent_cnf_id: null,
+      parent_super_distributor_id: null,
+      parent_distributor_id: null,
+      parent_fos_id: null,
+      parent_retailer_id: null,
+      parent_employee_id: null,
+      parent_staff_id: null,
+
       new_device: 0,
       old_device: 0,
       supreme_device: 0,
@@ -286,18 +465,18 @@ const handleSubmit = async (e) => {
       supreme_lock: 0,
     });
 
+  } catch (error) {
 
-  } catch(error){
-
-    console.log(error);
+    console.log(
+      "Create Staff Error:",
+      error?.response?.data || error
+    );
 
     toast.error(
       error?.response?.data?.message ||
       "Something went wrong"
     );
-
   }
-
 };
 
   return (
@@ -320,105 +499,110 @@ const handleSubmit = async (e) => {
   </div>
 
   {/* Parent Role Dropdowns */}
-{selectedRole > 2 && parentRoles[selectedRole]?.length > 0 && (
+{selectedRole > 1 &&
+  parentRoles[selectedRole]?.length > 0 && (
+
   <div className="mt-5">
+
     <h3 className="text-[20px] font-bold text-blue-500 mb-3">
       Select Parent
     </h3>
 
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-    {parentRoles[selectedRole]
-.map((parentRoleId, index) => {
+      {parentRoles[selectedRole].map((parentRoleId, index) => {
 
-  const visibleParents = parentRoles[selectedRole]
-    .filter((roleId) => roleId !== 1);
+        // Admin ko UI me hide rakho
+        if (parentRoleId === 1) {
+          return null;
+        }
 
+        // Admin ko skip karke visible roles
+        const visibleParents =
+          parentRoles[selectedRole].filter(
+            (roleId) => roleId !== 1
+          );
 
-  if (parentRoleId === 1) return null;
+        const visibleIndex =
+          visibleParents.indexOf(parentRoleId);
 
+        // Previous visible parent
+        const previousRoleId =
+          visibleParents[visibleIndex - 1];
 
-  const visibleIndex = visibleParents.indexOf(parentRoleId);
+        const previousSelectedId =
+          previousRoleId
+            ? formData[`parent_${previousRoleId}`]
+            : true;
 
+        // Is role ke users
+        const users =
+          parentUsers[parentRoleId] || [];
 
-  const previousRoleId =
-    visibleParents[visibleIndex - 1];
+        // First dropdown hamesha show
+        // Baaki previous select hone ke baad
+        const shouldShow =
+          visibleIndex === 0 ||
+          Boolean(previousSelectedId);
 
+        if (!shouldShow) {
+          return null;
+        }
 
-  const previousSelectedId =
-    previousRoleId
-      ? formData[`parent_${previousRoleId}`]
-      : true;
+        return (
+          <div
+            key={parentRoleId}
+            className="space-y-1.5"
+          >
 
+            <label className="text-sm font-medium text-slate-700">
+              {getRoleName(parentRoleId)}
+            </label>
 
-  const users = parentUsers[parentRoleId] || [];
+            <div className="relative">
 
+              <select
+                value={
+                  formData[`parent_${parentRoleId}`] || ""
+                }
+                onChange={(e) =>
+                  handleParentChange(
+                    parentRoleId,
+                    e.target.value
+                  )
+                }
+                required
+                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white"
+              >
 
-  const shouldShow =
-    visibleIndex === 0 || Boolean(previousSelectedId);
+                <option value="">
+                  Select {getRoleName(parentRoleId)}
+                </option>
 
+                {users.map((user) => (
+                  <option
+                    key={user.id}
+                    value={user.id}
+                  >
+                    {user.name}
+                  </option>
+                ))}
 
-  if (!shouldShow) return null;
+              </select>
 
+              <RiArrowDownSLine
+                size={22}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+              />
 
-  return (
-    <div
-      key={parentRoleId}
-      className="space-y-1.5"
-    >
+            </div>
 
-      <label className="text-sm font-medium text-slate-700">
-        {getRoleName(parentRoleId)}
-      </label>
-
-
-      <div className="relative">
-
-        <select
-          value={
-            formData[`parent_${parentRoleId}`] || ""
-          }
-          onChange={(e)=>
-            handleParentChange(
-              parentRoleId,
-              e.target.value
-            )
-          }
-          required
-          className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white"
-        >
-
-          <option value="">
-            Select {getRoleName(parentRoleId)}
-          </option>
-
-
-          {users.map((user)=>(
-            <option
-              key={user.id}
-              value={user.id}
-            >
-              {user.name}
-            </option>
-          ))}
-
-
-        </select>
-
-
-        <RiArrowDownSLine
-          size={22}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-        />
-
-      </div>
+          </div>
+        );
+      })}
 
     </div>
-  );
 
-})}
-
-    </div>
   </div>
 )}
 

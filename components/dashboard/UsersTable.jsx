@@ -72,7 +72,7 @@ const filteredUsers = users.filter((user) =>
   <div className="flex items-center gap-2 max-lg:w-full">
 
     <button
-      className="flex items-center text-[#fff] cursor-pointer gap-2 border bg-blue-400 border-[#fff] px-4 py-2 rounded-md hover:bg-gray-100 hover:text-blue-400 hover:border-blue-500 transition-all duration-200 ease-in-out"
+      className="flex items-center text-[#fff] cursor-pointer gap-2 border bg-blue-400 border-[#fff] px-4 py-2 rounded-md hover:bg-[#fff] hover:text-blue-400 hover:border-blue-500 transition-all duration-200 ease-in-out"
     >
       <RiFilterLine size={18} />
       Filter
