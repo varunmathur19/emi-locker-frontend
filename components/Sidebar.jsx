@@ -334,7 +334,7 @@ export default function Sidebar({ sidebarOpen }) {
             }
           `}
         >
-          <RiLogoutBoxLine />
+          <RiLogoutBoxLine size={20} />
 
           Logout
         </button>

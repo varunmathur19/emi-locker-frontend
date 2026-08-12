@@ -73,7 +73,6 @@ const parentRoles = {
 
 const loadParentUsers = async (roleId, parentId = null) => {
   try {
-    console.log("=================================");
     console.log("Loading Dropdown");
     console.log("Role ID:", roleId);
     console.log("Parent ID:", parentId);
@@ -222,29 +221,172 @@ const cities =
     });
   };
 const handleParentChange = async (parentRoleId, parentId) => {
-
   const parents = parentRoles[selectedRole] || [];
 
   const currentIndex = parents.indexOf(
     Number(parentRoleId)
   );
 
+  const selectedId = parentId
+    ? Number(parentId)
+    : null;
+
   console.log("=================================");
   console.log("PARENT CHANGED");
   console.log("Selected Role:", selectedRole);
   console.log("Selected Parent Role:", parentRoleId);
-  console.log("Selected Parent ID:", parentId);
-  console.log("Current Index:", currentIndex);
+  console.log("Selected Parent ID:", selectedId);
 
-  // Selected parent save
-  setFormData((prev) => ({
-    ...prev,
-    [`parent_${parentRoleId}`]: parentId
-      ? Number(parentId)
-      : "",
-  }));
+  // Selected user ka complete object
+  const selectedUser = (
+    parentUsers[parentRoleId] || []
+  ).find(
+    (user) => Number(user.id) === selectedId
+  );
 
-  // Aage ke dropdown clear
+  console.log("Selected User:", selectedUser);
+
+  setFormData((prev) => {
+    const updated = {
+      ...prev,
+      [`parent_${parentRoleId}`]: selectedId,
+    };
+
+    // =====================================================
+    // CNF SELECTED
+    // =====================================================
+
+    if (Number(parentRoleId) === 2) {
+      // CNF ki ID
+      updated.parent_cnf_id = selectedId;
+
+      // CNF ke parent Admin ki ID
+      updated.parent_admin_id =
+        selectedUser?.parent_admin_id
+          ? Number(selectedUser.parent_admin_id)
+          : null;
+    }
+
+    // =====================================================
+    // SUPER DISTRIBUTOR SELECTED
+    // =====================================================
+
+    if (Number(parentRoleId) === 3) {
+      updated.parent_super_distributor_id = selectedId;
+
+      // Super Distributor ke hierarchy parents
+      updated.parent_admin_id =
+        selectedUser?.parent_admin_id
+          ? Number(selectedUser.parent_admin_id)
+          : updated.parent_admin_id;
+
+      updated.parent_cnf_id =
+        selectedUser?.parent_cnf_id
+          ? Number(selectedUser.parent_cnf_id)
+          : updated.parent_cnf_id;
+    }
+
+    // =====================================================
+    // DISTRIBUTOR SELECTED
+    // =====================================================
+
+    if (Number(parentRoleId) === 4) {
+      updated.parent_distributor_id = selectedId;
+
+      updated.parent_admin_id =
+        selectedUser?.parent_admin_id
+          ? Number(selectedUser.parent_admin_id)
+          : updated.parent_admin_id;
+
+      updated.parent_cnf_id =
+        selectedUser?.parent_cnf_id
+          ? Number(selectedUser.parent_cnf_id)
+          : updated.parent_cnf_id;
+
+      updated.parent_super_distributor_id =
+        selectedUser?.parent_super_distributor_id
+          ? Number(
+              selectedUser.parent_super_distributor_id
+            )
+          : updated.parent_super_distributor_id;
+    }
+
+    // =====================================================
+    // FOS SELECTED
+    // =====================================================
+
+    if (Number(parentRoleId) === 5) {
+      updated.parent_fos_id = selectedId;
+
+      updated.parent_admin_id =
+        selectedUser?.parent_admin_id
+          ? Number(selectedUser.parent_admin_id)
+          : updated.parent_admin_id;
+
+      updated.parent_cnf_id =
+        selectedUser?.parent_cnf_id
+          ? Number(selectedUser.parent_cnf_id)
+          : updated.parent_cnf_id;
+
+      updated.parent_super_distributor_id =
+        selectedUser?.parent_super_distributor_id
+          ? Number(
+              selectedUser.parent_super_distributor_id
+            )
+          : updated.parent_super_distributor_id;
+
+      updated.parent_distributor_id =
+        selectedUser?.parent_distributor_id
+          ? Number(
+              selectedUser.parent_distributor_id
+            )
+          : updated.parent_distributor_id;
+    }
+
+    // =====================================================
+    // RETAILER SELECTED
+    // =====================================================
+
+    if (Number(parentRoleId) === 6) {
+      updated.parent_retailer_id = selectedId;
+
+      updated.parent_admin_id =
+        selectedUser?.parent_admin_id
+          ? Number(selectedUser.parent_admin_id)
+          : updated.parent_admin_id;
+
+      updated.parent_cnf_id =
+        selectedUser?.parent_cnf_id
+          ? Number(selectedUser.parent_cnf_id)
+          : updated.parent_cnf_id;
+
+      updated.parent_super_distributor_id =
+        selectedUser?.parent_super_distributor_id
+          ? Number(
+              selectedUser.parent_super_distributor_id
+            )
+          : updated.parent_super_distributor_id;
+
+      updated.parent_distributor_id =
+        selectedUser?.parent_distributor_id
+          ? Number(
+              selectedUser.parent_distributor_id
+            )
+          : updated.parent_distributor_id;
+
+      updated.parent_fos_id =
+        selectedUser?.parent_fos_id
+          ? Number(selectedUser.parent_fos_id)
+          : updated.parent_fos_id;
+    }
+
+    return updated;
+  });
+
+  // =====================================================
+  // CLEAR NEXT DROPDOWNS
+  // =====================================================
+
   const updatedParentUsers = {
     ...parentUsers,
   };
@@ -257,28 +399,29 @@ const handleParentChange = async (parentRoleId, parentId) => {
 
   setParentUsers(updatedParentUsers);
 
-  // Agar value remove kar di
-  if (!parentId) {
+  // =====================================================
+  // EMPTY SELECTION
+  // =====================================================
+
+  if (!selectedId) {
     return;
   }
 
-  // Next parent role
+  // =====================================================
+  // NEXT PARENT
+  // =====================================================
+
   const nextRoleId =
     parents[currentIndex + 1];
-
-  console.log("Next Role ID:", nextRoleId);
 
   if (!nextRoleId) {
     return;
   }
 
-  // IMPORTANT:
-  // Selected CNF ID -> next API parent_id
   await loadParentUsers(
     nextRoleId,
-    Number(parentId)
+    selectedId
   );
-
 };
 
 const handleSubmit = async (e) => {
