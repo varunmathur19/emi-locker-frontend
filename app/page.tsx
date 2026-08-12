@@ -52,31 +52,33 @@ export default function Page() {
   // =====================================
   // LOGIN
   // =====================================
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+const handleSubmit = async (e: FormEvent) => {
+  e.preventDefault();
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const res = await login(formData);
+    const res = await login(formData);
 
-      console.log("Login Response:", res);
+    console.log("Login Response:", res);
 
-      if (res.token) {
-        saveToken(res.token);
+    if (res.token) {
+      saveToken(res.token);
 
-        toast.success(res.message || "Login Successfully");
+      toast.success(res.message || "Login Successfully");
 
-        router.replace("/dashboard");
-      } else {
-        toast.error("Token not found");
-      }
-    } catch (error) {
-      console.error("Login Error:", error);
-    } finally {
-      setLoading(false);
+      router.replace("/dashboard");
+    } else {
+      toast.error("Invalid email or password");
     }
-  };
+  } catch (error: any) {
+    console.error("Login Error:", error);
+
+    toast.error("Invalid email or password");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-100">
