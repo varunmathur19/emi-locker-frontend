@@ -1,8 +1,10 @@
 "use client";
 import Link from "next/link";
 import { RiFilterLine } from "react-icons/ri";
+import { useState } from "react";
 
 export default function UsersTable({
+  
   users,
   page,
   pagination,
@@ -11,6 +13,12 @@ export default function UsersTable({
   selectedRole,
   handleRoleList,
 }) {
+  
+const [search, setSearch] = useState("");
+
+const filteredUsers = users.filter((user) =>
+  user.name?.toLowerCase().includes(search.toLowerCase())
+);
 
   const roleButtons = {
     1: "Add Admin",
@@ -22,6 +30,8 @@ export default function UsersTable({
     7: "Add Employee",
     8: "Add Staff",
   };
+
+
 
   return (
     <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6 max-w-full overflow-hidden">
@@ -62,7 +72,7 @@ export default function UsersTable({
   <div className="flex items-center gap-2 max-lg:w-full">
 
     <button
-      className="flex items-center cursor-pointer gap-2 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-100"
+      className="flex items-center text-[#fff] cursor-pointer gap-2 border bg-blue-400 border-[#fff] px-4 py-2 rounded-md hover:bg-[#fff] hover:text-blue-400 hover:border-blue-500 transition-all duration-200 ease-in-out"
     >
       <RiFilterLine size={18} />
       Filter
@@ -70,10 +80,12 @@ export default function UsersTable({
 
 
     <input
-      type="text"
-      placeholder="Search..."
-      className="border border-gray-300 rounded-md px-4 py-2 w-64 max-lg:flex-1 max-lg:w-auto max-lg:px-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-    />
+  type="text"
+  placeholder="Search by name..."
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  className="border border-gray-300 rounded-md px-4 py-2 w-64 max-lg:flex-1 max-lg:w-auto max-lg:px-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+/>
 
   </div>
 
@@ -99,8 +111,12 @@ export default function UsersTable({
                 </th>
 
                 <th className="text-left p-3">
-                  Name
-                </th>
+  Name 
+  <br />
+  <span className="text-sm text-gray-500">
+    Organization Name
+  </span>
+</th>
 
                 <th className="text-left p-3">
                   Phone
@@ -124,77 +140,57 @@ export default function UsersTable({
 
 
 
-            <tbody>
+          <tbody>
+  {filteredUsers.length > 0 ? (
+    filteredUsers.map((user, index) => (
+      <tr key={user.id} className="border-b">
+        <td className="p-3">
+          {((page - 1) * 10) + index + 1}
+        </td>
 
-              {
-                users.length > 0 ?
+     <td className="p-3 py-1">
+  <div className="font-semibold">
+    {user.name}
+  </div>
 
-                users.map((user,index)=>(
-
-                  <tr
-                    key={user.id}
-                    className="border-b"
-                  >
-
-                    <td className="p-3">
-                      {((page - 1) * 10) + index + 1}
-                    </td>
-
-
-                    <td className="p-3">
-                      {user.name}
-                    </td>
-
-
-                    <td className="p-3">
-                      {user.phone}
-                    </td>
-
-
-                    <td className="p-3">
-                      {getRoleName(user.role_id)}
-                    </td>
-                    <td className="p-3">
-  {user.created_at
-    ? new Date(user.created_at).toLocaleString("en-IN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "-"}
+  <div className="text-sm text-gray-500 ">
+    {user.organization_name || "-"}
+  </div>
 </td>
 
+        <td className="p-3 py-1">{user.phone}</td>
 
-                    <td className="p-3">
-                      <span className="text-green-600 font-semibold">
-                        Active
-                      </span>
-                    </td>
+        <td className="p-3 py-1">
+          {getRoleName(user.role_id)}
+        </td>
 
+        <td className="p-3 py-1">
+          {user.created_at
+            ? new Date(user.created_at).toLocaleString("en-IN", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "-"}
+        </td>
 
-                  </tr>
-
-                ))
-
-                :
-
-                <tr>
-
-                  <td
-                    colSpan="5"
-                    className="text-center p-5"
-                  >
-                    No Users Found
-                  </td>
-
-                </tr>
-
-              }
-
-
-            </tbody>
+        <td className="p-3 py-1">
+          <span className="text-green-600 font-semibold">
+            Active
+          </span>
+        </td>
+      </tr>
+    ))
+  ) : (
+    <tr>
+      <td colSpan="6" className="text-center p-5">
+        No Users Found
+      </td>
+    </tr>
+  )}
+</tbody>
 
 
           </table>

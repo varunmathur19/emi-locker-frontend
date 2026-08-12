@@ -7,4 +7,7 @@ export const ROLES = {
   FOS: 5,
   RETAILER: 6,
   EMPLOYEE: 7,
+  STAFF: 8,
 };
+
+
