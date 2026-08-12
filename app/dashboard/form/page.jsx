@@ -299,53 +299,47 @@ const cities =
       return updated;
     });
   };
-const handleParentChange = async (
-  parentRoleId,
-  parentId
-) => {
+const handleParentChange = async (parentRoleId, parentId) => {
+  const currentRoleId = Number(parentRoleId);
+  const selectedId = parentId ? Number(parentId) : null;
 
-  // IMPORTANT:
-  // Ab complete hierarchy nahi,
-  // sirf visible hierarchy use hogi
   const parents = visibleParentRoles;
-
-  const currentIndex =
-    parents.indexOf(Number(parentRoleId));
-
-  const selectedId =
-    parentId
-      ? Number(parentId)
-      : null;
+  const currentIndex = parents.indexOf(currentRoleId);
 
   console.log("=================================");
   console.log("PARENT CHANGED");
   console.log("Logged User Role:", loggedInRoleId);
   console.log("Selected Role:", selectedRole);
-  console.log("Selected Parent Role:", parentRoleId);
+  console.log("Selected Parent Role:", currentRoleId);
   console.log("Selected Parent ID:", selectedId);
 
-  // Selected user
-  const selectedUser =
-    (parentUsers[parentRoleId] || []).find(
-      (user) =>
-        Number(user.id) === selectedId
-    );
+  // ==========================================
+  // SELECTED USER
+  // ==========================================
+
+  const selectedUser = (
+    parentUsers[currentRoleId] || []
+  ).find(
+    (user) => Number(user.id) === selectedId
+  );
 
   console.log("Selected User:", selectedUser);
 
-  setFormData((prev) => {
+  // ==========================================
+  // UPDATE FORM DATA / HIERARCHY
+  // ==========================================
 
+  setFormData((prev) => {
     const updated = {
       ...prev,
-      [`parent_${parentRoleId}`]: selectedId,
+      [`parent_${currentRoleId}`]: selectedId,
     };
 
     // ==========================================
-    // CNF SELECTED
+    // CNF
     // ==========================================
 
-    if (Number(parentRoleId) === 2) {
-
+    if (currentRoleId === 2) {
       updated.parent_cnf_id = selectedId;
 
       updated.parent_admin_id =
@@ -355,13 +349,11 @@ const handleParentChange = async (
     }
 
     // ==========================================
-    // SUPER DISTRIBUTOR SELECTED
+    // SUPER DISTRIBUTOR
     // ==========================================
 
-    if (Number(parentRoleId) === 3) {
-
-      updated.parent_super_distributor_id =
-        selectedId;
+    if (currentRoleId === 3) {
+      updated.parent_super_distributor_id = selectedId;
 
       updated.parent_admin_id =
         selectedUser?.parent_admin_id
@@ -375,13 +367,11 @@ const handleParentChange = async (
     }
 
     // ==========================================
-    // DISTRIBUTOR SELECTED
+    // DISTRIBUTOR
     // ==========================================
 
-    if (Number(parentRoleId) === 4) {
-
-      updated.parent_distributor_id =
-        selectedId;
+    if (currentRoleId === 4) {
+      updated.parent_distributor_id = selectedId;
 
       updated.parent_admin_id =
         selectedUser?.parent_admin_id
@@ -402,13 +392,11 @@ const handleParentChange = async (
     }
 
     // ==========================================
-    // FOS SELECTED
+    // FOS
     // ==========================================
 
-    if (Number(parentRoleId) === 5) {
-
-      updated.parent_fos_id =
-        selectedId;
+    if (currentRoleId === 5) {
+      updated.parent_fos_id = selectedId;
 
       updated.parent_admin_id =
         selectedUser?.parent_admin_id
@@ -436,13 +424,11 @@ const handleParentChange = async (
     }
 
     // ==========================================
-    // RETAILER SELECTED
+    // RETAILER
     // ==========================================
 
-    if (Number(parentRoleId) === 6) {
-
-      updated.parent_retailer_id =
-        selectedId;
+    if (currentRoleId === 6) {
+      updated.parent_retailer_id = selectedId;
 
       updated.parent_admin_id =
         selectedUser?.parent_admin_id
@@ -474,27 +460,71 @@ const handleParentChange = async (
           : updated.parent_fos_id;
     }
 
+    // ==========================================
+    // EMPLOYEE
+    // ==========================================
+
+    if (currentRoleId === 7) {
+      updated.parent_employee_id = selectedId;
+
+      updated.parent_admin_id =
+        selectedUser?.parent_admin_id
+          ? Number(selectedUser.parent_admin_id)
+          : updated.parent_admin_id;
+
+      updated.parent_cnf_id =
+        selectedUser?.parent_cnf_id
+          ? Number(selectedUser.parent_cnf_id)
+          : updated.parent_cnf_id;
+
+      updated.parent_super_distributor_id =
+        selectedUser?.parent_super_distributor_id
+          ? Number(
+              selectedUser.parent_super_distributor_id
+            )
+          : updated.parent_super_distributor_id;
+
+      updated.parent_distributor_id =
+        selectedUser?.parent_distributor_id
+          ? Number(
+              selectedUser.parent_distributor_id
+            )
+          : updated.parent_distributor_id;
+
+      updated.parent_fos_id =
+        selectedUser?.parent_fos_id
+          ? Number(selectedUser.parent_fos_id)
+          : updated.parent_fos_id;
+
+      updated.parent_retailer_id =
+        selectedUser?.parent_retailer_id
+          ? Number(selectedUser.parent_retailer_id)
+          : updated.parent_retailer_id;
+    }
+
     return updated;
   });
 
   // ==========================================
-  // CLEAR NEXT DROPDOWNS
+  // CLEAR NEXT DROPDOWN DATA
   // ==========================================
 
   const updatedParentUsers = {
     ...parentUsers,
   };
 
-  parents
-    .slice(currentIndex + 1)
-    .forEach((roleId) => {
-      updatedParentUsers[roleId] = [];
-    });
+  if (currentIndex !== -1) {
+    parents
+      .slice(currentIndex + 1)
+      .forEach((roleId) => {
+        updatedParentUsers[roleId] = [];
+      });
+  }
 
   setParentUsers(updatedParentUsers);
 
   // ==========================================
-  // EMPTY SELECTION
+  // NO SELECTION
   // ==========================================
 
   if (!selectedId) {
@@ -502,7 +532,114 @@ const handleParentChange = async (
   }
 
   // ==========================================
-  // NEXT PARENT
+  // ⭐ DISTRIBUTOR SELECTED
+  // LOAD FOS + RETAILER TOGETHER
+  // ==========================================
+
+  if (currentRoleId === 4) {
+    try {
+      console.log("=================================");
+      console.log("DISTRIBUTOR SELECTED");
+      console.log("Distributor ID:", selectedId);
+
+      // Clear old FOS / Retailer data
+      setParentUsers((prev) => ({
+        ...prev,
+        5: [],
+        6: [],
+      }));
+
+      // ==========================================
+      // CALL BOTH APIs AT SAME TIME
+      // ==========================================
+
+      const [
+        fosResponse,
+        retailerResponse,
+      ] = await Promise.all([
+        getDropdownUsers(5, selectedId),
+        getDropdownUsers(6, selectedId),
+      ]);
+
+      console.log(
+        "FOS FULL RESPONSE:",
+        fosResponse
+      );
+
+      console.log(
+        "RETAILER FULL RESPONSE:",
+        retailerResponse
+      );
+
+      // ==========================================
+      // GET FOS USERS
+      // ==========================================
+
+      const fosUsers =
+        Array.isArray(fosResponse?.data)
+          ? fosResponse.data
+          : Array.isArray(
+              fosResponse?.data?.data
+            )
+          ? fosResponse.data.data
+          : [];
+
+      // ==========================================
+      // GET RETAILER USERS
+      // ==========================================
+
+      const retailerUsers =
+        Array.isArray(
+          retailerResponse?.data
+        )
+          ? retailerResponse.data
+          : Array.isArray(
+              retailerResponse?.data?.data
+            )
+          ? retailerResponse.data.data
+          : [];
+
+      console.log("FOS USERS:", fosUsers);
+      console.log(
+        "RETAILER USERS:",
+        retailerUsers
+      );
+
+      // ==========================================
+      // SET BOTH DROPDOWNS
+      // ==========================================
+
+      setParentUsers((prev) => ({
+        ...prev,
+
+        // FOS dropdown
+        5: fosUsers,
+
+        // Retailer dropdown
+        6: retailerUsers,
+      }));
+
+      console.log(
+        "FOS + RETAILER DROPDOWNS LOADED"
+      );
+    } catch (error) {
+      console.error(
+        "FOS / RETAILER DROPDOWN ERROR:",
+        error?.response?.data || error
+      );
+
+      toast.error(
+        "FOS / Retailer dropdown load failed"
+      );
+    }
+
+    // IMPORTANT:
+    // Distributor ke baad normal next API mat call karo
+    return;
+  }
+
+  // ==========================================
+  // NORMAL NEXT DROPDOWN
   // ==========================================
 
   const nextRoleId =
@@ -852,99 +989,144 @@ const handleSubmit = async (e) => {
   {/* Parent Role Dropdowns */}
 {/* Parent Role Dropdowns */}
 
+{/* Parent Role Dropdowns */}
+
 {selectedRole > 1 &&
   visibleParentRoles.length > 0 && (
+    <>
+      <h3 className="text-[20px] font-bold text-blue-500 mb-3">
+        Select Parent
+      </h3>
 
-  <div className="mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-    <h3 className="text-[20px] font-bold text-blue-500 mb-3">
-      Select Parent
-    </h3>
+        {visibleParentRoles.map(
+          (parentRoleId, index) => {
 
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            // ==========================================
+            // PREVIOUS ROLE
+            // ==========================================
 
-      {visibleParentRoles.map((parentRoleId, index) => {
+            const previousRoleId =
+              visibleParentRoles[index - 1];
 
-        // Previous parent role
-        const previousRoleId =
-          visibleParentRoles[index - 1];
+            const previousSelectedId =
+              previousRoleId
+                ? formData[
+                    `parent_${previousRoleId}`
+                  ]
+                : true;
 
-        // Previous parent selected hai ya nahi
-        const previousSelectedId =
-          previousRoleId
-            ? formData[`parent_${previousRoleId}`]
-            : true;
+            // ==========================================
+            // SPECIAL CASE
+            // Distributor selected
+            // FOS + Retailer both show
+            // ==========================================
 
-        // Current role ke users
-        const users =
-          parentUsers[parentRoleId] || [];
+            let shouldShow = false;
 
-        // First dropdown hamesha show
-        // Next dropdown previous selection ke baad show
-        const shouldShow =
-          index === 0 ||
-          Boolean(previousSelectedId);
+            // First dropdown
+            if (index === 0) {
+              shouldShow = true;
+            }
 
-        if (!shouldShow) {
-          return null;
-        }
+            // ==========================================
+            // FOS / RETAILER
+            // ==========================================
 
-        return (
-          <div
-            key={parentRoleId}
-            className="space-y-1.5"
-          >
+            if (
+              selectedRole > 4 &&
+              parentRoleId === 5 &&
+              formData.parent_distributor_id
+            ) {
+              shouldShow = true;
+            }
 
-            <label className="text-sm font-medium text-slate-700">
-              {getRoleName(parentRoleId)}
-            </label>
+            if (
+              selectedRole > 4 &&
+              parentRoleId === 6 &&
+              formData.parent_distributor_id
+            ) {
+              shouldShow = true;
+            }
 
-            <div className="relative">
+            // ==========================================
+            // NORMAL DROPDOWN
+            // ==========================================
 
-              <select
-                value={
-                  formData[`parent_${parentRoleId}`] || ""
-                }
-                onChange={(e) =>
-                  handleParentChange(
-                    parentRoleId,
-                    e.target.value
-                  )
-                }
-                required
-                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white"
+            if (
+              !shouldShow &&
+              previousSelectedId
+            ) {
+              shouldShow = true;
+            }
+
+            if (!shouldShow) {
+              return null;
+            }
+
+            // ==========================================
+            // USERS
+            // ==========================================
+
+            const users =
+              parentUsers[parentRoleId] || [];
+
+            return (
+              <div
+                key={parentRoleId}
+                className="space-y-1.5"
               >
+                <label className="text-sm font-medium text-slate-700">
+                  {getRoleName(parentRoleId)}
+                </label>
 
-                <option value="">
-                  Select {getRoleName(parentRoleId)}
-                </option>
+                <div className="relative">
 
-                {users.map((user) => (
-                  <option
-                    key={user.id}
-                    value={user.id}
+                  <select
+                    value={
+                      formData[
+                        `parent_${parentRoleId}`
+                      ] || ""
+                    }
+                    onChange={(e) =>
+                      handleParentChange(
+                        parentRoleId,
+                        e.target.value
+                      )
+                    }
+                    required
+                    className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white"
                   >
-                    {user.name}
-                  </option>
-                ))}
+                    <option value="">
+                      Select{" "}
+                      {getRoleName(parentRoleId)}
+                    </option>
 
-              </select>
+                    {users.map((user) => (
+                      <option
+                        key={user.id}
+                        value={user.id}
+                      >
+                        {user.name}
+                      </option>
+                    ))}
+                  </select>
 
-              <RiArrowDownSLine
-                size={22}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-              />
+                  <RiArrowDownSLine
+                    size={22}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                  />
 
-            </div>
+                </div>
+              </div>
+            );
+          }
+        )}
 
-          </div>
-        );
-      })}
-
-    </div>
-
-  </div>
-)}
+      </div>
+    </>
+  )}
 
 </div>
           {/* Header */}
