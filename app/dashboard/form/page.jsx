@@ -1217,8 +1217,8 @@ if (
 {selectedRole > 1 &&
   visibleParentRoles.length > 0 && (
     <>
-      <div className="mb-5">
-        <label className="text-sm font-medium text-slate-700">
+      <div className="py-3">
+        <label className="text-[20px] font-medium text-blue-700">
           Select Parent
         </label>
       </div>
