@@ -13,8 +13,8 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 
-export default function Page() {
-  const [formData, setFormData] = useState({
+
+const initialFormData = {
   organization_name: "",
   role_id: "",
   name: "",
@@ -45,7 +45,10 @@ export default function Page() {
   lite: 0,
   google_tv: 0,
   supreme_lock: 0,
-});
+};
+export default function Page() {
+const [formData, setFormData] = useState(initialFormData);
+
   const [parentUsers, setParentUsers] = useState({});
   const searchParams = useSearchParams();
   const selectedRole = Number(searchParams.get("role_id"));
@@ -1062,8 +1065,8 @@ const handleSubmit = async (e) => {
       )
     ) {
       toast.error(
-        "Complete parent hierarchy is required"
-      );
+  "Please select the required parent details."
+);
       return;
     }
 
@@ -1101,8 +1104,8 @@ if (
       )
     ) {
       toast.error(
-        "Complete parent hierarchy is required"
-      );
+  "Please select the required parent details."
+);
       return;
     }
   }
@@ -1166,28 +1169,43 @@ if (
   console.log("FINAL PAYLOAD");
   console.log(payload);
 
-  try {
-    const res = await addStaff(payload);
+ try {
+  const res = await addStaff(payload);
 
-    console.log("Staff Created:", res);
+  console.log("Staff Created:", res);
 
-    toast.success(
-      res?.message ||
-      "Staff Created Successfully"
-    );
+  toast.success(
+    res?.message || "Staff Created Successfully"
+  );
 
-  } catch (error) {
+  // ==========================================
+  // RESET FORM AFTER SUCCESS
+  // ==========================================
 
-    console.log(
-      "Create Staff Error:",
-      error?.response?.data || error
-    );
+  setFormData({
+    ...initialFormData,
+    role_id: roleId,
+  });
 
-    toast.error(
-      error?.response?.data?.message ||
-      "Something went wrong"
-    );
-  }
+  // Parent dropdown data clear
+  setParentUsers({});
+
+  // Password visibility reset
+  setShowPassword(false);
+  setShowConfirmPassword(false);
+
+} catch (error) {
+
+  console.log(
+    "Create Staff Error:",
+    error?.response?.data || error
+  );
+
+  toast.error(
+    error?.response?.data?.message ||
+    "Something went wrong"
+  );
+}
 };
 
   return (
