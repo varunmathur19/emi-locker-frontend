@@ -93,17 +93,17 @@ const visibleParentRoles = (
 
 const loadParentUsers = async (roleId, parentId = null) => {
   try {
-    console.log("Loading Dropdown");
-    console.log("Role ID:", roleId);
-    console.log("Parent ID:", parentId);
+    // console.log("Loading Dropdown");
+    // console.log("Role ID:", roleId);
+    // console.log("Parent ID:", parentId);
 
     const res = await getDropdownUsers(
       Number(roleId),
       parentId ? Number(parentId) : null
     );
 
-    console.log("API Response:", res);
-    console.log("API Data:", res?.data);
+    // console.log("API Response:", res);
+    // console.log("API Data:", res?.data);
 
     // API response handle
     const users =
@@ -113,7 +113,7 @@ const loadParentUsers = async (roleId, parentId = null) => {
         ? res.data.data
         : [];
 
-    console.log("Users for dropdown:", users);
+    // console.log("Users for dropdown:", users);
 
     setParentUsers((prev) => ({
       ...prev,
@@ -140,9 +140,9 @@ useEffect(() => {
     return;
   }
 
-  console.log("=================================");
-  console.log("LOGGED USER FROM TOKEN");
-  console.log(user);
+  // console.log("=================================");
+  // console.log("LOGGED USER FROM TOKEN");
+  // console.log(user);
 
   setFormData((prev) => ({
     ...prev,
@@ -994,7 +994,7 @@ const handleSubmit = async (e) => {
 {selectedRole > 1 &&
   visibleParentRoles.length > 0 && (
     <>
-      <h3 className="text-[20px] font-bold text-blue-500 mb-3">
+      <h3 className="text-[20px] font-bold text-blue-500 mb-1 mt-3">
         Select Parent
       </h3>
 
@@ -1096,9 +1096,9 @@ const handleSubmit = async (e) => {
                       )
                     }
                     required
-                    className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white"
+                    className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer"
                   >
-                    <option value="">
+                    <option value="" >
                       Select{" "}
                       {getRoleName(parentRoleId)}
                     </option>
@@ -1107,6 +1107,7 @@ const handleSubmit = async (e) => {
                       <option
                         key={user.id}
                         value={user.id}
+                        className="cursor-pointer"
                       >
                         {user.name}
                       </option>
