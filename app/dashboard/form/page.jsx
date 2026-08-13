@@ -77,15 +77,13 @@ const parentRoles = {
 const visibleParentRoles = (
   parentRoles[selectedRole] || []
 ).filter((roleId) => {
-
-  // Admin dropdown kabhi mat dikhao
+  // Admin dropdown kabhi nahi dikhana
   if (roleId === 1) return false;
 
-  // Logged-in user khud parent hai
-  // isliye uska dropdown nahi dikhana
+  // Logged-in user ka own role dropdown nahi dikhana
   if (roleId === loggedInRoleId) return false;
 
-  // Logged-in user ke neeche wale roles dropdown me aa sakte hain
+  // Logged-in user ke upar wale roles nahi dikhane
   if (roleId < loggedInRoleId) return false;
 
   return true;
@@ -140,14 +138,13 @@ useEffect(() => {
     return;
   }
 
-  // console.log("=================================");
-  // console.log("LOGGED USER FROM TOKEN");
-  // console.log(user);
-
   setFormData((prev) => ({
     ...prev,
 
-    // Logged-in user's own hierarchy
+    // ==========================================
+    // LOGGED-IN USER KI EXISTING HIERARCHY
+    // ==========================================
+
     parent_admin_id: user.parent_admin_id
       ? Number(user.parent_admin_id)
       : null,
@@ -166,27 +163,26 @@ useEffect(() => {
         ? Number(user.parent_distributor_id)
         : null,
 
-    parent_fos_id:
-      user.parent_fos_id
-        ? Number(user.parent_fos_id)
-        : null,
+    parent_fos_id: user.parent_fos_id
+      ? Number(user.parent_fos_id)
+      : null,
 
-    parent_retailer_id:
-      user.parent_retailer_id
-        ? Number(user.parent_retailer_id)
-        : null,
+    parent_retailer_id: user.parent_retailer_id
+      ? Number(user.parent_retailer_id)
+      : null,
 
-    parent_employee_id:
-      user.parent_employee_id
-        ? Number(user.parent_employee_id)
-        : null,
+    parent_employee_id: user.parent_employee_id
+      ? Number(user.parent_employee_id)
+      : null,
 
-    parent_staff_id:
-      user.parent_staff_id
-        ? Number(user.parent_staff_id)
-        : null,
+    parent_staff_id: user.parent_staff_id
+      ? Number(user.parent_staff_id)
+      : null,
 
-    // Current logged-in user becomes his own role parent
+    // ==========================================
+    // LOGGED-IN USER KHUD APNE ROLE KA PARENT
+    // ==========================================
+
     ...(Number(user.role_id) === 1 && {
       parent_admin_id: Number(user.id),
     }),
@@ -224,10 +220,13 @@ useEffect(() => {
 
   if (!parents.length) return;
 
+  // ==========================================
+  // FIRST DROPDOWN LOAD
+  // ==========================================
+
   const firstParentRole = parents[0];
 
   loadParentUsers(firstParentRole, null);
-
 }, [selectedRole, loggedInRoleId]);
 const getRoleName = (roleId) => {
   const roles = {
@@ -353,7 +352,8 @@ const handleParentChange = async (parentRoleId, parentId) => {
     // ==========================================
 
     if (currentRoleId === 3) {
-      updated.parent_super_distributor_id = selectedId;
+      updated.parent_super_distributor_id =
+        selectedId;
 
       updated.parent_admin_id =
         selectedUser?.parent_admin_id
@@ -371,7 +371,8 @@ const handleParentChange = async (parentRoleId, parentId) => {
     // ==========================================
 
     if (currentRoleId === 4) {
-      updated.parent_distributor_id = selectedId;
+      updated.parent_distributor_id =
+        selectedId;
 
       updated.parent_admin_id =
         selectedUser?.parent_admin_id
@@ -389,6 +390,11 @@ const handleParentChange = async (parentRoleId, parentId) => {
               selectedUser.parent_super_distributor_id
             )
           : updated.parent_super_distributor_id;
+
+      // Distributor change hone par
+      // FOS + Retailer clear
+      updated.parent_fos_id = null;
+      updated.parent_retailer_id = null;
     }
 
     // ==========================================
@@ -421,6 +427,9 @@ const handleParentChange = async (parentRoleId, parentId) => {
               selectedUser.parent_distributor_id
             )
           : updated.parent_distributor_id;
+
+      // FOS change hone par retailer reset
+      updated.parent_retailer_id = null;
     }
 
     // ==========================================
@@ -454,10 +463,12 @@ const handleParentChange = async (parentRoleId, parentId) => {
             )
           : updated.parent_distributor_id;
 
+      // Direct Distributor -> Retailer
+      // mein FOS null rahega.
       updated.parent_fos_id =
         selectedUser?.parent_fos_id
           ? Number(selectedUser.parent_fos_id)
-          : updated.parent_fos_id;
+          : null;
     }
 
     // ==========================================
@@ -531,10 +542,17 @@ const handleParentChange = async (parentRoleId, parentId) => {
     return;
   }
 
-  // ==========================================
-  // ⭐ DISTRIBUTOR SELECTED
-  // LOAD FOS + RETAILER TOGETHER
-  // ==========================================
+  // ==================================================
+  // DISTRIBUTOR SELECTED
+  //
+  // Distributor
+  //      |
+  //      +---- FOS ----> Retailer
+  //      |
+  //      +---- Retailer
+  //
+  // Dono APIs call hongi.
+  // ==================================================
 
   if (currentRoleId === 4) {
     try {
@@ -542,7 +560,10 @@ const handleParentChange = async (parentRoleId, parentId) => {
       console.log("DISTRIBUTOR SELECTED");
       console.log("Distributor ID:", selectedId);
 
-      // Clear old FOS / Retailer data
+      // ==========================================
+      // CLEAR OLD DATA
+      // ==========================================
+
       setParentUsers((prev) => ({
         ...prev,
         5: [],
@@ -550,7 +571,7 @@ const handleParentChange = async (parentRoleId, parentId) => {
       }));
 
       // ==========================================
-      // CALL BOTH APIs AT SAME TIME
+      // CALL BOTH APIs
       // ==========================================
 
       const [
@@ -562,80 +583,279 @@ const handleParentChange = async (parentRoleId, parentId) => {
       ]);
 
       console.log(
-        "FOS FULL RESPONSE:",
+        "FOS RESPONSE:",
         fosResponse
       );
 
       console.log(
-        "RETAILER FULL RESPONSE:",
+        "DIRECT RETAILER RESPONSE:",
         retailerResponse
       );
 
       // ==========================================
-      // GET FOS USERS
+      // RESPONSE DATA HELPER
+      // ==========================================
+
+      const getUsersFromResponse = (response) => {
+        if (
+          Array.isArray(response?.data)
+        ) {
+          return response.data;
+        }
+
+        if (
+          Array.isArray(
+            response?.data?.data
+          )
+        ) {
+          return response.data.data;
+        }
+
+        if (
+          Array.isArray(
+            response?.data?.users
+          )
+        ) {
+          return response.data.users;
+        }
+
+        if (
+          Array.isArray(response?.users)
+        ) {
+          return response.users;
+        }
+
+        return [];
+      };
+
+      // ==========================================
+      // GET FOS
       // ==========================================
 
       const fosUsers =
-        Array.isArray(fosResponse?.data)
-          ? fosResponse.data
-          : Array.isArray(
-              fosResponse?.data?.data
-            )
-          ? fosResponse.data.data
-          : [];
+        getUsersFromResponse(
+          fosResponse
+        );
 
       // ==========================================
-      // GET RETAILER USERS
+      // GET DIRECT RETAILER
       // ==========================================
 
-      const retailerUsers =
-        Array.isArray(
-          retailerResponse?.data
-        )
-          ? retailerResponse.data
-          : Array.isArray(
-              retailerResponse?.data?.data
-            )
-          ? retailerResponse.data.data
-          : [];
+      const directRetailerUsers =
+        getUsersFromResponse(
+          retailerResponse
+        );
 
-      console.log("FOS USERS:", fosUsers);
       console.log(
-        "RETAILER USERS:",
-        retailerUsers
+        "FOS USERS:",
+        fosUsers
       );
 
-      // ==========================================
-      // SET BOTH DROPDOWNS
-      // ==========================================
+      console.log(
+        "DIRECT RETAILER USERS:",
+        directRetailerUsers
+      );
+
+      // ==================================================
+      // CASE 1
+      // FOS AVAILABLE
+      //
+      // Distributor
+      //      ↓
+      //     FOS
+      //      ↓
+      //   Retailer
+      // ==================================================
+
+      if (fosUsers.length > 0) {
+        console.log(
+          "✅ FOS FOUND"
+        );
+
+        console.log(
+          "FOS dropdown show hoga"
+        );
+
+        console.log(
+          "Retailer FOS select ke baad show hoga"
+        );
+
+        setParentUsers((prev) => ({
+          ...prev,
+
+          // FOS show
+          5: fosUsers,
+
+          // Direct retailer temporarily hide
+          6: [],
+        }));
+
+        return;
+      }
+
+      // ==================================================
+      // CASE 2
+      // FOS AVAILABLE NAHI HAI
+      //
+      // Distributor
+      //      ↓
+      //   Retailer
+      // ==================================================
+
+      console.log(
+        "❌ NO FOS FOUND"
+      );
+
+      console.log(
+        "✅ DIRECT RETAILER MODE"
+      );
 
       setParentUsers((prev) => ({
         ...prev,
 
-        // FOS dropdown
-        5: fosUsers,
+        // FOS empty
+        5: [],
 
-        // Retailer dropdown
-        6: retailerUsers,
+        // Direct retailer show
+        6: directRetailerUsers,
       }));
 
-      console.log(
-        "FOS + RETAILER DROPDOWNS LOADED"
-      );
+      return;
+
     } catch (error) {
       console.error(
-        "FOS / RETAILER DROPDOWN ERROR:",
+        "DISTRIBUTOR DROPDOWN ERROR:",
         error?.response?.data || error
       );
+
+      setParentUsers((prev) => ({
+        ...prev,
+        5: [],
+        6: [],
+      }));
 
       toast.error(
         "FOS / Retailer dropdown load failed"
       );
-    }
 
-    // IMPORTANT:
-    // Distributor ke baad normal next API mat call karo
-    return;
+      return;
+    }
+  }
+
+  // ==================================================
+  // FOS SELECTED
+  //
+  // FOS
+  //  ↓
+  // Retailer
+  // ==================================================
+
+  if (currentRoleId === 5) {
+    try {
+      console.log("=================================");
+      console.log("FOS SELECTED");
+      console.log("FOS ID:", selectedId);
+
+      // ==========================================
+      // CLEAR OLD RETAILER
+      // ==========================================
+
+      setParentUsers((prev) => ({
+        ...prev,
+        6: [],
+      }));
+
+      // ==========================================
+      // LOAD RETAILERS UNDER FOS
+      // ==========================================
+
+      const retailerResponse =
+        await getDropdownUsers(
+          6,
+          selectedId
+        );
+
+      console.log(
+        "RETAILER RESPONSE:",
+        retailerResponse
+      );
+
+      // ==========================================
+      // EXTRACT DATA
+      // ==========================================
+
+      const getUsersFromResponse = (
+        response
+      ) => {
+        if (
+          Array.isArray(response?.data)
+        ) {
+          return response.data;
+        }
+
+        if (
+          Array.isArray(
+            response?.data?.data
+          )
+        ) {
+          return response.data.data;
+        }
+
+        if (
+          Array.isArray(
+            response?.data?.users
+          )
+        ) {
+          return response.data.users;
+        }
+
+        if (
+          Array.isArray(response?.users)
+        ) {
+          return response.users;
+        }
+
+        return [];
+      };
+
+      const retailerUsers =
+        getUsersFromResponse(
+          retailerResponse
+        );
+
+      console.log(
+        "RETAILERS UNDER FOS:",
+        retailerUsers
+      );
+
+      // ==========================================
+      // SHOW RETAILER
+      // ==========================================
+
+      setParentUsers((prev) => ({
+        ...prev,
+        6: retailerUsers,
+      }));
+
+      return;
+
+    } catch (error) {
+      console.error(
+        "RETAILER DROPDOWN ERROR:",
+        error?.response?.data || error
+      );
+
+      setParentUsers((prev) => ({
+        ...prev,
+        6: [],
+      }));
+
+      toast.error(
+        "Retailer dropdown load failed"
+      );
+
+      return;
+    }
   }
 
   // ==========================================
@@ -654,7 +874,6 @@ const handleParentChange = async (parentRoleId, parentId) => {
     selectedId
   );
 };
-
 const handleSubmit = async (e) => {
   e.preventDefault();
 
@@ -849,21 +1068,25 @@ const handleSubmit = async (e) => {
     }
 
     // Retailer
-    if (
-      roleId === 6 &&
-      (
-        !finalHierarchy.parent_admin_id ||
-        !finalHierarchy.parent_cnf_id ||
-        !finalHierarchy.parent_super_distributor_id ||
-        !finalHierarchy.parent_distributor_id ||
-        !finalHierarchy.parent_fos_id
-      )
-    ) {
-      toast.error(
-        "Complete parent hierarchy is required"
-      );
-      return;
-    }
+   // ==========================================
+// RETAILER
+// FOS OPTIONAL
+// ==========================================
+
+if (
+  roleId === 6 &&
+  (
+    !finalHierarchy.parent_admin_id ||
+    !finalHierarchy.parent_cnf_id ||
+    !finalHierarchy.parent_super_distributor_id ||
+    !finalHierarchy.parent_distributor_id
+  )
+) {
+  toast.error(
+    "Admin, CNF, Super Distributor and Distributor parents are required"
+  );
+  return;
+}
 
     // Employee
     if (
@@ -994,141 +1217,64 @@ const handleSubmit = async (e) => {
 {selectedRole > 1 &&
   visibleParentRoles.length > 0 && (
     <>
-      <h3 className="text-[20px] font-bold text-blue-500 mb-1 mt-3">
-        Select Parent
-      </h3>
+      <div className="mb-5">
+        <label className="text-sm font-medium text-slate-700">
+          Select Parent
+        </label>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {visibleParentRoles.map((parentRoleId) => {
+          const users = parentUsers[parentRoleId] || [];
 
-        {visibleParentRoles.map(
-          (parentRoleId, index) => {
+          return (
+            <div
+              key={parentRoleId}
+              className="space-y-1.5"
+            >
+              <label className="text-sm font-medium text-slate-700">
+                {getRoleName(parentRoleId)}
+              </label>
 
-            // ==========================================
-            // PREVIOUS ROLE
-            // ==========================================
+              <div className="relative">
+                <select
+                  value={
+                    formData[`parent_${parentRoleId}`] || ""
+                  }
+                  onChange={(e) =>
+                    handleParentChange(
+                      parentRoleId,
+                      e.target.value
+                    )
+                  }
+                  required
+                  className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer"
+                >
+                  <option value="">
+                    Select {getRoleName(parentRoleId)}
+                  </option>
 
-            const previousRoleId =
-              visibleParentRoles[index - 1];
-
-            const previousSelectedId =
-              previousRoleId
-                ? formData[
-                    `parent_${previousRoleId}`
-                  ]
-                : true;
-
-            // ==========================================
-            // SPECIAL CASE
-            // Distributor selected
-            // FOS + Retailer both show
-            // ==========================================
-
-            let shouldShow = false;
-
-            // First dropdown
-            if (index === 0) {
-              shouldShow = true;
-            }
-
-            // ==========================================
-            // FOS / RETAILER
-            // ==========================================
-
-            if (
-              selectedRole > 4 &&
-              parentRoleId === 5 &&
-              formData.parent_distributor_id
-            ) {
-              shouldShow = true;
-            }
-
-            if (
-              selectedRole > 4 &&
-              parentRoleId === 6 &&
-              formData.parent_distributor_id
-            ) {
-              shouldShow = true;
-            }
-
-            // ==========================================
-            // NORMAL DROPDOWN
-            // ==========================================
-
-            if (
-              !shouldShow &&
-              previousSelectedId
-            ) {
-              shouldShow = true;
-            }
-
-            if (!shouldShow) {
-              return null;
-            }
-
-            // ==========================================
-            // USERS
-            // ==========================================
-
-            const users =
-              parentUsers[parentRoleId] || [];
-
-            return (
-              <div
-                key={parentRoleId}
-                className="space-y-1.5"
-              >
-                <label className="text-sm font-medium text-slate-700">
-                  {getRoleName(parentRoleId)}
-                </label>
-
-                <div className="relative">
-
-                  <select
-                    value={
-                      formData[
-                        `parent_${parentRoleId}`
-                      ] || ""
-                    }
-                    onChange={(e) =>
-                      handleParentChange(
-                        parentRoleId,
-                        e.target.value
-                      )
-                    }
-                    required
-                    className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer"
-                  >
-                    <option value="" >
-                      Select{" "}
-                      {getRoleName(parentRoleId)}
+                  {users.map((user) => (
+                    <option
+                      key={user.id}
+                      value={user.id}
+                    >
+                      {user.name}
                     </option>
+                  ))}
+                </select>
 
-                    {users.map((user) => (
-                      <option
-                        key={user.id}
-                        value={user.id}
-                        className="cursor-pointer"
-                      >
-                        {user.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <RiArrowDownSLine
-                    size={22}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-                  />
-
-                </div>
+                <RiArrowDownSLine
+                  size={22}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                />
               </div>
-            );
-          }
-        )}
-
+            </div>
+          );
+        })}
       </div>
     </>
-  )}
-
+)}
 </div>
           {/* Header */}
           {/* <div className="bg-gradient-to-r from-blue-400 to-indigo-400 px-8 py-6">
