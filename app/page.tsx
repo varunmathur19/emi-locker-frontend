@@ -2,11 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { login } from "@/services/api";
-import { saveToken, getToken } from "@/utils/token";
-import { RiEyeLine, RiEyeOffLine, RiMailLine, RiLockLine } from "react-icons/ri";
+import {
+  saveToken,
+  getToken,
+  saveUser,
+} from "@/utils/token";
+import {
+  RiEyeLine,
+  RiEyeOffLine,
+  RiMailLine,
+  RiLockLine,
+} from "react-icons/ri";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import axios from "axios";
 import type { ChangeEvent, FormEvent } from "react";
 
 export default function Page() {
@@ -21,7 +29,7 @@ export default function Page() {
 
   const [loading, setLoading] = useState(false);
 
-  // Halka fade-in effect ke liye (no library)
+  // Fade-in effect
   const [mounted, setMounted] = useState(false);
 
   // =====================================
@@ -31,9 +39,10 @@ export default function Page() {
     const token = getToken();
 
     // Agar already login hai
-    // toh "/" login page par nahi rehne dena
+    // toh login page par nahi rehne dena
     if (token) {
       router.replace("/dashboard");
+      return;
     }
 
     setMounted(true);
@@ -52,50 +61,109 @@ export default function Page() {
   // =====================================
   // LOGIN
   // =====================================
-const handleSubmit = async (e: FormEvent) => {
-  e.preventDefault();
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const res = await login(formData);
+      const res = await login(formData);
 
-    console.log("Login Response:", res);
+      console.log("Login Response:", res);
 
-    if (res.token) {
-      saveToken(res.token);
+      // =====================================
+      // LOGIN SUCCESS
+      // =====================================
+      if (res?.token) {
+        // Save JWT token
+        saveToken(res.token);
 
-      toast.success(res.message || "Login Successfully");
+        // =====================================
+        // SAVE USER DETAILS
+        // =====================================
+      if (res.user) {
+  saveUser({
+    id: res.user.id,
+    name: res.user.name,
+    email: res.user.email,
+    role_id: res.user.role_id,
 
-      router.replace("/dashboard");
-    } else {
-      toast.error("Invalid email or password");
+    // Common parent
+    parent_id: res.user.parent_id || null,
+
+    // Full hierarchy
+    parent_admin_id:
+      res.user.parent_admin_id || null,
+
+    parent_cnf_id:
+      res.user.parent_cnf_id || null,
+
+    parent_super_distributor_id:
+      res.user.parent_super_distributor_id || null,
+
+    parent_distributor_id:
+      res.user.parent_distributor_id || null,
+
+    parent_fos_id:
+      res.user.parent_fos_id || null,
+
+    parent_retailer_id:
+      res.user.parent_retailer_id || null,
+
+    parent_employee_id:
+      res.user.parent_employee_id || null,
+
+    parent_staff_id:
+      res.user.parent_staff_id || null,
+  });
+}
+
+        toast.success(res.message || "Login Successfully");
+
+        router.replace("/dashboard");
+      } else {
+        toast.error(
+          res?.message || "Invalid email or password"
+        );
+      }
+    } catch (error: any) {
+      console.error("Login Error:", error);
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Invalid email or password"
+      );
+    } finally {
+      setLoading(false);
     }
-  } catch (error: any) {
-    console.error("Login Error:", error);
-
-    toast.error("Invalid email or password");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <form
         onSubmit={handleSubmit}
-        className={`bg-white md:p-8 p-5 rounded-2xl shadow-xl md:w-96 w-none border border-gray-100 transition-all duration-700 ease-out ${
-          mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+        className={`bg-white md:p-8 p-5 rounded-2xl shadow-xl md:w-96 w-full border border-gray-100 transition-all duration-700 ease-out ${
+          mounted
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-4"
         }`}
       >
-        {/* Icon */}
-        <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-blue-600 flex items-center justify-center shadow-md shadow-blue-200">
-          <RiLockLine size={22} className="text-white" />
+        {/* ICON */}
+        <div className="flex justify-center mb-4">
+          <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center">
+            <RiLockLine
+              size={28}
+              className="text-blue-500"
+            />
+          </div>
         </div>
 
+        {/* TITLE */}
         <h2 className="text-3xl font-bold text-center text-gray-800 mb-1">
           Login
         </h2>
+
         <p className="text-center text-gray-400 text-sm mb-6">
           Welcome back, please enter your details
         </p>
@@ -111,12 +179,15 @@ const handleSubmit = async (e: FormEvent) => {
               size={18}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             />
+
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
               placeholder="Enter Email"
+              required
+              autoComplete="email"
               className="w-full border border-gray-200 rounded-md pl-10 pr-3 py-2 outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
           </div>
@@ -140,12 +211,17 @@ const handleSubmit = async (e: FormEvent) => {
               value={formData.password}
               onChange={handleChange}
               placeholder="Enter Password"
+              required
+              autoComplete="current-password"
               className="w-full border border-gray-200 rounded-md pl-10 pr-10 py-2 outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
 
+            {/* SHOW / HIDE PASSWORD */}
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
+              onClick={() =>
+                setShowPassword((prev) => !prev)
+              }
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-700 transition-colors cursor-pointer"
             >
               {showPassword ? (

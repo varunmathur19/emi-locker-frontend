@@ -1,6 +1,6 @@
 "use client";
 import {  addStaff, getDropdownUsers } from "@/services/api";
-import { getUserFromToken } from "@/utils/token";
+import { getUserFromToken,getUser  } from "@/utils/token";
 import { RiEyeLine, RiEyeOffLine , RiArrowDownSLine  } from "react-icons/ri";
 import Link from "next/link";
 import {
@@ -65,40 +65,43 @@ const loggedInRoleId = Number(loggedInUser?.role_id);
 };
 
 const parentRoles = {
-  2: [],             // CNF -> Admin internally
-  3: [2],            // Super -> CNF
-  4: [2, 3],         // Distributor -> CNF -> Super
-  5: [2, 3, 4],      // FOS -> CNF -> Super -> Distributor
-  6: [2, 3, 4, 5],   // Retailer -> CNF -> Super -> Distributor -> FOS
-  7: [2, 3, 4, 5, 6], // Employee -> CNF -> Super -> Distributor -> FOS -> Retailer
-  8: []              // Staff -> Admin internally
+  2: [],             // CNF
+  3: [2],            // Super Distributor -> CNF
+  4: [2, 3],         // Distributor -> CNF -> Super Distributor
+  5: [2, 3, 4],      // FOS -> CNF -> Super Distributor -> Distributor
+  6: [2, 3, 4, 5],    // Retailer
+  7: [2, 3, 4, 5, 6],// Employee
+  8: [],             // Staff
 };
 
-const visibleParentRoles = (parentRoles[selectedRole] || []).filter(
-  (roleId) => {
-    // Admin ko dropdown mein nahi dikhana
-    if (roleId === 1) return false;
+const visibleParentRoles = (
+  parentRoles[selectedRole] || []
+).filter((roleId) => {
+  // Admin dropdown kabhi nahi dikhana
+  if (roleId === 1) return false;
 
-    // Logged-in role aur uske upar wale roles hide
-    if (roleId <= loggedInRoleId) return false;
+  // Logged-in user ka own role dropdown nahi dikhana
+  if (roleId === loggedInRoleId) return false;
 
-    return true;
-  }
-);
+  // Logged-in user ke upar wale roles nahi dikhane
+  if (roleId < loggedInRoleId) return false;
+
+  return true;
+});
 
 const loadParentUsers = async (roleId, parentId = null) => {
   try {
-    console.log("Loading Dropdown");
-    console.log("Role ID:", roleId);
-    console.log("Parent ID:", parentId);
+    // console.log("Loading Dropdown");
+    // console.log("Role ID:", roleId);
+    // console.log("Parent ID:", parentId);
 
     const res = await getDropdownUsers(
       Number(roleId),
       parentId ? Number(parentId) : null
     );
 
-    console.log("API Response:", res);
-    console.log("API Data:", res?.data);
+    // console.log("API Response:", res);
+    // console.log("API Data:", res?.data);
 
     // API response handle
     const users =
@@ -108,7 +111,7 @@ const loadParentUsers = async (roleId, parentId = null) => {
         ? res.data.data
         : [];
 
-    console.log("Users for dropdown:", users);
+    // console.log("Users for dropdown:", users);
 
     setParentUsers((prev) => ({
       ...prev,
@@ -135,71 +138,95 @@ useEffect(() => {
     return;
   }
 
-  const userId = Number(user.id);
-  const userRoleId = Number(user.role_id);
+  setFormData((prev) => ({
+    ...prev,
 
-  console.log("=================================");
-  console.log("LOGGED USER");
-  console.log("User ID:", userId);
-  console.log("User Role:", userRoleId);
-  console.log("Creating Role:", selectedRole);
+    // ==========================================
+    // LOGGED-IN USER KI EXISTING HIERARCHY
+    // ==========================================
 
-  // ==========================================
-  // LOGGED-IN USER KO AUTOMATIC PARENT SET KARO
-  // ==========================================
+    parent_admin_id: user.parent_admin_id
+      ? Number(user.parent_admin_id)
+      : null,
 
-  setFormData((prev) => {
-    const updated = { ...prev };
+    parent_cnf_id: user.parent_cnf_id
+      ? Number(user.parent_cnf_id)
+      : null,
 
-    if (userRoleId === 1) {
-      updated.parent_admin_id = userId;
-    }
+    parent_super_distributor_id:
+      user.parent_super_distributor_id
+        ? Number(user.parent_super_distributor_id)
+        : null,
 
-    if (userRoleId === 2) {
-      updated.parent_cnf_id = userId;
-    }
+    parent_distributor_id:
+      user.parent_distributor_id
+        ? Number(user.parent_distributor_id)
+        : null,
 
-    if (userRoleId === 3) {
-      updated.parent_super_distributor_id = userId;
-    }
+    parent_fos_id: user.parent_fos_id
+      ? Number(user.parent_fos_id)
+      : null,
 
-    if (userRoleId === 4) {
-      updated.parent_distributor_id = userId;
-    }
+    parent_retailer_id: user.parent_retailer_id
+      ? Number(user.parent_retailer_id)
+      : null,
 
-    if (userRoleId === 5) {
-      updated.parent_fos_id = userId;
-    }
+    parent_employee_id: user.parent_employee_id
+      ? Number(user.parent_employee_id)
+      : null,
 
-    if (userRoleId === 6) {
-      updated.parent_retailer_id = userId;
-    }
+    parent_staff_id: user.parent_staff_id
+      ? Number(user.parent_staff_id)
+      : null,
 
-    if (userRoleId === 7) {
-      updated.parent_employee_id = userId;
-    }
+    // ==========================================
+    // LOGGED-IN USER KHUD APNE ROLE KA PARENT
+    // ==========================================
 
-    if (userRoleId === 8) {
-      updated.parent_staff_id = userId;
-    }
+    ...(Number(user.role_id) === 1 && {
+      parent_admin_id: Number(user.id),
+    }),
 
-    return updated;
-  });
+    ...(Number(user.role_id) === 2 && {
+      parent_cnf_id: Number(user.id),
+    }),
 
-  // ==========================================
-  // VISIBLE PARENT DROPDOWN LOAD KARO
-  // ==========================================
+    ...(Number(user.role_id) === 3 && {
+      parent_super_distributor_id: Number(user.id),
+    }),
+
+    ...(Number(user.role_id) === 4 && {
+      parent_distributor_id: Number(user.id),
+    }),
+
+    ...(Number(user.role_id) === 5 && {
+      parent_fos_id: Number(user.id),
+    }),
+
+    ...(Number(user.role_id) === 6 && {
+      parent_retailer_id: Number(user.id),
+    }),
+
+    ...(Number(user.role_id) === 7 && {
+      parent_employee_id: Number(user.id),
+    }),
+
+    ...(Number(user.role_id) === 8 && {
+      parent_staff_id: Number(user.id),
+    }),
+  }));
 
   const parents = visibleParentRoles;
 
   if (!parents.length) return;
 
+  // ==========================================
+  // FIRST DROPDOWN LOAD
+  // ==========================================
+
   const firstParentRole = parents[0];
 
-  console.log("First Visible Parent:", firstParentRole);
-
   loadParentUsers(firstParentRole, null);
-
 }, [selectedRole, loggedInRoleId]);
 const getRoleName = (roleId) => {
   const roles = {
@@ -271,53 +298,47 @@ const cities =
       return updated;
     });
   };
-const handleParentChange = async (
-  parentRoleId,
-  parentId
-) => {
+const handleParentChange = async (parentRoleId, parentId) => {
+  const currentRoleId = Number(parentRoleId);
+  const selectedId = parentId ? Number(parentId) : null;
 
-  // IMPORTANT:
-  // Ab complete hierarchy nahi,
-  // sirf visible hierarchy use hogi
   const parents = visibleParentRoles;
-
-  const currentIndex =
-    parents.indexOf(Number(parentRoleId));
-
-  const selectedId =
-    parentId
-      ? Number(parentId)
-      : null;
+  const currentIndex = parents.indexOf(currentRoleId);
 
   console.log("=================================");
   console.log("PARENT CHANGED");
   console.log("Logged User Role:", loggedInRoleId);
   console.log("Selected Role:", selectedRole);
-  console.log("Selected Parent Role:", parentRoleId);
+  console.log("Selected Parent Role:", currentRoleId);
   console.log("Selected Parent ID:", selectedId);
 
-  // Selected user
-  const selectedUser =
-    (parentUsers[parentRoleId] || []).find(
-      (user) =>
-        Number(user.id) === selectedId
-    );
+  // ==========================================
+  // SELECTED USER
+  // ==========================================
+
+  const selectedUser = (
+    parentUsers[currentRoleId] || []
+  ).find(
+    (user) => Number(user.id) === selectedId
+  );
 
   console.log("Selected User:", selectedUser);
 
-  setFormData((prev) => {
+  // ==========================================
+  // UPDATE FORM DATA / HIERARCHY
+  // ==========================================
 
+  setFormData((prev) => {
     const updated = {
       ...prev,
-      [`parent_${parentRoleId}`]: selectedId,
+      [`parent_${currentRoleId}`]: selectedId,
     };
 
     // ==========================================
-    // CNF SELECTED
+    // CNF
     // ==========================================
 
-    if (Number(parentRoleId) === 2) {
-
+    if (currentRoleId === 2) {
       updated.parent_cnf_id = selectedId;
 
       updated.parent_admin_id =
@@ -327,11 +348,10 @@ const handleParentChange = async (
     }
 
     // ==========================================
-    // SUPER DISTRIBUTOR SELECTED
+    // SUPER DISTRIBUTOR
     // ==========================================
 
-    if (Number(parentRoleId) === 3) {
-
+    if (currentRoleId === 3) {
       updated.parent_super_distributor_id =
         selectedId;
 
@@ -347,11 +367,10 @@ const handleParentChange = async (
     }
 
     // ==========================================
-    // DISTRIBUTOR SELECTED
+    // DISTRIBUTOR
     // ==========================================
 
-    if (Number(parentRoleId) === 4) {
-
+    if (currentRoleId === 4) {
       updated.parent_distributor_id =
         selectedId;
 
@@ -371,16 +390,19 @@ const handleParentChange = async (
               selectedUser.parent_super_distributor_id
             )
           : updated.parent_super_distributor_id;
+
+      // Distributor change hone par
+      // FOS + Retailer clear
+      updated.parent_fos_id = null;
+      updated.parent_retailer_id = null;
     }
 
     // ==========================================
-    // FOS SELECTED
+    // FOS
     // ==========================================
 
-    if (Number(parentRoleId) === 5) {
-
-      updated.parent_fos_id =
-        selectedId;
+    if (currentRoleId === 5) {
+      updated.parent_fos_id = selectedId;
 
       updated.parent_admin_id =
         selectedUser?.parent_admin_id
@@ -405,16 +427,56 @@ const handleParentChange = async (
               selectedUser.parent_distributor_id
             )
           : updated.parent_distributor_id;
+
+      // FOS change hone par retailer reset
+      updated.parent_retailer_id = null;
     }
 
     // ==========================================
-    // RETAILER SELECTED
+    // RETAILER
     // ==========================================
 
-    if (Number(parentRoleId) === 6) {
+    if (currentRoleId === 6) {
+      updated.parent_retailer_id = selectedId;
 
-      updated.parent_retailer_id =
-        selectedId;
+      updated.parent_admin_id =
+        selectedUser?.parent_admin_id
+          ? Number(selectedUser.parent_admin_id)
+          : updated.parent_admin_id;
+
+      updated.parent_cnf_id =
+        selectedUser?.parent_cnf_id
+          ? Number(selectedUser.parent_cnf_id)
+          : updated.parent_cnf_id;
+
+      updated.parent_super_distributor_id =
+        selectedUser?.parent_super_distributor_id
+          ? Number(
+              selectedUser.parent_super_distributor_id
+            )
+          : updated.parent_super_distributor_id;
+
+      updated.parent_distributor_id =
+        selectedUser?.parent_distributor_id
+          ? Number(
+              selectedUser.parent_distributor_id
+            )
+          : updated.parent_distributor_id;
+
+      // Direct Distributor -> Retailer
+      // mein FOS null rahega.
+      updated.parent_fos_id =
+        selectedUser?.parent_fos_id
+          ? Number(selectedUser.parent_fos_id)
+          : null;
+    }
+
+    // ==========================================
+    // EMPLOYEE
+    // ==========================================
+
+    if (currentRoleId === 7) {
+      updated.parent_employee_id = selectedId;
 
       updated.parent_admin_id =
         selectedUser?.parent_admin_id
@@ -444,37 +506,360 @@ const handleParentChange = async (
         selectedUser?.parent_fos_id
           ? Number(selectedUser.parent_fos_id)
           : updated.parent_fos_id;
+
+      updated.parent_retailer_id =
+        selectedUser?.parent_retailer_id
+          ? Number(selectedUser.parent_retailer_id)
+          : updated.parent_retailer_id;
     }
 
     return updated;
   });
 
   // ==========================================
-  // CLEAR NEXT DROPDOWNS
+  // CLEAR NEXT DROPDOWN DATA
   // ==========================================
 
   const updatedParentUsers = {
     ...parentUsers,
   };
 
-  parents
-    .slice(currentIndex + 1)
-    .forEach((roleId) => {
-      updatedParentUsers[roleId] = [];
-    });
+  if (currentIndex !== -1) {
+    parents
+      .slice(currentIndex + 1)
+      .forEach((roleId) => {
+        updatedParentUsers[roleId] = [];
+      });
+  }
 
   setParentUsers(updatedParentUsers);
 
   // ==========================================
-  // EMPTY SELECTION
+  // NO SELECTION
   // ==========================================
 
   if (!selectedId) {
     return;
   }
 
+  // ==================================================
+  // DISTRIBUTOR SELECTED
+  //
+  // Distributor
+  //      |
+  //      +---- FOS ----> Retailer
+  //      |
+  //      +---- Retailer
+  //
+  // Dono APIs call hongi.
+  // ==================================================
+
+  if (currentRoleId === 4) {
+    try {
+      console.log("=================================");
+      console.log("DISTRIBUTOR SELECTED");
+      console.log("Distributor ID:", selectedId);
+
+      // ==========================================
+      // CLEAR OLD DATA
+      // ==========================================
+
+      setParentUsers((prev) => ({
+        ...prev,
+        5: [],
+        6: [],
+      }));
+
+      // ==========================================
+      // CALL BOTH APIs
+      // ==========================================
+
+      const [
+        fosResponse,
+        retailerResponse,
+      ] = await Promise.all([
+        getDropdownUsers(5, selectedId),
+        getDropdownUsers(6, selectedId),
+      ]);
+
+      console.log(
+        "FOS RESPONSE:",
+        fosResponse
+      );
+
+      console.log(
+        "DIRECT RETAILER RESPONSE:",
+        retailerResponse
+      );
+
+      // ==========================================
+      // RESPONSE DATA HELPER
+      // ==========================================
+
+      const getUsersFromResponse = (response) => {
+        if (
+          Array.isArray(response?.data)
+        ) {
+          return response.data;
+        }
+
+        if (
+          Array.isArray(
+            response?.data?.data
+          )
+        ) {
+          return response.data.data;
+        }
+
+        if (
+          Array.isArray(
+            response?.data?.users
+          )
+        ) {
+          return response.data.users;
+        }
+
+        if (
+          Array.isArray(response?.users)
+        ) {
+          return response.users;
+        }
+
+        return [];
+      };
+
+      // ==========================================
+      // GET FOS
+      // ==========================================
+
+      const fosUsers =
+        getUsersFromResponse(
+          fosResponse
+        );
+
+      // ==========================================
+      // GET DIRECT RETAILER
+      // ==========================================
+
+      const directRetailerUsers =
+        getUsersFromResponse(
+          retailerResponse
+        );
+
+      console.log(
+        "FOS USERS:",
+        fosUsers
+      );
+
+      console.log(
+        "DIRECT RETAILER USERS:",
+        directRetailerUsers
+      );
+
+      // ==================================================
+      // CASE 1
+      // FOS AVAILABLE
+      //
+      // Distributor
+      //      ↓
+      //     FOS
+      //      ↓
+      //   Retailer
+      // ==================================================
+
+      if (fosUsers.length > 0) {
+        console.log(
+          "✅ FOS FOUND"
+        );
+
+        console.log(
+          "FOS dropdown show hoga"
+        );
+
+        console.log(
+          "Retailer FOS select ke baad show hoga"
+        );
+
+        setParentUsers((prev) => ({
+          ...prev,
+
+          // FOS show
+          5: fosUsers,
+
+          // Direct retailer temporarily hide
+          6: [],
+        }));
+
+        return;
+      }
+
+      // ==================================================
+      // CASE 2
+      // FOS AVAILABLE NAHI HAI
+      //
+      // Distributor
+      //      ↓
+      //   Retailer
+      // ==================================================
+
+      console.log(
+        "❌ NO FOS FOUND"
+      );
+
+      console.log(
+        "✅ DIRECT RETAILER MODE"
+      );
+
+      setParentUsers((prev) => ({
+        ...prev,
+
+        // FOS empty
+        5: [],
+
+        // Direct retailer show
+        6: directRetailerUsers,
+      }));
+
+      return;
+
+    } catch (error) {
+      console.error(
+        "DISTRIBUTOR DROPDOWN ERROR:",
+        error?.response?.data || error
+      );
+
+      setParentUsers((prev) => ({
+        ...prev,
+        5: [],
+        6: [],
+      }));
+
+      toast.error(
+        "FOS / Retailer dropdown load failed"
+      );
+
+      return;
+    }
+  }
+
+  // ==================================================
+  // FOS SELECTED
+  //
+  // FOS
+  //  ↓
+  // Retailer
+  // ==================================================
+
+  if (currentRoleId === 5) {
+    try {
+      console.log("=================================");
+      console.log("FOS SELECTED");
+      console.log("FOS ID:", selectedId);
+
+      // ==========================================
+      // CLEAR OLD RETAILER
+      // ==========================================
+
+      setParentUsers((prev) => ({
+        ...prev,
+        6: [],
+      }));
+
+      // ==========================================
+      // LOAD RETAILERS UNDER FOS
+      // ==========================================
+
+      const retailerResponse =
+        await getDropdownUsers(
+          6,
+          selectedId
+        );
+
+      console.log(
+        "RETAILER RESPONSE:",
+        retailerResponse
+      );
+
+      // ==========================================
+      // EXTRACT DATA
+      // ==========================================
+
+      const getUsersFromResponse = (
+        response
+      ) => {
+        if (
+          Array.isArray(response?.data)
+        ) {
+          return response.data;
+        }
+
+        if (
+          Array.isArray(
+            response?.data?.data
+          )
+        ) {
+          return response.data.data;
+        }
+
+        if (
+          Array.isArray(
+            response?.data?.users
+          )
+        ) {
+          return response.data.users;
+        }
+
+        if (
+          Array.isArray(response?.users)
+        ) {
+          return response.users;
+        }
+
+        return [];
+      };
+
+      const retailerUsers =
+        getUsersFromResponse(
+          retailerResponse
+        );
+
+      console.log(
+        "RETAILERS UNDER FOS:",
+        retailerUsers
+      );
+
+      // ==========================================
+      // SHOW RETAILER
+      // ==========================================
+
+      setParentUsers((prev) => ({
+        ...prev,
+        6: retailerUsers,
+      }));
+
+      return;
+
+    } catch (error) {
+      console.error(
+        "RETAILER DROPDOWN ERROR:",
+        error?.response?.data || error
+      );
+
+      setParentUsers((prev) => ({
+        ...prev,
+        6: [],
+      }));
+
+      toast.error(
+        "Retailer dropdown load failed"
+      );
+
+      return;
+    }
+  }
+
   // ==========================================
-  // NEXT PARENT
+  // NORMAL NEXT DROPDOWN
   // ==========================================
 
   const nextRoleId =
@@ -489,7 +874,6 @@ const handleParentChange = async (
     selectedId
   );
 };
-
 const handleSubmit = async (e) => {
   e.preventDefault();
 
@@ -500,65 +884,232 @@ const handleSubmit = async (e) => {
     return;
   }
 
-  const user = getUserFromToken();
+  const tokenUser = getUserFromToken();
 
-  if (!user?.id) {
+  if (!tokenUser?.id) {
     toast.error("Logged-in user not found");
     return;
   }
 
+  const loggedUserId = Number(tokenUser.id);
+  const loggedUserRoleId = Number(tokenUser.role_id);
+
   console.log("=================================");
   console.log("SUBMIT FORM");
-  console.log("Logged User:", user);
-  console.log("Logged User ID:", user.id);
-  console.log("Logged User Role:", user.role_id);
+  console.log("TOKEN USER:", tokenUser);
+  console.log("Logged User ID:", loggedUserId);
+  console.log("Logged User Role:", loggedUserRoleId);
   console.log("Creating Role:", roleId);
-  console.log("Form Data Before Submit:", formData);
 
-  // =====================================================
-  // ADMIN -> CNF
-  // =====================================================
+  // ==========================================
+  // GET COMPLETE HIERARCHY FROM TOKEN
+  // ==========================================
 
-  if (
-    roleId === 2 &&
-    Number(user.role_id) === 1
-  ) {
-    formData.parent_admin_id = Number(user.id);
+  const hierarchy = {
+    parent_admin_id: tokenUser.parent_admin_id
+      ? Number(tokenUser.parent_admin_id)
+      : null,
+
+    parent_cnf_id: tokenUser.parent_cnf_id
+      ? Number(tokenUser.parent_cnf_id)
+      : null,
+
+    parent_super_distributor_id:
+      tokenUser.parent_super_distributor_id
+        ? Number(tokenUser.parent_super_distributor_id)
+        : null,
+
+    parent_distributor_id:
+      tokenUser.parent_distributor_id
+        ? Number(tokenUser.parent_distributor_id)
+        : null,
+
+    parent_fos_id: tokenUser.parent_fos_id
+      ? Number(tokenUser.parent_fos_id)
+      : null,
+
+    parent_retailer_id: tokenUser.parent_retailer_id
+      ? Number(tokenUser.parent_retailer_id)
+      : null,
+
+    parent_employee_id: tokenUser.parent_employee_id
+      ? Number(tokenUser.parent_employee_id)
+      : null,
+
+    parent_staff_id: tokenUser.parent_staff_id
+      ? Number(tokenUser.parent_staff_id)
+      : null,
+  };
+
+  // ==========================================
+  // LOGGED-IN USER IS PARENT
+  // ==========================================
+
+  const roleParentField = {
+    1: "parent_admin_id",
+    2: "parent_cnf_id",
+    3: "parent_super_distributor_id",
+    4: "parent_distributor_id",
+    5: "parent_fos_id",
+    6: "parent_retailer_id",
+    7: "parent_employee_id",
+    8: "parent_staff_id",
+  };
+
+  const ownParentField = roleParentField[loggedUserRoleId];
+
+  if (ownParentField) {
+    hierarchy[ownParentField] = loggedUserId;
   }
 
-  // =====================================================
-  // ADMIN -> STAFF
-  // =====================================================
+  // ==========================================
+  // MERGE FORM SELECTED PARENTS
+  // ==========================================
 
-  if (
-    roleId === 8 &&
-    Number(user.role_id) === 1
-  ) {
-    formData.parent_admin_id = Number(user.id);
-  }
+  const finalHierarchy = {
+    ...hierarchy,
 
-  // =====================================================
-  // PARENT VALIDATION
-  // =====================================================
+    parent_admin_id: formData.parent_admin_id
+      ? Number(formData.parent_admin_id)
+      : hierarchy.parent_admin_id,
 
- const parents = visibleParentRoles;
+    parent_cnf_id: formData.parent_cnf_id
+      ? Number(formData.parent_cnf_id)
+      : hierarchy.parent_cnf_id,
 
-for (const parentRoleId of parents) {
-  const parentValue =
-    formData[`parent_${parentRoleId}`];
+    parent_super_distributor_id:
+      formData.parent_super_distributor_id
+        ? Number(formData.parent_super_distributor_id)
+        : hierarchy.parent_super_distributor_id,
 
-  if (!parentValue) {
-    toast.error(
-      `Please select ${getRoleName(parentRoleId)}`
-    );
+    parent_distributor_id: formData.parent_distributor_id
+      ? Number(formData.parent_distributor_id)
+      : hierarchy.parent_distributor_id,
 
-    return;
-  }
+    parent_fos_id: formData.parent_fos_id
+      ? Number(formData.parent_fos_id)
+      : hierarchy.parent_fos_id,
+
+    parent_retailer_id: formData.parent_retailer_id
+      ? Number(formData.parent_retailer_id)
+      : hierarchy.parent_retailer_id,
+
+    parent_employee_id: formData.parent_employee_id
+      ? Number(formData.parent_employee_id)
+      : hierarchy.parent_employee_id,
+
+    parent_staff_id: formData.parent_staff_id
+      ? Number(formData.parent_staff_id)
+      : hierarchy.parent_staff_id,
+  };
+
+  console.log("=================================");
+  console.log("FINAL HIERARCHY");
+  console.log(finalHierarchy);
+
+  // ==========================================
+  // REQUIRED PARENT VALIDATION
+  // ==========================================
+
+  if (roleId > 1) {
+
+    // CNF
+    if (
+      roleId === 2 &&
+      !finalHierarchy.parent_admin_id
+    ) {
+      toast.error("parent_admin_id is required");
+      return;
+    }
+
+    // Super Distributor
+    if (
+      roleId === 3 &&
+      (
+        !finalHierarchy.parent_admin_id ||
+        !finalHierarchy.parent_cnf_id
+      )
+    ) {
+      toast.error(
+        "Admin and CNF parent are required"
+      );
+      return;
+    }
+
+    // Distributor
+    if (
+      roleId === 4 &&
+      (
+        !finalHierarchy.parent_admin_id ||
+        !finalHierarchy.parent_cnf_id ||
+        !finalHierarchy.parent_super_distributor_id
+      )
+    ) {
+      toast.error(
+        "Admin, CNF and Super Distributor parents are required"
+      );
+      return;
+    }
+
+    // FOS
+    if (
+      roleId === 5 &&
+      (
+        !finalHierarchy.parent_admin_id ||
+        !finalHierarchy.parent_cnf_id ||
+        !finalHierarchy.parent_super_distributor_id ||
+        !finalHierarchy.parent_distributor_id
+      )
+    ) {
+      toast.error(
+        "Complete parent hierarchy is required"
+      );
+      return;
+    }
+
+    // Retailer
+   // ==========================================
+// RETAILER
+// FOS OPTIONAL
+// ==========================================
+
+if (
+  roleId === 6 &&
+  (
+    !finalHierarchy.parent_admin_id ||
+    !finalHierarchy.parent_cnf_id ||
+    !finalHierarchy.parent_super_distributor_id ||
+    !finalHierarchy.parent_distributor_id
+  )
+) {
+  toast.error(
+    "Admin, CNF, Super Distributor and Distributor parents are required"
+  );
+  return;
 }
 
-  // =====================================================
-  // PASSWORD VALIDATION
-  // =====================================================
+    // Employee
+    if (
+      roleId === 7 &&
+      (
+        !finalHierarchy.parent_admin_id ||
+        !finalHierarchy.parent_cnf_id ||
+        !finalHierarchy.parent_super_distributor_id ||
+        !finalHierarchy.parent_distributor_id ||
+        !finalHierarchy.parent_fos_id ||
+        !finalHierarchy.parent_retailer_id
+      )
+    ) {
+      toast.error(
+        "Complete parent hierarchy is required"
+      );
+      return;
+    }
+  }
+
+  // ==========================================
+  // PASSWORD
+  // ==========================================
 
   if (
     formData.password !==
@@ -567,110 +1118,63 @@ for (const parentRoleId of parents) {
     toast.error(
       "Password and Confirm Password do not match!"
     );
-
     return;
   }
 
-  // =====================================================
-  // CREATE FINAL PAYLOAD
-  // =====================================================
+  // ==========================================
+  // FINAL PAYLOAD
+  // ==========================================
 
   const payload = {
     ...formData,
 
     role_id: roleId,
 
-    // Make sure parent IDs are numbers
-   parent_admin_id:
-  formData.parent_admin_id
-    ? Number(formData.parent_admin_id)
-    : null,
+    // Complete hierarchy
+    parent_admin_id:
+      finalHierarchy.parent_admin_id,
 
-parent_cnf_id:
-  formData.parent_cnf_id
-    ? Number(formData.parent_cnf_id)
-    : null,
+    parent_cnf_id:
+      finalHierarchy.parent_cnf_id,
 
-parent_super_distributor_id:
-  formData.parent_super_distributor_id
-    ? Number(formData.parent_super_distributor_id)
-    : null,
+    parent_super_distributor_id:
+      finalHierarchy.parent_super_distributor_id,
 
-parent_distributor_id:
-  formData.parent_distributor_id
-    ? Number(formData.parent_distributor_id)
-    : null,
+    parent_distributor_id:
+      finalHierarchy.parent_distributor_id,
 
-parent_fos_id:
-  formData.parent_fos_id
-    ? Number(formData.parent_fos_id)
-    : null,
+    parent_fos_id:
+      finalHierarchy.parent_fos_id,
 
-parent_retailer_id:
-  formData.parent_retailer_id
-    ? Number(formData.parent_retailer_id)
-    : null,
+    parent_retailer_id:
+      finalHierarchy.parent_retailer_id,
 
-parent_employee_id:
-  formData.parent_employee_id
-    ? Number(formData.parent_employee_id)
-    : null,
+    parent_employee_id:
+      finalHierarchy.parent_employee_id,
 
-parent_staff_id:
-  formData.parent_staff_id
-    ? Number(formData.parent_staff_id)
-    : null,
+    parent_staff_id:
+      finalHierarchy.parent_staff_id,
+
+    // Optional common parent
+    parent_id:
+      roleParentField[loggedUserRoleId]
+        ? loggedUserId
+        : null,
   };
 
-  console.log(
-    "FINAL PAYLOAD:",
-    payload
-  );
+  console.log("=================================");
+  console.log("FINAL PAYLOAD");
+  console.log(payload);
 
   try {
-
     const res = await addStaff(payload);
 
-    console.log(
-      "Staff Created:",
-      res
-    );
+    console.log("Staff Created:", res);
 
     toast.success(
       res?.message ||
       "Staff Created Successfully"
     );
-
-    setFormData({
-      organization_name: "",
-      role_id: roleId,
-      name: "",
-      email: "",
-      phone: "",
-      password: "",
-      confirm_password: "",
-      company_address: "",
-      country: "",
-      state: "",
-      city: "",
-
-      parent_admin_id: null,
-      parent_cnf_id: null,
-      parent_super_distributor_id: null,
-      parent_distributor_id: null,
-      parent_fos_id: null,
-      parent_retailer_id: null,
-      parent_employee_id: null,
-      parent_staff_id: null,
-
-      new_device: 0,
-      old_device: 0,
-      supreme_device: 0,
-      pro_star: 0,
-      lite: 0,
-      google_tv: 0,
-      supreme_lock: 0,
-    });
 
   } catch (error) {
 
@@ -708,100 +1212,69 @@ parent_staff_id:
   {/* Parent Role Dropdowns */}
 {/* Parent Role Dropdowns */}
 
+{/* Parent Role Dropdowns */}
+
 {selectedRole > 1 &&
   visibleParentRoles.length > 0 && (
+    <>
+      <div className="py-3">
+        <label className="text-[20px] font-medium text-blue-700">
+          Select Parent
+        </label>
+      </div>
 
-  <div className="mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {visibleParentRoles.map((parentRoleId) => {
+          const users = parentUsers[parentRoleId] || [];
 
-    <h3 className="text-[20px] font-bold text-blue-500 mb-3">
-      Select Parent
-    </h3>
+          return (
+            <div
+              key={parentRoleId}
+              className="space-y-1.5"
+            >
+              <label className="text-sm font-medium text-slate-700">
+                {getRoleName(parentRoleId)}
+              </label>
 
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-      {visibleParentRoles.map((parentRoleId, index) => {
-
-        // Previous parent role
-        const previousRoleId =
-          visibleParentRoles[index - 1];
-
-        // Previous parent selected hai ya nahi
-        const previousSelectedId =
-          previousRoleId
-            ? formData[`parent_${previousRoleId}`]
-            : true;
-
-        // Current role ke users
-        const users =
-          parentUsers[parentRoleId] || [];
-
-        // First dropdown hamesha show
-        // Next dropdown previous selection ke baad show
-        const shouldShow =
-          index === 0 ||
-          Boolean(previousSelectedId);
-
-        if (!shouldShow) {
-          return null;
-        }
-
-        return (
-          <div
-            key={parentRoleId}
-            className="space-y-1.5"
-          >
-
-            <label className="text-sm font-medium text-slate-700">
-              {getRoleName(parentRoleId)}
-            </label>
-
-            <div className="relative">
-
-              <select
-                value={
-                  formData[`parent_${parentRoleId}`] || ""
-                }
-                onChange={(e) =>
-                  handleParentChange(
-                    parentRoleId,
-                    e.target.value
-                  )
-                }
-                required
-                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white"
-              >
-
-                <option value="">
-                  Select {getRoleName(parentRoleId)}
-                </option>
-
-                {users.map((user) => (
-                  <option
-                    key={user.id}
-                    value={user.id}
-                  >
-                    {user.name}
+              <div className="relative">
+                <select
+                  value={
+                    formData[`parent_${parentRoleId}`] || ""
+                  }
+                  onChange={(e) =>
+                    handleParentChange(
+                      parentRoleId,
+                      e.target.value
+                    )
+                  }
+                  required
+                  className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer"
+                >
+                  <option value="">
+                    Select {getRoleName(parentRoleId)}
                   </option>
-                ))}
 
-              </select>
+                  {users.map((user) => (
+                    <option
+                      key={user.id}
+                      value={user.id}
+                    >
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
 
-              <RiArrowDownSLine
-                size={22}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-              />
-
+                <RiArrowDownSLine
+                  size={22}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                />
+              </div>
             </div>
-
-          </div>
-        );
-      })}
-
-    </div>
-
-  </div>
+          );
+        })}
+      </div>
+    </>
 )}
-
 </div>
           {/* Header */}
           {/* <div className="bg-gradient-to-r from-blue-400 to-indigo-400 px-8 py-6">
@@ -1103,7 +1576,7 @@ parent_staff_id:
                 type="submit"
                 className="bg-blue-400 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98] cursor-pointer"
               >
-                Create Staff
+                Create 
               </button>
             </div>
           </form>
