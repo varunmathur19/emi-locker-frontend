@@ -1576,7 +1576,7 @@ if (
                 type="submit"
                 className="bg-blue-400 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98] cursor-pointer"
               >
-                Create Staff
+                Create 
               </button>
             </div>
           </form>
