@@ -1218,8 +1218,8 @@ if (
   visibleParentRoles.length > 0 && (
     <>
       <div className="py-3">
-        <label className="text-[20px] font-medium text-blue-700">
-          Select Parent
+        <label className="text-[20px] font-semibold text-blue-500">
+          Select Parent   
         </label>
       </div>
 
