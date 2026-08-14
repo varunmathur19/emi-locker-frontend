@@ -50,6 +50,7 @@ export default function Page() {
 const [formData, setFormData] = useState(initialFormData);
 
   const [parentUsers, setParentUsers] = useState({});
+  const [cnfAdmin, setCnfAdmin] = useState(null);
   const searchParams = useSearchParams();
   const selectedRole = Number(searchParams.get("role_id"));
 
@@ -68,7 +69,7 @@ const loggedInRoleId = Number(loggedInUser?.role_id);
 };
 
 const parentRoles = {
-  2: [],             // CNF
+  2: [1],             // CNF
   3: [2],            // Super Distributor -> CNF
   4: [2, 3],         // Distributor -> CNF -> Super Distributor
   5: [2, 3, 4],      // FOS -> CNF -> Super Distributor -> Distributor
@@ -80,14 +81,24 @@ const parentRoles = {
 const visibleParentRoles = (
   parentRoles[selectedRole] || []
 ).filter((roleId) => {
-  // Admin dropdown kabhi nahi dikhana
-  if (roleId === 1) return false;
+
+  // ==========================================
+  // CNF CREATE KARTE TIME
+  // ADMIN KA DROPDOWN NAHI DIKHANA
+  // ==========================================
+  if (Number(selectedRole) === 2 && roleId === 1) {
+    return false;
+  }
 
   // Logged-in user ka own role dropdown nahi dikhana
-  if (roleId === loggedInRoleId) return false;
+  if (roleId === loggedInRoleId) {
+    return false;
+  }
 
   // Logged-in user ke upar wale roles nahi dikhane
-  if (roleId < loggedInRoleId) return false;
+  if (roleId < loggedInRoleId) {
+    return false;
+  }
 
   return true;
 });
@@ -141,12 +152,12 @@ useEffect(() => {
     return;
   }
 
+  // ==========================================
+  // EXISTING LOGGED-IN USER HIERARCHY
+  // ==========================================
+
   setFormData((prev) => ({
     ...prev,
-
-    // ==========================================
-    // LOGGED-IN USER KI EXISTING HIERARCHY
-    // ==========================================
 
     parent_admin_id: user.parent_admin_id
       ? Number(user.parent_admin_id)
@@ -219,7 +230,108 @@ useEffect(() => {
     }),
   }));
 
+  // ==========================================
+  // PARENT ROLES
+  // ==========================================
+
   const parents = visibleParentRoles;
+
+  // ==========================================
+  // CNF CREATE CASE
+  // ==========================================
+  // CNF ka parent sirf Admin hai.
+  //
+  // Pehle Admin dropdown API call hoti thi.
+  // Ab wahi API call hogi, lekin dropdown ki jagah
+  // Admin ka naam show karenge.
+  // ==========================================
+
+  if (Number(selectedRole) === 2) {
+    const loadAdminForCNF = async () => {
+      try {
+        console.log("=================================");
+        console.log("CNF CREATE");
+        console.log("ADMIN API CALL");
+
+        // ==========================================
+        // ADMIN API
+        // role_id = 1
+        // parent_id = null
+        // ==========================================
+
+        const res = await getDropdownUsers(1, null);
+
+        console.log("ADMIN API RESPONSE:", res);
+
+        // ==========================================
+        // RESPONSE DATA
+        // ==========================================
+
+        const admins =
+          Array.isArray(res?.data)
+            ? res.data
+            : Array.isArray(res?.data?.data)
+            ? res.data.data
+            : Array.isArray(res?.data?.users)
+            ? res.data.users
+            : [];
+
+        console.log("ADMIN USERS:", admins);
+
+        // ==========================================
+        // FIRST ADMIN
+        // ==========================================
+
+        const admin = admins[0];
+
+        if (!admin) {
+          console.log("Admin not found");
+          return;
+        }
+        
+
+        console.log("SELECTED ADMIN:", admin);
+
+        setCnfAdmin(admin);
+        // ==========================================
+        // ADMIN ID FORM DATA ME SET
+        // ==========================================
+
+        setFormData((prev) => ({
+          ...prev,
+          parent_admin_id: Number(admin.id),
+        }));
+
+        // ==========================================
+        // ADMIN KO parentUsers ME BHI STORE KARO
+        //
+        // Ye isliye useful hai agar UI me naam
+        // parentUsers se read karna ho.
+        // ==========================================
+
+        setParentUsers((prev) => ({
+          ...prev,
+          1: [admin],
+        }));
+      } catch (error) {
+        console.error(
+          "CNF ADMIN DROPDOWN ERROR:",
+          error?.response?.data || error
+        );
+      }
+    };
+
+    loadAdminForCNF();
+
+    // IMPORTANT:
+    // CNF ke liye yahin return.
+    // Iske baad normal dropdown load nahi hoga.
+    return;
+  }
+
+  // ==========================================
+  // BAaki ROLES ka EXISTING FLOW SAME
+  // ==========================================
 
   if (!parents.length) return;
 
@@ -338,12 +450,33 @@ const handleParentChange = async (parentRoleId, parentId) => {
     };
 
     // ==========================================
+    // ADMIN SELECTED
+    // CNF KA parent_admin_id SET KARO
+    // ==========================================
+
+    if (currentRoleId === 1) {
+      updated.parent_admin_id = selectedId;
+
+      console.log(
+        "ADMIN SELECTED -> parent_admin_id:",
+        selectedId
+      );
+    }
+
+    // ==========================================
     // CNF
     // ==========================================
 
     if (currentRoleId === 2) {
       updated.parent_cnf_id = selectedId;
 
+      /*
+       * CNF ke selected user se parent_admin_id
+       * mile toh set karo.
+       *
+       * Agar selected CNF ke parent_admin_id null hai,
+       * toh existing parent_admin_id ko change mat karo.
+       */
       updated.parent_admin_id =
         selectedUser?.parent_admin_id
           ? Number(selectedUser.parent_admin_id)
@@ -355,8 +488,7 @@ const handleParentChange = async (parentRoleId, parentId) => {
     // ==========================================
 
     if (currentRoleId === 3) {
-      updated.parent_super_distributor_id =
-        selectedId;
+      updated.parent_super_distributor_id = selectedId;
 
       updated.parent_admin_id =
         selectedUser?.parent_admin_id
@@ -374,8 +506,7 @@ const handleParentChange = async (parentRoleId, parentId) => {
     // ==========================================
 
     if (currentRoleId === 4) {
-      updated.parent_distributor_id =
-        selectedId;
+      updated.parent_distributor_id = selectedId;
 
       updated.parent_admin_id =
         selectedUser?.parent_admin_id
@@ -515,6 +646,11 @@ const handleParentChange = async (parentRoleId, parentId) => {
           ? Number(selectedUser.parent_retailer_id)
           : updated.parent_retailer_id;
     }
+
+    console.log(
+      "UPDATED FORM DATA:",
+      updated
+    );
 
     return updated;
   });
@@ -1232,68 +1368,82 @@ if (
 
 {/* Parent Role Dropdowns */}
 
-{selectedRole > 1 &&
-  visibleParentRoles.length > 0 && (
-    <>
-      <div className="py-3">
-        <label className="text-[20px] font-semibold text-blue-500">
-          Select Parent   
+{selectedRole > 1 && (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+    {/* ==========================================
+        CNF CREATE
+        ADMIN DROPDOWN KI JAGAH ADMIN NAME
+       ========================================== */}
+
+    {Number(selectedRole) === 2 ? (
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-slate-700">
+          Admin
         </label>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {visibleParentRoles.map((parentRoleId) => {
-          const users = parentUsers[parentRoleId] || [];
-
-          return (
-            <div
-              key={parentRoleId}
-              className="space-y-1.5"
-            >
-              <label className="text-sm font-medium text-slate-700">
-                {getRoleName(parentRoleId)}
-              </label>
-
-              <div className="relative">
-                <select
-                  value={
-                    formData[`parent_${parentRoleId}`] || ""
-                  }
-                  onChange={(e) =>
-                    handleParentChange(
-                      parentRoleId,
-                      e.target.value
-                    )
-                  }
-                  required
-                  className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer"
-                >
-                  <option value="">
-                    Select {getRoleName(parentRoleId)}
-                  </option>
-
-                  {users.map((user) => (
-                    <option
-                      key={user.id}
-                      value={user.id}
-                    >
-                      {user.name}
-                    </option>
-                  ))}
-                </select>
-
-                <RiArrowDownSLine
-                  size={22}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </>
-)}
+        <div className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-slate-50">
+  {cnfAdmin?.name || "Loading Admin..."}
 </div>
+      </div>
+    ) : (
+      /* ==========================================
+         BAaki SAB ROLES KA EXISTING DROPDOWN
+         EXACTLY SAME
+         ========================================== */
+
+      visibleParentRoles.map((parentRoleId) => {
+        const users = parentUsers[parentRoleId] || [];
+
+        return (
+          <div
+            key={parentRoleId}
+            className="space-y-1.5"
+          >
+            <label className="text-sm font-medium text-slate-700">
+              {getRoleName(parentRoleId)}
+            </label>
+
+            <div className="relative">
+              <select
+                value={
+                  formData[`parent_${parentRoleId}`] || ""
+                }
+                onChange={(e) =>
+                  handleParentChange(
+                    parentRoleId,
+                    e.target.value
+                  )
+                }
+                required
+                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer"
+              >
+                <option value="">
+                  Select {getRoleName(parentRoleId)}
+                </option>
+
+                {users.map((user) => (
+                  <option
+                    key={user.id}
+                    value={user.id}
+                  >
+                    {user.name}
+                  </option>
+                ))}
+              </select>
+
+              <RiArrowDownSLine
+                size={22}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+              />
+            </div>
+          </div>
+        );
+      })
+    )}
+
+  </div>
+)}
           {/* Header */}
           {/* <div className="bg-gradient-to-r from-blue-400 to-indigo-400 px-8 py-6">
             <h1 className="text-2xl md:text-3xl font-bold text-white">
