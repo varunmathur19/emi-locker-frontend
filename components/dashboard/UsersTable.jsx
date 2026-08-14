@@ -39,7 +39,7 @@ const filteredUsers = users.filter((user) =>
 
       <div className="flex justify-between items-center mb-4">
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 overflow-x-auto whitespace-nowrap w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
           <button
             onClick={() => handleRoleList(selectedRole)}

@@ -1377,12 +1377,12 @@ if (
        ========================================== */}
 
     {Number(selectedRole) === 2 ? (
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 mt-2">
         <label className="text-sm font-medium text-slate-700">
           Admin
         </label>
 
-        <div className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-slate-50">
+        <div className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-slate-50 ">
   {cnfAdmin?.name || "Loading Admin..."}
 </div>
       </div>
