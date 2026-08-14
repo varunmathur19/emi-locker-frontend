@@ -39,7 +39,7 @@ const filteredUsers = users.filter((user) =>
 
       <div className="flex justify-between items-center mb-4">
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 overflow-x-auto whitespace-nowrap w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
           <button
             onClick={() => handleRoleList(selectedRole)}
@@ -111,12 +111,21 @@ const filteredUsers = users.filter((user) =>
                 </th>
 
                 <th className="text-left p-3">
+  Parent Name 
+  <br />
+  <span className="text-sm text-gray-500">
+    Parent Organization 
+  </span>
+</th>
+
+                <th className="text-left p-3">
   Name 
   <br />
   <span className="text-sm text-gray-500">
     Organization Name
   </span>
 </th>
+
 
                 <th className="text-left p-3">
                   Phone
@@ -148,6 +157,16 @@ const filteredUsers = users.filter((user) =>
           {((page - 1) * 10) + index + 1}
         </td>
 
+          <td className="p-3 py-1">
+  <div className="font-semibold">
+    {user.parent_name || "-"}
+  </div>
+
+  <div className="text-sm text-gray-500 ">
+      {user.parent_company || "-"}
+  </div>
+</td>
+
      <td className="p-3 py-1">
   <div className="font-semibold">
     {user.name}
@@ -165,16 +184,29 @@ const filteredUsers = users.filter((user) =>
         </td>
 
         <td className="p-3 py-1">
-          {user.created_at
-            ? new Date(user.created_at).toLocaleString("en-IN", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "-"}
-        </td>
+  {user.created_at ? (
+    <div className="text-sm leading-5">
+      <div>
+        <span className="font-bold">Date:</span>{" "}
+        {new Date(user.created_at).toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        })}
+      </div>
+
+      <div className="">
+        <span className="font-bold">Time:</span>{" "}
+        {new Date(user.created_at).toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </div>
+    </div>
+  ) : (
+    "-"
+  )}
+</td>
 
         <td className="p-3 py-1">
           <span className="text-green-600 font-semibold">
