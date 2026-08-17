@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { RiFilterLine } from "react-icons/ri";
+import { RiFilterLine,RiEditLine  } from "react-icons/ri";
 import { useState } from "react";
 
 export default function UsersTable({
@@ -97,7 +97,7 @@ const filteredUsers = users.filter((user) =>
       {/* Horizontal Scroll */}
       <div className="w-full overflow-x-auto">
 
-        <div className="min-w-[700px]">
+        <div className="w-full min-w-[1000px] table-auto">
 
           <table className="w-full">
 
@@ -137,6 +137,10 @@ const filteredUsers = users.filter((user) =>
                 <th className="text-left p-3">
   Created At
 </th>
+
+<th className="text-left p-3">
+                  Actions
+                </th>
 
                 <th className="text-left p-3">
                   Status
@@ -206,6 +210,16 @@ const filteredUsers = users.filter((user) =>
   ) : (
     "-"
   )}
+</td>
+<td className="p-3 py-1 text-center">
+  <button
+    type="button"
+    onClick={() => console.log("Edit User ID:", user.id)}
+    className="inline-flex items-center justify-center p-2 rounded-md text-blue-600 hover:bg-blue-50 transition cursor-pointer"
+    title="Edit"
+  >
+    <RiEditLine size={20} />
+  </button>
 </td>
 
         <td className="p-3 py-1">
