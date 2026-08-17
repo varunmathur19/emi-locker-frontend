@@ -73,3 +73,13 @@ export const logoutStaff = async () => {
 
   return response.data;
 };
+
+//UPDATED USER_STAFF
+export const updateStaffData = async (id, data) => {
+  const response = await api.patch(
+    `/update-staff-data/${id}`,
+    data
+  );
+
+  return response.data;
+};

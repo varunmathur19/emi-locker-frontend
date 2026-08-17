@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { RiFilterLine,RiEditLine  } from "react-icons/ri";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function UsersTable({
   
@@ -19,6 +20,7 @@ const [search, setSearch] = useState("");
 const filteredUsers = users.filter((user) =>
   user.name?.toLowerCase().includes(search.toLowerCase())
 );
+const router = useRouter();
 
   const roleButtons = {
     1: "Add Admin",
@@ -34,7 +36,7 @@ const filteredUsers = users.filter((user) =>
 
 
   return (
-    <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6 max-w-full overflow-hidden">
+    <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6 max-w-full overflow-hidden ">
 
 
       <div className="flex justify-between items-center mb-4">
@@ -95,7 +97,7 @@ const filteredUsers = users.filter((user) =>
 
 
       {/* Horizontal Scroll */}
-      <div className="w-full overflow-x-auto">
+   <div className="w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
         <div className="w-full min-w-[1000px] table-auto">
 
@@ -214,7 +216,7 @@ const filteredUsers = users.filter((user) =>
 <td className="p-3 py-1 text-center">
   <button
     type="button"
-    onClick={() => console.log("Edit User ID:", user.id)}
+   onClick={() => router.push(`/dashboard/edit-staff/${user.id}`)}
     className="inline-flex items-center justify-center p-2 rounded-md text-blue-600 hover:bg-blue-50 transition cursor-pointer"
     title="Edit"
   >
