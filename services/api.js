@@ -83,3 +83,9 @@ export const updateStaffData = async (id, data) => {
 
   return response.data;
 };
+
+//auto fill data  in upadted user staff 
+export const getStaffDataById = async (id) => {
+  const res = await api.get(`/staff-data/${id}`);
+  return res.data;
+};
