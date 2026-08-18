@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+
 import {
   getRoleId,
   getOriginalRoleId,
   removeToken,
   restoreOriginalLogin,
 } from "@/utils/token";
+
 import { logoutStaff } from "@/services/api";
 
 import {
@@ -34,118 +36,126 @@ import {
 export default function Sidebar({
   sidebarOpen,
 }) {
-  // ==========================================
-  // ROLE ID
-  // ==========================================
 
-  const [roleId, setRoleId] =
-    useState(null);
-    useEffect(() => {
+  // =====================================================
+  // CURRENT LOGGED-IN ROLE
+  // =====================================================
 
-  const currentRole =
-    getRoleId();
+  const [roleId, setRoleId] = useState(null);
 
-  const originalRole =
-    getOriginalRoleId();
+  // =====================================================
+  // PATH
+  // =====================================================
 
-  console.log(
-    "Current Role ID:",
-    currentRole
-  );
+  const pathname = usePathname();
 
-  console.log(
-    "Original Role ID:",
-    originalRole
-  );
-
-  // ==========================================
-  // IMPERSONATION KE TIME
-  // ORIGINAL ROLE USE KARO
-  // ==========================================
-
-  if (
-    originalRole !== null &&
-    originalRole !== undefined
-  ) {
-
-    setRoleId(
-      Number(originalRole)
-    );
-
-  } else if (
-    currentRole !== null &&
-    currentRole !== undefined
-  ) {
-
-    setRoleId(
-      Number(currentRole)
-    );
-  }
-
-}, []);
-
-  const pathname =
-    usePathname();
-
-  const searchParams =
-    useSearchParams();
+  const searchParams = useSearchParams();
 
   const activeRole =
     searchParams.get("role") ||
     searchParams.get("role_id");
 
-  // ==========================================
-  // GET LOGGED-IN USER ROLE
-  // ==========================================
-// ==========================================
-// MY LOGIN
-// ==========================================
+  // =====================================================
+  // GET CURRENT ROLE
+  // =====================================================
 
-const myLogin = () => {
-  const restored =
-    restoreOriginalLogin();
-
-  if (!restored) {
-    alert(
-      "Original login session not found"
-    );
-
-    return;
-  }
-
-  // Original user ke dashboard par
-  window.location.href =
-    "/dashboard";
-};
   useEffect(() => {
-    const currentRoleId =
-      getRoleId();
+
+    const currentRole = getRoleId();
+
+    const originalRole = getOriginalRoleId();
 
     console.log(
-      "Logged In Role ID:",
-      currentRoleId
+      "======================================"
     );
 
+    console.log(
+      "SIDEBAR ROLE"
+    );
+
+    console.log(
+      "Current Role:",
+      currentRole
+    );
+
+    console.log(
+      "Original Role:",
+      originalRole
+    );
+
+    console.log(
+      "======================================"
+    );
+
+    // =================================================
+    // IMPORTANT
+    //
+    // Sidebar current logged-in user ka role use karega.
+    //
+    // Example:
+    //
+    // Master Admin login:
+    // currentRole = 0
+    //
+    // Master Admin -> Login As Admin:
+    // currentRole = 1
+    // originalRole = 0
+    //
+    // Is case me sidebar ADMIN ka show hoga.
+    // =================================================
+
     if (
-      currentRoleId !== null &&
-      currentRoleId !== undefined
+      currentRole !== null &&
+      currentRole !== undefined
     ) {
+
       setRoleId(
-        Number(currentRoleId)
+        Number(currentRole)
       );
+
     }
+
   }, []);
 
-  // ==========================================
+  // =====================================================
+  // MY LOGIN
+  // =====================================================
+
+  const myLogin = () => {
+
+    console.log(
+      "Restoring Original Login..."
+    );
+
+    const restored =
+      restoreOriginalLogin();
+
+    if (!restored) {
+
+      alert(
+        "Original login session not found"
+      );
+
+      return;
+    }
+
+    window.location.href =
+      "/dashboard";
+
+  };
+
+  // =====================================================
   // LOGOUT
-  // ==========================================
+  // =====================================================
 
   const logout = async () => {
+
     console.log(
       "Logout button clicked"
     );
 
     try {
+
       await logoutStaff();
 
       removeToken();
@@ -159,13 +169,15 @@ const myLogin = () => {
       );
 
       window.location.href = "/";
+
     } catch (error) {
+
       console.log(
         "Logout API error:",
         error
       );
 
-      // API fail ho tab bhi local logout
+      // API fail hone par bhi logout
       removeToken();
 
       localStorage.removeItem(
@@ -177,15 +189,19 @@ const myLogin = () => {
       );
 
       window.location.href = "/";
+
     }
+
   };
 
-  // ==========================================
-  // ROLE ABHI LOAD NAHI HUA
-  // ==========================================
+  // =====================================================
+  // ROLE NOT LOADED
+  // =====================================================
 
   if (roleId === null) {
+
     return (
+
       <aside
         className={`
           fixed
@@ -208,6 +224,7 @@ const myLogin = () => {
           }
         `}
       >
+
         <h2
           className="
             relative
@@ -225,11 +242,59 @@ const myLogin = () => {
         >
           Dashboard
         </h2>
+
       </aside>
+
     );
+
   }
 
+  // =====================================================
+  // ROLE LINK COMPONENT
+  // =====================================================
+
+  const RoleLink = ({
+    role,
+    label,
+    icon,
+  }) => {
+
+    return (
+
+      <Link
+        href={`/dashboard?role=${role}`}
+        className={`
+          flex
+          items-center
+          gap-3
+          p-3
+          rounded
+          transition-all
+          font-semibold
+          ${
+            activeRole === String(role)
+              ? "bg-blue-400 text-black"
+              : "hover:bg-gray-700"
+          }
+        `}
+      >
+
+        {icon}
+
+        {label}
+
+      </Link>
+
+    );
+
+  };
+
+  // =====================================================
+  // SIDEBAR
+  // =====================================================
+
   return (
+
     <aside
       className={`
         fixed
@@ -253,9 +318,9 @@ const myLogin = () => {
       `}
     >
 
-      {/* ==========================================
+      {/* =================================================
           HEADER
-      ========================================== */}
+      ================================================= */}
 
       <h2
         className="
@@ -276,9 +341,10 @@ const myLogin = () => {
         Dashboard
       </h2>
 
-      {/* ==========================================
+
+      {/* =================================================
           SCROLLABLE CONTENT
-      ========================================== */}
+      ================================================= */}
 
       <div
         className="
@@ -291,9 +357,9 @@ const myLogin = () => {
         "
       >
 
-        {/* ==========================================
+        {/* =================================================
             DASHBOARD
-        ========================================== */}
+        ================================================= */}
 
         <Link
           href="/dashboard"
@@ -313,279 +379,519 @@ const myLogin = () => {
             }
           `}
         >
+
           <RiDashboardLine
             size={18}
             className="text-[1.4rem]"
           />
 
           Dashboard
+
         </Link>
 
-        {/* ==========================================
-            ADMIN
-            ONLY MASTER ADMIN
-        ========================================== */}
 
-        {Number(roleId) === 0 && (
-          <Link
-            href="/dashboard?role=1"
-            className={`
-              flex
-              items-center
-              gap-3
-              p-3
-              rounded
-              transition-all
-              font-semibold
-              ${
-                activeRole === "1"
-                  ? "bg-blue-400 text-black"
-                  : "hover:bg-gray-700"
-              }
-            `}
-          >
-            <RiShieldUserLine
-              size={18}
-              className="text-[1.4rem]"
-            />
+        {/* =================================================
+            MASTER ADMIN - ROLE 0
+        =================================================
+
+            Master Admin ko initially:
 
             Admin
-          </Link>
+
+            hi show hoga.
+
+            Baaki roles direct sidebar me nahi.
+        ================================================= */}
+
+        {Number(roleId) === 0 && (
+
+          <RoleLink
+            role={1}
+            label="Admin"
+            icon={
+              <RiShieldUserLine
+                size={18}
+                className="text-[1.4rem]"
+              />
+            }
+          />
+
         )}
 
-        {/* ==========================================
+
+        {/* =================================================
+            ADMIN - ROLE 1
+        =================================================
+
+            Admin login hone ke baad:
+
             CNF
-        ========================================== */}
-
-        {Number(roleId) !== 0 &&
-          Number(roleId) < 2 && (
-            <Link
-              href="/dashboard?role=2"
-              className={`
-                flex
-                items-center
-                gap-3
-                p-3
-                rounded
-                transition-all
-                font-semibold
-                ${
-                  activeRole === "2"
-                    ? "bg-blue-400 text-black"
-                    : "hover:bg-gray-700"
-                }
-              `}
-            >
-              <RiUserStarLine
-                size={18}
-                className="text-[1.4rem]"
-              />
-
-              CNF
-            </Link>
-          )}
-
-        {/* ==========================================
-            SUPER DISTRIBUTOR
-        ========================================== */}
-
-        {Number(roleId) !== 0 &&
-          Number(roleId) < 3 && (
-            <Link
-              href="/dashboard?role=3"
-              className={`
-                flex
-                items-center
-                gap-3
-                p-3
-                rounded
-                transition-all
-                font-semibold
-                ${
-                  activeRole === "3"
-                    ? "bg-blue-400 text-black"
-                    : "hover:bg-gray-700"
-                }
-              `}
-            >
-              <RiBuilding2Line
-                size={18}
-                className="text-[1.4rem]"
-              />
-
-              Super Distributor
-            </Link>
-          )}
-
-        {/* ==========================================
-            DISTRIBUTOR
-        ========================================== */}
-
-        {Number(roleId) !== 0 &&
-          Number(roleId) < 4 && (
-            <Link
-              href="/dashboard?role=4"
-              className={`
-                flex
-                items-center
-                gap-3
-                p-3
-                rounded
-                transition-all
-                font-semibold
-                ${
-                  activeRole === "4"
-                    ? "bg-blue-400 text-black"
-                    : "hover:bg-gray-700"
-                }
-              `}
-            >
-              <RiStore2Line
-                size={18}
-                className="text-[1.4rem]"
-              />
-
-              Distributor
-            </Link>
-          )}
-
-        {/* ==========================================
+            Super Distributor
+            Distributor
             FOS
-        ========================================== */}
+            Retailer
+            Sub Retailer
+            Employee
+            Staff
 
-        {Number(roleId) !== 0 &&
-          Number(roleId) < 5 && (
-            <Link
-              href="/dashboard?role=5"
-              className={`
-                flex
-                items-center
-                gap-3
-                p-3
-                rounded
-                transition-all
-                font-semibold
-                ${
-                  activeRole === "5"
-                    ? "bg-blue-400 text-black"
-                    : "hover:bg-gray-700"
-                }
-              `}
-            >
-              <RiUserLocationLine
-                size={18}
-                className="text-[1.4rem]"
-              />
+            show honge.
+        ================================================= */}
 
-              FOS
-            </Link>
-          )}
+        {Number(roleId) === 1 && (
 
-        {/* ==========================================
-            RETAILER
-        ========================================== */}
+          <>
 
-        {Number(roleId) !== 0 &&
-          Number(roleId) < 6 && (
-            <Link
-              href="/dashboard?role=6"
-              className={`
-                flex
-                items-center
-                gap-3
-                p-3
-                rounded
-                transition-all
-                font-semibold
-                ${
-                  activeRole === "6"
-                    ? "bg-blue-400 text-black"
-                    : "hover:bg-gray-700"
-                }
-              `}
-            >
-              <RiStore2Line
-                size={18}
-                className="text-[1.4rem]"
-              />
+            <RoleLink
+              role={2}
+              label="CNF"
+              icon={
+                <RiUserStarLine
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
 
-              Retailer
-            </Link>
-          )}
+            <RoleLink
+              role={3}
+              label="Super Distributor"
+              icon={
+                <RiBuilding2Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={4}
+              label="Distributor"
+              icon={
+                <RiStore2Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={5}
+              label="FOS"
+              icon={
+                <RiUserLocationLine
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={6}
+              label="Retailer"
+              icon={
+                <RiStore2Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={7}
+              label="Sub Retailer"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={8}
+              label="Employee"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            {/* =================================================
+                STAFF
+                ONLY ADMIN
+            ================================================= */}
+
+            <RoleLink
+              role={9}
+              label="Staff"
+              icon={
+                <RiShieldUserLine
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+          </>
+
+        )}
 
 
-          
+        {/* =================================================
+            CNF - ROLE 2
+        ================================================= */}
 
-        {/* ==========================================
-            EMPLOYEE
-        ========================================== */}
+        {Number(roleId) === 2 && (
 
-        {Number(roleId) !== 0 &&
-          Number(roleId) < 7 && (
-            <Link
-              href="/dashboard?role=7"
-              className={`
-                flex
-                items-center
-                gap-3
-                p-3
-                rounded
-                transition-all
-                font-semibold
-                ${
-                  activeRole === "7"
-                    ? "bg-blue-400 text-black"
-                    : "hover:bg-gray-700"
-                }
-              `}
-            >
+          <>
+
+            <RoleLink
+              role={3}
+              label="Super Distributor"
+              icon={
+                <RiBuilding2Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={4}
+              label="Distributor"
+              icon={
+                <RiStore2Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={5}
+              label="FOS"
+              icon={
+                <RiUserLocationLine
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={6}
+              label="Retailer"
+              icon={
+                <RiStore2Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={7}
+              label="Sub Retailer"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={8}
+              label="Employee"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+          </>
+
+        )}
+
+
+        {/* =================================================
+            SUPER DISTRIBUTOR - ROLE 3
+        ================================================= */}
+
+        {Number(roleId) === 3 && (
+
+          <>
+
+            <RoleLink
+              role={4}
+              label="Distributor"
+              icon={
+                <RiStore2Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={5}
+              label="FOS"
+              icon={
+                <RiUserLocationLine
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={6}
+              label="Retailer"
+              icon={
+                <RiStore2Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={7}
+              label="Sub Retailer"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={8}
+              label="Employee"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+          </>
+
+        )}
+
+
+        {/* =================================================
+            DISTRIBUTOR - ROLE 4
+        ================================================= */}
+
+        {Number(roleId) === 4 && (
+
+          <>
+
+            <RoleLink
+              role={5}
+              label="FOS"
+              icon={
+                <RiUserLocationLine
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={6}
+              label="Retailer"
+              icon={
+                <RiStore2Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={7}
+              label="Sub Retailer"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={8}
+              label="Employee"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+          </>
+
+        )}
+
+
+        {/* =================================================
+            FOS - ROLE 5
+        ================================================= */}
+
+        {Number(roleId) === 5 && (
+
+          <>
+
+            <RoleLink
+              role={6}
+              label="Retailer"
+              icon={
+                <RiStore2Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={7}
+              label="Sub Retailer"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={8}
+              label="Employee"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+          </>
+
+        )}
+
+
+        {/* =================================================
+            RETAILER - ROLE 6
+        ================================================= */}
+
+        {Number(roleId) === 6 && (
+
+          <>
+
+            <RoleLink
+              role={7}
+              label="Sub Retailer"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+            <RoleLink
+              role={8}
+              label="Employee"
+              icon={
+                <RiUser3Line
+                  size={18}
+                  className="text-[1.4rem]"
+                />
+              }
+            />
+
+          </>
+
+        )}
+
+
+        {/* =================================================
+            SUB RETAILER - ROLE 7
+        ================================================= */}
+
+        {Number(roleId) === 7 && (
+
+          <RoleLink
+            role={8}
+            label="Employee"
+            icon={
               <RiUser3Line
                 size={18}
                 className="text-[1.4rem]"
               />
+            }
+          />
 
-              Employee
-            </Link>
-          )}
+        )}
 
-        {/* ==========================================
+
+        {/* =================================================
+            EMPLOYEE - ROLE 8
+
+            No child role
+        ================================================= */}
+
+
+        {/* =================================================
             MY LOGIN
-            BLUE BUTTON
-        ========================================== */}
-
-       <button
-  type="button"
-  onClick={myLogin}
-  className="
-    w-full
-    flex
-    items-center
-    justify-center
-    gap-2
-    bg-blue-500
-    text-white
-    px-4
-    py-3
-    rounded-md
-    hover:bg-blue-600
-    transition-all
-    cursor-pointer
-    font-semibold
-    mt-4
-  "
->
-  <RiLoginBoxLine
-    size={20}
-  />
-
-  My Login
-</button>
-
-        {/* ==========================================
-            LOGOUT
-        ========================================== */}
+        ================================================= */}
 
         <button
+          type="button"
+          onClick={myLogin}
+          className="
+            w-full
+            flex
+            items-center
+            justify-center
+            gap-2
+            bg-blue-500
+            text-white
+            px-4
+            py-3
+            rounded-md
+            hover:bg-blue-600
+            transition-all
+            cursor-pointer
+            font-semibold
+            mt-4
+          "
+        >
+
+          <RiLoginBoxLine
+            size={20}
+          />
+
+          My Login
+
+        </button>
+
+
+        {/* =================================================
+            LOGOUT
+        ================================================= */}
+
+        <button
+          type="button"
           onClick={logout}
           className="
             w-full
@@ -604,14 +910,19 @@ const myLogin = () => {
             font-semibold
           "
         >
+
           <RiLogoutBoxLine
             size={20}
           />
 
           Logout
+
         </button>
 
       </div>
+
     </aside>
+
   );
+
 }

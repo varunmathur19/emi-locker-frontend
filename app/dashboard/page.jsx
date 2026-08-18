@@ -10,8 +10,6 @@ import { toast } from "react-toastify";
 
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
   BarChart,
   Bar,
   PieChart,
@@ -22,6 +20,8 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  LineChart,
+  Line,
 } from "recharts";
 
 import { getAllStaffData } from "@/services/api";
@@ -32,7 +32,6 @@ import {
 } from "@/utils/token";
 
 import UsersTable from "../../components/dashboard/UsersTable";
-
 
 // ======================================================
 // PIE COLORS
@@ -49,71 +48,69 @@ const PIE_COLORS = [
   "#14b8a6",
 ];
 
-
 // ======================================================
 // DASHBOARD
 // ======================================================
 
 export default function Dashboard() {
-
   // ====================================================
   // ROUTER
   // ====================================================
 
   const router = useRouter();
 
-  const searchParams =
-    useSearchParams();
-
+  const searchParams = useSearchParams();
 
   // ====================================================
   // STATE
   // ====================================================
 
-  const [allUsers, setAllUsers] =
-    useState([]);
+  const [allUsers, setAllUsers] = useState([]);
 
-  const [roleId, setRoleId] =
-    useState(null);
+  const [roleId, setRoleId] = useState(null);
 
-  const [page, setPage] =
-    useState(1);
+  const [page, setPage] = useState(1);
 
-  const [pagination, setPagination] =
-    useState({});
+  const [pagination, setPagination] = useState({});
 
-  const [users, setUsers] =
-    useState([]);
-
+  const [users, setUsers] = useState([]);
 
   const [counts, setCounts] = useState({
-
     admin: 0,
-
     cnf: 0,
-
     super: 0,
-
     distributor: 0,
-
     fos: 0,
-
     retailer: 0,
-
+    subRetailer: 0,
     employee: 0,
-
     staff: 0,
-
   });
-
 
   // ====================================================
   // ROLE HIERARCHY
   // ====================================================
+  //
+  // 0 = MASTER ADMIN
+  // 1 = ADMIN
+  // 2 = CNF
+  // 3 = SUPER DISTRIBUTOR
+  // 4 = DISTRIBUTOR
+  // 5 = FOS
+  // 6 = RETAILER
+  // 7 = SUB RETAILER
+  // 8 = EMPLOYEE
+  // 9 = STAFF
+  //
+  // STAFF KO SIRF ADMIN ACCESS KAR SAKTA HAI
+  //
+  // ====================================================
 
   const allowedRoles = {
+    // ==================================================
+    // MASTER ADMIN
+    // ==================================================
 
-    // Master Admin
     0: [
       1,
       2,
@@ -123,9 +120,13 @@ export default function Dashboard() {
       6,
       7,
       8,
+      9,
     ],
 
-    // Admin
+    // ==================================================
+    // ADMIN
+    // ==================================================
+
     1: [
       2,
       3,
@@ -134,9 +135,13 @@ export default function Dashboard() {
       6,
       7,
       8,
+      9,
     ],
 
+    // ==================================================
     // CNF
+    // ==================================================
+
     2: [
       3,
       4,
@@ -146,7 +151,10 @@ export default function Dashboard() {
       8,
     ],
 
-    // Super Distributor
+    // ==================================================
+    // SUPER DISTRIBUTOR
+    // ==================================================
+
     3: [
       4,
       5,
@@ -155,7 +163,10 @@ export default function Dashboard() {
       8,
     ],
 
-    // Distributor
+    // ==================================================
+    // DISTRIBUTOR
+    // ==================================================
+
     4: [
       5,
       6,
@@ -163,42 +174,54 @@ export default function Dashboard() {
       8,
     ],
 
+    // ==================================================
     // FOS
+    // ==================================================
+
     5: [
       6,
       7,
       8,
     ],
 
-    // Retailer
+    // ==================================================
+    // RETAILER
+    // ==================================================
+
     6: [
       7,
       8,
     ],
 
-    // Employee
+    // ==================================================
+    // SUB RETAILER
+    // ==================================================
+
     7: [
       8,
     ],
 
-    // Staff
+    // ==================================================
+    // EMPLOYEE
+    // ==================================================
+
     8: [],
 
+    // ==================================================
+    // STAFF
+    // ==================================================
+
+    9: [],
   };
 
-
   // ====================================================
-  // GET LOGGED-IN USER ROLE
+  // GET LOGGED-IN ROLE
   // ====================================================
 
   useEffect(() => {
+    const tokenUser = getUserFromToken();
 
-    const tokenUser =
-      getUserFromToken();
-
-    const role =
-      getRoleId();
-
+    const role = getRoleId();
 
     console.log(
       "================================"
@@ -218,23 +241,15 @@ export default function Dashboard() {
       "================================"
     );
 
-
     if (
       role === null ||
       role === undefined
     ) {
-
       return;
-
     }
 
-
-    setRoleId(
-      Number(role)
-    );
-
+    setRoleId(Number(role));
   }, []);
-
 
   // ====================================================
   // URL ROLE
@@ -243,12 +258,10 @@ export default function Dashboard() {
   const urlRoleParam =
     searchParams.get("role");
 
-
   const urlRole =
     urlRoleParam !== null
       ? Number(urlRoleParam)
       : null;
-
 
   // ====================================================
   // SELECTED ROLE
@@ -259,13 +272,10 @@ export default function Dashboard() {
     urlRole !== null &&
     (
       urlRole === roleId ||
-      allowedRoles[
-        roleId
-      ]?.includes(urlRole)
+      allowedRoles[roleId]?.includes(urlRole)
     )
       ? urlRole
       : null;
-
 
   // ====================================================
   // DASHBOARD HOME
@@ -274,97 +284,72 @@ export default function Dashboard() {
   const isDashboardHome =
     selectedRole === null;
 
-
   // ====================================================
   // HANDLE ROLE LIST
   // ====================================================
 
   const handleRoleList = (role) => {
-
     router.push(
       `/dashboard?role=${role}`
     );
-
   };
-
 
   // ====================================================
   // ROLE NAME
   // ====================================================
 
   const getRoleName = (id) => {
-
     const roles = {
-
       0: "Master Admin",
-
       1: "Admin",
-
       2: "CNF",
-
       3: "Super Distributor",
-
       4: "Distributor",
-
       5: "FOS",
-
       6: "Retailer",
-
-      7: "Employee",
-
-      8: "Staff",
-
+      7: "Sub Retailer",
+      8: "Employee",
+      9: "Staff",
     };
 
-
     return (
-      roles[id] ||
+      roles[Number(id)] ||
       "Unknown"
     );
-
   };
-
 
   // ====================================================
   // URL ROLE ACCESS CHECK
   // ====================================================
 
   useEffect(() => {
-
-    // Role abhi load nahi hua
     if (roleId === null) {
-
       return;
-
     }
-
 
     // URL me role nahi hai
-    // Example:
-    // /dashboard
-
     if (!urlRoleParam) {
-
       return;
-
     }
-
 
     const currentUrlRole =
       Number(urlRoleParam);
 
+    // ==================================================
+    // OWN ROLE
+    // ==================================================
 
     const isOwnRole =
       currentUrlRole === roleId;
 
+    // ==================================================
+    // CHILD ROLE
+    // ==================================================
 
     const isChildRole =
-      allowedRoles[
-        roleId
-      ]?.includes(
+      allowedRoles[roleId]?.includes(
         currentUrlRole
       );
-
 
     console.log(
       "================================"
@@ -403,7 +388,6 @@ export default function Dashboard() {
       "================================"
     );
 
-
     // ==================================================
     // NOT ALLOWED
     // ==================================================
@@ -412,58 +396,44 @@ export default function Dashboard() {
       !isOwnRole &&
       !isChildRole
     ) {
-
       toast.error(
         "You are not allowed to access this role"
       );
 
-
       router.replace(
         "/dashboard"
       );
-
     }
-
   }, [
     roleId,
     urlRoleParam,
     router,
   ]);
 
-
   // ====================================================
-  // FETCH USERS WHEN ROLE IS READY
+  // FETCH USERS
   // ====================================================
 
   useEffect(() => {
-
     if (roleId === null) {
-
       return;
-
     }
 
-
     fetchUsers();
-
   }, [
     page,
     selectedRole,
     roleId,
   ]);
 
-
   // ====================================================
   // FETCH USERS
   // ====================================================
 
   const fetchUsers = async () => {
-
     try {
-
       // ==================================================
       // GET ALL USERS
-      // For dashboard counts
       // ==================================================
 
       const countRes =
@@ -473,159 +443,98 @@ export default function Dashboard() {
           ""
         );
 
-
       const allData =
         countRes?.data || [];
 
-
-      setAllUsers(
-        allData
-      );
-
+      setAllUsers(allData);
 
       // ==================================================
       // ROLE COUNTS
       // ==================================================
 
       const roleCounts = {
-
         admin: 0,
-
         cnf: 0,
-
         super: 0,
-
         distributor: 0,
-
         fos: 0,
-
         retailer: 0,
-
+        subRetailer: 0,
         employee: 0,
-
         staff: 0,
-
       };
 
+      allData.forEach((user) => {
+        switch (
+          Number(user.role_id)
+        ) {
+          case 1:
+            roleCounts.admin++;
+            break;
 
-      allData.forEach(
-        (user) => {
+          case 2:
+            roleCounts.cnf++;
+            break;
 
-          switch (
-            Number(
-              user.role_id
-            )
-          ) {
+          case 3:
+            roleCounts.super++;
+            break;
 
-            case 1:
+          case 4:
+            roleCounts.distributor++;
+            break;
 
-              roleCounts.admin++;
+          case 5:
+            roleCounts.fos++;
+            break;
 
-              break;
+          case 6:
+            roleCounts.retailer++;
+            break;
 
+          case 7:
+            roleCounts.subRetailer++;
+            break;
 
-            case 2:
+          case 8:
+            roleCounts.employee++;
+            break;
 
-              roleCounts.cnf++;
+          case 9:
+            roleCounts.staff++;
+            break;
 
-              break;
-
-
-            case 3:
-
-              roleCounts.super++;
-
-              break;
-
-
-            case 4:
-
-              roleCounts.distributor++;
-
-              break;
-
-
-            case 5:
-
-              roleCounts.fos++;
-
-              break;
-
-
-            case 6:
-
-              roleCounts.retailer++;
-
-              break;
-
-
-            case 7:
-
-              roleCounts.employee++;
-
-              break;
-
-
-            case 8:
-
-              roleCounts.staff++;
-
-              break;
-
-
-            default:
-
-              break;
-
-          }
-
+          default:
+            break;
         }
-      );
+      });
 
-
-      setCounts(
-        roleCounts
-      );
-
+      setCounts(roleCounts);
 
       // ==================================================
       // DASHBOARD HOME
       // ==================================================
 
-      if (
-        isDashboardHome
-      ) {
-
+      if (isDashboardHome) {
         setUsers([]);
-
         setPagination({});
-
         return;
-
       }
 
-
       // ==================================================
-      // TABLE ROLE
+      // SELECTED ROLE
       // ==================================================
 
       let roleFilter =
         selectedRole;
 
-
-      // Agar selected role nahi hai
-      // toh next child role
-
       if (
         roleFilter === null ||
         roleFilter === undefined
       ) {
-
         roleFilter =
           Number(roleId) + 1;
-
       }
-
 
       // ==================================================
       // GET ROLE USERS
@@ -638,35 +547,26 @@ export default function Dashboard() {
           roleFilter
         );
 
-
       setUsers(
         res?.data || []
       );
 
-
       setPagination(
         res?.pagination || {}
       );
-
-
     } catch (error) {
-
       console.error(
         "Fetch Users Error:",
         error
       );
-
     }
-
   };
-
 
   // ====================================================
   // CARDS
   // ====================================================
 
   const cards = [
-
     {
       title: "Admin",
       count: counts.admin,
@@ -704,191 +604,157 @@ export default function Dashboard() {
     },
 
     {
+      title: "Sub Retailer",
+      count: counts.subRetailer,
+      roleId: 7,
+    },
+
+    {
       title: "Employee",
       count: counts.employee,
-      roleId: 7,
+      roleId: 8,
     },
 
     {
       title: "Staff",
       count: counts.staff,
-      roleId: 8,
+      roleId: 9,
     },
-
   ];
-
 
   // ====================================================
   // CHART DATA
   // ====================================================
 
   const chartData =
-    cards.filter(
-      (card) => {
-
-        // Master Admin
-        if (
-          roleId === 0
-        ) {
-
-          return true;
-
-        }
-
-
-        // Other roles
-        return (
-          card.roleId >
-          roleId
-        );
-
+    cards.filter((card) => {
+      // Master Admin
+      if (roleId === 0) {
+        return true;
       }
-    );
 
+      // Other roles
+      return allowedRoles[
+        roleId
+      ]?.includes(
+        card.roleId
+      );
+    });
 
   // ====================================================
   // RENDER
   // ====================================================
 
   return (
-
     <div className="bg-gray-100">
 
       <main className="pt-0 p-0">
 
-        <h1 className="
-          md:text-3xl
-          font-bold
-          md:mb-6
-          mb-0
-          text-[20px]
-        ">
+        <h1
+          className="
+            md:text-3xl
+            font-bold
+            md:mb-6
+            mb-0
+            text-[20px]
+          "
+        >
           Welcome Dashboard
         </h1>
-
 
         {/* ==================================================
             DASHBOARD HOME
         ================================================== */}
 
         {isDashboardHome && (
-
           <>
-
             {/* ==============================================
                 ROLE CARDS
             ============================================== */}
 
-            <div className="
-              grid
-              grid-cols-1
-              sm:grid-cols-2
-              md:grid-cols-4
-              gap-5
-            ">
-
+            <div
+              className="
+                grid
+                grid-cols-1
+                sm:grid-cols-2
+                md:grid-cols-4
+                gap-5
+              "
+            >
               {cards
-                .filter(
-                  (card) => {
-
-                    // Master Admin
-                    if (
-                      roleId === 0
-                    ) {
-
-                      return true;
-
-                    }
-
-
-                    // Other roles
-                    return (
-                      card.roleId >
-                      roleId
-                    );
-
+                .filter((card) => {
+                  if (roleId === 0) {
+                    return true;
                   }
-                )
-                .map(
-                  (card) => (
 
-                    <div
-                      key={
-                        card.roleId
-                      }
-                      className="
-                        bg-white
-                        p-5
-                        rounded-xl
-                        shadow
-                      "
-                    >
+                  return allowedRoles[
+                    roleId
+                  ]?.includes(
+                    card.roleId
+                  );
+                })
+                .map((card) => (
+                  <div
+                    key={card.roleId}
+                    className="
+                      bg-white
+                      p-5
+                      rounded-xl
+                      shadow
+                    "
+                  >
+                    <h3 className="text-gray-500">
+                      {card.title}
+                    </h3>
 
-                      <h3 className="
-                        text-gray-500
-                      ">
-                        {card.title}
-                      </h3>
-
-
-                      <p className="
-                        text-3xl
-                        font-bold
-                      ">
-                        {card.count}
-                      </p>
-
-                    </div>
-
-                  )
-                )}
-
+                    <p className="text-3xl font-bold">
+                      {card.count}
+                    </p>
+                  </div>
+                ))}
             </div>
-
 
             {/* ==================================================
                 CHARTS
             ================================================== */}
 
-            <div className="
-              grid
-              grid-cols-1
-              md:grid-cols-2
-              gap-5
-              mt-6
-            ">
+            <div
+              className="
+                grid
+                grid-cols-1
+                md:grid-cols-2
+                gap-5
+                mt-6
+              "
+            >
+              {/* BAR */}
 
-
-              {/* ============================================
-                  BAR CHART
-              ============================================ */}
-
-              <div className="
-                bg-white
-                p-5
-                rounded-xl
-                shadow
-              ">
-
-                <h3 className="
-                  text-gray-700
-                  font-semibold
-                  mb-4
-                ">
+              <div
+                className="
+                  bg-white
+                  p-5
+                  rounded-xl
+                  shadow
+                "
+              >
+                <h3
+                  className="
+                    text-gray-700
+                    font-semibold
+                    mb-4
+                  "
+                >
                   Role-wise Users
                   (Bar Chart)
                 </h3>
-
 
                 <ResponsiveContainer
                   width="100%"
                   height={300}
                 >
-
                   <BarChart
                     data={chartData}
                   >
-
                     <CartesianGrid
                       strokeDasharray="3 3"
                     />
@@ -909,7 +775,6 @@ export default function Dashboard() {
                     />
 
                     <Tooltip />
-
 
                     <Bar
                       dataKey="count"
@@ -921,40 +786,35 @@ export default function Dashboard() {
                         0,
                       ]}
                     />
-
                   </BarChart>
-
                 </ResponsiveContainer>
-
               </div>
 
+              {/* PIE */}
 
-              {/* ============================================
-                  PIE CHART
-              ============================================ */}
-
-              <div className="
-                bg-white
-                p-5
-                rounded-xl
-                shadow
-              ">
-
-                <h3 className="
-                  text-gray-700
-                  font-semibold
-                  mb-4
-                ">
+              <div
+                className="
+                  bg-white
+                  p-5
+                  rounded-xl
+                  shadow
+                "
+              >
+                <h3
+                  className="
+                    text-gray-700
+                    font-semibold
+                    mb-4
+                  "
+                >
                   Role Distribution
                   (Pie Chart)
                 </h3>
-
 
                 <ResponsiveContainer
                   width="100%"
                   height={300}
                 >
-
                   <PieChart>
 
                     <Pie
@@ -966,13 +826,11 @@ export default function Dashboard() {
                       outerRadius={100}
                       label
                     >
-
                       {chartData.map(
                         (
                           entry,
                           index
                         ) => (
-
                           <Cell
                             key={
                               `cell-${entry.roleId}`
@@ -984,55 +842,47 @@ export default function Dashboard() {
                               ]
                             }
                           />
-
                         )
                       )}
-
                     </Pie>
-
 
                     <Tooltip />
 
                     <Legend />
 
                   </PieChart>
-
                 </ResponsiveContainer>
-
               </div>
 
+              {/* LINE */}
 
-              {/* ============================================
-                  LINE CHART
-              ============================================ */}
-
-              <div className="
-                bg-white
-                p-5
-                rounded-xl
-                shadow
-                md:col-span-2
-              ">
-
-                <h3 className="
-                  text-gray-700
-                  font-semibold
-                  mb-4
-                ">
+              <div
+                className="
+                  bg-white
+                  p-5
+                  rounded-xl
+                  shadow
+                  md:col-span-2
+                "
+              >
+                <h3
+                  className="
+                    text-gray-700
+                    font-semibold
+                    mb-4
+                  "
+                >
                   Role-wise Users
                   (Line Chart)
                 </h3>
-
 
                 <ResponsiveContainer
                   width="100%"
                   height={300}
                 >
-
                   <LineChart
                     data={chartData}
                   >
-
                     <CartesianGrid
                       strokeDasharray="3 3"
                     />
@@ -1054,7 +904,6 @@ export default function Dashboard() {
 
                     <Tooltip />
 
-
                     <Line
                       type="monotone"
                       dataKey="count"
@@ -1064,56 +913,30 @@ export default function Dashboard() {
                         r: 4,
                       }}
                     />
-
                   </LineChart>
-
                 </ResponsiveContainer>
-
               </div>
-
             </div>
-
           </>
-
         )}
-
 
         {/* ==================================================
             ROLE USER TABLE
         ================================================== */}
 
         {!isDashboardHome && (
-
           <UsersTable
-
             users={users}
-
             page={page}
-
             pagination={pagination}
-
             setPage={setPage}
-
             getRoleName={getRoleName}
-
-            selectedRole={
-              Number(
-                selectedRole
-              )
-            }
-
-            handleRoleList={
-              handleRoleList
-            }
-
+            selectedRole={Number(selectedRole)}
+            handleRoleList={handleRoleList}
           />
-
         )}
 
       </main>
-
     </div>
-
   );
-
 }
