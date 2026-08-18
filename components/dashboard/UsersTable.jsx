@@ -423,8 +423,7 @@ const handleLoginAsUser = async (user) => {
                         </div>
 
                         <div className="text-sm text-gray-500">
-                          {user.parent_company ||
-                            "-"}
+                         {user.parent_organization_name || "-"}
                         </div>
 
                       </td>
