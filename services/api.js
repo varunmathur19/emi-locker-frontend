@@ -89,3 +89,21 @@ export const getStaffDataById = async (id) => {
   const res = await api.get(`/staff-data/${id}`);
   return res.data;
 };
+
+// LOGIN AS USER
+// Master Admin / Admin -> Login as another user
+// ==========================================
+
+export const loginAsUser = async (
+  user_id
+) => {
+  const response = await api.post(
+    "/login-as-user",
+    {
+      user_id,
+    }
+  );
+
+  return response.data;
+};
+

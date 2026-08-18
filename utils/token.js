@@ -109,3 +109,151 @@ export const getUser = () => {
 
   return null;
 };
+
+// ==========================================
+// SAVE ORIGINAL LOGIN
+// ==========================================
+
+export const saveOriginalLogin = (
+  token,
+  user
+) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!token) {
+    console.error(
+      "Original login token missing"
+    );
+
+    return;
+  }
+
+  localStorage.setItem(
+    "original_token",
+    token
+  );
+
+  if (user) {
+    localStorage.setItem(
+      "original_user",
+      JSON.stringify(user)
+    );
+  }
+
+  console.log(
+    "Original Login Saved:",
+    user
+  );
+};
+
+
+// ==========================================
+// GET ORIGINAL TOKEN
+// ==========================================
+
+export const getOriginalToken = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return localStorage.getItem(
+    "original_token"
+  );
+};
+
+
+// ==========================================
+// GET ORIGINAL USER
+// ==========================================
+
+export const getOriginalUser = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const user =
+    localStorage.getItem(
+      "original_user"
+    );
+
+  if (!user) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(user);
+  } catch (error) {
+    console.error(
+      "Invalid original user:",
+      error
+    );
+
+    return null;
+  }
+};
+
+
+// ==========================================
+// RESTORE ORIGINAL LOGIN
+// ==========================================
+
+export const restoreOriginalLogin = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const originalToken =
+    localStorage.getItem(
+      "original_token"
+    );
+
+  const originalUser =
+    localStorage.getItem(
+      "original_user"
+    );
+
+  if (!originalToken) {
+    console.error(
+      "Original login token not found"
+    );
+
+    return false;
+  }
+
+  // Current token replace
+  localStorage.setItem(
+    "token",
+    originalToken
+  );
+
+  // Current user replace
+  if (originalUser) {
+    localStorage.setItem(
+      "user",
+      originalUser
+    );
+  }
+
+  return true;
+};
+
+
+// ==========================================
+// REMOVE ORIGINAL LOGIN
+// ==========================================
+
+export const removeOriginalLogin = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.removeItem(
+    "original_token"
+  );
+
+  localStorage.removeItem(
+    "original_user"
+  );
+};
