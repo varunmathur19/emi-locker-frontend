@@ -3,10 +3,10 @@
 import Link from "next/link";
 import {
   getRoleId,
+  getOriginalRoleId,
   removeToken,
   restoreOriginalLogin,
 } from "@/utils/token";
-
 import { logoutStaff } from "@/services/api";
 
 import {
@@ -40,6 +40,49 @@ export default function Sidebar({
 
   const [roleId, setRoleId] =
     useState(null);
+    useEffect(() => {
+
+  const currentRole =
+    getRoleId();
+
+  const originalRole =
+    getOriginalRoleId();
+
+  console.log(
+    "Current Role ID:",
+    currentRole
+  );
+
+  console.log(
+    "Original Role ID:",
+    originalRole
+  );
+
+  // ==========================================
+  // IMPERSONATION KE TIME
+  // ORIGINAL ROLE USE KARO
+  // ==========================================
+
+  if (
+    originalRole !== null &&
+    originalRole !== undefined
+  ) {
+
+    setRoleId(
+      Number(originalRole)
+    );
+
+  } else if (
+    currentRole !== null &&
+    currentRole !== undefined
+  ) {
+
+    setRoleId(
+      Number(currentRole)
+    );
+  }
+
+}, []);
 
   const pathname =
     usePathname();

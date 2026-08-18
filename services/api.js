@@ -94,9 +94,7 @@ export const getStaffDataById = async (id) => {
 // Master Admin / Admin -> Login as another user
 // ==========================================
 
-export const loginAsUser = async (
-  user_id
-) => {
+export const loginAsUser = async (user_id) => {
   const response = await api.post(
     "/login-as-user",
     {

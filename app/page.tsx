@@ -28,6 +28,10 @@ import type {
 export default function Page() {
   const router = useRouter();
 
+  // ==========================================
+  // STATES
+  // ==========================================
+
   const [showPassword, setShowPassword] =
     useState(false);
 
@@ -42,9 +46,9 @@ export default function Page() {
   const [mounted, setMounted] =
     useState(false);
 
-  // =====================================
+  // ==========================================
   // LOGIN PAGE PROTECTION
-  // =====================================
+  // ==========================================
 
   useEffect(() => {
     const token = getToken();
@@ -57,9 +61,9 @@ export default function Page() {
     setMounted(true);
   }, [router]);
 
-  // =====================================
+  // ==========================================
   // INPUT CHANGE
-  // =====================================
+  // ==========================================
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement>
@@ -70,14 +74,16 @@ export default function Page() {
     }));
   };
 
-  // =====================================
+  // ==========================================
   // LOGIN
-  // =====================================
+  // ==========================================
 
   const handleSubmit = async (
     e: FormEvent<HTMLFormElement>
   ) => {
     e.preventDefault();
+
+    if (loading) return;
 
     try {
       setLoading(true);
@@ -89,150 +95,165 @@ export default function Page() {
         res
       );
 
-      // =====================================
+      // ==========================================
       // LOGIN SUCCESS
-      // =====================================
+      // ==========================================
 
-      if (res?.token) {
-
-        // =====================================
-        // IMPORTANT:
-        // SAVE ORIGINAL LOGIN
-        // =====================================
-        //
-        // Jo user LOGIN PAGE se login karta hai,
-        // uska token original_token me save hoga.
-        //
-        // Example:
-        // Master Admin login
-        //
-        // original_token = Master Admin Token
-        //
-        // Baad me Admin / Retailer par login karne
-        // ke baad bhi original_token change nahi hoga.
-        //
-        // =====================================
-
-        saveOriginalLogin(
-          res.token,
-          res.user
-        );
-
-        // =====================================
-        // SAVE CURRENT JWT TOKEN
-        // =====================================
-
-        saveToken(
-          res.token
-        );
-
-        // =====================================
-        // SAVE USER DETAILS
-        // =====================================
-
-        if (res.user) {
-          saveUser({
-            id: res.user.id,
-
-            name: res.user.name,
-
-            email: res.user.email,
-
-            role_id: res.user.role_id,
-
-            // ==================================
-            // COMMON PARENT
-            // ==================================
-
-            parent_id:
-              res.user.parent_id ||
-              null,
-
-            // ==================================
-            // FULL HIERARCHY
-            // ==================================
-
-            parent_admin_id:
-              res.user.parent_admin_id ||
-              null,
-
-            parent_cnf_id:
-              res.user.parent_cnf_id ||
-              null,
-
-            parent_super_distributor_id:
-              res.user
-                .parent_super_distributor_id ||
-              null,
-
-            parent_distributor_id:
-              res.user
-                .parent_distributor_id ||
-              null,
-
-            parent_fos_id:
-              res.user.parent_fos_id ||
-              null,
-
-            parent_retailer_id:
-              res.user.parent_retailer_id ||
-              null,
-
-            parent_employee_id:
-              res.user.parent_employee_id ||
-              null,
-
-            parent_staff_id:
-              res.user.parent_staff_id ||
-              null,
-          });
-        }
-
-        // =====================================
-        // SUCCESS MESSAGE
-        // =====================================
-
-        toast.success(
-          res.message ||
-            "Login Successfully"
-        );
-
-        // =====================================
-        // DASHBOARD
-        // =====================================
-
-        router.replace(
-          "/dashboard"
-        );
-
-      } else {
-
+      if (!res?.success || !res?.token) {
         toast.error(
           res?.message ||
             "Invalid email or password"
         );
+
+        return;
       }
 
-    } catch (error: any) {
+      // ==========================================
+      // IMPORTANT
+      // ORIGINAL LOGIN SAVE
+      // ==========================================
+      //
+      // Jo user login page se login karega,
+      // wahi ORIGINAL USER hoga.
+      //
+      // Example:
+      //
+      // Master Admin login
+      //
+      // original_token = Master Admin token
+      // original_user  = Master Admin
+      //
+      // Baad mein agar Admin / Distributor /
+      // Retailer ko login karenge to
+      // original_token change nahi hoga.
+      //
+      // ==========================================
 
+      if (res?.token) {
+
+  saveOriginalLogin(
+    res.token,
+    res.user
+  );
+
+  saveToken(
+    res.token
+  );
+
+  saveUser(
+    res.user
+  );
+
+  // ...
+}
+
+      // ==========================================
+      // CURRENT TOKEN
+      // ==========================================
+
+      saveToken(
+        res.token
+      );
+
+      // ==========================================
+      // SAVE CURRENT USER
+      // ==========================================
+
+      if (res.user) {
+        saveUser({
+          id: res.user.id,
+
+          name: res.user.name,
+
+          email: res.user.email,
+
+          role_id: res.user.role_id,
+
+          // ======================================
+          // COMMON PARENT
+          // ======================================
+
+          parent_id:
+            res.user.parent_id ??
+            null,
+
+          // ======================================
+          // FULL HIERARCHY
+          // ======================================
+
+          parent_admin_id:
+            res.user.parent_admin_id ??
+            null,
+
+          parent_cnf_id:
+            res.user.parent_cnf_id ??
+            null,
+
+          parent_super_distributor_id:
+            res.user
+              .parent_super_distributor_id ??
+            null,
+
+          parent_distributor_id:
+            res.user
+              .parent_distributor_id ??
+            null,
+
+          parent_fos_id:
+            res.user.parent_fos_id ??
+            null,
+
+          parent_retailer_id:
+            res.user.parent_retailer_id ??
+            null,
+
+          parent_employee_id:
+            res.user.parent_employee_id ??
+            null,
+
+          parent_staff_id:
+            res.user.parent_staff_id ??
+            null,
+        });
+      }
+
+      // ==========================================
+      // SUCCESS MESSAGE
+      // ==========================================
+
+      toast.success(
+        res.message ||
+          "Login Successfully"
+      );
+
+      // ==========================================
+      // GO TO DASHBOARD
+      // ==========================================
+
+      router.replace(
+        "/dashboard"
+      );
+
+    } catch (error: any) {
       console.error(
         "Login Error:",
         error
       );
 
       toast.error(
-        error?.response?.data
-          ?.message ||
+        error?.response?.data?.message ||
           error?.message ||
           "Invalid email or password"
       );
 
     } finally {
-
       setLoading(false);
-
     }
   };
+
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -260,9 +281,9 @@ export default function Page() {
         `}
       >
 
-        {/* =====================================
+        {/* ======================================
             ICON
-        ===================================== */}
+        ====================================== */}
 
         <div className="flex justify-center mb-4">
 
@@ -285,9 +306,9 @@ export default function Page() {
 
         </div>
 
-        {/* =====================================
+        {/* ======================================
             TITLE
-        ===================================== */}
+        ====================================== */}
 
         <h2
           className="
@@ -312,9 +333,9 @@ export default function Page() {
           Welcome back, please enter your details
         </p>
 
-        {/* =====================================
+        {/* ======================================
             EMAIL
-        ===================================== */}
+        ====================================== */}
 
         <div className="mb-4">
 
@@ -372,9 +393,9 @@ export default function Page() {
 
         </div>
 
-        {/* =====================================
+        {/* ======================================
             PASSWORD
-        ===================================== */}
+        ====================================== */}
 
         <div className="mb-5">
 
@@ -432,7 +453,7 @@ export default function Page() {
               "
             />
 
-            {/* SHOW / HIDE PASSWORD */}
+            {/* SHOW / HIDE */}
 
             <button
               type="button"
@@ -467,9 +488,9 @@ export default function Page() {
 
         </div>
 
-        {/* =====================================
+        {/* ======================================
             LOGIN BUTTON
-        ===================================== */}
+        ====================================== */}
 
         <button
           type="submit"
@@ -495,7 +516,6 @@ export default function Page() {
             gap-2
           "
         >
-
           {loading ? (
             <>
               <span
@@ -515,7 +535,6 @@ export default function Page() {
           ) : (
             "Login"
           )}
-
         </button>
 
       </form>

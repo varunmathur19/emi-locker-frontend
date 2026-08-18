@@ -19,6 +19,7 @@ import {
 
 import {
   saveToken,
+  saveUser,
 } from "@/utils/token";
 
 export default function UsersTable({
@@ -65,92 +66,106 @@ export default function UsersTable({
   // LOGIN AS USER
   // ==========================================
 
-  const handleLoginAsUser = async (userId) => {
-    try {
-      // Prevent multiple clicks
-      if (loginLoading !== null) {
-        return;
-      }
+const handleLoginAsUser = async (user) => {
+  try {
+    setLoginLoading(user.id);
 
-      setLoginLoading(userId);
+    console.log("=================================");
+    console.log("LOGIN AS USER");
+    console.log("User ID:", user.id);
+    console.log("User Name:", user.name);
+    console.log("User Role:", user.role_id);
+    console.log("=================================");
 
-      console.log(
-        "Login as user ID:",
-        userId
-      );
+    const response = await loginAsUser(user.id);
 
-      // ========================================
-      // CALL API
-      // ========================================
+    console.log("Login As User Response:", response);
 
-      const data = await loginAsUser(userId);
-
-      console.log(
-        "Login As User Response:",
-        data
-      );
-
-      // ========================================
-      // CHECK RESPONSE
-      // ========================================
-
-      if (
-        !data?.success ||
-        !data?.token
-      ) {
-        toast.error(
-          data?.message ||
-            "Unable to login as user"
-        );
-
-        return;
-      }
-
-      // ========================================
-      // SAVE NEW TOKEN
-      // ========================================
-
-      saveToken(data.token);
-
-      // ========================================
-      // SAVE TARGET USER
-      // ========================================
-
-      if (data.user) {
-        localStorage.setItem(
-          "user",
-          JSON.stringify(data.user)
-        );
-      }
-
-      // ========================================
-      // SUCCESS
-      // ========================================
-
-      toast.success(
-        `Logged in as ${data.user?.name || "user"}`
-      );
-
-      // ========================================
-      // REDIRECT
-      // ========================================
-
-      window.location.href =
-        "/dashboard";
-    } catch (error) {
-      console.error(
-        "Login as user error:",
-        error
-      );
-
+    if (!response?.success) {
       toast.error(
-        error?.message ||
-          "Unable to login as user"
+        response?.message || "Login failed"
       );
-    } finally {
-      setLoginLoading(null);
+
+      return;
     }
-  };
+
+    // ==========================================
+    // CHECK RESPONSE
+    // ==========================================
+
+    if (!response?.token) {
+      toast.error("Login token not received");
+
+      console.error(
+        "Login As User response has no token:",
+        response
+      );
+
+      return;
+    }
+
+    if (!response?.user) {
+      toast.error("User data not received");
+
+      console.error(
+        "Login As User response has no user:",
+        response
+      );
+
+      return;
+    }
+
+    // ==========================================
+    // SAVE NEW USER TOKEN
+    // ==========================================
+
+    saveToken(response.token);
+
+    // ==========================================
+    // SAVE NEW USER
+    // ==========================================
+
+    saveUser(response.user);
+
+    console.log(
+      "New Logged In User:",
+      response.user
+    );
+
+    console.log(
+      "New Logged In Role:",
+      response.user.role_id
+    );
+
+    toast.success(
+      `Logged in as ${response.user.name}`
+    );
+
+    // ==========================================
+    // GO TO NEW USER DASHBOARD
+    // ==========================================
+
+    window.location.href = "/dashboard";
+
+  } catch (error) {
+
+    console.error(
+      "Login As User Error:",
+      error
+    );
+
+    toast.error(
+      error?.response?.data?.message ||
+      error?.message ||
+      "Unable to login as user"
+    );
+
+  } finally {
+
+    setLoginLoading(null);
+
+  }
+};
 
   return (
     <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6 max-w-full overflow-hidden">
@@ -533,11 +548,10 @@ export default function UsersTable({
 
                           {/* LOGIN */}
 
-                        <button
+                    <button
   type="button"
-  onClick={() =>
-    handleLoginAsUser(user.id)
-  }
+  disabled={loginLoading === user.id}
+  onClick={() => handleLoginAsUser(user)}
   className="
     inline-flex
     items-center
@@ -548,12 +562,12 @@ export default function UsersTable({
     hover:bg-green-50
     transition
     cursor-pointer
+    disabled:opacity-50
+    disabled:cursor-not-allowed
   "
   title="Login"
 >
-  <RiLoginBoxLine
-    size={20}
-  />
+  <RiLoginBoxLine size={20} />
 </button>
 
                         </div>
