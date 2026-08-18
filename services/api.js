@@ -73,3 +73,35 @@ export const logoutStaff = async () => {
 
   return response.data;
 };
+
+//UPDATED USER_STAFF
+export const updateStaffData = async (id, data) => {
+  const response = await api.patch(
+    `/update-staff-data/${id}`,
+    data
+  );
+
+  return response.data;
+};
+
+//auto fill data  in upadted user staff 
+export const getStaffDataById = async (id) => {
+  const res = await api.get(`/staff-data/${id}`);
+  return res.data;
+};
+
+// LOGIN AS USER
+// Master Admin / Admin -> Login as another user
+// ==========================================
+
+export const loginAsUser = async (user_id) => {
+  const response = await api.post(
+    "/login-as-user",
+    {
+      user_id,
+    }
+  );
+
+  return response.data;
+};
+

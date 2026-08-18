@@ -1,95 +1,112 @@
-  "use client";
+"use client";
 
-  import { useRouter } from "next/navigation";
-  import { RiLogoutBoxLine, } from "react-icons/ri";
-  import { getRoleId } from "@/utils/token";
-  import {
-    RiUserLine,
-    RiMenuLine,
-  } from "react-icons/ri";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
-  export default function Navbar({ sidebarOpen,
-  setSidebarOpen,}) {
-    const router = useRouter();
+import {
+  RiUserLine,
+  RiMenuLine,
+} from "react-icons/ri";
 
-    const logout = () => {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+import {
+  getRoleId,
+  getUserFromToken,
+} from "@/utils/token";
 
-      router.push("/login");
-    };
+export default function Navbar({
+  sidebarOpen,
+  setSidebarOpen,
+}) {
+  const router = useRouter();
 
-    const user =
-      typeof window !== "undefined"
-        ? JSON.parse(localStorage.getItem("user") || "{}")
-        : {};
+  // IMPORTANT:
+  // Initial render par null rahega.
+  // Isse server aur client ka first HTML same rahega.
+  const [user, setUser] = useState(null);
+  const [roleId, setRoleId] = useState(null);
 
-    const roleId = getRoleId();
+  useEffect(() => {
+    // Browser me component mount hone ke baad
+    // localStorage/token se user data lena
+    const loggedInUser = getUserFromToken();
 
-    const roleNames = {
-      0: "Master Admin",
-      1: "Admin",
-      2: "CNF",
-      3: "Super Distributor",
-      4: "Distributor",
-      5: "FOS",
-      6: "Retailer",
-      7: "Employee",
-    };
+    if (loggedInUser) {
+      setUser(loggedInUser);
+    }
 
-    const roleName = roleNames[roleId] || "User";
+    const currentRoleId = getRoleId();
 
-    return (
-      // <nav className="h-16  bg-white shadow flex items-center justify-between px-6">
-     <nav
-  className={`fixed top-0 right-0 z-50 h-16 bg-white shadow flex items-center justify-between px-6 transition-all duration-300 ${
-    sidebarOpen ? "left-64" : "left-0"
-  }`}
->
+    if (currentRoleId !== null && currentRoleId !== undefined) {
+      setRoleId(Number(currentRoleId));
+    }
+  }, []);
 
-        {/* Left */}
-       {/* Left */}
-<div className="flex items-center md:gap-4 gap-1">
+  // Logout
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
 
- <button
-  onClick={() => setSidebarOpen(!sidebarOpen)}
-  className="text-3xl cursor-pointer"
->
-  <RiMenuLine />
-</button>
+    router.push("/login");
+  };
 
-  <div>
-    <h1 className="md:text-2xl font-bold text-blue-500 text-[20px]">
-      RechargeKit
-    </h1>
+  // Role names
+  const roleNames = {
+    0: "Master Admin",
+    1: "Admin",
+    2: "CNF",
+    3: "Super Distributor",
+    4: "Distributor",
+    5: "FOS",
+    6: "Retailer",
+    7: "Employee",
+    8: "Staff",
+  };
 
-    {/* <p className="text-sm text-gray-500">
-      Welcome, <span className="font-semibold md:text-[18px]">{roleName}</span>
-    </p> */}
-  </div>
+  const roleName = roleNames[roleId] || "User";
 
-</div>
+  return (
+    <nav
+      className={`fixed top-0 right-0 z-50 h-16 bg-white shadow flex items-center justify-between px-6 transition-all duration-300 ${
+        sidebarOpen ? "left-64" : "left-0"
+      }`}
+    >
+      {/* ================================================= */}
+      {/* LEFT SIDE */}
+      {/* ================================================= */}
 
-        {/* Right */}
-        <div className="flex items-center gap-5">
+      <div className="flex items-center md:gap-4 gap-1">
+        {/* Sidebar Toggle */}
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="text-3xl cursor-pointer"
+        >
+          <RiMenuLine />
+        </button>
 
-          <div className="flex items-center md:gap-2 gap-1">
-            <RiUserLine size={22} />
-
-            <div>
-              <p className="font-semibold md:text-2xl text-[15px]">
-                {user.name || roleName}
-              </p>
-              {/* <span className="text-sm text-gray-500">
-                {roleName}
-              </span> */}
-            </div>
-          </div>
-           
-
-        
-
+        {/* Logo */}
+        <div>
+          <h1 className="md:text-2xl font-bold text-blue-500 text-[20px]">
+            RechargeKit
+          </h1>
         </div>
-      </nav>
-    );
-  }
+      </div>
+
+      {/* ================================================= */}
+      {/* RIGHT SIDE */}
+      {/* ================================================= */}
+
+      <div className="flex items-center gap-5">
+        <div className="flex items-center md:gap-2 gap-1">
+          <RiUserLine size={22} />
+
+          <div>
+            <p className="font-semibold md:text-2xl text-[15px]">
+              {user?.name || roleName}
+            </p>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}

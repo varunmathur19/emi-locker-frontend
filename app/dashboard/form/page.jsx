@@ -1,7 +1,7 @@
 "use client";
 import {  addStaff, getDropdownUsers } from "@/services/api";
 import { getUserFromToken,getUser  } from "@/utils/token";
-import { RiEyeLine, RiEyeOffLine , RiArrowDownSLine  } from "react-icons/ri";
+import { RiEyeLine, RiEyeOffLine , RiArrowDownSLine,  } from "react-icons/ri";
 import Link from "next/link";
 import {
   Country,
@@ -51,6 +51,7 @@ const [formData, setFormData] = useState(initialFormData);
 
   const [parentUsers, setParentUsers] = useState({});
   const [cnfAdmin, setCnfAdmin] = useState(null);
+  const [cnfAdmins, setCnfAdmins] = useState([]);
   const searchParams = useSearchParams();
   const selectedRole = Number(searchParams.get("role_id"));
 
@@ -246,88 +247,95 @@ useEffect(() => {
   // Admin ka naam show karenge.
   // ==========================================
 
-  if (Number(selectedRole) === 2) {
-    const loadAdminForCNF = async () => {
-      try {
-        console.log("=================================");
-        console.log("CNF CREATE");
-        console.log("ADMIN API CALL");
+ if (Number(selectedRole) === 2) {
+  const loadAdminForCNF = async () => {
+    try {
+      console.log("=================================");
+      console.log("CNF CREATE");
+      console.log("ADMIN API CALL");
 
-        // ==========================================
-        // ADMIN API
-        // role_id = 1
-        // parent_id = null
-        // ==========================================
+      const res = await getDropdownUsers(1, null);
 
-        const res = await getDropdownUsers(1, null);
+      console.log("ADMIN API RESPONSE:", res);
 
-        console.log("ADMIN API RESPONSE:", res);
+      const admins =
+        Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res?.data?.data)
+          ? res.data.data
+          : Array.isArray(res?.data?.users)
+          ? res.data.users
+          : [];
 
-        // ==========================================
-        // RESPONSE DATA
-        // ==========================================
+      console.log("ADMIN USERS:", admins);
 
-        const admins =
-          Array.isArray(res?.data)
-            ? res.data
-            : Array.isArray(res?.data?.data)
-            ? res.data.data
-            : Array.isArray(res?.data?.users)
-            ? res.data.users
-            : [];
+      // Saare admins store karo
+      setCnfAdmins(admins);
 
-        console.log("ADMIN USERS:", admins);
+      // Admin users parentUsers me bhi store karo
+      setParentUsers((prev) => ({
+        ...prev,
+        1: admins,
+      }));
 
-        // ==========================================
-        // FIRST ADMIN
-        // ==========================================
+      // ==========================================
+      // ONLY ONE ADMIN
+      // ==========================================
 
+      if (admins.length === 1) {
         const admin = admins[0];
 
-        if (!admin) {
-          console.log("Admin not found");
-          return;
-        }
-        
-
-        console.log("SELECTED ADMIN:", admin);
+        console.log("ONLY ONE ADMIN:", admin);
 
         setCnfAdmin(admin);
-        // ==========================================
-        // ADMIN ID FORM DATA ME SET
-        // ==========================================
 
         setFormData((prev) => ({
           ...prev,
           parent_admin_id: Number(admin.id),
         }));
-
-        // ==========================================
-        // ADMIN KO parentUsers ME BHI STORE KARO
-        //
-        // Ye isliye useful hai agar UI me naam
-        // parentUsers se read karna ho.
-        // ==========================================
-
-        setParentUsers((prev) => ({
-          ...prev,
-          1: [admin],
-        }));
-      } catch (error) {
-        console.error(
-          "CNF ADMIN DROPDOWN ERROR:",
-          error?.response?.data || error
-        );
       }
-    };
 
-    loadAdminForCNF();
+      // ==========================================
+      // MULTIPLE ADMINS
+      // ==========================================
 
-    // IMPORTANT:
-    // CNF ke liye yahin return.
-    // Iske baad normal dropdown load nahi hoga.
-    return;
-  }
+      else if (admins.length > 1) {
+        console.log("MULTIPLE ADMINS - DROPDOWN SHOW HOGA");
+
+        // Pehle se selected admin ko reset karo
+        setCnfAdmin(null);
+
+        setFormData((prev) => ({
+          ...prev,
+          parent_admin_id: null,
+        }));
+      }
+
+      // ==========================================
+      // NO ADMIN
+      // ==========================================
+
+      else {
+        console.log("Admin not found");
+
+        setCnfAdmin(null);
+        setFormData((prev) => ({
+          ...prev,
+          parent_admin_id: null,
+        }));
+      }
+    } catch (error) {
+      console.error(
+        "CNF ADMIN DROPDOWN ERROR:",
+        error?.response?.data || error
+      );
+    }
+  };
+
+  loadAdminForCNF();
+
+  return;
+}
 
   // ==========================================
   // BAaki ROLES ka EXISTING FLOW SAME
@@ -1376,17 +1384,58 @@ if (
         ADMIN DROPDOWN KI JAGAH ADMIN NAME
        ========================================== */}
 
-    {Number(selectedRole) === 2 ? (
-      <div className="space-y-1.5 mt-2">
-        <label className="text-sm font-medium text-slate-700">
-          Admin
-        </label>
+{Number(selectedRole) === 2 ? (
+  <div className="space-y-1.5 mt-2">
+    <label className="text-sm font-medium text-slate-700">
+      Admin
+    </label>
 
-        <div className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-slate-50 ">
-  {cnfAdmin?.name || "Loading Admin..."}
-</div>
+    {/* ==========================================
+        ONLY ONE ADMIN
+        Simple Admin Name Show Hoga
+       ========================================== */}
+
+    {cnfAdmins.length <= 1 ? (
+      <div className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-slate-50">
+        {cnfAdmin?.name || "Loading Admin..."}
       </div>
     ) : (
+      /* ==========================================
+         MULTIPLE ADMINS
+         Dropdown Show Hoga
+         ========================================== */
+
+      <div className="relative">
+        <select
+          value={formData.parent_admin_id || ""}
+          onChange={(e) =>
+            handleParentChange(1, e.target.value)
+          }
+          required
+          className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer"
+        >
+          <option value="">
+            Select Admin
+          </option>
+
+          {cnfAdmins.map((admin) => (
+            <option
+              key={admin.id}
+              value={admin.id}
+            >
+              {admin.name}
+            </option>
+          ))}
+        </select>
+
+        <RiArrowDownSLine
+          size={22}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+        />
+      </div>
+    )}
+  </div>
+) : (
       /* ==========================================
          BAaki SAB ROLES KA EXISTING DROPDOWN
          EXACTLY SAME
