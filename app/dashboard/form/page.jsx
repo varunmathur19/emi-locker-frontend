@@ -1,1804 +1,3700 @@
 "use client";
-import {  addStaff, getDropdownUsers } from "@/services/api";
-import { getUserFromToken,getUser  } from "@/utils/token";
-import { RiEyeLine, RiEyeOffLine , RiArrowDownSLine,  } from "react-icons/ri";
+
+import {
+  addStaff,
+  getDropdownUsers,
+} from "@/services/api";
+
+import {
+  getUserFromToken,
+} from "@/utils/token";
+
+import {
+  RiEyeLine,
+  RiEyeOffLine,
+  RiArrowDownSLine,
+} from "react-icons/ri";
+
 import Link from "next/link";
+
 import {
   Country,
   State,
   City,
 } from "country-state-city";
 
-import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import { toast } from "react-toastify";
+import {
+  useState,
+  useEffect,
+} from "react";
 
+import {
+  useSearchParams,
+} from "next/navigation";
+
+import {
+  toast,
+} from "react-toastify";
+
+
+// =====================================================
+// INITIAL FORM DATA
+// =====================================================
 
 const initialFormData = {
+
   organization_name: "",
+
   role_id: "",
+
   name: "",
+
   email: "",
+
   phone: "",
+
   password: "",
+
   confirm_password: "",
+
   company_address: "",
+
   country: "",
+
   state: "",
+
   city: "",
 
-  // Parent hierarchy
+
+  // ===================================================
+  // PARENT HIERARCHY
+  // ===================================================
+
   parent_admin_id: null,
+
   parent_cnf_id: null,
+
   parent_super_distributor_id: null,
+
   parent_distributor_id: null,
+
   parent_fos_id: null,
+
   parent_retailer_id: null,
+
   parent_employee_id: null,
+
   parent_staff_id: null,
 
-  // Device permissions
+
+  // ===================================================
+  // DEVICE PERMISSIONS
+  // ===================================================
+
   new_device: 0,
+
   old_device: 0,
+
   supreme_device: 0,
+
   pro_star: 0,
+
   lite: 0,
+
   google_tv: 0,
+
   supreme_lock: 0,
 };
+
+
+// =====================================================
+// ROLE -> PARENT FIELD
+// =====================================================
+
+const roleParentField = {
+
+  1: "parent_admin_id",
+
+  2: "parent_cnf_id",
+
+  3: "parent_super_distributor_id",
+
+  4: "parent_distributor_id",
+
+  5: "parent_fos_id",
+
+  6: "parent_retailer_id",
+
+  7: "parent_employee_id",
+
+  8: "parent_staff_id",
+
+};
+
+
+// =====================================================
+// CREATE ROLE -> IMMEDIATE PARENT FIELD
+//
+// IMPORTANT
+//
+// Ye parent_id decide karega.
+// =====================================================
+
+const immediateParentField = {
+
+  // CNF -> Admin
+  2: "parent_admin_id",
+
+  // Super Distributor -> CNF
+  3: "parent_cnf_id",
+
+  // Distributor -> Super Distributor
+  4: "parent_super_distributor_id",
+
+  // FOS -> Distributor
+  5: "parent_distributor_id",
+
+  // Retailer -> FOS OR Distributor
+  6: "parent_fos_id",
+
+  // Employee -> Retailer
+  7: "parent_retailer_id",
+
+  // Staff -> Admin
+  8: "parent_admin_id",
+};
+
+
+// =====================================================
+// COMPONENT
+// =====================================================
+
 export default function Page() {
-const [formData, setFormData] = useState(initialFormData);
 
-  const [parentUsers, setParentUsers] = useState({});
-  const [cnfAdmin, setCnfAdmin] = useState(null);
-  const [cnfAdmins, setCnfAdmins] = useState([]);
-  const searchParams = useSearchParams();
-  const selectedRole = Number(searchParams.get("role_id"));
+  const searchParams =
+    useSearchParams();
 
-  const loggedInUser = getUserFromToken();
-const loggedInRoleId = Number(loggedInUser?.role_id);
-  
+
+  // ===================================================
+  // FORM
+  // ===================================================
+
+  const [
+    formData,
+    setFormData,
+  ] = useState(initialFormData);
+
+
+  // ===================================================
+  // PARENT USERS
+  // ===================================================
+
+  const [
+    parentUsers,
+    setParentUsers,
+  ] = useState({});
+
+
+  // ===================================================
+  // CNF ADMIN
+  // ===================================================
+
+  const [
+    cnfAdmin,
+    setCnfAdmin,
+  ] = useState(null);
+
+
+  const [
+    cnfAdmins,
+    setCnfAdmins,
+  ] = useState([]);
+
+
+  // ===================================================
+  // PASSWORD
+  // ===================================================
+
+  const [
+    showPassword,
+    setShowPassword,
+  ] = useState(false);
+
+
+  const [
+    showConfirmPassword,
+    setShowConfirmPassword,
+  ] = useState(false);
+
+
+  // ===================================================
+  // SELECTED ROLE
+  // ===================================================
+
+  const selectedRole =
+    Number(
+      searchParams.get("role_id")
+    );
+
+
+  // ===================================================
+  // LOGGED USER
+  // ===================================================
+
+  const loggedInUser =
+    getUserFromToken();
+
+
+  const loggedInRoleId =
+    Number(
+      loggedInUser?.role_id
+    );
+
+
+  // ===================================================
+  // ROLE BUTTONS
+  // ===================================================
+
   const roleButtons = {
-  1: "Add Admin",
-  2: "Add CNF",
-  3: "Add Super Distributor",
-  4: "Add Distributor",
-  5: "Add FOS",
-  6: "Add Retailer",
-  7: "Add Employee",
-  8: "Add Staff",
-};
 
-const parentRoles = {
-  2: [1],             // CNF
-  3: [2],            // Super Distributor -> CNF
-  4: [2, 3],         // Distributor -> CNF -> Super Distributor
-  5: [2, 3, 4],      // FOS -> CNF -> Super Distributor -> Distributor
-  6: [2, 3, 4, 5],    // Retailer
-  7: [2, 3, 4, 5, 6],// Employee
-  8: [],             // Staff
-};
+    1: "Add Admin",
 
-const visibleParentRoles = (
-  parentRoles[selectedRole] || []
-).filter((roleId) => {
+    2: "Add CNF",
 
-  // ==========================================
-  // CNF CREATE KARTE TIME
-  // ADMIN KA DROPDOWN NAHI DIKHANA
-  // ==========================================
-  if (Number(selectedRole) === 2 && roleId === 1) {
-    return false;
-  }
+    3: "Add Super Distributor",
 
-  // Logged-in user ka own role dropdown nahi dikhana
-  if (roleId === loggedInRoleId) {
-    return false;
-  }
+    4: "Add Distributor",
 
-  // Logged-in user ke upar wale roles nahi dikhane
-  if (roleId < loggedInRoleId) {
-    return false;
-  }
+    5: "Add FOS",
 
-  return true;
-});
+    6: "Add Retailer",
 
-const loadParentUsers = async (roleId, parentId = null) => {
-  try {
-    // console.log("Loading Dropdown");
-    // console.log("Role ID:", roleId);
-    // console.log("Parent ID:", parentId);
+    7: "Add Employee",
 
-    const res = await getDropdownUsers(
-      Number(roleId),
-      parentId ? Number(parentId) : null
-    );
+    8: "Add Staff",
 
-    // console.log("API Response:", res);
-    // console.log("API Data:", res?.data);
+  };
 
-    // API response handle
-    const users =
-      Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res?.data?.data)
-        ? res.data.data
-        : [];
 
-    // console.log("Users for dropdown:", users);
-
-    setParentUsers((prev) => ({
-      ...prev,
-      [Number(roleId)]: users,
-    }));
-
-  } catch (error) {
-
-    console.error(
-      "Dropdown Error:",
-      error?.response?.data || error
-    );
-
-  }
-};
-
-useEffect(() => {
-  if (!selectedRole || selectedRole <= 1) return;
-
-  const user = getUserFromToken();
-
-  if (!user?.id) {
-    console.log("Logged-in user not found");
-    return;
-  }
-
-  // ==========================================
-  // EXISTING LOGGED-IN USER HIERARCHY
-  // ==========================================
-
-  setFormData((prev) => ({
-    ...prev,
-
-    parent_admin_id: user.parent_admin_id
-      ? Number(user.parent_admin_id)
-      : null,
-
-    parent_cnf_id: user.parent_cnf_id
-      ? Number(user.parent_cnf_id)
-      : null,
-
-    parent_super_distributor_id:
-      user.parent_super_distributor_id
-        ? Number(user.parent_super_distributor_id)
-        : null,
-
-    parent_distributor_id:
-      user.parent_distributor_id
-        ? Number(user.parent_distributor_id)
-        : null,
-
-    parent_fos_id: user.parent_fos_id
-      ? Number(user.parent_fos_id)
-      : null,
-
-    parent_retailer_id: user.parent_retailer_id
-      ? Number(user.parent_retailer_id)
-      : null,
-
-    parent_employee_id: user.parent_employee_id
-      ? Number(user.parent_employee_id)
-      : null,
-
-    parent_staff_id: user.parent_staff_id
-      ? Number(user.parent_staff_id)
-      : null,
-
-    // ==========================================
-    // LOGGED-IN USER KHUD APNE ROLE KA PARENT
-    // ==========================================
-
-    ...(Number(user.role_id) === 1 && {
-      parent_admin_id: Number(user.id),
-    }),
-
-    ...(Number(user.role_id) === 2 && {
-      parent_cnf_id: Number(user.id),
-    }),
-
-    ...(Number(user.role_id) === 3 && {
-      parent_super_distributor_id: Number(user.id),
-    }),
-
-    ...(Number(user.role_id) === 4 && {
-      parent_distributor_id: Number(user.id),
-    }),
-
-    ...(Number(user.role_id) === 5 && {
-      parent_fos_id: Number(user.id),
-    }),
-
-    ...(Number(user.role_id) === 6 && {
-      parent_retailer_id: Number(user.id),
-    }),
-
-    ...(Number(user.role_id) === 7 && {
-      parent_employee_id: Number(user.id),
-    }),
-
-    ...(Number(user.role_id) === 8 && {
-      parent_staff_id: Number(user.id),
-    }),
-  }));
-
-  // ==========================================
+  // ===================================================
   // PARENT ROLES
-  // ==========================================
+  // ===================================================
 
-  const parents = visibleParentRoles;
+  const parentRoles = {
 
-  // ==========================================
-  // CNF CREATE CASE
-  // ==========================================
-  // CNF ka parent sirf Admin hai.
-  //
-  // Pehle Admin dropdown API call hoti thi.
-  // Ab wahi API call hogi, lekin dropdown ki jagah
-  // Admin ka naam show karenge.
-  // ==========================================
+    2: [1],
 
- if (Number(selectedRole) === 2) {
-  const loadAdminForCNF = async () => {
-    try {
-      console.log("=================================");
-      console.log("CNF CREATE");
-      console.log("ADMIN API CALL");
+    3: [2],
 
-      const res = await getDropdownUsers(1, null);
+    4: [2, 3],
 
-      console.log("ADMIN API RESPONSE:", res);
+    5: [2, 3, 4],
 
-      const admins =
-        Array.isArray(res?.data)
-          ? res.data
-          : Array.isArray(res?.data?.data)
-          ? res.data.data
-          : Array.isArray(res?.data?.users)
-          ? res.data.users
-          : [];
+    6: [2, 3, 4, 5],
 
-      console.log("ADMIN USERS:", admins);
+    7: [2, 3, 4, 5, 6],
 
-      // Saare admins store karo
-      setCnfAdmins(admins);
+    8: [],
 
-      // Admin users parentUsers me bhi store karo
-      setParentUsers((prev) => ({
-        ...prev,
-        1: admins,
-      }));
+  };
 
-      // ==========================================
-      // ONLY ONE ADMIN
-      // ==========================================
 
-      if (admins.length === 1) {
-        const admin = admins[0];
+  // ===================================================
+  // VISIBLE PARENT ROLES
+  // ===================================================
 
-        console.log("ONLY ONE ADMIN:", admin);
+  const visibleParentRoles = (
 
-        setCnfAdmin(admin);
+    parentRoles[selectedRole] || []
 
-        setFormData((prev) => ({
-          ...prev,
-          parent_admin_id: Number(admin.id),
-        }));
-      }
+  ).filter((roleId) => {
 
-      // ==========================================
-      // MULTIPLE ADMINS
-      // ==========================================
 
-      else if (admins.length > 1) {
-        console.log("MULTIPLE ADMINS - DROPDOWN SHOW HOGA");
+    // -------------------------------------------------
+    // CNF ke time Admin dropdown hide
+    // -------------------------------------------------
 
-        // Pehle se selected admin ko reset karo
-        setCnfAdmin(null);
+    if (
+      Number(selectedRole) === 2 &&
+      roleId === 1
+    ) {
 
-        setFormData((prev) => ({
-          ...prev,
-          parent_admin_id: null,
-        }));
-      }
+      return false;
 
-      // ==========================================
-      // NO ADMIN
-      // ==========================================
-
-      else {
-        console.log("Admin not found");
-
-        setCnfAdmin(null);
-        setFormData((prev) => ({
-          ...prev,
-          parent_admin_id: null,
-        }));
-      }
-    } catch (error) {
-      console.error(
-        "CNF ADMIN DROPDOWN ERROR:",
-        error?.response?.data || error
-      );
     }
-  };
-
-  loadAdminForCNF();
-
-  return;
-}
-
-  // ==========================================
-  // BAaki ROLES ka EXISTING FLOW SAME
-  // ==========================================
-
-  if (!parents.length) return;
-
-  // ==========================================
-  // FIRST DROPDOWN LOAD
-  // ==========================================
-
-  const firstParentRole = parents[0];
-
-  loadParentUsers(firstParentRole, null);
-}, [selectedRole, loggedInRoleId]);
-const getRoleName = (roleId) => {
-  const roles = {
-    1: "Admin",
-    2: "CNF",
-    3: "Super Distributor",
-    4: "Distributor",
-    5: "FOS",
-    6: "Retailer",
-    7: "Employee",
-    8: "Staff",
-  };
-
-  return roles[roleId] || "User";
-};
 
 
+    // -------------------------------------------------
+    // Same role hide
+    // -------------------------------------------------
+
+    if (
+      roleId === loggedInRoleId
+    ) {
+
+      return false;
+
+    }
 
 
-  const [showPassword, setShowPassword] = useState(false);
-const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    // -------------------------------------------------
+    // Logged-in user ke upar wale roles hide
+    // -------------------------------------------------
+
+    if (
+      roleId < loggedInRoleId
+    ) {
+
+      return false;
+
+    }
 
 
+    return true;
 
-useEffect(()=>{
+  });
 
- const roleId = searchParams.get("role_id");
 
- if(roleId){
+  // =====================================================
+  // ROLE NAME
+  // =====================================================
 
-   setFormData(prev=>({
-     ...prev,
-     role_id:Number(roleId)
-   }));
+  const getRoleName = (roleId) => {
 
- }
+    const roles = {
 
-},[searchParams]);
+      1: "Admin",
 
-  // Sample data – replace with API data later
- 
+      2: "CNF",
 
- const countries = Country.getAllCountries();
+      3: "Super Distributor",
 
-const states = formData.country
-  ? State.getStatesOfCountry(formData.country)
-  : [];
+      4: "Distributor",
 
-const cities =
-  formData.country && formData.state
-    ? City.getCitiesOfState(formData.country, formData.state)
-    : [];
+      5: "FOS",
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+      6: "Retailer",
 
-    setFormData((prev) => {
-      const updated = { ...prev, [name]: value };
+      7: "Employee",
 
-      // Reset dependent fields
-      if (name === "country") {
-        updated.state = "";
-        updated.city = "";
-      }
-      if (name === "state") {
-        updated.city = "";
-      }
+      8: "Staff",
 
-      return updated;
-    });
-  };
-const handleParentChange = async (parentRoleId, parentId) => {
-  const currentRoleId = Number(parentRoleId);
-  const selectedId = parentId ? Number(parentId) : null;
-
-  const parents = visibleParentRoles;
-  const currentIndex = parents.indexOf(currentRoleId);
-
-  console.log("=================================");
-  console.log("PARENT CHANGED");
-  console.log("Logged User Role:", loggedInRoleId);
-  console.log("Selected Role:", selectedRole);
-  console.log("Selected Parent Role:", currentRoleId);
-  console.log("Selected Parent ID:", selectedId);
-
-  // ==========================================
-  // SELECTED USER
-  // ==========================================
-
-  const selectedUser = (
-    parentUsers[currentRoleId] || []
-  ).find(
-    (user) => Number(user.id) === selectedId
-  );
-
-  console.log("Selected User:", selectedUser);
-
-  // ==========================================
-  // UPDATE FORM DATA / HIERARCHY
-  // ==========================================
-
-  setFormData((prev) => {
-    const updated = {
-      ...prev,
-      [`parent_${currentRoleId}`]: selectedId,
     };
 
-    // ==========================================
-    // ADMIN SELECTED
-    // CNF KA parent_admin_id SET KARO
-    // ==========================================
-
-    if (currentRoleId === 1) {
-      updated.parent_admin_id = selectedId;
-
-      console.log(
-        "ADMIN SELECTED -> parent_admin_id:",
-        selectedId
-      );
-    }
-
-    // ==========================================
-    // CNF
-    // ==========================================
-
-    if (currentRoleId === 2) {
-      updated.parent_cnf_id = selectedId;
-
-      /*
-       * CNF ke selected user se parent_admin_id
-       * mile toh set karo.
-       *
-       * Agar selected CNF ke parent_admin_id null hai,
-       * toh existing parent_admin_id ko change mat karo.
-       */
-      updated.parent_admin_id =
-        selectedUser?.parent_admin_id
-          ? Number(selectedUser.parent_admin_id)
-          : updated.parent_admin_id;
-    }
-
-    // ==========================================
-    // SUPER DISTRIBUTOR
-    // ==========================================
-
-    if (currentRoleId === 3) {
-      updated.parent_super_distributor_id = selectedId;
-
-      updated.parent_admin_id =
-        selectedUser?.parent_admin_id
-          ? Number(selectedUser.parent_admin_id)
-          : updated.parent_admin_id;
-
-      updated.parent_cnf_id =
-        selectedUser?.parent_cnf_id
-          ? Number(selectedUser.parent_cnf_id)
-          : updated.parent_cnf_id;
-    }
-
-    // ==========================================
-    // DISTRIBUTOR
-    // ==========================================
-
-    if (currentRoleId === 4) {
-      updated.parent_distributor_id = selectedId;
-
-      updated.parent_admin_id =
-        selectedUser?.parent_admin_id
-          ? Number(selectedUser.parent_admin_id)
-          : updated.parent_admin_id;
-
-      updated.parent_cnf_id =
-        selectedUser?.parent_cnf_id
-          ? Number(selectedUser.parent_cnf_id)
-          : updated.parent_cnf_id;
-
-      updated.parent_super_distributor_id =
-        selectedUser?.parent_super_distributor_id
-          ? Number(
-              selectedUser.parent_super_distributor_id
-            )
-          : updated.parent_super_distributor_id;
-
-      // Distributor change hone par
-      // FOS + Retailer clear
-      updated.parent_fos_id = null;
-      updated.parent_retailer_id = null;
-    }
-
-    // ==========================================
-    // FOS
-    // ==========================================
-
-    if (currentRoleId === 5) {
-      updated.parent_fos_id = selectedId;
-
-      updated.parent_admin_id =
-        selectedUser?.parent_admin_id
-          ? Number(selectedUser.parent_admin_id)
-          : updated.parent_admin_id;
-
-      updated.parent_cnf_id =
-        selectedUser?.parent_cnf_id
-          ? Number(selectedUser.parent_cnf_id)
-          : updated.parent_cnf_id;
-
-      updated.parent_super_distributor_id =
-        selectedUser?.parent_super_distributor_id
-          ? Number(
-              selectedUser.parent_super_distributor_id
-            )
-          : updated.parent_super_distributor_id;
-
-      updated.parent_distributor_id =
-        selectedUser?.parent_distributor_id
-          ? Number(
-              selectedUser.parent_distributor_id
-            )
-          : updated.parent_distributor_id;
-
-      // FOS change hone par retailer reset
-      updated.parent_retailer_id = null;
-    }
-
-    // ==========================================
-    // RETAILER
-    // ==========================================
-
-    if (currentRoleId === 6) {
-      updated.parent_retailer_id = selectedId;
-
-      updated.parent_admin_id =
-        selectedUser?.parent_admin_id
-          ? Number(selectedUser.parent_admin_id)
-          : updated.parent_admin_id;
-
-      updated.parent_cnf_id =
-        selectedUser?.parent_cnf_id
-          ? Number(selectedUser.parent_cnf_id)
-          : updated.parent_cnf_id;
-
-      updated.parent_super_distributor_id =
-        selectedUser?.parent_super_distributor_id
-          ? Number(
-              selectedUser.parent_super_distributor_id
-            )
-          : updated.parent_super_distributor_id;
-
-      updated.parent_distributor_id =
-        selectedUser?.parent_distributor_id
-          ? Number(
-              selectedUser.parent_distributor_id
-            )
-          : updated.parent_distributor_id;
-
-      // Direct Distributor -> Retailer
-      // mein FOS null rahega.
-      updated.parent_fos_id =
-        selectedUser?.parent_fos_id
-          ? Number(selectedUser.parent_fos_id)
-          : null;
-    }
-
-    // ==========================================
-    // EMPLOYEE
-    // ==========================================
-
-    if (currentRoleId === 7) {
-      updated.parent_employee_id = selectedId;
-
-      updated.parent_admin_id =
-        selectedUser?.parent_admin_id
-          ? Number(selectedUser.parent_admin_id)
-          : updated.parent_admin_id;
-
-      updated.parent_cnf_id =
-        selectedUser?.parent_cnf_id
-          ? Number(selectedUser.parent_cnf_id)
-          : updated.parent_cnf_id;
-
-      updated.parent_super_distributor_id =
-        selectedUser?.parent_super_distributor_id
-          ? Number(
-              selectedUser.parent_super_distributor_id
-            )
-          : updated.parent_super_distributor_id;
-
-      updated.parent_distributor_id =
-        selectedUser?.parent_distributor_id
-          ? Number(
-              selectedUser.parent_distributor_id
-            )
-          : updated.parent_distributor_id;
-
-      updated.parent_fos_id =
-        selectedUser?.parent_fos_id
-          ? Number(selectedUser.parent_fos_id)
-          : updated.parent_fos_id;
-
-      updated.parent_retailer_id =
-        selectedUser?.parent_retailer_id
-          ? Number(selectedUser.parent_retailer_id)
-          : updated.parent_retailer_id;
-    }
-
-    console.log(
-      "UPDATED FORM DATA:",
-      updated
+    return (
+      roles[roleId] ||
+      "User"
     );
 
-    return updated;
-  });
-
-  // ==========================================
-  // CLEAR NEXT DROPDOWN DATA
-  // ==========================================
-
-  const updatedParentUsers = {
-    ...parentUsers,
   };
 
-  if (currentIndex !== -1) {
-    parents
-      .slice(currentIndex + 1)
-      .forEach((roleId) => {
-        updatedParentUsers[roleId] = [];
-      });
-  }
 
-  setParentUsers(updatedParentUsers);
+  // =====================================================
+  // LOAD PARENT USERS
+  // =====================================================
 
-  // ==========================================
-  // NO SELECTION
-  // ==========================================
+  const loadParentUsers = async (
+    roleId,
+    parentId = null
+  ) => {
 
-  if (!selectedId) {
-    return;
-  }
-
-  // ==================================================
-  // DISTRIBUTOR SELECTED
-  //
-  // Distributor
-  //      |
-  //      +---- FOS ----> Retailer
-  //      |
-  //      +---- Retailer
-  //
-  // Dono APIs call hongi.
-  // ==================================================
-
-  if (currentRoleId === 4) {
     try {
-      console.log("=================================");
-      console.log("DISTRIBUTOR SELECTED");
-      console.log("Distributor ID:", selectedId);
 
-      // ==========================================
-      // CLEAR OLD DATA
-      // ==========================================
-
-      setParentUsers((prev) => ({
-        ...prev,
-        5: [],
-        6: [],
-      }));
-
-      // ==========================================
-      // CALL BOTH APIs
-      // ==========================================
-
-      const [
-        fosResponse,
-        retailerResponse,
-      ] = await Promise.all([
-        getDropdownUsers(5, selectedId),
-        getDropdownUsers(6, selectedId),
-      ]);
-
-      console.log(
-        "FOS RESPONSE:",
-        fosResponse
-      );
-
-      console.log(
-        "DIRECT RETAILER RESPONSE:",
-        retailerResponse
-      );
-
-      // ==========================================
-      // RESPONSE DATA HELPER
-      // ==========================================
-
-      const getUsersFromResponse = (response) => {
-        if (
-          Array.isArray(response?.data)
-        ) {
-          return response.data;
-        }
-
-        if (
-          Array.isArray(
-            response?.data?.data
-          )
-        ) {
-          return response.data.data;
-        }
-
-        if (
-          Array.isArray(
-            response?.data?.users
-          )
-        ) {
-          return response.data.users;
-        }
-
-        if (
-          Array.isArray(response?.users)
-        ) {
-          return response.users;
-        }
-
-        return [];
-      };
-
-      // ==========================================
-      // GET FOS
-      // ==========================================
-
-      const fosUsers =
-        getUsersFromResponse(
-          fosResponse
+      const res =
+        await getDropdownUsers(
+          Number(roleId),
+          parentId
+            ? Number(parentId)
+            : null
         );
 
-      // ==========================================
-      // GET DIRECT RETAILER
-      // ==========================================
 
-      const directRetailerUsers =
-        getUsersFromResponse(
-          retailerResponse
-        );
+      const users =
 
-      console.log(
-        "FOS USERS:",
-        fosUsers
-      );
+        Array.isArray(res?.data)
 
-      console.log(
-        "DIRECT RETAILER USERS:",
-        directRetailerUsers
-      );
+          ? res.data
 
-      // ==================================================
-      // CASE 1
-      // FOS AVAILABLE
-      //
-      // Distributor
-      //      ↓
-      //     FOS
-      //      ↓
-      //   Retailer
-      // ==================================================
+          : Array.isArray(
+              res?.data?.data
+            )
 
-      if (fosUsers.length > 0) {
-        console.log(
-          "✅ FOS FOUND"
-        );
+          ? res.data.data
 
-        console.log(
-          "FOS dropdown show hoga"
-        );
+          : Array.isArray(
+              res?.data?.users
+            )
 
-        console.log(
-          "Retailer FOS select ke baad show hoga"
-        );
+          ? res.data.users
 
-        setParentUsers((prev) => ({
+          : Array.isArray(
+              res?.users
+            )
+
+          ? res.users
+
+          : [];
+
+
+      setParentUsers(
+        (prev) => ({
+
           ...prev,
 
-          // FOS show
-          5: fosUsers,
+          [Number(roleId)]:
+            users,
 
-          // Direct retailer temporarily hide
-          6: [],
-        }));
+        })
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Dropdown Error:",
+        error?.response?.data ||
+        error
+      );
+
+    }
+
+  };
+
+
+  // =====================================================
+  // LOAD INITIAL PARENT DATA
+  // =====================================================
+
+  useEffect(() => {
+
+    if (
+      !selectedRole ||
+      selectedRole <= 1
+    ) {
+
+      return;
+
+    }
+
+
+    const user =
+      getUserFromToken();
+
+
+    if (!user?.id) {
+
+      console.log(
+        "Logged-in user not found"
+      );
+
+      return;
+
+    }
+
+
+    // ===================================================
+    // EXISTING HIERARCHY
+    // ===================================================
+
+    setFormData(
+      (prev) => ({
+
+        ...prev,
+
+        parent_admin_id:
+          user.parent_admin_id
+            ? Number(
+                user.parent_admin_id
+              )
+            : null,
+
+        parent_cnf_id:
+          user.parent_cnf_id
+            ? Number(
+                user.parent_cnf_id
+              )
+            : null,
+
+        parent_super_distributor_id:
+          user.parent_super_distributor_id
+            ? Number(
+                user.parent_super_distributor_id
+              )
+            : null,
+
+        parent_distributor_id:
+          user.parent_distributor_id
+            ? Number(
+                user.parent_distributor_id
+              )
+            : null,
+
+        parent_fos_id:
+          user.parent_fos_id
+            ? Number(
+                user.parent_fos_id
+              )
+            : null,
+
+        parent_retailer_id:
+          user.parent_retailer_id
+            ? Number(
+                user.parent_retailer_id
+              )
+            : null,
+
+        parent_employee_id:
+          user.parent_employee_id
+            ? Number(
+                user.parent_employee_id
+              )
+            : null,
+
+        parent_staff_id:
+          user.parent_staff_id
+            ? Number(
+                user.parent_staff_id
+              )
+            : null,
+
+
+        // =================================================
+        // LOGGED USER AS PARENT
+        // =================================================
+
+        ...(Number(user.role_id) === 1 && {
+
+          parent_admin_id:
+            Number(user.id),
+
+        }),
+
+
+        ...(Number(user.role_id) === 2 && {
+
+          parent_cnf_id:
+            Number(user.id),
+
+        }),
+
+
+        ...(Number(user.role_id) === 3 && {
+
+          parent_super_distributor_id:
+            Number(user.id),
+
+        }),
+
+
+        ...(Number(user.role_id) === 4 && {
+
+          parent_distributor_id:
+            Number(user.id),
+
+        }),
+
+
+        ...(Number(user.role_id) === 5 && {
+
+          parent_fos_id:
+            Number(user.id),
+
+        }),
+
+
+        ...(Number(user.role_id) === 6 && {
+
+          parent_retailer_id:
+            Number(user.id),
+
+        }),
+
+
+        ...(Number(user.role_id) === 7 && {
+
+          parent_employee_id:
+            Number(user.id),
+
+        }),
+
+
+        ...(Number(user.role_id) === 8 && {
+
+          parent_staff_id:
+            Number(user.id),
+
+        }),
+
+      })
+    );
+
+
+    // ===================================================
+    // CNF CREATE
+    // ===================================================
+
+    if (
+      Number(selectedRole) === 2
+    ) {
+
+      const loadAdminForCNF =
+        async () => {
+
+          try {
+
+            const res =
+              await getDropdownUsers(
+                1,
+                null
+              );
+
+
+            const admins =
+
+              Array.isArray(res?.data)
+
+                ? res.data
+
+                : Array.isArray(
+                    res?.data?.data
+                  )
+
+                ? res.data.data
+
+                : Array.isArray(
+                    res?.data?.users
+                  )
+
+                ? res.data.users
+
+                : [];
+
+
+            setCnfAdmins(admins);
+
+
+            setParentUsers(
+              (prev) => ({
+
+                ...prev,
+
+                1: admins,
+
+              })
+            );
+
+
+            // =================================================
+            // ONLY ONE ADMIN
+            // =================================================
+
+            if (
+              admins.length === 1
+            ) {
+
+              const admin =
+                admins[0];
+
+
+              setCnfAdmin(
+                admin
+              );
+
+
+              setFormData(
+                (prev) => ({
+
+                  ...prev,
+
+                  parent_admin_id:
+                    Number(
+                      admin.id
+                    ),
+
+                })
+              );
+
+            }
+
+
+            // =================================================
+            // MULTIPLE ADMINS
+            // =================================================
+
+            else {
+
+              setCnfAdmin(null);
+
+              setFormData(
+                (prev) => ({
+
+                  ...prev,
+
+                  parent_admin_id:
+                    null,
+
+                })
+              );
+
+            }
+
+          } catch (error) {
+
+            console.error(
+              "CNF ADMIN ERROR:",
+              error?.response?.data ||
+              error
+            );
+
+          }
+
+        };
+
+
+      loadAdminForCNF();
+
+      return;
+
+    }
+
+
+    // ===================================================
+    // OTHER ROLES
+    // ===================================================
+
+    const parents =
+      visibleParentRoles;
+
+
+    if (!parents.length) {
+
+      return;
+
+    }
+
+
+    const firstParentRole =
+      parents[0];
+
+
+    loadParentUsers(
+      firstParentRole,
+      null
+    );
+
+  }, [
+    selectedRole,
+    loggedInRoleId,
+  ]);
+
+
+  // =====================================================
+  // ROLE ID FROM URL
+  // =====================================================
+
+  useEffect(() => {
+
+    const roleId =
+      searchParams.get(
+        "role_id"
+      );
+
+
+    if (roleId) {
+
+      setFormData(
+        (prev) => ({
+
+          ...prev,
+
+          role_id:
+            Number(roleId),
+
+        })
+      );
+
+    }
+
+  }, [searchParams]);
+
+
+  // =====================================================
+  // COUNTRY
+  // =====================================================
+
+  const countries =
+    Country.getAllCountries();
+
+
+  const states =
+    formData.country
+
+      ? State.getStatesOfCountry(
+          formData.country
+        )
+
+      : [];
+
+
+  const cities =
+
+    formData.country &&
+    formData.state
+
+      ? City.getCitiesOfState(
+          formData.country,
+          formData.state
+        )
+
+      : [];
+
+
+  // =====================================================
+  // HANDLE CHANGE
+  // =====================================================
+
+  const handleChange = (e) => {
+
+    const {
+      name,
+      value,
+    } = e.target;
+
+
+    setFormData(
+      (prev) => {
+
+        const updated = {
+
+          ...prev,
+
+          [name]: value,
+
+        };
+
+
+        if (
+          name === "country"
+        ) {
+
+          updated.state = "";
+
+          updated.city = "";
+
+        }
+
+
+        if (
+          name === "state"
+        ) {
+
+          updated.city = "";
+
+        }
+
+
+        return updated;
+
+      }
+    );
+
+  };
+
+
+  // =====================================================
+  // GET USERS FROM RESPONSE
+  // =====================================================
+
+  const getUsersFromResponse = (
+    response
+  ) => {
+
+    if (
+      Array.isArray(
+        response?.data
+      )
+    ) {
+
+      return response.data;
+
+    }
+
+
+    if (
+      Array.isArray(
+        response?.data?.data
+      )
+    ) {
+
+      return response.data.data;
+
+    }
+
+
+    if (
+      Array.isArray(
+        response?.data?.users
+      )
+    ) {
+
+      return response.data.users;
+
+    }
+
+
+    if (
+      Array.isArray(
+        response?.users
+      )
+    ) {
+
+      return response.users;
+
+    }
+
+
+    return [];
+
+  };
+
+
+  // =====================================================
+  // HANDLE PARENT CHANGE
+  // =====================================================
+
+  const handleParentChange = async (
+    parentRoleId,
+    parentId
+  ) => {
+
+    const currentRoleId =
+      Number(parentRoleId);
+
+
+    const selectedId =
+      parentId
+        ? Number(parentId)
+        : null;
+
+
+    const parents =
+      visibleParentRoles;
+
+
+    const currentIndex =
+      parents.indexOf(
+        currentRoleId
+      );
+
+
+    // ===================================================
+    // SELECTED USER
+    // ===================================================
+
+    const selectedUser =
+      (
+        parentUsers[
+          currentRoleId
+        ] || []
+      ).find(
+        (user) =>
+          Number(user.id) ===
+          selectedId
+      );
+
+
+    // ===================================================
+    // UPDATE FORM DATA
+    // ===================================================
+
+    setFormData(
+      (prev) => {
+
+        const updated = {
+          ...prev,
+        };
+
+
+        // =================================================
+        // ADMIN
+        // =================================================
+
+        if (
+          currentRoleId === 1
+        ) {
+
+          updated.parent_admin_id =
+            selectedId;
+
+        }
+
+
+        // =================================================
+        // CNF
+        // =================================================
+
+        if (
+          currentRoleId === 2
+        ) {
+
+          updated.parent_cnf_id =
+            selectedId;
+
+
+          if (
+            selectedUser?.parent_admin_id
+          ) {
+
+            updated.parent_admin_id =
+              Number(
+                selectedUser.parent_admin_id
+              );
+
+          }
+
+        }
+
+
+        // =================================================
+        // SUPER DISTRIBUTOR
+        // =================================================
+
+        if (
+          currentRoleId === 3
+        ) {
+
+          updated.parent_super_distributor_id =
+            selectedId;
+
+
+          if (
+            selectedUser?.parent_admin_id
+          ) {
+
+            updated.parent_admin_id =
+              Number(
+                selectedUser.parent_admin_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_cnf_id
+          ) {
+
+            updated.parent_cnf_id =
+              Number(
+                selectedUser.parent_cnf_id
+              );
+
+          }
+
+        }
+
+
+        // =================================================
+        // DISTRIBUTOR
+        // =================================================
+
+        if (
+          currentRoleId === 4
+        ) {
+
+          updated.parent_distributor_id =
+            selectedId;
+
+
+          if (
+            selectedUser?.parent_admin_id
+          ) {
+
+            updated.parent_admin_id =
+              Number(
+                selectedUser.parent_admin_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_cnf_id
+          ) {
+
+            updated.parent_cnf_id =
+              Number(
+                selectedUser.parent_cnf_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_super_distributor_id
+          ) {
+
+            updated.parent_super_distributor_id =
+              Number(
+                selectedUser.parent_super_distributor_id
+              );
+
+          }
+
+
+          // Reset child
+          updated.parent_fos_id =
+            null;
+
+          updated.parent_retailer_id =
+            null;
+
+        }
+
+
+        // =================================================
+        // FOS
+        // =================================================
+
+        if (
+          currentRoleId === 5
+        ) {
+
+          updated.parent_fos_id =
+            selectedId;
+
+
+          if (
+            selectedUser?.parent_admin_id
+          ) {
+
+            updated.parent_admin_id =
+              Number(
+                selectedUser.parent_admin_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_cnf_id
+          ) {
+
+            updated.parent_cnf_id =
+              Number(
+                selectedUser.parent_cnf_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_super_distributor_id
+          ) {
+
+            updated.parent_super_distributor_id =
+              Number(
+                selectedUser.parent_super_distributor_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_distributor_id
+          ) {
+
+            updated.parent_distributor_id =
+              Number(
+                selectedUser.parent_distributor_id
+              );
+
+          }
+
+
+          updated.parent_retailer_id =
+            null;
+
+        }
+
+
+        // =================================================
+        // RETAILER
+        // =================================================
+
+        if (
+          currentRoleId === 6
+        ) {
+
+          updated.parent_retailer_id =
+            selectedId;
+
+
+          if (
+            selectedUser?.parent_admin_id
+          ) {
+
+            updated.parent_admin_id =
+              Number(
+                selectedUser.parent_admin_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_cnf_id
+          ) {
+
+            updated.parent_cnf_id =
+              Number(
+                selectedUser.parent_cnf_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_super_distributor_id
+          ) {
+
+            updated.parent_super_distributor_id =
+              Number(
+                selectedUser.parent_super_distributor_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_distributor_id
+          ) {
+
+            updated.parent_distributor_id =
+              Number(
+                selectedUser.parent_distributor_id
+              );
+
+          }
+
+
+          // Direct Distributor -> Retailer
+          if (
+            selectedUser?.parent_fos_id
+          ) {
+
+            updated.parent_fos_id =
+              Number(
+                selectedUser.parent_fos_id
+              );
+
+          } else {
+
+            updated.parent_fos_id =
+              null;
+
+          }
+
+        }
+
+
+        // =================================================
+        // EMPLOYEE
+        // =================================================
+
+        if (
+          currentRoleId === 7
+        ) {
+
+          updated.parent_employee_id =
+            selectedId;
+
+
+          if (
+            selectedUser?.parent_admin_id
+          ) {
+
+            updated.parent_admin_id =
+              Number(
+                selectedUser.parent_admin_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_cnf_id
+          ) {
+
+            updated.parent_cnf_id =
+              Number(
+                selectedUser.parent_cnf_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_super_distributor_id
+          ) {
+
+            updated.parent_super_distributor_id =
+              Number(
+                selectedUser.parent_super_distributor_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_distributor_id
+          ) {
+
+            updated.parent_distributor_id =
+              Number(
+                selectedUser.parent_distributor_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_fos_id
+          ) {
+
+            updated.parent_fos_id =
+              Number(
+                selectedUser.parent_fos_id
+              );
+
+          }
+
+
+          if (
+            selectedUser?.parent_retailer_id
+          ) {
+
+            updated.parent_retailer_id =
+              Number(
+                selectedUser.parent_retailer_id
+              );
+
+          }
+
+        }
+
+
+        return updated;
+
+      }
+    );
+
+
+    // ===================================================
+    // CLEAR NEXT DROPDOWNS
+    // ===================================================
+
+    const updatedParentUsers = {
+      ...parentUsers,
+    };
+
+
+    if (
+      currentIndex !== -1
+    ) {
+
+      parents
+        .slice(
+          currentIndex + 1
+        )
+        .forEach(
+          (roleId) => {
+
+            updatedParentUsers[
+              roleId
+            ] = [];
+
+          }
+        );
+
+    }
+
+
+    setParentUsers(
+      updatedParentUsers
+    );
+
+
+    if (!selectedId) {
+
+      return;
+
+    }
+
+
+    // ===================================================
+    // DISTRIBUTOR SELECTED
+    // ===================================================
+
+    if (
+      currentRoleId === 4
+    ) {
+
+      try {
+
+        setParentUsers(
+          (prev) => ({
+
+            ...prev,
+
+            5: [],
+
+            6: [],
+
+          })
+        );
+
+
+        const [
+          fosResponse,
+          retailerResponse,
+        ] = await Promise.all([
+
+          getDropdownUsers(
+            5,
+            selectedId
+          ),
+
+          getDropdownUsers(
+            6,
+            selectedId
+          ),
+
+        ]);
+
+
+        const fosUsers =
+          getUsersFromResponse(
+            fosResponse
+          );
+
+
+        const directRetailerUsers =
+          getUsersFromResponse(
+            retailerResponse
+          );
+
+
+        // =================================================
+        // FOS FOUND
+        // =================================================
+
+        if (
+          fosUsers.length > 0
+        ) {
+
+          setParentUsers(
+            (prev) => ({
+
+              ...prev,
+
+              5: fosUsers,
+
+              6: [],
+
+            })
+          );
+
+
+          return;
+
+        }
+
+
+        // =================================================
+        // DIRECT RETAILER
+        // =================================================
+
+        setParentUsers(
+          (prev) => ({
+
+            ...prev,
+
+            5: [],
+
+            6:
+              directRetailerUsers,
+
+          })
+        );
+
 
         return;
+
+      } catch (error) {
+
+        console.error(
+          "DISTRIBUTOR ERROR:",
+          error?.response?.data ||
+          error
+        );
+
+
+        setParentUsers(
+          (prev) => ({
+
+            ...prev,
+
+            5: [],
+
+            6: [],
+
+          })
+        );
+
+
+        toast.error(
+          "FOS / Retailer dropdown load failed"
+        );
+
+
+        return;
+
       }
 
-      // ==================================================
-      // CASE 2
-      // FOS AVAILABLE NAHI HAI
-      //
-      // Distributor
-      //      ↓
-      //   Retailer
-      // ==================================================
-
-      console.log(
-        "❌ NO FOS FOUND"
-      );
-
-      console.log(
-        "✅ DIRECT RETAILER MODE"
-      );
-
-      setParentUsers((prev) => ({
-        ...prev,
-
-        // FOS empty
-        5: [],
-
-        // Direct retailer show
-        6: directRetailerUsers,
-      }));
-
-      return;
-
-    } catch (error) {
-      console.error(
-        "DISTRIBUTOR DROPDOWN ERROR:",
-        error?.response?.data || error
-      );
-
-      setParentUsers((prev) => ({
-        ...prev,
-        5: [],
-        6: [],
-      }));
-
-      toast.error(
-        "FOS / Retailer dropdown load failed"
-      );
-
-      return;
     }
-  }
 
-  // ==================================================
-  // FOS SELECTED
-  //
-  // FOS
-  //  ↓
-  // Retailer
-  // ==================================================
 
-  if (currentRoleId === 5) {
-    try {
-      console.log("=================================");
-      console.log("FOS SELECTED");
-      console.log("FOS ID:", selectedId);
+    // ===================================================
+    // FOS SELECTED
+    // ===================================================
 
-      // ==========================================
-      // CLEAR OLD RETAILER
-      // ==========================================
+    if (
+      currentRoleId === 5
+    ) {
 
-      setParentUsers((prev) => ({
-        ...prev,
-        6: [],
-      }));
+      try {
 
-      // ==========================================
-      // LOAD RETAILERS UNDER FOS
-      // ==========================================
+        setParentUsers(
+          (prev) => ({
 
-      const retailerResponse =
-        await getDropdownUsers(
-          6,
-          selectedId
+            ...prev,
+
+            6: [],
+
+          })
         );
 
-      console.log(
-        "RETAILER RESPONSE:",
-        retailerResponse
-      );
 
-      // ==========================================
-      // EXTRACT DATA
-      // ==========================================
+        const retailerResponse =
+          await getDropdownUsers(
+            6,
+            selectedId
+          );
 
-      const getUsersFromResponse = (
-        response
-      ) => {
-        if (
-          Array.isArray(response?.data)
-        ) {
-          return response.data;
-        }
 
-        if (
-          Array.isArray(
-            response?.data?.data
-          )
-        ) {
-          return response.data.data;
-        }
+        const retailerUsers =
+          getUsersFromResponse(
+            retailerResponse
+          );
 
-        if (
-          Array.isArray(
-            response?.data?.users
-          )
-        ) {
-          return response.data.users;
-        }
 
-        if (
-          Array.isArray(response?.users)
-        ) {
-          return response.users;
-        }
+        setParentUsers(
+          (prev) => ({
 
-        return [];
-      };
+            ...prev,
 
-      const retailerUsers =
-        getUsersFromResponse(
-          retailerResponse
+            6:
+              retailerUsers,
+
+          })
         );
 
-      console.log(
-        "RETAILERS UNDER FOS:",
-        retailerUsers
-      );
 
-      // ==========================================
-      // SHOW RETAILER
-      // ==========================================
+        return;
 
-      setParentUsers((prev) => ({
-        ...prev,
-        6: retailerUsers,
-      }));
+      } catch (error) {
 
-      return;
+        console.error(
+          "RETAILER ERROR:",
+          error?.response?.data ||
+          error
+        );
 
-    } catch (error) {
-      console.error(
-        "RETAILER DROPDOWN ERROR:",
-        error?.response?.data || error
-      );
 
-      setParentUsers((prev) => ({
-        ...prev,
-        6: [],
-      }));
+        setParentUsers(
+          (prev) => ({
 
-      toast.error(
-        "Retailer dropdown load failed"
-      );
+            ...prev,
 
-      return;
-    }
-  }
+            6: [],
 
-  // ==========================================
-  // NORMAL NEXT DROPDOWN
-  // ==========================================
+          })
+        );
 
-  const nextRoleId =
-    parents[currentIndex + 1];
 
-  if (!nextRoleId) {
-    return;
-  }
+        toast.error(
+          "Retailer dropdown load failed"
+        );
 
-  await loadParentUsers(
-    nextRoleId,
-    selectedId
-  );
-};
-const handleSubmit = async (e) => {
-  e.preventDefault();
 
-  const roleId = Number(formData.role_id);
+        return;
 
-  if (!roleId) {
-    toast.error("Role ID missing. Please select role again");
-    return;
-  }
+      }
 
-  const tokenUser = getUserFromToken();
-
-  if (!tokenUser?.id) {
-    toast.error("Logged-in user not found");
-    return;
-  }
-
-  const loggedUserId = Number(tokenUser.id);
-  const loggedUserRoleId = Number(tokenUser.role_id);
-
-  console.log("=================================");
-  console.log("SUBMIT FORM");
-  console.log("TOKEN USER:", tokenUser);
-  console.log("Logged User ID:", loggedUserId);
-  console.log("Logged User Role:", loggedUserRoleId);
-  console.log("Creating Role:", roleId);
-
-  // ==========================================
-  // GET COMPLETE HIERARCHY FROM TOKEN
-  // ==========================================
-
-  const hierarchy = {
-    parent_admin_id: tokenUser.parent_admin_id
-      ? Number(tokenUser.parent_admin_id)
-      : null,
-
-    parent_cnf_id: tokenUser.parent_cnf_id
-      ? Number(tokenUser.parent_cnf_id)
-      : null,
-
-    parent_super_distributor_id:
-      tokenUser.parent_super_distributor_id
-        ? Number(tokenUser.parent_super_distributor_id)
-        : null,
-
-    parent_distributor_id:
-      tokenUser.parent_distributor_id
-        ? Number(tokenUser.parent_distributor_id)
-        : null,
-
-    parent_fos_id: tokenUser.parent_fos_id
-      ? Number(tokenUser.parent_fos_id)
-      : null,
-
-    parent_retailer_id: tokenUser.parent_retailer_id
-      ? Number(tokenUser.parent_retailer_id)
-      : null,
-
-    parent_employee_id: tokenUser.parent_employee_id
-      ? Number(tokenUser.parent_employee_id)
-      : null,
-
-    parent_staff_id: tokenUser.parent_staff_id
-      ? Number(tokenUser.parent_staff_id)
-      : null,
-  };
-
-  // ==========================================
-  // LOGGED-IN USER IS PARENT
-  // ==========================================
-
-  const roleParentField = {
-    1: "parent_admin_id",
-    2: "parent_cnf_id",
-    3: "parent_super_distributor_id",
-    4: "parent_distributor_id",
-    5: "parent_fos_id",
-    6: "parent_retailer_id",
-    7: "parent_employee_id",
-    8: "parent_staff_id",
-  };
-
-  const ownParentField = roleParentField[loggedUserRoleId];
-
-  if (ownParentField) {
-    hierarchy[ownParentField] = loggedUserId;
-  }
-
-  // ==========================================
-  // MERGE FORM SELECTED PARENTS
-  // ==========================================
-
-  const finalHierarchy = {
-    ...hierarchy,
-
-    parent_admin_id: formData.parent_admin_id
-      ? Number(formData.parent_admin_id)
-      : hierarchy.parent_admin_id,
-
-    parent_cnf_id: formData.parent_cnf_id
-      ? Number(formData.parent_cnf_id)
-      : hierarchy.parent_cnf_id,
-
-    parent_super_distributor_id:
-      formData.parent_super_distributor_id
-        ? Number(formData.parent_super_distributor_id)
-        : hierarchy.parent_super_distributor_id,
-
-    parent_distributor_id: formData.parent_distributor_id
-      ? Number(formData.parent_distributor_id)
-      : hierarchy.parent_distributor_id,
-
-    parent_fos_id: formData.parent_fos_id
-      ? Number(formData.parent_fos_id)
-      : hierarchy.parent_fos_id,
-
-    parent_retailer_id: formData.parent_retailer_id
-      ? Number(formData.parent_retailer_id)
-      : hierarchy.parent_retailer_id,
-
-    parent_employee_id: formData.parent_employee_id
-      ? Number(formData.parent_employee_id)
-      : hierarchy.parent_employee_id,
-
-    parent_staff_id: formData.parent_staff_id
-      ? Number(formData.parent_staff_id)
-      : hierarchy.parent_staff_id,
-  };
-
-  console.log("=================================");
-  console.log("FINAL HIERARCHY");
-  console.log(finalHierarchy);
-
-  // ==========================================
-  // REQUIRED PARENT VALIDATION
-  // ==========================================
-
-  if (roleId > 1) {
-
-    // CNF
-    if (
-      roleId === 2 &&
-      !finalHierarchy.parent_admin_id
-    ) {
-      toast.error("parent_admin_id is required");
-      return;
     }
 
-    // Super Distributor
-    if (
-      roleId === 3 &&
-      (
-        !finalHierarchy.parent_admin_id ||
-        !finalHierarchy.parent_cnf_id
-      )
-    ) {
-      toast.error(
-        "Admin and CNF parent are required"
-      );
+
+    // ===================================================
+    // NORMAL NEXT DROPDOWN
+    // ===================================================
+
+    const nextRoleId =
+      parents[
+        currentIndex + 1
+      ];
+
+
+    if (!nextRoleId) {
+
       return;
+
     }
 
-    // Distributor
-    if (
-      roleId === 4 &&
-      (
-        !finalHierarchy.parent_admin_id ||
-        !finalHierarchy.parent_cnf_id ||
-        !finalHierarchy.parent_super_distributor_id
-      )
-    ) {
-      toast.error(
-        "Admin, CNF and Super Distributor parents are required"
-      );
-      return;
-    }
 
-    // FOS
-    if (
-      roleId === 5 &&
-      (
-        !finalHierarchy.parent_admin_id ||
-        !finalHierarchy.parent_cnf_id ||
-        !finalHierarchy.parent_super_distributor_id ||
-        !finalHierarchy.parent_distributor_id
-      )
-    ) {
-      toast.error(
-  "Please select the required parent details."
-);
-      return;
-    }
-
-    // Retailer
-   // ==========================================
-// RETAILER
-// FOS OPTIONAL
-// ==========================================
-
-if (
-  roleId === 6 &&
-  (
-    !finalHierarchy.parent_admin_id ||
-    !finalHierarchy.parent_cnf_id ||
-    !finalHierarchy.parent_super_distributor_id ||
-    !finalHierarchy.parent_distributor_id
-  )
-) {
-  toast.error(
-    "Admin, CNF, Super Distributor and Distributor parents are required"
-  );
-  return;
-}
-
-    // Employee
-    if (
-      roleId === 7 &&
-      (
-        !finalHierarchy.parent_admin_id ||
-        !finalHierarchy.parent_cnf_id ||
-        !finalHierarchy.parent_super_distributor_id ||
-        !finalHierarchy.parent_distributor_id ||
-        !finalHierarchy.parent_fos_id ||
-        !finalHierarchy.parent_retailer_id
-      )
-    ) {
-      toast.error(
-  "Please select the required parent details."
-);
-      return;
-    }
-  }
-
-  // ==========================================
-  // PASSWORD
-  // ==========================================
-
-  if (
-    formData.password !==
-    formData.confirm_password
-  ) {
-    toast.error(
-      "Password and Confirm Password do not match!"
+    await loadParentUsers(
+      nextRoleId,
+      selectedId
     );
-    return;
-  }
 
-  // ==========================================
-  // FINAL PAYLOAD
-  // ==========================================
-
-  const payload = {
-    ...formData,
-
-    role_id: roleId,
-
-    // Complete hierarchy
-    parent_admin_id:
-      finalHierarchy.parent_admin_id,
-
-    parent_cnf_id:
-      finalHierarchy.parent_cnf_id,
-
-    parent_super_distributor_id:
-      finalHierarchy.parent_super_distributor_id,
-
-    parent_distributor_id:
-      finalHierarchy.parent_distributor_id,
-
-    parent_fos_id:
-      finalHierarchy.parent_fos_id,
-
-    parent_retailer_id:
-      finalHierarchy.parent_retailer_id,
-
-    parent_employee_id:
-      finalHierarchy.parent_employee_id,
-
-    parent_staff_id:
-      finalHierarchy.parent_staff_id,
-
-    // Optional common parent
-    parent_id:
-      roleParentField[loggedUserRoleId]
-        ? loggedUserId
-        : null,
   };
 
-  console.log("=================================");
-  console.log("FINAL PAYLOAD");
-  console.log(payload);
 
- try {
-  const res = await addStaff(payload);
+  // =====================================================
+  // GET PARENT ID FOR REGISTER
+  // =====================================================
 
-  console.log("Staff Created:", res);
+  const getFinalParentId = (
+    roleId,
+    hierarchy,
+    tokenUser
+  ) => {
 
-  toast.success(
-    res?.message || "Staff Created Successfully"
-  );
+    // ===================================================
+    // CNF
+    // CNF -> ADMIN
+    // ===================================================
 
-  // ==========================================
-  // RESET FORM AFTER SUCCESS
-  // ==========================================
+    if (
+      roleId === 2
+    ) {
 
-  setFormData({
-    ...initialFormData,
-    role_id: roleId,
-  });
+      return (
+        hierarchy.parent_admin_id ||
+        null
+      );
 
-  // Parent dropdown data clear
-  setParentUsers({});
+    }
 
-  // Password visibility reset
-  setShowPassword(false);
-  setShowConfirmPassword(false);
 
-} catch (error) {
+    // ===================================================
+    // SUPER DISTRIBUTOR
+    // SUPER -> CNF
+    // ===================================================
 
-  console.log(
-    "Create Staff Error:",
-    error?.response?.data || error
-  );
+    if (
+      roleId === 3
+    ) {
 
-  toast.error(
-    error?.response?.data?.message ||
-    "Something went wrong"
-  );
-}
-};
+      return (
+        hierarchy.parent_cnf_id ||
+        null
+      );
+
+    }
+
+
+    // ===================================================
+    // DISTRIBUTOR
+    // DISTRIBUTOR -> SUPER DISTRIBUTOR
+    // ===================================================
+
+    if (
+      roleId === 4
+    ) {
+
+      return (
+        hierarchy.parent_super_distributor_id ||
+        null
+      );
+
+    }
+
+
+    // ===================================================
+    // FOS
+    // FOS -> DISTRIBUTOR
+    // ===================================================
+
+    if (
+      roleId === 5
+    ) {
+
+      return (
+        hierarchy.parent_distributor_id ||
+        null
+      );
+
+    }
+
+
+    // ===================================================
+    // RETAILER
+    //
+    // Priority:
+    // FOS
+    // otherwise Distributor
+    // ===================================================
+
+    if (
+      roleId === 6
+    ) {
+
+      return (
+        hierarchy.parent_fos_id ||
+        hierarchy.parent_distributor_id ||
+        null
+      );
+
+    }
+
+
+    // ===================================================
+    // EMPLOYEE
+    // EMPLOYEE -> RETAILER
+    // ===================================================
+
+    if (
+      roleId === 7
+    ) {
+
+      return (
+        hierarchy.parent_retailer_id ||
+        null
+      );
+
+    }
+
+
+    // ===================================================
+    // STAFF
+    // STAFF -> ADMIN
+    // ===================================================
+
+    if (
+      roleId === 8
+    ) {
+
+      return (
+        hierarchy.parent_admin_id ||
+        null
+      );
+
+    }
+
+
+    // ===================================================
+    // ADMIN
+    // ADMIN -> MASTER ADMIN
+    //
+    // Agar backend master admin ka parent_id use karta hai
+    // to yahan token user id jayega.
+    // ===================================================
+
+    if (
+      roleId === 1
+    ) {
+
+      return (
+        tokenUser?.id
+          ? Number(tokenUser.id)
+          : null
+      );
+
+    }
+
+
+    return null;
+
+  };
+
+
+  // =====================================================
+  // SUBMIT
+  // =====================================================
+
+  const handleSubmit = async (
+    e
+  ) => {
+
+    e.preventDefault();
+
+
+    const roleId =
+      Number(
+        formData.role_id
+      );
+
+
+    if (!roleId) {
+
+      toast.error(
+        "Role ID missing. Please select role again"
+      );
+
+      return;
+
+    }
+
+
+    const tokenUser =
+      getUserFromToken();
+
+
+    if (!tokenUser?.id) {
+
+      toast.error(
+        "Logged-in user not found"
+      );
+
+      return;
+
+    }
+
+
+    const loggedUserId =
+      Number(
+        tokenUser.id
+      );
+
+
+    const loggedUserRoleId =
+      Number(
+        tokenUser.role_id
+      );
+
+
+    // ===================================================
+    // COMPLETE HIERARCHY FROM TOKEN
+    // ===================================================
+
+    const hierarchy = {
+
+      parent_admin_id:
+        formData.parent_admin_id
+          ? Number(
+              formData.parent_admin_id
+            )
+          : tokenUser.parent_admin_id
+          ? Number(
+              tokenUser.parent_admin_id
+            )
+          : null,
+
+
+      parent_cnf_id:
+        formData.parent_cnf_id
+          ? Number(
+              formData.parent_cnf_id
+            )
+          : tokenUser.parent_cnf_id
+          ? Number(
+              tokenUser.parent_cnf_id
+            )
+          : null,
+
+
+      parent_super_distributor_id:
+        formData.parent_super_distributor_id
+          ? Number(
+              formData.parent_super_distributor_id
+            )
+          : tokenUser.parent_super_distributor_id
+          ? Number(
+              tokenUser.parent_super_distributor_id
+            )
+          : null,
+
+
+      parent_distributor_id:
+        formData.parent_distributor_id
+          ? Number(
+              formData.parent_distributor_id
+            )
+          : tokenUser.parent_distributor_id
+          ? Number(
+              tokenUser.parent_distributor_id
+            )
+          : null,
+
+
+      parent_fos_id:
+        formData.parent_fos_id
+          ? Number(
+              formData.parent_fos_id
+            )
+          : tokenUser.parent_fos_id
+          ? Number(
+              tokenUser.parent_fos_id
+            )
+          : null,
+
+
+      parent_retailer_id:
+        formData.parent_retailer_id
+          ? Number(
+              formData.parent_retailer_id
+            )
+          : tokenUser.parent_retailer_id
+          ? Number(
+              tokenUser.parent_retailer_id
+            )
+          : null,
+
+
+      parent_employee_id:
+        formData.parent_employee_id
+          ? Number(
+              formData.parent_employee_id
+            )
+          : tokenUser.parent_employee_id
+          ? Number(
+              tokenUser.parent_employee_id
+            )
+          : null,
+
+
+      parent_staff_id:
+        formData.parent_staff_id
+          ? Number(
+              formData.parent_staff_id
+            )
+          : tokenUser.parent_staff_id
+          ? Number(
+              tokenUser.parent_staff_id
+            )
+          : null,
+
+    };
+
+
+    // ===================================================
+    // LOGGED-IN USER AS PARENT
+    // ===================================================
+
+    const ownParentField =
+      roleParentField[
+        loggedUserRoleId
+      ];
+
+
+    if (
+      ownParentField
+    ) {
+
+      hierarchy[
+        ownParentField
+      ] = loggedUserId;
+
+    }
+
+
+    // ===================================================
+    // GET ACTUAL parent_id
+    //
+    // IMPORTANT
+    // ===================================================
+
+    const parent_id =
+      getFinalParentId(
+        roleId,
+        hierarchy,
+        tokenUser
+      );
+
+
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "CREATING ROLE:",
+      roleId
+    );
+
+    console.log(
+      "FINAL HIERARCHY:",
+      hierarchy
+    );
+
+    console.log(
+      "FINAL parent_id:",
+      parent_id
+    );
+
+
+    // ===================================================
+    // REQUIRED PARENT VALIDATION
+    // ===================================================
+
+    if (
+      roleId > 1
+    ) {
+
+      // -------------------------------------------------
+      // CNF
+      // -------------------------------------------------
+
+      if (
+        roleId === 2 &&
+        !hierarchy.parent_admin_id
+      ) {
+
+        toast.error(
+          "Admin parent is required"
+        );
+
+        return;
+
+      }
+
+
+      // -------------------------------------------------
+      // SUPER DISTRIBUTOR
+      // -------------------------------------------------
+
+      if (
+        roleId === 3 &&
+        (
+          !hierarchy.parent_admin_id ||
+          !hierarchy.parent_cnf_id
+        )
+      ) {
+
+        toast.error(
+          "Admin and CNF parent are required"
+        );
+
+        return;
+
+      }
+
+
+      // -------------------------------------------------
+      // DISTRIBUTOR
+      // -------------------------------------------------
+
+      if (
+        roleId === 4 &&
+        (
+          !hierarchy.parent_admin_id ||
+          !hierarchy.parent_cnf_id ||
+          !hierarchy.parent_super_distributor_id
+        )
+      ) {
+
+        toast.error(
+          "Admin, CNF and Super Distributor parents are required"
+        );
+
+        return;
+
+      }
+
+
+      // -------------------------------------------------
+      // FOS
+      // -------------------------------------------------
+
+      if (
+        roleId === 5 &&
+        (
+          !hierarchy.parent_admin_id ||
+          !hierarchy.parent_cnf_id ||
+          !hierarchy.parent_super_distributor_id ||
+          !hierarchy.parent_distributor_id
+        )
+      ) {
+
+        toast.error(
+          "Please select the required parent details."
+        );
+
+        return;
+
+      }
+
+
+      // -------------------------------------------------
+      // RETAILER
+      // -------------------------------------------------
+
+      if (
+        roleId === 6 &&
+        (
+          !hierarchy.parent_admin_id ||
+          !hierarchy.parent_cnf_id ||
+          !hierarchy.parent_super_distributor_id ||
+          !hierarchy.parent_distributor_id
+        )
+      ) {
+
+        toast.error(
+          "Admin, CNF, Super Distributor and Distributor parents are required"
+        );
+
+        return;
+
+      }
+
+
+      // -------------------------------------------------
+      // EMPLOYEE
+      // -------------------------------------------------
+
+      if (
+        roleId === 7 &&
+        (
+          !hierarchy.parent_admin_id ||
+          !hierarchy.parent_cnf_id ||
+          !hierarchy.parent_super_distributor_id ||
+          !hierarchy.parent_distributor_id ||
+          !hierarchy.parent_retailer_id
+        )
+      ) {
+
+        toast.error(
+          "Please select the required parent details."
+        );
+
+        return;
+
+      }
+
+
+      // -------------------------------------------------
+      // parent_id MUST EXIST
+      // -------------------------------------------------
+
+      if (!parent_id) {
+
+        toast.error(
+          "Parent ID is required"
+        );
+
+        return;
+
+      }
+
+    }
+
+
+    // ===================================================
+    // PASSWORD
+    // ===================================================
+
+    if (
+      formData.password !==
+      formData.confirm_password
+    ) {
+
+      toast.error(
+        "Password and Confirm Password do not match!"
+      );
+
+      return;
+
+    }
+
+
+    // ===================================================
+    // FINAL PAYLOAD
+    // ===================================================
+
+    const payload = {
+
+      ...formData,
+
+
+      role_id:
+        roleId,
+
+
+      // =================================================
+      // COMPLETE HIERARCHY
+      // =================================================
+
+      parent_admin_id:
+        hierarchy.parent_admin_id,
+
+
+      parent_cnf_id:
+        hierarchy.parent_cnf_id,
+
+
+      parent_super_distributor_id:
+        hierarchy.parent_super_distributor_id,
+
+
+      parent_distributor_id:
+        hierarchy.parent_distributor_id,
+
+
+      parent_fos_id:
+        hierarchy.parent_fos_id,
+
+
+      parent_retailer_id:
+        hierarchy.parent_retailer_id,
+
+
+      parent_employee_id:
+        hierarchy.parent_employee_id,
+
+
+      parent_staff_id:
+        hierarchy.parent_staff_id,
+
+
+      // =================================================
+      // IMPORTANT
+      //
+      // Actual immediate parent
+      // =================================================
+
+      parent_id:
+        parent_id,
+
+    };
+
+
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "FINAL REGISTER PAYLOAD"
+    );
+
+    console.log(
+      payload
+    );
+
+
+    // ===================================================
+    // API
+    // ===================================================
+
+    try {
+
+      const res =
+        await addStaff(
+          payload
+        );
+
+
+      console.log(
+        "REGISTER SUCCESS:",
+        res
+      );
+
+
+      toast.success(
+        res?.message ||
+        "Registered Successfully"
+      );
+
+
+      // =================================================
+      // RESET
+      // =================================================
+
+      setFormData({
+
+        ...initialFormData,
+
+        role_id:
+          roleId,
+
+      });
+
+
+      setParentUsers({});
+
+
+      setShowPassword(
+        false
+      );
+
+
+      setShowConfirmPassword(
+        false
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "REGISTER ERROR:",
+        error?.response?.data ||
+        error
+      );
+
+
+      toast.error(
+
+        error?.response?.data?.message ||
+
+        error?.response?.data?.error ||
+
+        "Something went wrong"
+
+      );
+
+    }
+
+  };
+
+
+  // =====================================================
+  // UI
+  // =====================================================
 
   return (
-    // <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-10 px-4">
-      <div className="max-w-5xl mx-auto">
-    
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden p-6">
-            <div className="mb-5">
 
-  {/* Top Buttons */}
-  <div className="flex justify-between items-center">
-    <div className="flex gap-3">
-      <Link
-        href={`/dashboard?role=${selectedRole}`}
-        className="bg-gray-700 text-white px-4 py-2 rounded-sm hover:bg-gray-800 whitespace-nowrap"
+    <div
+      className="
+        max-w-5xl
+        mx-auto
+      "
+    >
+
+      <div
+        className="
+          bg-white
+          rounded-2xl
+          shadow-xl
+          border
+          border-slate-100
+          overflow-hidden
+          p-6
+        "
       >
-        {getRoleName(selectedRole)} List
-      </Link>
-    </div>
-  </div>
 
-  {/* Parent Role Dropdowns */}
-{/* Parent Role Dropdowns */}
+        {/* =================================================
+            TOP BUTTON
+        ================================================= */}
 
-{/* Parent Role Dropdowns */}
-
-{selectedRole > 1 && (
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-    {/* ==========================================
-        CNF CREATE
-        ADMIN DROPDOWN KI JAGAH ADMIN NAME
-       ========================================== */}
-
-{Number(selectedRole) === 2 ? (
-  <div className="space-y-1.5 mt-2">
-    <label className="text-sm font-medium text-slate-700">
-      Admin
-    </label>
-
-    {/* ==========================================
-        ONLY ONE ADMIN
-        Simple Admin Name Show Hoga
-       ========================================== */}
-
-    {cnfAdmins.length <= 1 ? (
-      <div className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-slate-50">
-        {cnfAdmin?.name || "Loading Admin..."}
-      </div>
-    ) : (
-      /* ==========================================
-         MULTIPLE ADMINS
-         Dropdown Show Hoga
-         ========================================== */
-
-      <div className="relative">
-        <select
-          value={formData.parent_admin_id || ""}
-          onChange={(e) =>
-            handleParentChange(1, e.target.value)
-          }
-          required
-          className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer"
+        <div
+          className="
+            mb-5
+          "
         >
-          <option value="">
-            Select Admin
-          </option>
 
-          {cnfAdmins.map((admin) => (
-            <option
-              key={admin.id}
-              value={admin.id}
-            >
-              {admin.name}
-            </option>
-          ))}
-        </select>
-
-        <RiArrowDownSLine
-          size={22}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-        />
-      </div>
-    )}
-  </div>
-) : (
-      /* ==========================================
-         BAaki SAB ROLES KA EXISTING DROPDOWN
-         EXACTLY SAME
-         ========================================== */
-
-      visibleParentRoles.map((parentRoleId) => {
-        const users = parentUsers[parentRoleId] || [];
-
-        return (
           <div
-            key={parentRoleId}
-            className="space-y-1.5"
+            className="
+              flex
+              justify-between
+              items-center
+            "
           >
-            <label className="text-sm font-medium text-slate-700">
-              {getRoleName(parentRoleId)}
-            </label>
 
-            <div className="relative">
-              <select
+            <div
+              className="
+                flex
+                gap-3
+              "
+            >
+
+              <Link
+                href={`/dashboard?role=${selectedRole}`}
+                className="
+                  bg-gray-700
+                  text-white
+                  px-4
+                  py-2
+                  rounded-sm
+                  hover:bg-gray-800
+                  whitespace-nowrap
+                "
+              >
+
+                {getRoleName(
+                  selectedRole
+                )} List
+
+              </Link>
+
+            </div>
+
+          </div>
+
+
+          {/* =================================================
+              PARENT DROPDOWNS
+          ================================================= */}
+
+          {selectedRole > 1 && (
+
+            <div
+              className="
+                grid
+                grid-cols-1
+                md:grid-cols-3
+                gap-4
+                mt-5
+              "
+            >
+
+              {/* =================================================
+                  CNF
+              ================================================= */}
+
+              {Number(selectedRole) === 2 ? (
+
+                <div
+                  className="
+                    space-y-1.5
+                  "
+                >
+
+                  <label
+                    className="
+                      text-sm
+                      font-medium
+                      text-slate-700
+                    "
+                  >
+                    Admin
+                  </label>
+
+
+                  {cnfAdmins.length <= 1 ? (
+
+                    <div
+                      className="
+                        w-full
+                        border
+                        border-slate-300
+                        rounded-lg
+                        px-4
+                        py-2.5
+                        text-sm
+                        bg-slate-50
+                      "
+                    >
+
+                      {cnfAdmin?.name ||
+                        "Loading Admin..."}
+
+                    </div>
+
+                  ) : (
+
+                    <div
+                      className="
+                        relative
+                      "
+                    >
+
+                      <select
+                        value={
+                          formData.parent_admin_id ||
+                          ""
+                        }
+                        onChange={(e) =>
+                          handleParentChange(
+                            1,
+                            e.target.value
+                          )
+                        }
+                        required
+                        className="
+                          w-full
+                          appearance-none
+                          border
+                          border-slate-300
+                          rounded-lg
+                          px-4
+                          py-2.5
+                          pr-10
+                          text-sm
+                          bg-white
+                          cursor-pointer
+                        "
+                      >
+
+                        <option value="">
+                          Select Admin
+                        </option>
+
+
+                        {cnfAdmins.map(
+                          (admin) => (
+
+                            <option
+                              key={
+                                admin.id
+                              }
+                              value={
+                                admin.id
+                              }
+                            >
+
+                              {admin.name}
+
+                            </option>
+
+                          )
+                        )}
+
+                      </select>
+
+
+                      <RiArrowDownSLine
+                        size={22}
+                        className="
+                          absolute
+                          right-3
+                          top-1/2
+                          -translate-y-1/2
+                          text-slate-500
+                          pointer-events-none
+                        "
+                      />
+
+                    </div>
+
+                  )}
+
+                </div>
+
+              ) : (
+
+                /* =================================================
+                    OTHER ROLES
+                ================================================= */
+
+                visibleParentRoles.map(
+                  (parentRoleId) => {
+
+                    const users =
+                      parentUsers[
+                        parentRoleId
+                      ] || [];
+
+
+                    return (
+
+                      <div
+                        key={
+                          parentRoleId
+                        }
+                        className="
+                          space-y-1.5
+                        "
+                      >
+
+                        <label
+                          className="
+                            text-sm
+                            font-medium
+                            text-slate-700
+                          "
+                        >
+
+                          {getRoleName(
+                            parentRoleId
+                          )}
+
+                        </label>
+
+
+                        <div
+                          className="
+                            relative
+                          "
+                        >
+
+                          <select
+                            value={
+
+                              formData[
+                                roleParentField[
+                                  parentRoleId
+                                ]
+                              ] || ""
+
+                            }
+                            onChange={(e) =>
+                              handleParentChange(
+                                parentRoleId,
+                                e.target.value
+                              )
+                            }
+                            required
+                            className="
+                              w-full
+                              appearance-none
+                              border
+                              border-slate-300
+                              rounded-lg
+                              px-4
+                              py-2.5
+                              pr-10
+                              text-sm
+                              bg-white
+                              cursor-pointer
+                            "
+                          >
+
+                            <option value="">
+
+                              Select{" "}
+
+                              {getRoleName(
+                                parentRoleId
+                              )}
+
+                            </option>
+
+
+                            {users.map(
+                              (user) => (
+
+                                <option
+                                  key={
+                                    user.id
+                                  }
+                                  value={
+                                    user.id
+                                  }
+                                >
+
+                                  {user.name}
+
+                                </option>
+
+                              )
+                            )}
+
+                          </select>
+
+
+                          <RiArrowDownSLine
+                            size={22}
+                            className="
+                              absolute
+                              right-3
+                              top-1/2
+                              -translate-y-1/2
+                              text-slate-500
+                              pointer-events-none
+                            "
+                          />
+
+                        </div>
+
+                      </div>
+
+                    );
+
+                  }
+                )
+
+              )}
+
+            </div>
+
+          )}
+
+        </div>
+
+
+        {/* =================================================
+            FORM
+        ================================================= */}
+
+        <form
+          onSubmit={
+            handleSubmit
+          }
+          className="
+            pt-6
+            md:pt-5
+          "
+        >
+
+          <div
+            className="
+              grid
+              grid-cols-1
+              md:grid-cols-3
+              gap-6
+            "
+          >
+
+            {/* =================================================
+                ORGANIZATION
+            ================================================= */}
+
+            <div
+              className="
+                space-y-1.5
+              "
+            >
+
+              <label
+                className="
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
+              >
+
+                Organization Name{" "}
+
+                <span className="text-red-500">
+                  *
+                </span>
+
+              </label>
+
+
+              <input
+                type="text"
+                name="organization_name"
+                placeholder="Enter organization name"
                 value={
-                  formData[`parent_${parentRoleId}`] || ""
+                  formData.organization_name
+                }
+                onChange={
+                  handleChange
+                }
+                required
+                className="
+                  w-full
+                  border
+                  border-slate-300
+                  rounded-lg
+                  px-4
+                  py-2.5
+                  text-sm
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-blue-500
+                "
+              />
+
+            </div>
+
+
+            {/* =================================================
+                NAME
+            ================================================= */}
+
+            <div
+              className="
+                space-y-1.5
+              "
+            >
+
+              <label
+                className="
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
+              >
+
+                Full Name{" "}
+
+                <span className="text-red-500">
+                  *
+                </span>
+
+              </label>
+
+
+              <input
+                type="text"
+                name="name"
+                placeholder="Enter full name"
+                value={
+                  formData.name
+                }
+                onChange={
+                  handleChange
+                }
+                required
+                className="
+                  w-full
+                  border
+                  border-slate-300
+                  rounded-lg
+                  px-4
+                  py-2.5
+                  text-sm
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-blue-500
+                "
+              />
+
+            </div>
+
+
+            {/* =================================================
+                EMAIL
+            ================================================= */}
+
+            <div
+              className="
+                space-y-1.5
+              "
+            >
+
+              <label
+                className="
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
+              >
+
+                Email Address{" "}
+
+                <span className="text-red-500">
+                  *
+                </span>
+
+              </label>
+
+
+              <input
+                type="email"
+                name="email"
+                placeholder="staff@example.com"
+                value={
+                  formData.email
+                }
+                onChange={
+                  handleChange
+                }
+                required
+                className="
+                  w-full
+                  border
+                  border-slate-300
+                  rounded-lg
+                  px-4
+                  py-2.5
+                  text-sm
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-blue-500
+                "
+              />
+
+            </div>
+
+
+            {/* =================================================
+                PHONE
+            ================================================= */}
+
+            <div
+              className="
+                space-y-1.5
+              "
+            >
+
+              <label
+                className="
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
+              >
+
+                Phone Number{" "}
+
+                <span className="text-red-500">
+                  *
+                </span>
+
+              </label>
+
+
+              <input
+                type="tel"
+                name="phone"
+                placeholder="+91 98765 43210"
+                value={
+                  formData.phone
                 }
                 onChange={(e) =>
-                  handleParentChange(
-                    parentRoleId,
-                    e.target.value
+                  setFormData(
+                    (prev) => ({
+
+                      ...prev,
+
+                      phone:
+                        e.target.value.replace(
+                          /[^\d+\s]/g,
+                          ""
+                        ),
+
+                    })
                   )
                 }
                 required
-                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer"
+                pattern="^(\+91\s?)?[6-9]\d{9}$"
+                title="Enter a valid Indian mobile number"
+                className="
+                  w-full
+                  border
+                  border-slate-300
+                  rounded-lg
+                  px-4
+                  py-2.5
+                  text-sm
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-blue-500
+                "
+              />
+
+            </div>
+
+
+            {/* =================================================
+                ADDRESS
+            ================================================= */}
+
+            <div
+              className="
+                space-y-1.5
+              "
+            >
+
+              <label
+                className="
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
               >
+
+                Company Address{" "}
+
+                <span className="text-red-500">
+                  *
+                </span>
+
+              </label>
+
+
+              <input
+                type="text"
+                name="company_address"
+                placeholder="Street, Building, Area"
+                value={
+                  formData.company_address
+                }
+                onChange={
+                  handleChange
+                }
+                required
+                className="
+                  w-full
+                  border
+                  border-slate-300
+                  rounded-lg
+                  px-4
+                  py-2.5
+                  text-sm
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-blue-500
+                "
+              />
+
+            </div>
+
+
+            {/* =================================================
+                PASSWORD
+            ================================================= */}
+
+            <div
+              className="
+                space-y-1.5
+              "
+            >
+
+              <label
+                className="
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
+              >
+
+                Password{" "}
+
+                <span className="text-red-500">
+                  *
+                </span>
+
+              </label>
+
+
+              <div
+                className="
+                  relative
+                "
+              >
+
+                <input
+                  type={
+                    showPassword
+                      ? "text"
+                      : "password"
+                  }
+                  name="password"
+                  placeholder="Enter password"
+                  value={
+                    formData.password
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  required
+                  className="
+                    w-full
+                    border
+                    border-slate-300
+                    rounded-lg
+                    px-4
+                    py-2.5
+                    pr-12
+                    text-sm
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-500
+                  "
+                />
+
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowPassword(
+                      !showPassword
+                    )
+                  }
+                  className="
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-gray-500
+                    cursor-pointer
+                  "
+                >
+
+                  {showPassword ? (
+
+                    <RiEyeOffLine
+                      size={20}
+                    />
+
+                  ) : (
+
+                    <RiEyeLine
+                      size={20}
+                    />
+
+                  )}
+
+                </button>
+
+              </div>
+
+            </div>
+
+
+            {/* =================================================
+                CONFIRM PASSWORD
+            ================================================= */}
+
+            <div
+              className="
+                space-y-1.5
+              "
+            >
+
+              <label
+                className="
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
+              >
+
+                Confirm Password{" "}
+
+                <span className="text-red-500">
+                  *
+                </span>
+
+              </label>
+
+
+              <div
+                className="
+                  relative
+                "
+              >
+
+                <input
+                  type={
+                    showConfirmPassword
+                      ? "text"
+                      : "password"
+                  }
+                  name="confirm_password"
+                  placeholder="Re-enter password"
+                  value={
+                    formData.confirm_password
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  required
+                  className="
+                    w-full
+                    border
+                    border-slate-300
+                    rounded-lg
+                    px-4
+                    py-2.5
+                    pr-12
+                    text-sm
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-500
+                  "
+                />
+
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowConfirmPassword(
+                      !showConfirmPassword
+                    )
+                  }
+                  className="
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-gray-500
+                    cursor-pointer
+                  "
+                >
+
+                  {showConfirmPassword ? (
+
+                    <RiEyeOffLine
+                      size={20}
+                    />
+
+                  ) : (
+
+                    <RiEyeLine
+                      size={20}
+                    />
+
+                  )}
+
+                </button>
+
+              </div>
+
+            </div>
+
+
+            {/* =================================================
+                COUNTRY
+            ================================================= */}
+
+            <div
+              className="
+                space-y-1.5
+              "
+            >
+
+              <label
+                className="
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
+              >
+
+                Country{" "}
+
+                <span className="text-red-500">
+                  *
+                </span>
+
+              </label>
+
+
+              <select
+                name="country"
+                value={
+                  formData.country
+                }
+                onChange={
+                  handleChange
+                }
+                required
+                className="
+                  w-full
+                  border
+                  border-slate-300
+                  rounded-lg
+                  px-4
+                  py-2.5
+                  text-sm
+                  bg-white
+                "
+              >
+
                 <option value="">
-                  Select {getRoleName(parentRoleId)}
+                  Select Country
                 </option>
 
-                {users.map((user) => (
-                  <option
-                    key={user.id}
-                    value={user.id}
-                  >
-                    {user.name}
-                  </option>
-                ))}
+
+                {countries.map(
+                  (country) => (
+
+                    <option
+                      key={
+                        country.isoCode
+                      }
+                      value={
+                        country.isoCode
+                      }
+                    >
+
+                      {country.name}
+
+                    </option>
+
+                  )
+                )}
+
               </select>
 
-              <RiArrowDownSLine
-                size={22}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-              />
-            </div>
-          </div>
-        );
-      })
-    )}
-
-  </div>
-)}
-          {/* Header */}
-          {/* <div className="bg-gradient-to-r from-blue-400 to-indigo-400 px-8 py-6">
-            <h1 className="text-2xl md:text-3xl font-bold text-white">
-              Create Staff
-            </h1>
-            
-          </div> */}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="pt-6 md:pt-5 md:px-0">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-              {/* Organization Name */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Organization Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="organization_name"
-                  placeholder="Enter organization name"
-                  value={formData.organization_name}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
-              </div>
-
-              {/* Role ID (readonly) */}
-              {/* <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Role ID
-                </label>
-              <input
-  type="number"
-  name="role_id"
-  placeholder="Enter Role ID"
-  value={formData.role_id}
-  onChange={handleChange}
-  required
-  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-/>
-              </div> */}
-
-              {/* Name */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Enter full name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
-              </div>
-
-              {/* Email */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Email Address <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="staff@example.com"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
-              </div>
-
-              {/* Phone */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Phone Number <span className="text-red-500">*</span>
-                </label>
-             <input
-  type="tel"
-  name="phone"
-  placeholder="+91 98765 43210"
-  value={formData.phone}
-  onChange={(e) =>
-    setFormData({
-      ...formData,
-      phone: e.target.value.replace(/[^\d+\s]/g, ""),
-    })
-  }
-  required
-  pattern="^(\+91\s?)?[6-9]\d{9}$"
-  title="Enter a valid Indian mobile number"
-  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-/>
-              </div>
-
-              {/* Company Address */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Company Address <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="company_address"
-                  placeholder="Street, Building, Area"
-                  value={formData.company_address}
-                  onChange={handleChange}
-                  required
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
-              </div>
-
-              {/* Password */}
-              <div className="space-y-1.5">
-  <label className="text-sm font-medium text-slate-700">
-    Password <span className="text-red-500">*</span>
-  </label>
-
-  <div className="relative">
-    <input
-      type={showPassword ? "text" : "password"}
-      name="password"
-      placeholder="Enter password"
-      value={formData.password}
-      onChange={handleChange}
-      required
-      className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-    />
-
-    <button
-      type="button"
-      onClick={() => setShowPassword(!showPassword)}
-      className="absolute cursor-pointer right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600"
-    >
-      {showPassword ? (
-        <RiEyeOffLine size={20} />
-      ) : (
-        <RiEyeLine size={20} />
-      )}
-    </button>
-  </div>
-</div>
-
-              {/* Confirm Password */}
-              <div className="space-y-1.5">
-  <label className="text-sm font-medium text-slate-700">
-    Confirm Password <span className="text-red-500">*</span>
-  </label>
-
-  <div className="relative">
-    <input
-      type={showConfirmPassword ? "text" : "password"}
-      name="confirm_password"
-      placeholder="Re-enter password"
-      value={formData.confirm_password}
-      onChange={handleChange}
-      required
-      className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-    />
-
-    <button
-      type="button"
-      onClick={() =>
-        setShowConfirmPassword(!showConfirmPassword)
-      }
-      className="absolute cursor-pointer right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600"
-    >
-      {showConfirmPassword ? (
-        <RiEyeOffLine size={20} />
-      ) : (
-        <RiEyeLine size={20} />
-      )}
-    </button>
-  </div>
-</div>
-
-              {/* Country Dropdown */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Country <span className="text-red-500">*</span>
-                </label>
-              <select
-  name="country"
-  value={formData.country}
-  onChange={handleChange}
-  required
-  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition appearance-none"
->
-  <option value="">Select Country</option>
-
-  {countries.map((country) => (
-    <option key={country.isoCode} value={country.isoCode}>
-      {country.name}
-    </option>
-  ))}
-</select>
-              </div>
-
-              {/* State Dropdown */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  State <span className="text-red-500">*</span>
-                </label>
-              <select
-  name="state"
-  value={formData.state}
-  onChange={handleChange}
-  required
-  disabled={!formData.country}
-  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition appearance-none disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
->
-  <option value="">Select State</option>
-
-  {states.map((state) => (
-    <option key={state.isoCode} value={state.isoCode}>
-      {state.name}
-    </option>
-  ))}
-</select>
-              </div>
-
-              {/* City Dropdown */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  City <span className="text-red-500">*</span>
-                </label>
-           <select
-  name="city"
-  value={formData.city}
-  onChange={handleChange}
-  required
-  disabled={!formData.state}
-  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition appearance-none disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
->
-  <option value="">Select City</option>
-
-  {cities.map((city) => (
-    <option key={city.name} value={city.name}>
-      {city.name}
-    </option>
-  ))}
-</select>
-              </div>
-              {/* Retailer Device Permissions */}
-{Number(formData.role_id) === 6 && (
-  <div className="md:col-span-3 space-y-4">
-    <h3 className="text-lg font-semibold text-slate-700">
-      Device Permissions
-    </h3>
-
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-      {[
-        { label: "New Device", name: "new_device" },
-        { label: "Old Device", name: "old_device" },
-        { label: "Supreme Device", name: "supreme_device" },
-        { label: "Pro Star", name: "pro_star" },
-        { label: "Lite", name: "lite" },
-        { label: "Google TV", name: "google_tv" },
-        { label: "Supreme Lock", name: "supreme_lock" },
-      ].map((item) => (
-        <label
-          key={item.name}
-          className={`flex items-center justify-between px-4 py-3 rounded-lg border transition cursor-pointer
-            ${
-              formData[item.name] === 1
-                ? "border-blue-500 bg-blue-50"
-                : "border-slate-300 bg-white hover:border-blue-400"
-            }`}
-        >
-          <span className="text-sm font-medium text-slate-700">
-            {item.label}
-          </span>
-
-          <input
-            type="checkbox"
-            checked={formData[item.name] === 1}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                [item.name]: e.target.checked ? 1 : 0,
-              }))
-            }
-            className="h-5 w-5 accent-blue-600 cursor-pointer"
-          />
-        </label>
-      ))}
-    </div>
-  </div>
-)}
             </div>
 
-            {/* Submit Button */}
-            <div className="mt-8 flex justify-end">
-              <button
-                type="submit"
-                className="bg-blue-400 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98] cursor-pointer"
+
+            {/* =================================================
+                STATE
+            ================================================= */}
+
+            <div
+              className="
+                space-y-1.5
+              "
+            >
+
+              <label
+                className="
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
               >
-                Create 
-              </button>
+
+                State{" "}
+
+                <span className="text-red-500">
+                  *
+                </span>
+
+              </label>
+
+
+              <select
+                name="state"
+                value={
+                  formData.state
+                }
+                onChange={
+                  handleChange
+                }
+                required
+                disabled={
+                  !formData.country
+                }
+                className="
+                  w-full
+                  border
+                  border-slate-300
+                  rounded-lg
+                  px-4
+                  py-2.5
+                  text-sm
+                  bg-white
+                  disabled:bg-slate-50
+                "
+              >
+
+                <option value="">
+                  Select State
+                </option>
+
+
+                {states.map(
+                  (state) => (
+
+                    <option
+                      key={
+                        state.isoCode
+                      }
+                      value={
+                        state.isoCode
+                      }
+                    >
+
+                      {state.name}
+
+                    </option>
+
+                  )
+                )}
+
+              </select>
+
             </div>
-          </form>
-        </div>
+
+
+            {/* =================================================
+                CITY
+            ================================================= */}
+
+            <div
+              className="
+                space-y-1.5
+              "
+            >
+
+              <label
+                className="
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
+              >
+
+                City{" "}
+
+                <span className="text-red-500">
+                  *
+                </span>
+
+              </label>
+
+
+              <select
+                name="city"
+                value={
+                  formData.city
+                }
+                onChange={
+                  handleChange
+                }
+                required
+                disabled={
+                  !formData.state
+                }
+                className="
+                  w-full
+                  border
+                  border-slate-300
+                  rounded-lg
+                  px-4
+                  py-2.5
+                  text-sm
+                  bg-white
+                  disabled:bg-slate-50
+                "
+              >
+
+                <option value="">
+                  Select City
+                </option>
+
+
+                {cities.map(
+                  (city) => (
+
+                    <option
+                      key={
+                        city.name
+                      }
+                      value={
+                        city.name
+                      }
+                    >
+
+                      {city.name}
+
+                    </option>
+
+                  )
+                )}
+
+              </select>
+
+            </div>
+
+
+            {/* =================================================
+                RETAILER DEVICES
+            ================================================= */}
+
+            {Number(
+              formData.role_id
+            ) === 6 && (
+
+              <div
+                className="
+                  md:col-span-3
+                  space-y-4
+                "
+              >
+
+                <h3
+                  className="
+                    text-lg
+                    font-semibold
+                    text-slate-700
+                  "
+                >
+
+                  Device Permissions
+
+                </h3>
+
+
+                <div
+                  className="
+                    grid
+                    grid-cols-1
+                    md:grid-cols-3
+                    lg:grid-cols-4
+                    gap-4
+                  "
+                >
+
+                  {[
+
+                    {
+                      label:
+                        "New Device",
+
+                      name:
+                        "new_device",
+                    },
+
+                    {
+                      label:
+                        "Old Device",
+
+                      name:
+                        "old_device",
+                    },
+
+                    {
+                      label:
+                        "Supreme Device",
+
+                      name:
+                        "supreme_device",
+                    },
+
+                    {
+                      label:
+                        "Pro Star",
+
+                      name:
+                        "pro_star",
+                    },
+
+                    {
+                      label:
+                        "Lite",
+
+                      name:
+                        "lite",
+                    },
+
+                    {
+                      label:
+                        "Google TV",
+
+                      name:
+                        "google_tv",
+                    },
+
+                    {
+                      label:
+                        "Supreme Lock",
+
+                      name:
+                        "supreme_lock",
+                    },
+
+                  ].map(
+                    (item) => (
+
+                      <label
+                        key={
+                          item.name
+                        }
+                        className={`
+                          flex
+                          items-center
+                          justify-between
+                          px-4
+                          py-3
+                          rounded-lg
+                          border
+                          transition
+                          cursor-pointer
+                          ${
+                            formData[
+                              item.name
+                            ] === 1
+
+                              ? "border-blue-500 bg-blue-50"
+
+                              : "border-slate-300 bg-white hover:border-blue-400"
+                          }
+                        `}
+                      >
+
+                        <span
+                          className="
+                            text-sm
+                            font-medium
+                            text-slate-700
+                          "
+                        >
+
+                          {item.label}
+
+                        </span>
+
+
+                        <input
+                          type="checkbox"
+                          checked={
+                            formData[
+                              item.name
+                            ] === 1
+                          }
+                          onChange={(e) =>
+                            setFormData(
+                              (prev) => ({
+
+                                ...prev,
+
+                                [item.name]:
+                                  e.target.checked
+                                    ? 1
+                                    : 0,
+
+                              })
+                            )
+                          }
+                          className="
+                            h-5
+                            w-5
+                            accent-blue-600
+                            cursor-pointer
+                          "
+                        />
+
+                      </label>
+
+                    )
+                  )}
+
+                </div>
+
+              </div>
+
+            )}
+
+          </div>
+
+
+          {/* =================================================
+              SUBMIT
+          ================================================= */}
+
+          <div
+            className="
+              mt-8
+              flex
+              justify-end
+            "
+          >
+
+            <button
+              type="submit"
+              className="
+                bg-blue-400
+                text-white
+                font-medium
+                px-8
+                py-3
+                rounded-lg
+                shadow-md
+                hover:shadow-lg
+                transition-all
+                cursor-pointer
+              "
+            >
+
+              Create
+
+            </button>
+
+          </div>
+
+        </form>
+
       </div>
-   </div>
+
+    </div>
+
   );
+
 }
