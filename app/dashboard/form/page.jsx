@@ -134,13 +134,14 @@ const roleParentField = {
 // =====================================================
 
 const immediateParentField = {
+  1: null,
   2: "parent_admin_id",
   3: "parent_cnf_id",
   4: "parent_super_distributor_id",
   5: "parent_distributor_id",
   6: "parent_fos_id",
   7: "parent_retailer_id",
-  8: "parent_retailer_id",
+  8: "parent_sub_retailer_id",
   9: "parent_admin_id",
 };
 
@@ -264,22 +265,23 @@ export default function Page() {
 
   const parentRoles = {
 
-    2: [1],
+  2: [1],
 
-    3: [2],
+  3: [2],
 
-    4: [2, 3],
+  4: [2, 3],
 
-    5: [2, 3, 4],
+  5: [2, 3, 4],
 
-    6: [2, 3, 4, 5],
+  6: [2, 3, 4, 5],
 
-    7: [2, 3, 4, 5, 6],
+  7: [2, 3, 4, 5, 6],
 
-    8: [2, 3, 4, 5, 6, 7],
-    // Staff
-  9: [],
-  };
+  8: [2, 3, 4, 5, 6, 7],
+
+  9: [1],
+
+};
 
 
   // ===================================================
@@ -296,30 +298,61 @@ const visibleParentRoles = (
   const loggedRole =
     Number(loggedInRoleId);
 
-  // Logged-in role se upar hide
+  const createRole =
+    Number(selectedRole);
+
+
+  // =================================================
+  // MASTER ADMIN
+  // =================================================
+
   if (
-    role < loggedRole
+    loggedRole === 0
   ) {
-    return false;
+
+    return (
+      role < createRole
+    );
+
   }
 
-  // Same role hide
+
+  // =================================================
+  // LOGGED-IN ROLE
+  //
+  // Apne aap ko dropdown mein mat dikhao
+  // =================================================
+
   if (
     role === loggedRole
   ) {
+
     return false;
+
   }
 
-  // Sirf logged-in role ke neeche
-  // aur selected role se upar
+
+  // =================================================
+  // LOGGED-IN USER SE UPAR KE ROLES HIDE
+  // =================================================
+
   if (
-    role > loggedRole &&
-    role < Number(selectedRole)
+    role < loggedRole
   ) {
-    return true;
+
+    return false;
+
   }
 
-  return false;
+
+  // =================================================
+  // SIRF BEECH KE PARENT ROLES
+  // =================================================
+
+  return (
+    role > loggedRole &&
+    role < createRole
+  );
 
 });
 
@@ -1659,6 +1692,7 @@ if (
 // EMPLOYEE -> RETAILER
 // =================================================
 
+
 if (
   currentRoleId === 8
 ) {
@@ -1708,28 +1742,46 @@ if (
   }
 
 
-  if (
-    selectedUser?.parent_distributor_id
-  ) {
+if (currentRoleId === 8) {
 
+  updated.parent_employee_id = selectedId;
+
+  if (selectedUser?.parent_admin_id) {
+    updated.parent_admin_id =
+      Number(selectedUser.parent_admin_id);
+  }
+
+  if (selectedUser?.parent_cnf_id) {
+    updated.parent_cnf_id =
+      Number(selectedUser.parent_cnf_id);
+  }
+
+  if (selectedUser?.parent_super_distributor_id) {
+    updated.parent_super_distributor_id =
+      Number(selectedUser.parent_super_distributor_id);
+  }
+
+  if (selectedUser?.parent_distributor_id) {
     updated.parent_distributor_id =
-      Number(
-        selectedUser.parent_distributor_id
-      );
-
+      Number(selectedUser.parent_distributor_id);
   }
 
-
-  if (
-    selectedUser?.parent_fos_id
-  ) {
-
+  if (selectedUser?.parent_fos_id) {
     updated.parent_fos_id =
-      Number(
-        selectedUser.parent_fos_id
-      );
-
+      Number(selectedUser.parent_fos_id);
   }
+
+  if (selectedUser?.parent_retailer_id) {
+    updated.parent_retailer_id =
+      Number(selectedUser.parent_retailer_id);
+  }
+
+  if (selectedUser?.parent_sub_retailer_id) {
+    updated.parent_sub_retailer_id =
+      Number(selectedUser.parent_sub_retailer_id);
+  }
+
+}
 
 
   // =================================================
@@ -2209,445 +2261,407 @@ if (
   // SUBMIT
   // =====================================================
 
-  const handleSubmit = async (
-    e
-  ) => {
+ const handleSubmit = async (e) => {
 
-    e.preventDefault();
-
-
-    const roleId =
-      Number(
-        formData.role_id
-      );
-
-
-    if (!roleId) {
-
-      toast.error(
-        "Role ID missing. Please select role again"
-      );
-
-      return;
-
-    }
-
-
-    const tokenUser =
-      getUserFromToken();
-
-
-    if (!tokenUser?.id) {
-
-      toast.error(
-        "Logged-in user not found"
-      );
-
-      return;
-
-    }
-
-
-    const loggedUserId =
-      Number(
-        tokenUser.id
-      );
-
-
-    const loggedUserRoleId =
-      Number(
-        tokenUser.role_id
-      );
-
-
-    // ===================================================
-    // COMPLETE HIERARCHY FROM TOKEN
-    // ===================================================
+  e.preventDefault();
 
   // ===================================================
-// COMPLETE HIERARCHY
-// ===================================================
+  // ROLE ID
+  // ===================================================
 
-const hierarchy = {
-
-  // =================================================
-  // ADMIN
-  // =================================================
-
-  parent_admin_id:
-    formData.parent_admin_id
-      ? Number(
-          formData.parent_admin_id
-        )
-      : tokenUser.parent_admin_id
-      ? Number(
-          tokenUser.parent_admin_id
-        )
-      : null,
-
-
-  // =================================================
-  // CNF
-  // =================================================
-
-  parent_cnf_id:
-    formData.parent_cnf_id
-      ? Number(
-          formData.parent_cnf_id
-        )
-      : tokenUser.parent_cnf_id
-      ? Number(
-          tokenUser.parent_cnf_id
-        )
-      : null,
-
-
-  // =================================================
-  // SUPER DISTRIBUTOR
-  // =================================================
-
-  parent_super_distributor_id:
-    formData.parent_super_distributor_id
-      ? Number(
-          formData.parent_super_distributor_id
-        )
-      : tokenUser.parent_super_distributor_id
-      ? Number(
-          tokenUser.parent_super_distributor_id
-        )
-      : null,
-
-
-  // =================================================
-  // DISTRIBUTOR
-  // =================================================
-
-  parent_distributor_id:
-    formData.parent_distributor_id
-      ? Number(
-          formData.parent_distributor_id
-        )
-      : tokenUser.parent_distributor_id
-      ? Number(
-          tokenUser.parent_distributor_id
-        )
-      : null,
-
-
-  // =================================================
-  // FOS
-  // =================================================
-
-  parent_fos_id:
-    formData.parent_fos_id
-      ? Number(
-          formData.parent_fos_id
-        )
-      : tokenUser.parent_fos_id
-      ? Number(
-          tokenUser.parent_fos_id
-        )
-      : null,
-
-
-  // =================================================
-  // RETAILER
-  // =================================================
-
-  parent_retailer_id:
-    formData.parent_retailer_id
-      ? Number(
-          formData.parent_retailer_id
-        )
-      : tokenUser.parent_retailer_id
-      ? Number(
-          tokenUser.parent_retailer_id
-        )
-      : null,
-
-
-  // =================================================
-  // SUB RETAILER
-  // =================================================
-
-  parent_sub_retailer_id:
-    formData.parent_sub_retailer_id
-      ? Number(
-          formData.parent_sub_retailer_id
-        )
-      : tokenUser.parent_sub_retailer_id
-      ? Number(
-          tokenUser.parent_sub_retailer_id
-        )
-      : null,
-
-
-  // =================================================
-  // EMPLOYEE
-  // =================================================
-
-  parent_employee_id:
-    formData.parent_employee_id
-      ? Number(
-          formData.parent_employee_id
-        )
-      : tokenUser.parent_employee_id
-      ? Number(
-          tokenUser.parent_employee_id
-        )
-      : null,
-
-
-  // =================================================
-  // STAFF
-  // =================================================
-
-  parent_staff_id:
-    formData.parent_staff_id
-      ? Number(
-          formData.parent_staff_id
-        )
-      : tokenUser.parent_staff_id
-      ? Number(
-          tokenUser.parent_staff_id
-        )
-      : null,
-
-};
-
-
-    // ===================================================
-    // LOGGED-IN USER AS PARENT
-    // ===================================================
-
-    const ownParentField =
-      roleParentField[
-        loggedUserRoleId
-      ];
-
-
-    if (
-      ownParentField
-    ) {
-
-      hierarchy[
-        ownParentField
-      ] = loggedUserId;
-
-    }
-
-
-    // ===================================================
-    // GET ACTUAL parent_id
-    //
-    // IMPORTANT
-    // ===================================================
-
-    const parent_id =
-      getFinalParentId(
-        roleId,
-        hierarchy,
-        tokenUser
-      );
-
-
-    console.log(
-      "================================="
-    );
-
-    console.log(
-      "CREATING ROLE:",
-      roleId
-    );
-
-    console.log(
-      "FINAL HIERARCHY:",
-      hierarchy
-    );
-
-    console.log(
-      "FINAL parent_id:",
-      parent_id
+  const roleId =
+    Number(
+      formData.role_id
     );
 
 
-    // ===================================================
-    // REQUIRED PARENT VALIDATION
-    // ===================================================
+  if (!roleId) {
 
-    if (
-      roleId > 1
-    ) {
+    toast.error(
+      "Role ID missing. Please select role again"
+    );
 
-      // -------------------------------------------------
-      // CNF
-      // -------------------------------------------------
+    return;
 
-      if (
-        roleId === 2 &&
-        !hierarchy.parent_admin_id
-      ) {
-
-        toast.error(
-          "Admin parent is required"
-        );
-
-        return;
-
-      }
+  }
 
 
-      // -------------------------------------------------
-      // SUPER DISTRIBUTOR
-      // -------------------------------------------------
+  // ===================================================
+  // LOGGED-IN USER
+  // ===================================================
 
-      if (
-        roleId === 3 &&
-        (
-          !hierarchy.parent_admin_id ||
-          !hierarchy.parent_cnf_id
-        )
-      ) {
-
-        toast.error(
-          "Admin and CNF parent are required"
-        );
-
-        return;
-
-      }
+  const tokenUser =
+    getUserFromToken();
 
 
-      // -------------------------------------------------
-      // DISTRIBUTOR
-      // -------------------------------------------------
+  if (!tokenUser?.id) {
 
-      if (
-        roleId === 4 &&
-        (
-          !hierarchy.parent_admin_id ||
-          !hierarchy.parent_cnf_id ||
-          !hierarchy.parent_super_distributor_id
-        )
-      ) {
+    toast.error(
+      "Logged-in user not found"
+    );
 
-        toast.error(
-          "Admin, CNF and Super Distributor parents are required"
-        );
+    return;
 
-        return;
-
-      }
+  }
 
 
-      // -------------------------------------------------
-      // FOS
-      // -------------------------------------------------
-
-      if (
-        roleId === 5 &&
-        (
-          !hierarchy.parent_admin_id ||
-          !hierarchy.parent_cnf_id ||
-          !hierarchy.parent_super_distributor_id ||
-          !hierarchy.parent_distributor_id
-        )
-      ) {
-
-        toast.error(
-          "Please select the required parent details."
-        );
-
-        return;
-
-      }
+  const loggedUserId =
+    Number(
+      tokenUser.id
+    );
 
 
-      // -------------------------------------------------
-      // RETAILER
-      // -------------------------------------------------
-
-      if (
-        roleId === 6 &&
-        (
-          !hierarchy.parent_admin_id ||
-          !hierarchy.parent_cnf_id ||
-          !hierarchy.parent_super_distributor_id ||
-          !hierarchy.parent_distributor_id
-        )
-      ) {
-
-        toast.error(
-          "Admin, CNF, Super Distributor and Distributor parents are required"
-        );
-
-        return;
-
-      }
+  const loggedUserRoleId =
+    Number(
+      tokenUser.role_id
+    );
 
 
-      // -------------------------------------------------
-// EMPLOYEE
-// EMPLOYEE -> RETAILER
-// -------------------------------------------------
+  // ===================================================
+  // COMPLETE HIERARCHY
+  // ===================================================
 
-if (
-  roleId === 8 &&
-  (
-    !hierarchy.parent_admin_id ||
-    !hierarchy.parent_cnf_id ||
-    !hierarchy.parent_super_distributor_id ||
-    !hierarchy.parent_distributor_id ||
-    !hierarchy.parent_retailer_id
-  )
-) {
-  toast.error(
-    "Admin, CNF, Super Distributor, Distributor and Retailer parents are required"
+  const hierarchy = {
+
+    // =================================================
+    // ADMIN
+    // =================================================
+
+    parent_admin_id:
+
+      formData.parent_admin_id
+        ? Number(
+            formData.parent_admin_id
+          )
+
+        : tokenUser.parent_admin_id
+        ? Number(
+            tokenUser.parent_admin_id
+          )
+
+        : null,
+
+
+    // =================================================
+    // CNF
+    // =================================================
+
+    parent_cnf_id:
+
+      formData.parent_cnf_id
+        ? Number(
+            formData.parent_cnf_id
+          )
+
+        : tokenUser.parent_cnf_id
+        ? Number(
+            tokenUser.parent_cnf_id
+          )
+
+        : null,
+
+
+    // =================================================
+    // SUPER DISTRIBUTOR
+    // =================================================
+
+    parent_super_distributor_id:
+
+      formData.parent_super_distributor_id
+        ? Number(
+            formData.parent_super_distributor_id
+          )
+
+        : tokenUser.parent_super_distributor_id
+        ? Number(
+            tokenUser.parent_super_distributor_id
+          )
+
+        : null,
+
+
+    // =================================================
+    // DISTRIBUTOR
+    // =================================================
+
+    parent_distributor_id:
+
+      formData.parent_distributor_id
+        ? Number(
+            formData.parent_distributor_id
+          )
+
+        : tokenUser.parent_distributor_id
+        ? Number(
+            tokenUser.parent_distributor_id
+          )
+
+        : null,
+
+
+    // =================================================
+    // FOS
+    // =================================================
+
+    parent_fos_id:
+
+      formData.parent_fos_id
+        ? Number(
+            formData.parent_fos_id
+          )
+
+        : tokenUser.parent_fos_id
+        ? Number(
+            tokenUser.parent_fos_id
+          )
+
+        : null,
+
+
+    // =================================================
+    // RETAILER
+    // =================================================
+
+    parent_retailer_id:
+
+      formData.parent_retailer_id
+        ? Number(
+            formData.parent_retailer_id
+          )
+
+        : tokenUser.parent_retailer_id
+        ? Number(
+            tokenUser.parent_retailer_id
+          )
+
+        : null,
+
+
+    // =================================================
+    // SUB RETAILER
+    // =================================================
+
+    parent_sub_retailer_id:
+
+      formData.parent_sub_retailer_id
+        ? Number(
+            formData.parent_sub_retailer_id
+          )
+
+        : tokenUser.parent_sub_retailer_id
+        ? Number(
+            tokenUser.parent_sub_retailer_id
+          )
+
+        : null,
+
+
+    // =================================================
+    // EMPLOYEE
+    // =================================================
+
+    parent_employee_id:
+
+      formData.parent_employee_id
+        ? Number(
+            formData.parent_employee_id
+          )
+
+        : tokenUser.parent_employee_id
+        ? Number(
+            tokenUser.parent_employee_id
+          )
+
+        : null,
+
+
+    // =================================================
+    // STAFF
+    // =================================================
+
+    parent_staff_id:
+
+      formData.parent_staff_id
+        ? Number(
+            formData.parent_staff_id
+          )
+
+        : tokenUser.parent_staff_id
+        ? Number(
+            tokenUser.parent_staff_id
+          )
+
+        : null,
+
+  };
+
+
+  // ===================================================
+  // LOGGED-IN USER AS PARENT
+  //
+  // IMPORTANT:
+  //
+  // Current logged-in user ko uske role ke according
+  // parent field mein set karo.
+  // ===================================================
+
+  if (loggedUserRoleId === 1) {
+
+    hierarchy.parent_admin_id =
+      loggedUserId;
+
+  }
+
+
+  if (loggedUserRoleId === 2) {
+
+    hierarchy.parent_cnf_id =
+      loggedUserId;
+
+  }
+
+
+  if (loggedUserRoleId === 3) {
+
+    hierarchy.parent_super_distributor_id =
+      loggedUserId;
+
+  }
+
+
+  if (loggedUserRoleId === 4) {
+
+    hierarchy.parent_distributor_id =
+      loggedUserId;
+
+  }
+
+
+  if (loggedUserRoleId === 5) {
+
+    hierarchy.parent_fos_id =
+      loggedUserId;
+
+  }
+
+
+  if (loggedUserRoleId === 6) {
+
+    hierarchy.parent_retailer_id =
+      loggedUserId;
+
+  }
+
+
+  if (loggedUserRoleId === 7) {
+
+    hierarchy.parent_sub_retailer_id =
+      loggedUserId;
+
+  }
+
+
+  if (loggedUserRoleId === 8) {
+
+    hierarchy.parent_employee_id =
+      loggedUserId;
+
+  }
+
+
+  if (loggedUserRoleId === 9) {
+
+    hierarchy.parent_staff_id =
+      loggedUserId;
+
+  }
+
+
+  // ===================================================
+  // IMPORTANT:
+  //
+  // Agar CNF login hai:
+  //
+  // parent_cnf_id = logged CNF ID
+  //
+  // parent_admin_id token se inherited rahega.
+  //
+  // Isliye CNF -> Super Distributor ke liye
+  // Admin ko separately select/require nahi karenge.
+  // ===================================================
+
+
+  // ===================================================
+  // GET ACTUAL IMMEDIATE parent_id
+  // ===================================================
+
+  const parent_id =
+    getFinalParentId(
+      roleId,
+      hierarchy,
+      tokenUser
+    );
+
+
+  // ===================================================
+  // DEBUG
+  // ===================================================
+
+  console.log(
+    "================================="
   );
 
-  return;
-}
-
-if (
-  roleId === 9 &&
-  !hierarchy.parent_admin_id
-) {
-  toast.error(
-    "Admin parent is required for Staff"
+  console.log(
+    "LOGGED USER ROLE:",
+    loggedUserRoleId
   );
 
-  return;
-}
+  console.log(
+    "LOGGED USER ID:",
+    loggedUserId
+  );
+
+  console.log(
+    "CREATING ROLE:",
+    roleId
+  );
+
+  console.log(
+    "FINAL HIERARCHY:",
+    hierarchy
+  );
+
+  console.log(
+    "FINAL parent_id:",
+    parent_id
+  );
 
 
-      // -------------------------------------------------
-      // parent_id MUST EXIST
-      // -------------------------------------------------
+  // ===================================================
+  // PARENT VALIDATION
+  //
+  // IMPORTANT:
+  //
+  // Yahan sirf IMMEDIATE parent required hoga.
+  //
+  // Ancestor parents token/API hierarchy se aa jayenge.
+  // ===================================================
 
-      if (!parent_id) {
-
-        toast.error(
-          "Parent ID is required"
-        );
-
-        return;
-
-      }
-
-    }
+  if (roleId > 1) {
 
 
-    // ===================================================
-    // PASSWORD
-    // ===================================================
+    // =================================================
+    // CNF
+    // CNF -> ADMIN
+    // =================================================
 
     if (
-      formData.password !==
-      formData.confirm_password
+      roleId === 2 &&
+      !hierarchy.parent_admin_id
     ) {
 
       toast.error(
-        "Password and Confirm Password do not match!"
+        "Admin parent is required"
       );
 
       return;
@@ -2655,155 +2669,327 @@ if (
     }
 
 
-    // ===================================================
-    // FINAL PAYLOAD
-    // ===================================================
+    // =================================================
+    // SUPER DISTRIBUTOR
+    // SUPER -> CNF
+    //
+    // CNF login:
+    //
+    // parent_cnf_id = logged CNF ID
+    //
+    // Admin ko separately required nahi karna.
+    // =================================================
 
-    const payload = {
+    if (
+      roleId === 3 &&
+      !hierarchy.parent_cnf_id
+    ) {
 
-      ...formData,
+      toast.error(
+        "CNF parent is required"
+      );
 
+      return;
+
+    }
+
+
+    // =================================================
+    // DISTRIBUTOR
+    // DISTRIBUTOR -> SUPER DISTRIBUTOR
+    // =================================================
+
+    if (
+      roleId === 4 &&
+      !hierarchy.parent_super_distributor_id
+    ) {
+
+      toast.error(
+        "Super Distributor parent is required"
+      );
+
+      return;
+
+    }
+
+
+    // =================================================
+    // FOS
+    // FOS -> DISTRIBUTOR
+    // =================================================
+
+    if (
+      roleId === 5 &&
+      !hierarchy.parent_distributor_id
+    ) {
+
+      toast.error(
+        "Distributor parent is required"
+      );
+
+      return;
+
+    }
+
+
+    // =================================================
+    // RETAILER
+    //
+    // Retailer FOS ke under bhi ho sakta hai
+    // ya direct Distributor ke under.
+    // =================================================
+
+    if (
+      roleId === 6 &&
+      !hierarchy.parent_fos_id &&
+      !hierarchy.parent_distributor_id
+    ) {
+
+      toast.error(
+        "FOS or Distributor parent is required"
+      );
+
+      return;
+
+    }
+
+
+    // =================================================
+    // SUB RETAILER
+    // SUB RETAILER -> RETAILER
+    // =================================================
+
+    if (
+      roleId === 7 &&
+      !hierarchy.parent_retailer_id
+    ) {
+
+      toast.error(
+        "Retailer parent is required"
+      );
+
+      return;
+
+    }
+
+
+    // =================================================
+    // EMPLOYEE
+    // EMPLOYEE -> RETAILER
+    // =================================================
+
+    if (
+      roleId === 8 &&
+      !hierarchy.parent_retailer_id
+    ) {
+
+      toast.error(
+        "Retailer parent is required"
+      );
+
+      return;
+
+    }
+
+
+    // =================================================
+    // STAFF
+    // STAFF -> ADMIN
+    // =================================================
+
+    if (
+      roleId === 9 &&
+      !hierarchy.parent_admin_id
+    ) {
+
+      toast.error(
+        "Admin parent is required for Staff"
+      );
+
+      return;
+
+    }
+
+
+    // =================================================
+    // FINAL parent_id
+    // =================================================
+
+    if (!parent_id) {
+
+      toast.error(
+        "Parent ID is required"
+      );
+
+      return;
+
+    }
+
+  }
+
+
+  // ===================================================
+  // PASSWORD
+  // ===================================================
+
+  if (
+    formData.password !==
+    formData.confirm_password
+  ) {
+
+    toast.error(
+      "Password and Confirm Password do not match!"
+    );
+
+    return;
+
+  }
+
+
+  // ===================================================
+  // FINAL PAYLOAD
+  // ===================================================
+
+  const payload = {
+
+    ...formData,
+
+    role_id:
+      roleId,
+
+
+    // =================================================
+    // COMPLETE HIERARCHY
+    // =================================================
+
+    parent_admin_id:
+      hierarchy.parent_admin_id,
+
+    parent_cnf_id:
+      hierarchy.parent_cnf_id,
+
+    parent_super_distributor_id:
+      hierarchy.parent_super_distributor_id,
+
+    parent_distributor_id:
+      hierarchy.parent_distributor_id,
+
+    parent_fos_id:
+      hierarchy.parent_fos_id,
+
+    parent_retailer_id:
+      hierarchy.parent_retailer_id,
+
+    parent_sub_retailer_id:
+      hierarchy.parent_sub_retailer_id,
+
+    parent_employee_id:
+      hierarchy.parent_employee_id,
+
+    parent_staff_id:
+      hierarchy.parent_staff_id,
+
+
+    // =================================================
+    // IMMEDIATE PARENT
+    // =================================================
+
+    parent_id:
+      parent_id,
+
+  };
+
+
+  // ===================================================
+  // FINAL DEBUG
+  // ===================================================
+
+  console.log(
+    "================================="
+  );
+
+  console.log(
+    "FINAL REGISTER PAYLOAD"
+  );
+
+  console.log(
+    payload
+  );
+
+
+  // ===================================================
+  // API
+  // ===================================================
+
+  try {
+
+    const res =
+      await addStaff(
+        payload
+      );
+
+
+    console.log(
+      "REGISTER SUCCESS:",
+      res
+    );
+
+
+    toast.success(
+      res?.message ||
+      "Registered Successfully"
+    );
+
+
+    // =================================================
+    // RESET
+    // =================================================
+
+    setFormData({
+
+      ...initialFormData,
 
       role_id:
         roleId,
 
-
-      // =================================================
-      // COMPLETE HIERARCHY
-      // =================================================
-
-      parent_admin_id:
-        hierarchy.parent_admin_id,
+    });
 
 
-      parent_cnf_id:
-        hierarchy.parent_cnf_id,
+    setParentUsers({});
 
 
-      parent_super_distributor_id:
-        hierarchy.parent_super_distributor_id,
-
-
-      parent_distributor_id:
-        hierarchy.parent_distributor_id,
-
-
-      parent_fos_id:
-        hierarchy.parent_fos_id,
-
-
-      parent_retailer_id:
-        hierarchy.parent_retailer_id,
-
-parent_sub_retailer_id:
-  hierarchy.parent_sub_retailer_id,
-
-      parent_employee_id:
-        hierarchy.parent_employee_id,
-
-
-      parent_staff_id:
-        hierarchy.parent_staff_id,
-
-
-      // =================================================
-      // IMPORTANT
-      //
-      // Actual immediate parent
-      // =================================================
-
-      parent_id:
-        parent_id,
-
-    };
-
-
-    console.log(
-      "================================="
-    );
-
-    console.log(
-      "FINAL REGISTER PAYLOAD"
-    );
-
-    console.log(
-      payload
+    setShowPassword(
+      false
     );
 
 
-    // ===================================================
-    // API
-    // ===================================================
-
-    try {
-
-      const res =
-        await addStaff(
-          payload
-        );
+    setShowConfirmPassword(
+      false
+    );
 
 
-      console.log(
-        "REGISTER SUCCESS:",
-        res
-      );
+  } catch (error) {
+
+    console.error(
+      "REGISTER ERROR:",
+      error?.response?.data ||
+      error
+    );
 
 
-      toast.success(
-        res?.message ||
-        "Registered Successfully"
-      );
+    toast.error(
 
+      error?.response?.data?.message ||
 
-      // =================================================
-      // RESET
-      // =================================================
+      error?.response?.data?.error ||
 
-      setFormData({
+      "Something went wrong"
 
-        ...initialFormData,
+    );
 
-        role_id:
-          roleId,
+  }
 
-      });
-
-
-      setParentUsers({});
-
-
-      setShowPassword(
-        false
-      );
-
-
-      setShowConfirmPassword(
-        false
-      );
-
-
-    } catch (error) {
-
-      console.error(
-        "REGISTER ERROR:",
-        error?.response?.data ||
-        error
-      );
-
-
-      toast.error(
-
-        error?.response?.data?.message ||
-
-        error?.response?.data?.error ||
-
-        "Something went wrong"
-
-      );
-
-    }
-
-  };
+};
 
 
   // =====================================================
