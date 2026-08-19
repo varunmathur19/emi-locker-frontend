@@ -255,25 +255,27 @@ export default function Page() {
   // ROLE BUTTONS
   // ===================================================
 
-  const roleButtons = {
+ const roleButtons = {
 
-    1: "Add Admin",
+  1: "Add Admin",
 
-    2: "Add CNF",
+  2: "Add CNF",
 
-    3: "Add Super Distributor",
+  3: "Add Super Distributor",
 
-    4: "Add Distributor",
+  4: "Add Distributor",
 
-    5: "Add FOS",
+  5: "Add FOS",
 
-    6: "Add Retailer",
+  6: "Add Retailer",
 
-    7: "Add Employee",
+  7: "Add Sub Retailer",
 
-    8: "Add Staff",
+  8: "Add Employee",
 
-  };
+  9: "Add Staff",
+
+};
 
 
   // ===================================================
@@ -294,8 +296,9 @@ export default function Page() {
 
     7: [2, 3, 4, 5, 6],
 
-    8: [],
-
+    8: [2, 3, 4, 5, 6, 7],
+    // Staff
+  9: [],
   };
 
 
@@ -303,56 +306,75 @@ export default function Page() {
   // VISIBLE PARENT ROLES
   // ===================================================
 
-  const visibleParentRoles = (
+ const visibleParentRoles = (
+  parentRoles[selectedRole] || []
+).filter((roleId) => {
 
-    parentRoles[selectedRole] || []
+  // =====================================================
+  // CNF CREATE
+  // Admin hide
+  // =====================================================
 
-  ).filter((roleId) => {
-
-
-    // -------------------------------------------------
-    // CNF ke time Admin dropdown hide
-    // -------------------------------------------------
-
-    if (
-      Number(selectedRole) === 2 &&
-      roleId === 1
-    ) {
-
-      return false;
-
-    }
+  if (
+    Number(selectedRole) === 2 &&
+    roleId === 1
+  ) {
+    return false;
+  }
 
 
-    // -------------------------------------------------
-    // Same role hide
-    // -------------------------------------------------
+  // =====================================================
+  // EMPLOYEE CREATE
+  //
+  // Employee ke liye logged-in user ke role se lekar
+  // Sub Retailer tak parents show honge.
+  //
+  // Example:
+  //
+  // CNF login (2)
+  // => 2,3,4,5,6,7
+  //
+  // Super Distributor login (3)
+  // => 3,4,5,6,7
+  //
+  // Distributor login (4)
+  // => 4,5,6,7
+  // =====================================================
 
-    if (
-      roleId === loggedInRoleId
-    ) {
-
-      return false;
-
-    }
-
-
-    // -------------------------------------------------
-    // Logged-in user ke upar wale roles hide
-    // -------------------------------------------------
-
-    if (
-      roleId < loggedInRoleId
-    ) {
-
-      return false;
-
-    }
-
-
+  if (
+    Number(selectedRole) === 8 &&
+    roleId >= loggedInRoleId &&
+    roleId <= 7
+  ) {
     return true;
+  }
 
-  });
+
+  // =====================================================
+  // SAME ROLE HIDE
+  // =====================================================
+
+  if (
+    roleId === loggedInRoleId
+  ) {
+    return false;
+  }
+
+
+  // =====================================================
+  // ABOVE LOGGED-IN ROLE HIDE
+  // =====================================================
+
+  if (
+    roleId < loggedInRoleId
+  ) {
+    return false;
+  }
+
+
+  return true;
+
+});
 
 
   // =====================================================
@@ -361,32 +383,32 @@ export default function Page() {
 
   const getRoleName = (roleId) => {
 
-    const roles = {
+  const roles = {
 
-      1: "Admin",
+    0: "Master Admin",
 
-      2: "CNF",
+    1: "Admin",
 
-      3: "Super Distributor",
+    2: "CNF",
 
-      4: "Distributor",
+    3: "Super Distributor",
 
-      5: "FOS",
+    4: "Distributor",
 
-      6: "Retailer",
+    5: "FOS",
 
-      7: "Employee",
+    6: "Retailer",
 
-      8: "Staff",
+    7: "Sub Retailer",
 
-    };
+    8: "Employee",
 
-    return (
-      roles[roleId] ||
-      "User"
-    );
+    9: "Staff",
 
   };
+
+  return roles[roleId] || "User";
+};
 
 
   // =====================================================
@@ -2395,7 +2417,7 @@ export default function Page() {
 
         <div
           className="
-            mb-5
+            mb-0
           "
         >
 

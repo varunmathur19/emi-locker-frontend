@@ -52,15 +52,16 @@ export default function UsersTable({
   // ==========================================
 
   const roleButtons = {
-    1: "Add Admin",
-    2: "Add CNF",
-    3: "Add Super Distributor",
-    4: "Add Distributor",
-    5: "Add FOS",
-    6: "Add Retailer",
-    7: "Add Employee",
-    8: "Add Staff",
-  };
+  1: "Add Admin",
+  2: "Add CNF",
+  3: "Add Super Distributor",
+  4: "Add Distributor",
+  5: "Add FOS",
+  6: "Add Retailer",
+  7: "Add Sub Retailer",
+  8: "Add Employee",
+  9: "Add Staff",
+};
 
   // ==========================================
   // LOGIN AS USER
@@ -209,23 +210,23 @@ const handleLoginAsUser = async (user) => {
           </button>
 
           {/* ADD USER */}
-
-          <Link
-            href={`/dashboard/form?role=${selectedRole}&role_id=${selectedRole}`}
-            className="
-              bg-blue-400
-              text-white
-              px-4
-              py-2
-              rounded-sm
-              hover:bg-blue-500
-              cursor-pointer
-              whitespace-nowrap
-              inline-block
-            "
-          >
-            {roleButtons[selectedRole]}
-          </Link>
+<Link
+  href={`/dashboard/form?role=${selectedRole}&role_id=${selectedRole}`}
+  className="
+    bg-blue-400
+    text-white
+    px-4
+    py-2
+    rounded-sm
+    hover:bg-blue-500
+    cursor-pointer
+    whitespace-nowrap
+    inline-block
+  "
+>
+  {roleButtons[selectedRole] ||
+    `Add ${getRoleName(selectedRole)}`}
+</Link>
 
         </div>
 
