@@ -81,6 +81,7 @@ const initialFormData = {
   parent_fos_id: null,
 
   parent_retailer_id: null,
+  parent_sub_retailer_id: null,
 
   parent_employee_id: null,
 
@@ -112,23 +113,15 @@ const initialFormData = {
 // =====================================================
 
 const roleParentField = {
-
   1: "parent_admin_id",
-
   2: "parent_cnf_id",
-
   3: "parent_super_distributor_id",
-
   4: "parent_distributor_id",
-
   5: "parent_fos_id",
-
   6: "parent_retailer_id",
-
-  7: "parent_employee_id",
-
-  8: "parent_staff_id",
-
+  7: "parent_sub_retailer_id",
+  8: "parent_employee_id",
+  9: "parent_staff_id",
 };
 
 
@@ -141,27 +134,14 @@ const roleParentField = {
 // =====================================================
 
 const immediateParentField = {
-
-  // CNF -> Admin
   2: "parent_admin_id",
-
-  // Super Distributor -> CNF
   3: "parent_cnf_id",
-
-  // Distributor -> Super Distributor
   4: "parent_super_distributor_id",
-
-  // FOS -> Distributor
   5: "parent_distributor_id",
-
-  // Retailer -> FOS OR Distributor
   6: "parent_fos_id",
-
-  // Employee -> Retailer
   7: "parent_retailer_id",
-
-  // Staff -> Admin
-  8: "parent_admin_id",
+  8: "parent_sub_retailer_id",
+  9: "parent_admin_id",
 };
 
 
@@ -415,71 +395,64 @@ export default function Page() {
   // LOAD PARENT USERS
   // =====================================================
 
-  const loadParentUsers = async (
-    roleId,
-    parentId = null
-  ) => {
+ const loadParentUsers = async (
+  roleId,
+  parentId = null
+) => {
+  try {
+    console.log("=================================");
+    console.log("HIERARCHY DROPDOWN API");
+    console.log("Role ID:", roleId);
+    console.log("Parent ID:", parentId);
 
-    try {
+    const res = await getDropdownUsers(
+      Number(roleId),
+      parentId
+        ? Number(parentId)
+        : null
+    );
 
-      const res =
-        await getDropdownUsers(
-          Number(roleId),
-          parentId
-            ? Number(parentId)
-            : null
-        );
+    console.log("DROPDOWN RESPONSE:", res);
 
+    const users =
+      Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res?.data?.data)
+        ? res.data.data
+        : Array.isArray(res?.data?.users)
+        ? res.data.users
+        : Array.isArray(res?.users)
+        ? res.users
+        : [];
 
-      const users =
-
-        Array.isArray(res?.data)
-
-          ? res.data
-
-          : Array.isArray(
-              res?.data?.data
-            )
-
-          ? res.data.data
-
-          : Array.isArray(
-              res?.data?.users
-            )
-
-          ? res.data.users
-
-          : Array.isArray(
-              res?.users
-            )
-
-          ? res.users
-
-          : [];
-
-
-      setParentUsers(
-        (prev) => ({
-
-          ...prev,
-
-          [Number(roleId)]:
-            users,
-
-        })
+    // Backend agar actual returned role bhej raha hai
+    const returnedRoleId =
+      Number(
+        res?.current_role_id ||
+        res?.data?.current_role_id ||
+        0
       );
 
-    } catch (error) {
+    setParentUsers((prev) => ({
+      ...prev,
 
-      console.error(
-        "Dropdown Error:",
-        error?.response?.data ||
-        error
-      );
+      [Number(roleId)]: users,
 
-    }
+      ...(returnedRoleId
+        ? {
+            [returnedRoleId]: users,
+          }
+        : {}),
+    }));
 
-  };
+  } catch (error) {
+    console.error(
+      "Dropdown Error:",
+      error?.response?.data ||
+      error
+    );
+  }
+};
 
 
   // =====================================================
@@ -632,19 +605,19 @@ export default function Page() {
 
 
         ...(Number(user.role_id) === 7 && {
+  parent_sub_retailer_id:
+    Number(user.id),
+}),
 
-          parent_employee_id:
-            Number(user.id),
+...(Number(user.role_id) === 8 && {
+  parent_employee_id:
+    Number(user.id),
+}),
 
-        }),
-
-
-        ...(Number(user.role_id) === 8 && {
-
-          parent_staff_id:
-            Number(user.id),
-
-        }),
+...(Number(user.role_id) === 9 && {
+  parent_staff_id:
+    Number(user.id),
+}),
 
       })
     );
@@ -799,9 +772,9 @@ export default function Page() {
 
 
     loadParentUsers(
-      firstParentRole,
-      null
-    );
+  parents[0],
+  null
+);
 
   }, [
     selectedRole,
@@ -1322,86 +1295,137 @@ export default function Page() {
         // EMPLOYEE
         // =================================================
 
-        if (
-          currentRoleId === 7
-        ) {
+       if (
+  currentRoleId === 7
+) {
 
-          updated.parent_employee_id =
-            selectedId;
+  updated.parent_sub_retailer_id =
+    selectedId;
 
+  if (
+    selectedUser?.parent_admin_id
+  ) {
+    updated.parent_admin_id =
+      Number(
+        selectedUser.parent_admin_id
+      );
+  }
 
-          if (
-            selectedUser?.parent_admin_id
-          ) {
+  if (
+    selectedUser?.parent_cnf_id
+  ) {
+    updated.parent_cnf_id =
+      Number(
+        selectedUser.parent_cnf_id
+      );
+  }
 
-            updated.parent_admin_id =
-              Number(
-                selectedUser.parent_admin_id
-              );
+  if (
+    selectedUser?.parent_super_distributor_id
+  ) {
+    updated.parent_super_distributor_id =
+      Number(
+        selectedUser.parent_super_distributor_id
+      );
+  }
 
-          }
+  if (
+    selectedUser?.parent_distributor_id
+  ) {
+    updated.parent_distributor_id =
+      Number(
+        selectedUser.parent_distributor_id
+      );
+  }
 
+  if (
+    selectedUser?.parent_fos_id
+  ) {
+    updated.parent_fos_id =
+      Number(
+        selectedUser.parent_fos_id
+      );
+  }
 
-          if (
-            selectedUser?.parent_cnf_id
-          ) {
+  if (
+    selectedUser?.parent_retailer_id
+  ) {
+    updated.parent_retailer_id =
+      Number(
+        selectedUser.parent_retailer_id
+      );
+  }
+}
+if (
+  currentRoleId === 8
+) {
 
-            updated.parent_cnf_id =
-              Number(
-                selectedUser.parent_cnf_id
-              );
+  updated.parent_employee_id =
+    selectedId;
 
-          }
+  if (
+    selectedUser?.parent_admin_id
+  ) {
+    updated.parent_admin_id =
+      Number(
+        selectedUser.parent_admin_id
+      );
+  }
 
+  if (
+    selectedUser?.parent_cnf_id
+  ) {
+    updated.parent_cnf_id =
+      Number(
+        selectedUser.parent_cnf_id
+      );
+  }
 
-          if (
-            selectedUser?.parent_super_distributor_id
-          ) {
+  if (
+    selectedUser?.parent_super_distributor_id
+  ) {
+    updated.parent_super_distributor_id =
+      Number(
+        selectedUser.parent_super_distributor_id
+      );
+  }
 
-            updated.parent_super_distributor_id =
-              Number(
-                selectedUser.parent_super_distributor_id
-              );
+  if (
+    selectedUser?.parent_distributor_id
+  ) {
+    updated.parent_distributor_id =
+      Number(
+        selectedUser.parent_distributor_id
+      );
+  }
 
-          }
+  if (
+    selectedUser?.parent_fos_id
+  ) {
+    updated.parent_fos_id =
+      Number(
+        selectedUser.parent_fos_id
+      );
+  }
 
+  if (
+    selectedUser?.parent_retailer_id
+  ) {
+    updated.parent_retailer_id =
+      Number(
+        selectedUser.parent_retailer_id
+      );
+  }
 
-          if (
-            selectedUser?.parent_distributor_id
-          ) {
-
-            updated.parent_distributor_id =
-              Number(
-                selectedUser.parent_distributor_id
-              );
-
-          }
-
-
-          if (
-            selectedUser?.parent_fos_id
-          ) {
-
-            updated.parent_fos_id =
-              Number(
-                selectedUser.parent_fos_id
-              );
-
-          }
-
-
-          if (
-            selectedUser?.parent_retailer_id
-          ) {
-
-            updated.parent_retailer_id =
-              Number(
-                selectedUser.parent_retailer_id
-              );
-
-          }
-
-        }
+  if (
+    selectedUser?.parent_sub_retailer_id
+  ) {
+    updated.parent_sub_retailer_id =
+      Number(
+        selectedUser.parent_sub_retailer_id
+      );
+  }
+}
 
 
         return updated;
@@ -1794,16 +1818,14 @@ export default function Page() {
     // EMPLOYEE -> RETAILER
     // ===================================================
 
-    if (
-      roleId === 7
-    ) {
-
-      return (
-        hierarchy.parent_retailer_id ||
-        null
-      );
-
-    }
+   if (
+  roleId === 7
+) {
+  return (
+    hierarchy.parent_retailer_id ||
+    null
+  );
+}
 
 
     // ===================================================
@@ -1811,16 +1833,23 @@ export default function Page() {
     // STAFF -> ADMIN
     // ===================================================
 
-    if (
-      roleId === 8
-    ) {
+   if (
+  roleId === 8
+) {
+  return (
+    hierarchy.parent_sub_retailer_id ||
+    null
+  );
+}
 
-      return (
-        hierarchy.parent_admin_id ||
-        null
-      );
-
-    }
+if (
+  roleId === 9
+) {
+  return (
+    hierarchy.parent_admin_id ||
+    null
+  );
+}
 
 
     // ===================================================
@@ -2183,23 +2212,34 @@ export default function Page() {
       // -------------------------------------------------
 
       if (
-        roleId === 7 &&
-        (
-          !hierarchy.parent_admin_id ||
-          !hierarchy.parent_cnf_id ||
-          !hierarchy.parent_super_distributor_id ||
-          !hierarchy.parent_distributor_id ||
-          !hierarchy.parent_retailer_id
-        )
-      ) {
+  roleId === 8 &&
+  (
+    !hierarchy.parent_admin_id ||
+    !hierarchy.parent_cnf_id ||
+    !hierarchy.parent_super_distributor_id ||
+    !hierarchy.parent_distributor_id ||
+    !hierarchy.parent_fos_id ||
+    !hierarchy.parent_retailer_id ||
+    !hierarchy.parent_sub_retailer_id
+  )
+) {
+  toast.error(
+    "Please select the required parent details."
+  );
 
-        toast.error(
-          "Please select the required parent details."
-        );
+  return;
+}
 
-        return;
+if (
+  roleId === 9 &&
+  !hierarchy.parent_admin_id
+) {
+  toast.error(
+    "Admin parent is required for Staff"
+  );
 
-      }
+  return;
+}
 
 
       // -------------------------------------------------
@@ -2277,6 +2317,8 @@ export default function Page() {
       parent_retailer_id:
         hierarchy.parent_retailer_id,
 
+parent_sub_retailer_id:
+  hierarchy.parent_sub_retailer_id,
 
       parent_employee_id:
         hierarchy.parent_employee_id,
