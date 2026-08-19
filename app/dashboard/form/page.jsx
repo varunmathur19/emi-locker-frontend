@@ -2212,10 +2212,12 @@ if (currentRoleId === 8) {
 // EMPLOYEE -> RETAILER
 // ===================================================
 
+
 if (
   roleId === 8
 ) {
   return (
+    hierarchy.parent_sub_retailer_id ||
     hierarchy.parent_retailer_id ||
     null
   );
@@ -2779,17 +2781,18 @@ if (
     // =================================================
 
     if (
-      roleId === 8 &&
-      !hierarchy.parent_retailer_id
-    ) {
+  roleId === 8 &&
+  !hierarchy.parent_sub_retailer_id &&
+  !hierarchy.parent_retailer_id
+) {
 
-      toast.error(
-        "Retailer parent is required"
-      );
+  toast.error(
+    "Retailer or Sub Retailer parent is required"
+  );
 
-      return;
+  return;
 
-    }
+}
 
 
     // =================================================
