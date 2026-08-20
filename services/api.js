@@ -317,3 +317,15 @@ export const deleteModule = async (
   }
 
 };
+
+export const updateModule = async (oldModule, newModule) => {
+  const response = await api.put(
+    "/update-module",
+    {
+      oldModule,
+      newModule,
+    }
+  );
+
+  return response.data;
+};

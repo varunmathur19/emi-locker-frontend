@@ -4,8 +4,7 @@ import {
   useEffect,
   useState,
 } from "react";
-
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import {
   RiAddLine,
@@ -22,6 +21,7 @@ import {
 } from "@/services/api";
 
 export default function ModulePage() {
+   const router = useRouter();
 
   const [moduleName, setModuleName] =
     useState("");
@@ -619,23 +619,24 @@ const handleDeleteModule = async (moduleName) => {
 
                       {/* EDIT */}
 
-                      <button
-                        type="button"
-                        className="
-                          p-2
-                          rounded-lg
-                          text-blue-600
-                          hover:bg-blue-50
-                          cursor-pointer
-                        "
-                        title="Edit Module"
-                      >
-
-                        <RiEditLine
-                          size={20}
-                        />
-
-                      </button>
+                  <button
+  type="button"
+  onClick={() =>
+    router.push(
+      `/dashboard/modules/edit?module=${encodeURIComponent(module.name)}`
+    )
+  }
+  className="
+    p-2
+    rounded-lg
+    text-blue-500
+    hover:bg-blue-50
+    cursor-pointer
+  "
+  title="Edit Module"
+>
+  <RiEditLine size={20} />
+</button>
 
 
                       {/* DELETE */}
