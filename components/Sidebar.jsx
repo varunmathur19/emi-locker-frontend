@@ -9,7 +9,7 @@ import {
   restoreOriginalLogin,
 } from "@/utils/token";
 
-import { logoutStaff } from "@/services/api";
+import { logoutStaff , getModules } from "@/services/api";
 
 import {
   usePathname,
@@ -33,6 +33,17 @@ import {
   RiLoginBoxLine,
 } from "react-icons/ri";
 
+const iconMap = {
+  RiDashboardLine,
+  RiShieldUserLine,
+  RiUserStarLine,
+  RiBuilding2Line,
+  RiStore2Line,
+  RiUserLocationLine,
+  RiUser3Line,
+  RiLogoutBoxLine,
+  RiLoginBoxLine,
+};
 export default function Sidebar({
   sidebarOpen,
 }) {
@@ -42,6 +53,7 @@ export default function Sidebar({
   // =====================================================
 
   const [roleId, setRoleId] = useState(null);
+  const [modules, setModules] = useState([]);
 
   // =====================================================
   // PATH
@@ -54,6 +66,39 @@ export default function Sidebar({
   const activeRole =
     searchParams.get("role") ||
     searchParams.get("role_id");
+
+    useEffect(() => {
+  const loadModules = async () => {
+    try {
+      const response = await getModules();
+
+      console.log(
+        "MODULE API RESPONSE:",
+        response
+      );
+
+      if (
+        response?.success &&
+        Array.isArray(response?.modules)
+      ) {
+        setModules(response.modules);
+      } else {
+        setModules([]);
+      }
+
+    } catch (error) {
+      console.error(
+        "Get Modules Error:",
+        error
+      );
+
+      setModules([]);
+    }
+  };
+
+  loadModules();
+
+}, []);
 
   // =====================================================
   // GET CURRENT ROLE
@@ -249,6 +294,107 @@ export default function Sidebar({
 
   }
 
+  const roleMap = {
+  cnf: {
+    role: 2,
+    label: "CNF",
+    icon: (
+      <RiUserStarLine
+        size={18}
+        className="text-[1.4rem]"
+      />
+    ),
+  },
+
+  "super distributer": {
+    role: 3,
+    label: "Super Distributor",
+    icon: (
+      <RiBuilding2Line
+        size={18}
+        className="text-[1.4rem]"
+      />
+    ),
+  },
+
+  "super distributor": {
+    role: 3,
+    label: "Super Distributor",
+    icon: (
+      <RiBuilding2Line
+        size={18}
+        className="text-[1.4rem]"
+      />
+    ),
+  },
+
+  distributor: {
+    role: 4,
+    label: "Distributor",
+    icon: (
+      <RiStore2Line
+        size={18}
+        className="text-[1.4rem]"
+      />
+    ),
+  },
+
+  fos: {
+    role: 5,
+    label: "FOS",
+    icon: (
+      <RiUserLocationLine
+        size={18}
+        className="text-[1.4rem]"
+      />
+    ),
+  },
+
+  retailer: {
+    role: 6,
+    label: "Retailer",
+    icon: (
+      <RiStore2Line
+        size={18}
+        className="text-[1.4rem]"
+      />
+    ),
+  },
+
+  "sub retailer": {
+    role: 7,
+    label: "Sub Retailer",
+    icon: (
+      <RiUser3Line
+        size={18}
+        className="text-[1.4rem]"
+      />
+    ),
+  },
+
+  employee: {
+    role: 8,
+    label: "Employee",
+    icon: (
+      <RiUser3Line
+        size={18}
+        className="text-[1.4rem]"
+      />
+    ),
+  },
+
+  staff: {
+    role: 9,
+    label: "Staff",
+    icon: (
+      <RiShieldUserLine
+        size={18}
+        className="text-[1.4rem]"
+      />
+    ),
+  },
+};
+
   // =====================================================
   // ROLE LINK COMPONENT
   // =====================================================
@@ -288,6 +434,60 @@ export default function Sidebar({
     );
 
   };
+ const renderModuleLinks = () => {
+
+  return modules.map((moduleName, index) => {
+
+    const key = String(moduleName)
+      .trim()
+      .toLowerCase();
+
+    const module = roleMap[key];
+
+    // Existing role/module
+    if (module) {
+
+      return (
+        <RoleLink
+          key={`${key}-${index}`}
+          role={module.role}
+          label={module.label}
+          icon={module.icon}
+        />
+      );
+
+    }
+
+    // New/custom module
+    return (
+      <Link
+        key={`${key}-${index}`}
+        href={`/dashboard?module=${encodeURIComponent(moduleName)}`}
+        className="
+          flex
+          items-center
+          gap-3
+          p-3
+          rounded
+          transition-all
+          font-semibold
+          hover:bg-gray-700
+        "
+      >
+
+        <RiBuilding2Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+
+        {moduleName}
+
+      </Link>
+    );
+
+  });
+
+};
 
   // =====================================================
   // SIDEBAR
@@ -486,410 +686,152 @@ export default function Sidebar({
         ================================================= */}
 
         {Number(roleId) === 1 && (
+  <>
+    {/* API MODULES */}
+    {renderModuleLinks()}
+    {/* STATIC EMPLOYEE */}
+    <RoleLink
+      role={8}
+      label="Employee"
+      icon={
+        <RiUser3Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      }
+    />
 
-          <>
-
-            <RoleLink
-              role={2}
-              label="CNF"
-              icon={
-                <RiUserStarLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={3}
-              label="Super Distributor"
-              icon={
-                <RiBuilding2Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={4}
-              label="Distributor"
-              icon={
-                <RiStore2Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={5}
-              label="FOS"
-              icon={
-                <RiUserLocationLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={6}
-              label="Retailer"
-              icon={
-                <RiStore2Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={7}
-              label="Sub Retailer"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={8}
-              label="Employee"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            {/* =================================================
-                STAFF
-                ONLY ADMIN
-            ================================================= */}
-
-            <RoleLink
-              role={9}
-              label="Staff"
-              icon={
-                <RiShieldUserLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
+    {/* STATIC STAFF */}
+    <RoleLink
+      role={9}
+      label="Staff"
+      icon={
+        <RiShieldUserLine
+          size={18}
+          className="text-[1.4rem]"
+        />
+      }
+    />
+  </>
+)}
 
 
         {/* =================================================
             CNF - ROLE 2
         ================================================= */}
 
-        {Number(roleId) === 2 && (
+  {Number(roleId) === 2 && (
+  <>
+   {renderModuleLinks()}
 
-          <>
-
-            <RoleLink
-              role={3}
-              label="Super Distributor"
-              icon={
-                <RiBuilding2Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={4}
-              label="Distributor"
-              icon={
-                <RiStore2Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={5}
-              label="FOS"
-              icon={
-                <RiUserLocationLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={6}
-              label="Retailer"
-              icon={
-                <RiStore2Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={7}
-              label="Sub Retailer"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={8}
-              label="Employee"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
-
+    {/* STATIC EMPLOYEE */}
+    <RoleLink
+      role={8}
+      label="Employee"
+      icon={
+        <RiUser3Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      }
+    />
+  </>
+)}
 
         {/* =================================================
             SUPER DISTRIBUTOR - ROLE 3
         ================================================= */}
 
-        {Number(roleId) === 3 && (
+     {Number(roleId) === 3 && (
+  <>
+    {renderModuleLinks()}
 
-          <>
-
-            <RoleLink
-              role={4}
-              label="Distributor"
-              icon={
-                <RiStore2Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={5}
-              label="FOS"
-              icon={
-                <RiUserLocationLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={6}
-              label="Retailer"
-              icon={
-                <RiStore2Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={7}
-              label="Sub Retailer"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={8}
-              label="Employee"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
+    {/* STATIC EMPLOYEE */}
+    <RoleLink
+      role={8}
+      label="Employee"
+      icon={
+        <RiUser3Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      }
+    />
+  </>
+)}
 
 
         {/* =================================================
             DISTRIBUTOR - ROLE 4
         ================================================= */}
 
-        {Number(roleId) === 4 && (
+     {Number(roleId) === 4 && (
+  <>
+    {renderModuleLinks()}
 
-          <>
-
-            <RoleLink
-              role={5}
-              label="FOS"
-              icon={
-                <RiUserLocationLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={6}
-              label="Retailer"
-              icon={
-                <RiStore2Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={7}
-              label="Sub Retailer"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={8}
-              label="Employee"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
-
+    {/* STATIC EMPLOYEE */}
+    <RoleLink
+      role={8}
+      label="Employee"
+      icon={
+        <RiUser3Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      }
+    />
+  </>
+)}
 
         {/* =================================================
             FOS - ROLE 5
         ================================================= */}
 
-        {Number(roleId) === 5 && (
+       {Number(roleId) === 5 && (
+  <>
+    {renderModuleLinks()}
 
-          <>
-
-            <RoleLink
-              role={6}
-              label="Retailer"
-              icon={
-                <RiStore2Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={7}
-              label="Sub Retailer"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={8}
-              label="Employee"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
+    {/* STATIC EMPLOYEE */}
+    <RoleLink
+      role={8}
+      label="Employee"
+      icon={
+        <RiUser3Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      }
+    />
+  </>
+)}
 
 
         {/* =================================================
             RETAILER - ROLE 6
         ================================================= */}
 
-        {Number(roleId) === 6 && (
+      {Number(roleId) === 6 && (
+  <>
+   {renderModuleLinks()}
 
-          <>
-
-            <RoleLink
-              role={7}
-              label="Sub Retailer"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-            <RoleLink
-              role={8}
-              label="Employee"
-              icon={
-                <RiUser3Line
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
-
+    {/* STATIC EMPLOYEE */}
+    <RoleLink
+      role={8}
+      label="Employee"
+      icon={
+        <RiUser3Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      }
+    />
+  </>
+)}
 
         {/* =================================================
             SUB RETAILER - ROLE 7
         ================================================= */}
 
-        {Number(roleId) === 7 && (
-
-          <RoleLink
-            role={8}
-            label="Employee"
-            icon={
-              <RiUser3Line
-                size={18}
-                className="text-[1.4rem]"
-              />
-            }
-          />
-
-        )}
 
 
         {/* =================================================

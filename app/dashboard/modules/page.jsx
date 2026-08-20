@@ -1,101 +1,386 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
+
 import Link from "next/link";
-import { RiAddLine, RiDeleteBinLine, RiEditLine } from "react-icons/ri";
+
+import {
+  RiAddLine,
+  RiDeleteBinLine,
+  RiEditLine,
+} from "react-icons/ri";
+
 import { toast } from "react-toastify";
 
+import {
+  addModule,
+  getModules,
+  deleteModule
+} from "@/services/api";
+
 export default function ModulePage() {
-  const [moduleName, setModuleName] = useState("");
 
-  const [modules, setModules] = useState([
-    {
-      id: 1,
-      name: "Devices",
-    },
-  ]);
+  const [moduleName, setModuleName] =
+    useState("");
 
-  const handleAddModule = (e) => {
-    e.preventDefault();
+  const [modules, setModules] =
+    useState([]);
 
-    const name = moduleName.trim();
+  const [loading, setLoading] =
+    useState(true);
 
-    if (!name) {
-      toast.error("Please enter module name");
-      return;
-    }
+  const [adding, setAdding] =
+    useState(false);
 
-    const alreadyExists = modules.some(
-      (module) =>
-        module.name.toLowerCase() === name.toLowerCase()
-    );
 
-    if (alreadyExists) {
-      toast.error("Module already exists");
-      return;
-    }
+  // =====================================================
+  // GET MODULES
+  // =====================================================
 
-    const newModule = {
-      id: Date.now(),
-      name,
+  useEffect(() => {
+
+    const loadModules = async () => {
+
+      try {
+
+        setLoading(true);
+
+        const response =
+          await getModules();
+
+        console.log(
+          "GET MODULES RESPONSE:",
+          response
+        );
+
+        if (
+          response?.success &&
+          Array.isArray(response?.modules)
+        ) {
+
+          const formattedModules =
+            response.modules.map(
+              (name, index) => ({
+                id: index + 1,
+                name,
+              })
+            );
+
+          setModules(
+            formattedModules
+          );
+
+        } else {
+
+          setModules([]);
+
+        }
+
+      } catch (error) {
+
+        console.error(
+          "Get Modules Error:",
+          error
+        );
+
+        toast.error(
+          "Failed to load modules"
+        );
+
+        setModules([]);
+
+      } finally {
+
+        setLoading(false);
+
+      }
+
     };
 
-    setModules((prev) => [...prev, newModule]);
+    loadModules();
 
-    setModuleName("");
+  }, []);
 
-    toast.success("Module added successfully");
+
+  // =====================================================
+  // ADD MODULE
+  // =====================================================
+
+  const handleAddModule = async (e) => {
+
+    e.preventDefault();
+
+    const name =
+      moduleName.trim();
+
+    if (!name) {
+
+      toast.error(
+        "Please enter module name"
+      );
+
+      return;
+
+    }
+
+
+    // ================================================
+    // FRONTEND DUPLICATE CHECK
+    // ================================================
+
+    const alreadyExists =
+      modules.some(
+        (module) =>
+          module.name
+            .toLowerCase() ===
+          name.toLowerCase()
+      );
+
+    if (alreadyExists) {
+
+      toast.error(
+        "Module already exists"
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      setAdding(true);
+
+
+      // ================================================
+      // API CALL
+      // POST /api/add-module
+      //
+      // BODY:
+      // {
+      //   module: "Sub Retailer"
+      // }
+      // ================================================
+
+      const response =
+        await addModule(name);
+
+      console.log(
+        "ADD MODULE RESPONSE:",
+        response
+      );
+
+
+      // ================================================
+      // SUCCESS
+      // ================================================
+
+      if (response?.success) {
+
+        // API se updated complete array milega
+        if (
+          Array.isArray(
+            response?.modules
+          )
+        ) {
+
+          const formattedModules =
+            response.modules.map(
+              (moduleName, index) => ({
+                id: index + 1,
+                name: moduleName,
+              })
+            );
+
+          setModules(
+            formattedModules
+          );
+
+        } else {
+
+          // fallback
+          setModules(
+            (prev) => [
+              ...prev,
+              {
+                id: Date.now(),
+                name,
+              },
+            ]
+          );
+
+        }
+
+
+        setModuleName("");
+
+        toast.success(
+          "Module added successfully"
+        );
+
+      } else {
+
+        toast.error(
+          response?.message ||
+          "Failed to add module"
+        );
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "Add Module Error:",
+        error
+      );
+
+
+      // ================================================
+      // BACKEND 409 DUPLICATE
+      // ================================================
+
+      if (
+        error?.response?.status === 409
+      ) {
+
+        toast.error(
+          "Module already exists"
+        );
+
+      } else {
+
+        toast.error(
+          error?.response?.data?.message ||
+          "Failed to add module"
+        );
+
+      }
+
+    } finally {
+
+      setAdding(false);
+
+    }
+
   };
 
-  const handleDeleteModule = (id) => {
-    setModules((prev) =>
-      prev.filter((module) => module.id !== id)
+
+ // =====================================================
+// DELETE MODULE
+// =====================================================
+
+const handleDeleteModule = async (moduleName) => {
+  try {
+
+    console.log(
+      "FRONTEND DELETE:",
+      moduleName
     );
 
-    toast.success("Module deleted");
-  };
+    const response =
+      await deleteModule(moduleName);
+
+    console.log(
+      "DELETE RESPONSE:",
+      response
+    );
+
+    if (response?.success === true) {
+
+      const updatedModules =
+        Array.isArray(response.modules)
+          ? response.modules.map(
+              (name, index) => ({
+                id: index + 1,
+                name,
+              })
+            )
+          : [];
+
+      setModules(updatedModules);
+
+      toast.success(
+        response.message ||
+        "Module deleted successfully"
+      );
+
+      return;
+    }
+
+    toast.error(
+      response?.message ||
+      "Failed to delete module"
+    );
+
+  } catch (error) {
+
+    console.error(
+      "DELETE MODULE ERROR:",
+      error
+    );
+
+    console.error(
+      "BACKEND RESPONSE:",
+      error?.response?.data
+    );
+
+    toast.error(
+      error?.response?.data?.message ||
+      "Failed to delete module"
+    );
+  }
+};
+
+
+  // =====================================================
+  // UI
+  // =====================================================
 
   return (
+
     <div className="max-w-5xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-6">
 
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div
+        className="
+          bg-white
+          rounded-2xl
+          shadow-xl
+          border
+          border-slate-100
+          p-6
+        "
+      >
 
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">
-              Modules
-            </h1>
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
-            <p className="text-sm text-slate-500 mt-1">
-              Create and manage dashboard modules
-            </p>
-          </div>
+        <div
+          className="
+            flex
+            flex-col
+            md:flex-row
+            md:items-center
+            md:justify-between
+            gap-4
+            mb-6
+          "
+        >
 
-          <Link
-            href="/dashboard/sub-module"
-            className="
-              inline-flex
-              items-center
-              justify-center
-              gap-2
-              bg-blue-500
-              text-white
-              px-4
-              py-2.5
-              rounded-lg
-              hover:bg-blue-600
-              transition
-              font-semibold
-            "
-          >
-            Manage Sub Modules
-          </Link>
+
+
+        
 
         </div>
 
 
-        {/* ADD MODULE */}
+        {/* =================================================
+            ADD MODULE
+        ================================================= */}
+
         <form
           onSubmit={handleAddModule}
           className="
@@ -108,17 +393,34 @@ export default function ModulePage() {
           "
         >
 
-          <h2 className="text-lg font-semibold text-slate-700 mb-4">
+          <h2
+            className="
+              text-lg
+              font-semibold
+              text-slate-700
+              mb-4
+            "
+          >
             Add Module
           </h2>
 
-          <div className="flex flex-col md:flex-row gap-3">
+
+          <div
+            className="
+              flex
+              flex-col
+              md:flex-row
+              gap-3
+            "
+          >
 
             <input
               type="text"
               value={moduleName}
               onChange={(e) =>
-                setModuleName(e.target.value)
+                setModuleName(
+                  e.target.value
+                )
               }
               placeholder="Enter module name e.g. Devices"
               className="
@@ -136,8 +438,10 @@ export default function ModulePage() {
               "
             />
 
+
             <button
               type="submit"
+              disabled={adding}
               className="
                 flex
                 items-center
@@ -152,10 +456,19 @@ export default function ModulePage() {
                 transition
                 font-semibold
                 cursor-pointer
+                disabled:opacity-50
+                disabled:cursor-not-allowed
               "
             >
-              <RiAddLine size={20} />
-              Add Module
+
+              <RiAddLine
+                size={20}
+              />
+
+              {adding
+                ? "Adding..."
+                : "Add Module"}
+
             </button>
 
           </div>
@@ -163,111 +476,193 @@ export default function ModulePage() {
         </form>
 
 
-        {/* MODULE LIST */}
+        {/* =================================================
+            MODULE LIST
+        ================================================= */}
+
         <div>
 
-          <h2 className="text-lg font-semibold text-slate-700 mb-4">
+          <h2
+            className="
+              text-lg
+              font-semibold
+              text-slate-700
+              mb-4
+            "
+          >
             Module List
           </h2>
 
-          {modules.length === 0 ? (
 
-            <div className="border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500">
+          {/* LOADING */}
+
+          {loading ? (
+
+            <div
+              className="
+                border
+                border-slate-200
+                rounded-xl
+                p-8
+                text-center
+                text-slate-500
+              "
+            >
+              Loading modules...
+            </div>
+
+          ) : modules.length === 0 ? (
+
+            /* EMPTY */
+
+            <div
+              className="
+                border
+                border-dashed
+                border-slate-300
+                rounded-xl
+                p-8
+                text-center
+                text-slate-500
+              "
+            >
               No modules found
             </div>
 
           ) : (
 
-            <div className="space-y-3">
+            /* LIST */
 
-              {modules.map((module, index) => (
+            <div
+              className="
+                space-y-3
+              "
+            >
 
-                <div
-                  key={module.id}
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                    border
-                    border-slate-200
-                    rounded-xl
-                    px-4
-                    py-4
-                    bg-white
-                    hover:shadow-sm
-                    transition
-                  "
-                >
+              {modules.map(
+                (module, index) => (
 
-                  <div className="flex items-center gap-4">
+                  <div
+                    key={module.id}
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                      border
+                      border-slate-200
+                      rounded-xl
+                      px-4
+                      py-4
+                      bg-white
+                      hover:shadow-sm
+                      transition
+                    "
+                  >
 
                     <div
                       className="
-                        w-10
-                        h-10
-                        rounded-lg
-                        bg-blue-50
-                        text-blue-600
                         flex
                         items-center
-                        justify-center
-                        font-bold
+                        gap-4
                       "
                     >
-                      {index + 1}
+
+                      <div
+                        className="
+                          w-10
+                          h-10
+                          rounded-lg
+                          bg-blue-50
+                          text-blue-600
+                          flex
+                          items-center
+                          justify-center
+                          font-bold
+                        "
+                      >
+                        {index + 1}
+                      </div>
+
+
+                      <div>
+
+                        <p
+                          className="
+                            font-semibold
+                            text-slate-800
+                          "
+                        >
+                          {module.name}
+                        </p>
+
+                        <p
+                          className="
+                            text-xs
+                            text-slate-500
+                          "
+                        >
+                          Module
+                        </p>
+
+                      </div>
+
                     </div>
 
-                    <div>
-                      <p className="font-semibold text-slate-800">
-                        {module.name}
-                      </p>
 
-                      <p className="text-xs text-slate-500">
-                        Module
-                      </p>
+                    <div
+                      className="
+                        flex
+                        items-center
+                        gap-2
+                      "
+                    >
+
+                      {/* EDIT */}
+
+                      <button
+                        type="button"
+                        className="
+                          p-2
+                          rounded-lg
+                          text-blue-600
+                          hover:bg-blue-50
+                          cursor-pointer
+                        "
+                        title="Edit Module"
+                      >
+
+                        <RiEditLine
+                          size={20}
+                        />
+
+                      </button>
+
+
+                      {/* DELETE */}
+
+                 <button
+  type="button"
+  onClick={() =>
+    handleDeleteModule(module.name)
+  }
+  className="
+    p-2
+    rounded-lg
+    text-red-500
+    hover:bg-red-50
+    cursor-pointer
+  "
+  title="Delete Module"
+>
+  <RiDeleteBinLine size={20} />
+</button>
+
                     </div>
 
                   </div>
 
-
-                  <div className="flex items-center gap-2">
-
-                    <button
-                      type="button"
-                      className="
-                        p-2
-                        rounded-lg
-                        text-blue-600
-                        hover:bg-blue-50
-                        cursor-pointer
-                      "
-                      title="Edit Module"
-                    >
-                      <RiEditLine size={20} />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleDeleteModule(module.id)
-                      }
-                      className="
-                        p-2
-                        rounded-lg
-                        text-red-500
-                        hover:bg-red-50
-                        cursor-pointer
-                      "
-                      title="Delete Module"
-                    >
-                      <RiDeleteBinLine size={20} />
-                    </button>
-
-                  </div>
-
-                </div>
-
-              ))}
+                )
+              )}
 
             </div>
 
@@ -276,6 +671,9 @@ export default function ModulePage() {
         </div>
 
       </div>
+
     </div>
+
   );
+
 }
