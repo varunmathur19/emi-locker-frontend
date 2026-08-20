@@ -391,32 +391,80 @@ export default function Sidebar({
 
 
         {/* =================================================
-            MASTER ADMIN - ROLE 0
-        =================================================
+    MASTER ADMIN - ROLE 0
+================================================= */}
 
-            Master Admin ko initially:
+{Number(roleId) === 0 && (
 
-            Admin
+  <>
 
-            hi show hoga.
+    {/* Admin */}
+    <RoleLink
+      role={1}
+      label="Admin"
+      icon={
+        <RiShieldUserLine
+          size={18}
+          className="text-[1.4rem]"
+        />
+      }
+    />
 
-            Baaki roles direct sidebar me nahi.
-        ================================================= */}
+    {/* Module */}
+    <Link
+      href="/dashboard/modules"
+      className={`
+        flex
+        items-center
+        gap-3
+        p-3
+        rounded
+        transition-all
+        font-semibold
+        ${
+          pathname === "/modules"
+            ? "bg-blue-400 text-black"
+            : "hover:bg-gray-700"
+        }
+      `}
+    >
+      <RiBuilding2Line
+        size={18}
+        className="text-[1.4rem]"
+      />
 
-        {Number(roleId) === 0 && (
+      Module
+    </Link>
 
-          <RoleLink
-            role={1}
-            label="Admin"
-            icon={
-              <RiShieldUserLine
-                size={18}
-                className="text-[1.4rem]"
-              />
-            }
-          />
+    {/* Sub Module */}
+    <Link
+      href="/dashboard/sub-modules"
+      className={`
+        flex
+        items-center
+        gap-3
+        p-3
+        rounded
+        transition-all
+        font-semibold
+        ${
+          pathname === "/sub-modules"
+            ? "bg-blue-400 text-black"
+            : "hover:bg-gray-700"
+        }
+      `}
+    >
+      <RiStore2Line
+        size={18}
+        className="text-[1.4rem]"
+      />
 
-        )}
+      Sub Module
+    </Link>
+
+  </>
+
+)}
 
 
         {/* =================================================
