@@ -3751,239 +3751,229 @@ if (
                 COUNTRY
             ================================================= */}
 
-            <div
-              className="
-                space-y-1.5
-              "
-            >
+           <div
+  className="
+    space-y-1.5
+  "
+>
+  <label
+    className="
+      text-sm
+      font-medium
+      text-slate-700
+    "
+  >
+    Country{" "}
+    <span className="text-red-500">
+      *
+    </span>
+  </label>
 
-              <label
-                className="
-                  text-sm
-                  font-medium
-                  text-slate-700
-                "
-              >
+  <div className="relative">
 
-                Country{" "}
+    <select
+      name="country"
+      value={formData.country}
+      onChange={handleChange}
+      required
+      className="
+        w-full
+        appearance-none
+        border
+        border-slate-300
+        rounded-lg
+        px-4
+        py-2.5
+        pr-10
+        text-sm
+        bg-white
+        cursor-pointer
+      "
+    >
+      <option value="">
+        Select Country
+      </option>
 
-                <span className="text-red-500">
-                  *
-                </span>
+      {countries.map(
+        (country) => (
+          <option
+            key={country.isoCode}
+            value={country.isoCode}
+          >
+            {country.name}
+          </option>
+        )
+      )}
+    </select>
 
-              </label>
+    <RiArrowDownSLine
+      size={22}
+      className="
+        absolute
+        right-3
+        top-1/2
+        -translate-y-1/2
+        text-slate-500
+        pointer-events-none
+      "
+    />
 
-
-              <select
-                name="country"
-                value={
-                  formData.country
-                }
-                onChange={
-                  handleChange
-                }
-                required
-                className="
-                  w-full
-                  border
-                  border-slate-300
-                  rounded-lg
-                  px-4
-                  py-2.5
-                  text-sm
-                  bg-white
-                "
-              >
-
-                <option value="">
-                  Select Country
-                </option>
-
-
-                {countries.map(
-                  (country) => (
-
-                    <option
-                      key={
-                        country.isoCode
-                      }
-                      value={
-                        country.isoCode
-                      }
-                    >
-
-                      {country.name}
-
-                    </option>
-
-                  )
-                )}
-
-              </select>
-
-            </div>
+  </div>
+</div>
 
 
             {/* =================================================
                 STATE
             ================================================= */}
+<div
+  className="
+    space-y-1.5
+  "
+>
+  <label
+    className="
+      text-sm
+      font-medium
+      text-slate-700
+    "
+  >
+    State{" "}
+    <span className="text-red-500">
+      *
+    </span>
+  </label>
 
-            <div
-              className="
-                space-y-1.5
-              "
-            >
+  <div className="relative">
 
-              <label
-                className="
-                  text-sm
-                  font-medium
-                  text-slate-700
-                "
-              >
+    <select
+      name="state"
+      value={formData.state}
+      onChange={handleChange}
+      required
+      disabled={!formData.country}
+      className="
+        w-full
+        appearance-none
+        border
+        border-slate-300
+        rounded-lg
+        px-4
+        py-2.5
+        pr-10
+        text-sm
+        bg-white
+        cursor-pointer
+        disabled:bg-slate-50
+        disabled:cursor-not-allowed
+      "
+    >
+      <option value="">
+        Select State
+      </option>
 
-                State{" "}
+      {states.map(
+        (state) => (
+          <option
+            key={state.isoCode}
+            value={state.isoCode}
+          >
+            {state.name}
+          </option>
+        )
+      )}
+    </select>
 
-                <span className="text-red-500">
-                  *
-                </span>
+    <RiArrowDownSLine
+      size={22}
+      className="
+        absolute
+        right-3
+        top-1/2
+        -translate-y-1/2
+        text-slate-500
+        pointer-events-none
+      "
+    />
 
-              </label>
-
-
-              <select
-                name="state"
-                value={
-                  formData.state
-                }
-                onChange={
-                  handleChange
-                }
-                required
-                disabled={
-                  !formData.country
-                }
-                className="
-                  w-full
-                  border
-                  border-slate-300
-                  rounded-lg
-                  px-4
-                  py-2.5
-                  text-sm
-                  bg-white
-                  disabled:bg-slate-50
-                "
-              >
-
-                <option value="">
-                  Select State
-                </option>
-
-
-                {states.map(
-                  (state) => (
-
-                    <option
-                      key={
-                        state.isoCode
-                      }
-                      value={
-                        state.isoCode
-                      }
-                    >
-
-                      {state.name}
-
-                    </option>
-
-                  )
-                )}
-
-              </select>
-
-            </div>
-
+  </div>
+</div>
 
             {/* =================================================
                 CITY
             ================================================= */}
 
             <div
-              className="
-                space-y-1.5
-              "
-            >
+  className="
+    space-y-1.5
+  "
+>
+  <label
+    className="
+      text-sm
+      font-medium
+      text-slate-700
+    "
+  >
+    City{" "}
+    <span className="text-red-500">
+      *
+    </span>
+  </label>
 
-              <label
-                className="
-                  text-sm
-                  font-medium
-                  text-slate-700
-                "
-              >
+  <div className="relative">
 
-                City{" "}
+    <select
+      name="city"
+      value={formData.city}
+      onChange={handleChange}
+      required
+      disabled={!formData.state}
+      className="
+        w-full
+        appearance-none
+        border
+        border-slate-300
+        rounded-lg
+        px-4
+        py-2.5
+        pr-10
+        text-sm
+        bg-white
+        cursor-pointer
+        disabled:bg-slate-50
+        disabled:cursor-not-allowed
+      "
+    >
+      <option value="">
+        Select City
+      </option>
 
-                <span className="text-red-500">
-                  *
-                </span>
+      {cities.map(
+        (city) => (
+          <option
+            key={city.name}
+            value={city.name}
+          >
+            {city.name}
+          </option>
+        )
+      )}
+    </select>
 
-              </label>
+    <RiArrowDownSLine
+      size={22}
+      className="
+        absolute
+        right-3
+        top-1/2
+        -translate-y-1/2
+        text-slate-500
+        pointer-events-none
+      "
+    />
 
-
-              <select
-                name="city"
-                value={
-                  formData.city
-                }
-                onChange={
-                  handleChange
-                }
-                required
-                disabled={
-                  !formData.state
-                }
-                className="
-                  w-full
-                  border
-                  border-slate-300
-                  rounded-lg
-                  px-4
-                  py-2.5
-                  text-sm
-                  bg-white
-                  disabled:bg-slate-50
-                "
-              >
-
-                <option value="">
-                  Select City
-                </option>
-
-
-                {cities.map(
-                  (city) => (
-
-                    <option
-                      key={
-                        city.name
-                      }
-                      value={
-                        city.name
-                      }
-                    >
-
-                      {city.name}
-
-                    </option>
-
-                  )
-                )}
-
-              </select>
-
-            </div>
+  </div>
+</div>
 
 
             {/* =================================================
