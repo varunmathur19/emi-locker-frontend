@@ -183,22 +183,39 @@ export const loginAsUser = async (
 // =====================================================
 
 export const addModule = async (
-  module
+  module,
+  icon
 ) => {
 
   try {
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "module",
+      module
+    );
+
+    formData.append(
+      "icon",
+      icon
+    );
 
     console.log(
       "ADD MODULE:",
       module
     );
 
+    console.log(
+      "ADD MODULE ICON:",
+      icon
+    );
+
     const response =
       await api.post(
         "/add-module",
-        {
-          module,
-        }
+        formData
       );
 
     console.log(

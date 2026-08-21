@@ -33,16 +33,35 @@ import {
   RiLoginBoxLine,
 } from "react-icons/ri";
 
-const iconMap = {
-  RiDashboardLine,
-  RiShieldUserLine,
-  RiUserStarLine,
-  RiBuilding2Line,
-  RiStore2Line,
-  RiUserLocationLine,
-  RiUser3Line,
-  RiLogoutBoxLine,
-  RiLoginBoxLine,
+// const iconMap = {
+//   RiDashboardLine,
+//   RiShieldUserLine,
+//   RiUserStarLine,
+//   RiBuilding2Line,
+//   RiStore2Line,
+//   RiUserLocationLine,
+//   RiUser3Line,
+//   RiLogoutBoxLine,
+//   RiLoginBoxLine,
+// };
+
+const getIconUrl = (icon) => {
+  if (!icon) return "";
+
+  if (
+    icon.startsWith("http://") ||
+    icon.startsWith("https://")
+  ) {
+    return icon;
+  }
+
+  const baseURL =
+    process.env.NEXT_PUBLIC_API_URL?.replace(
+      /\/api\/?$/,
+      ""
+    );
+
+  return `${baseURL}/${icon.replace(/^\/+/, "")}`;
 };
 export default function Sidebar({
   sidebarOpen,
@@ -434,58 +453,119 @@ export default function Sidebar({
     );
 
   };
- const renderModuleLinks = () => {
+const renderModuleLinks = () => {
 
-  return modules.map((moduleName, index) => {
+  return modules.map(
+    (moduleItem, index) => {
 
-    const key = String(moduleName)
-      .trim()
-      .toLowerCase();
+      // =================================================
+      // MODULE NAME
+      // =================================================
 
-    const module = roleMap[key];
+      const moduleName =
+        typeof moduleItem === "string"
+          ? moduleItem
+          : moduleItem?.name || "";
 
-    // Existing role/module
-    if (module) {
+
+      // =================================================
+      // MODULE ICON
+      // =================================================
+
+      const moduleIcon =
+        typeof moduleItem === "object"
+          ? moduleItem?.icon
+          : null;
+
+
+      // =================================================
+      // KEY
+      // =================================================
+
+      const key =
+        String(moduleName)
+          .trim()
+          .toLowerCase();
+
+
+      // =================================================
+      // EXISTING ROLE MODULE
+      // =================================================
+
+      const module =
+        roleMap[key];
+
+
+      if (module) {
+
+        return (
+          <RoleLink
+            key={`${key}-${index}`}
+            role={module.role}
+            label={module.label}
+            icon={module.icon}
+          />
+        );
+
+      }
+
+
+      // =================================================
+      // CUSTOM MODULE
+      // =================================================
 
       return (
-        <RoleLink
+        <Link
           key={`${key}-${index}`}
-          role={module.role}
-          label={module.label}
-          icon={module.icon}
-        />
+          href={`/dashboard?module=${encodeURIComponent(
+            moduleName
+          )}`}
+          className="
+            flex
+            items-center
+            gap-3
+            p-3
+            rounded
+            transition-all
+            font-semibold
+            hover:bg-gray-700
+          "
+        >
+
+          {/* MODULE ICON */}
+
+        {moduleIcon ? (
+  <img
+    src={getIconUrl(moduleIcon)}
+    alt={moduleName || "Module icon"}
+    className="
+      w-5
+      h-5
+      object-contain
+      flex-shrink-0
+      brightness-0
+      invert
+    "
+  />
+) : (
+  <RiBuilding2Line
+    size={18}
+    className="text-white"
+  />
+)}
+
+
+          {/* MODULE NAME */}
+
+          <span>
+            {moduleName}
+          </span>
+
+        </Link>
       );
 
     }
-
-    // New/custom module
-    return (
-      <Link
-        key={`${key}-${index}`}
-        href={`/dashboard?module=${encodeURIComponent(moduleName)}`}
-        className="
-          flex
-          items-center
-          gap-3
-          p-3
-          rounded
-          transition-all
-          font-semibold
-          hover:bg-gray-700
-        "
-      >
-
-        <RiBuilding2Line
-          size={18}
-          className="text-[1.4rem]"
-        />
-
-        {moduleName}
-
-      </Link>
-    );
-
-  });
+  );
 
 };
 

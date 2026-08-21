@@ -19,6 +19,23 @@ import {
   getModules,
   deleteModule
 } from "@/services/api";
+const getIconUrl = (icon) => {
+  if (!icon) return "";
+
+  // Agar backend already complete URL de raha hai
+  if (
+    icon.startsWith("http://") ||
+    icon.startsWith("https://")
+  ) {
+    return icon;
+  }
+
+  // Backend ka base URL
+  const baseURL =
+    process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "");
+
+  return `${baseURL}/${icon.replace(/^\/+/, "")}`;
+};
 
 export default function ModulePage() {
    const router = useRouter();
@@ -62,16 +79,15 @@ export default function ModulePage() {
         ) {
 
           const formattedModules =
-            response.modules.map(
-              (name, index) => ({
-                id: index + 1,
-                name,
-              })
-            );
+  response.modules.map(
+    (item, index) => ({
+      id: index + 1,
+      name: item?.name || "",
+      icon: item?.icon || "",
+    })
+  );
 
-          setModules(
-            formattedModules
-          );
+setModules(formattedModules);
 
         } else {
 
@@ -187,17 +203,16 @@ export default function ModulePage() {
           )
         ) {
 
-          const formattedModules =
-            response.modules.map(
-              (moduleName, index) => ({
-                id: index + 1,
-                name: moduleName,
-              })
-            );
+         const formattedModules =
+  response.modules.map(
+    (item, index) => ({
+      id: index + 1,
+      name: item?.name || "",
+      icon: item?.icon || "",
+    })
+  );
 
-          setModules(
-            formattedModules
-          );
+setModules(formattedModules);
 
         } else {
 
@@ -567,21 +582,43 @@ const handleDeleteModule = async (moduleName) => {
                       "
                     >
 
-                      <div
-                        className="
-                          w-10
-                          h-10
-                          rounded-lg
-                          bg-blue-50
-                          text-blue-600
-                          flex
-                          items-center
-                          justify-center
-                          font-bold
-                        "
-                      >
-                        {index + 1}
-                      </div>
+      <div
+  className="
+    w-12
+    h-12
+    rounded-lg
+    bg-blue-50
+    flex
+    items-center
+    justify-center
+    overflow-hidden
+    border
+    border-slate-200
+  "
+>
+{module.icon ? (
+  <img
+    src={getIconUrl(module.icon)}
+    alt={module.name || "Module icon"}
+    className="
+      w-6
+      h-6
+      object-contain
+      p-0.5
+    "
+  />
+) : (
+  <span
+    className="
+      text-blue-600
+      font-bold
+      text-lg
+    "
+  >
+    {index + 1}
+  </span>
+)}
+</div>
 
 
                       <div>
