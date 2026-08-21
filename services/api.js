@@ -176,26 +176,108 @@ export const loginAsUser = async (
 // =====================================================
 
 export const addModule = async (
-  module,
-  icon
+   name,
+    sequence,
+    moduleIcon
 ) => {
 
   try {
 
     // ================================================
-    // VALIDATION
+    // MODULE VALIDATION
     // ================================================
 
-    if (!module) {
+    const moduleName =
+      String(name || "").trim();
+
+    if (!moduleName) {
+
       throw new Error(
         "Module name is required"
       );
+
     }
 
-    if (!(icon instanceof File)) {
+
+    // ================================================
+    // SEQUENCE VALIDATION
+    // ================================================
+
+    const moduleSequence =
+      Number(sequence);
+
+    if (
+      sequence === undefined ||
+      sequence === null ||
+      sequence === "" ||
+      !Number.isInteger(moduleSequence) ||
+      moduleSequence < 1
+    ) {
+
       throw new Error(
-        "Valid icon file is required"
+        "Valid sequence number is required"
       );
+
+    }
+
+
+    // ================================================
+    // ICON VALIDATION
+    // ================================================
+
+    if (
+      typeof File !== "undefined" &&
+      !(moduleIcon instanceof File)
+    ) {
+
+      throw new Error(
+        "Valid PNG icon file is required"
+      );
+
+    }
+
+
+    if (!moduleIcon) {
+
+      throw new Error(
+        "Valid PNG icon file is required"
+      );
+
+    }
+
+
+    // ================================================
+    // PNG ONLY
+    // ================================================
+
+    if (
+      moduleIcon.type !==
+      "image/png"
+    ) {
+
+      throw new Error(
+        "Only PNG images are allowed"
+      );
+
+    }
+
+
+    // ================================================
+    // MAX 20 KB
+    // ================================================
+
+    const maxSize =
+      20 * 1024;
+
+    if (
+      moduleIcon.size >
+      maxSize
+    ) {
+
+      throw new Error(
+        "PNG icon size must not exceed 20 KB"
+      );
+
     }
 
 
@@ -206,15 +288,35 @@ export const addModule = async (
     const formData =
       new FormData();
 
+
+    // ================================================
+    // MODULE NAME
+    // ================================================
+
     formData.append(
       "module",
-      module
+      moduleName
     );
+
+
+    // ================================================
+    // SEQUENCE
+    // ================================================
+
+    formData.append(
+      "sequence",
+      String(moduleSequence)
+    );
+
+
+    // ================================================
+    // ICON
+    // ================================================
 
     formData.append(
       "icon",
-      icon,
-      icon.name
+      moduleIcon,
+      moduleIcon.name
     );
 
 
@@ -228,31 +330,45 @@ export const addModule = async (
 
     console.log(
       "MODULE:",
-      module
+      moduleName
+    );
+
+    console.log(
+      "SEQUENCE:",
+      moduleSequence
     );
 
     console.log(
       "ICON:",
-      icon
+      moduleIcon
     );
 
     console.log(
       "ICON NAME:",
-      icon.name
+      moduleIcon.name
     );
 
     console.log(
       "ICON TYPE:",
-      icon.type
+      moduleIcon.type
     );
 
     console.log(
       "ICON SIZE:",
-      icon.size
+      moduleIcon.size,
+      "bytes"
     );
 
+
+    // ================================================
+    // DEBUG FORM DATA
+    // ================================================
+
     for (
-      const [key, value]
+      const [
+        key,
+        value
+      ]
       of formData.entries()
     ) {
 
@@ -271,7 +387,9 @@ export const addModule = async (
 
     const token =
       typeof window !== "undefined"
-        ? localStorage.getItem("token")
+        ? localStorage.getItem(
+            "token"
+          )
         : null;
 
 
@@ -285,15 +403,22 @@ export const addModule = async (
         formData,
         {
           headers: {
+
             Authorization:
               `Bearer ${token}`,
 
-            // IMPORTANT:
-            // Content-Type manually mat lagao
+            // Content-Type manually mat lagao.
+            // Axios/browser automatically
+            // multipart/form-data boundary set karega.
+
           },
         }
       );
 
+
+    // ================================================
+    // RESPONSE
+    // ================================================
 
     console.log(
       "ADD MODULE RESPONSE:",
@@ -303,8 +428,8 @@ export const addModule = async (
 
     return response.data;
 
-  }
-  catch (error) {
+
+  } catch (error) {
 
     console.error(
       "ADD MODULE ERROR:",

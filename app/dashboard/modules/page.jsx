@@ -54,6 +54,8 @@ const [iconPreview, setIconPreview] =
 
   const [loading, setLoading] =
     useState(true);
+    const [moduleSequence, setModuleSequence] =
+  useState("");
 
   const [adding, setAdding] =
     useState(false);
@@ -90,14 +92,18 @@ const [iconPreview, setIconPreview] =
           Array.isArray(response?.modules)
         ) {
 
-          const formattedModules =
-  response.modules.map(
-    (item, index) => ({
+        const formattedModules =
+  response.modules
+    .map((item, index) => ({
       id: index + 1,
       name: item?.name || "",
       icon: item?.icon || "",
-    })
-  );
+      sequence: Number(item?.sequence ?? index + 1),
+    }))
+    .sort(
+      (a, b) =>
+        a.sequence - b.sequence
+    );
 
 setModules(formattedModules);
 
@@ -137,165 +143,497 @@ setModules(formattedModules);
   // ADD MODULE
   // =====================================================
 
-  const handleAddModule = async (e) => {
+const handleAddModule = async (e) => {
 
-    e.preventDefault();
+  e.preventDefault();
 
-    const name =
-      moduleName.trim();
+  // =====================================================
+  // MODULE NAME
+  // =====================================================
 
-    if (!name) {
-
-      toast.error(
-        "Please enter module name"
-      );
-
-      return;
-
-    }
+  const name =
+    moduleName.trim();
 
 
-    // ================================================
-    // FRONTEND DUPLICATE CHECK
-    // ================================================
+  if (!name) {
 
-    const alreadyExists =
-      modules.some(
-        (module) =>
-          module.name
-            .toLowerCase() ===
-          name.toLowerCase()
-      );
+    toast.error(
+      "Please enter module name"
+    );
 
-    if (alreadyExists) {
+    return;
 
-      toast.error(
-        "Module already exists"
-      );
-
-      return;
-
-    }
+  }
 
 
-    try {
+  // =====================================================
+  // SEQUENCE
+  // =====================================================
 
-      setAdding(true);
+  const sequence =
+    Number(moduleSequence);
 
 
-      // ================================================
-      // API CALL
-      // POST /api/add-module
-      //
-      // BODY:
-      // {
-      //   module: "Sub Retailer"
-      // }
-      // ================================================
+  console.log(
+    "========== ADD MODULE =========="
+  );
 
-      const response =
-  await addModule(
-    name,
+  console.log(
+    "MODULE NAME:",
+    name
+  );
+
+  console.log(
+    "MODULE SEQUENCE:",
+    moduleSequence
+  );
+
+  console.log(
+    "PARSED SEQUENCE:",
+    sequence
+  );
+
+  console.log(
+    "MODULE ICON:",
     moduleIcon
   );
 
-      console.log(
-        "ADD MODULE RESPONSE:",
-        response
-      );
+
+  // =====================================================
+  // SEQUENCE VALIDATION
+  // =====================================================
+
+  if (
+    moduleSequence === "" ||
+    moduleSequence === null ||
+    moduleSequence === undefined ||
+    !Number.isInteger(sequence) ||
+    sequence < 1
+  ) {
+
+    toast.error(
+      "Please enter valid sequence number"
+    );
+
+    return;
+
+  }
 
 
-      // ================================================
-      // SUCCESS
-      // ================================================
+  // =====================================================
+  // ICON REQUIRED
+  // =====================================================
 
-      if (response?.success) {
+  if (!moduleIcon) {
 
-        // API se updated complete array milega
-        if (
-          Array.isArray(
-            response?.modules
+    toast.error(
+      "Please select module icon"
+    );
+
+    return;
+
+  }
+
+
+  // =====================================================
+  // PNG VALIDATION
+  // =====================================================
+
+  if (
+    moduleIcon.type !==
+    "image/png"
+  ) {
+
+    toast.error(
+      "Only PNG images are allowed"
+    );
+
+    return;
+
+  }
+
+
+  // =====================================================
+  // ICON SIZE VALIDATION
+  // =====================================================
+
+  const maxIconSize =
+    20 * 1024;
+
+
+  if (
+    moduleIcon.size >
+    maxIconSize
+  ) {
+
+    toast.error(
+      "PNG icon size must not exceed 20 KB"
+    );
+
+    return;
+
+  }
+
+
+  // =====================================================
+  // DUPLICATE MODULE NAME CHECK
+  // =====================================================
+
+  const alreadyExists =
+    modules.some(
+      (item) => {
+
+        const existingName =
+          String(
+            item?.name || ""
           )
-        ) {
+            .trim()
+            .toLowerCase();
 
-         const formattedModules =
-  response.modules.map(
-    (item, index) => ({
-      id: index + 1,
-      name: item?.name || "",
-      icon: item?.icon || "",
-    })
-  );
+        return (
+          existingName ===
+          name.toLowerCase()
+        );
 
-setModules(formattedModules);
+      }
+    );
 
-        } else {
 
-          // fallback
-          setModules(
-            (prev) => [
-              ...prev,
-              {
-                id: Date.now(),
-                name,
-              },
-            ]
+  if (alreadyExists) {
+
+    toast.error(
+      `Module "${name}" already exists`
+    );
+
+    return;
+
+  }
+
+
+  // =====================================================
+  // DUPLICATE SEQUENCE CHECK
+  // =====================================================
+
+  const sequenceExists =
+    modules.some(
+      (item) => {
+
+        const existingSequence =
+          Number(
+            item?.sequence
           );
 
-        }
-
-
-        setModuleName("");
-
-        toast.success(
-          "Module added successfully"
-        );
-
-      } else {
-
-        toast.error(
-          response?.message ||
-          "Failed to add module"
+        return (
+          existingSequence ===
+          sequence
         );
 
       }
+    );
 
-    } catch (error) {
 
-      console.error(
-        "Add Module Error:",
-        error
+  if (sequenceExists) {
+
+    toast.error(
+      `Sequence ${sequence} is already used`
+    );
+
+    return;
+
+  }
+
+
+  // =====================================================
+  // API CALL
+  // =====================================================
+
+  try {
+
+    setAdding(true);
+
+
+    console.log(
+      "========== CALLING ADD MODULE API =========="
+    );
+
+    console.log(
+      "NAME:",
+      name
+    );
+
+    console.log(
+      "SEQUENCE:",
+      sequence
+    );
+
+    console.log(
+      "ICON:",
+      moduleIcon.name
+    );
+
+
+    // ===================================================
+    // IMPORTANT
+    //
+    // addModule order:
+    //
+    // 1. name
+    // 2. sequence
+    // 3. moduleIcon
+    // ===================================================
+
+    const response =
+      await addModule(
+        name,
+        sequence,
+        moduleIcon
       );
 
 
-      // ================================================
-      // BACKEND 409 DUPLICATE
-      // ================================================
+    console.log(
+      "ADD MODULE API RESPONSE:",
+      response
+    );
+
+
+    // =====================================================
+    // API SUCCESS
+    // =====================================================
+
+    if (
+      response?.success === true
+    ) {
+
+
+      // ===================================================
+      // UPDATE MODULE LIST
+      // ===================================================
 
       if (
-        error?.response?.status === 409
+        Array.isArray(
+          response?.modules
+        )
       ) {
 
-        toast.error(
-          "Module already exists"
+        const formattedModules =
+          response.modules
+            .map(
+              (item, index) => ({
+
+                id:
+                  item?.id ??
+                  index + 1,
+
+                name:
+                  item?.name ||
+                  "",
+
+                icon:
+                  item?.icon ||
+                  "",
+
+                sequence:
+                  Number(
+                    item?.sequence ??
+                    index + 1
+                  ),
+
+              })
+            )
+            .sort(
+              (a, b) =>
+                a.sequence -
+                b.sequence
+            );
+
+
+        setModules(
+          formattedModules
         );
 
       } else {
 
-        toast.error(
-          error?.response?.data?.message ||
-          "Failed to add module"
+        // =================================================
+        // FALLBACK
+        // =================================================
+
+        setModules(
+          (prev) => [
+
+            ...prev,
+
+            {
+
+              id:
+                Date.now(),
+
+              name,
+
+              icon:
+                response?.icon ||
+                "",
+
+              sequence,
+
+            },
+
+          ].sort(
+            (a, b) =>
+              a.sequence -
+              b.sequence
+          )
         );
 
       }
 
-    } finally {
 
-      setAdding(false);
+      // =====================================================
+      // RESET FORM
+      // =====================================================
+
+      setModuleName("");
+
+      setModuleSequence("");
+
+      setModuleIcon(null);
+
+
+      // =====================================================
+      // RESET FILE INPUT
+      // =====================================================
+
+      const fileInput =
+        document.querySelector(
+          'input[type="file"]'
+        );
+
+
+      if (fileInput) {
+
+        fileInput.value = "";
+
+      }
+
+
+      // =====================================================
+      // SUCCESS TOAST
+      // =====================================================
+
+      toast.success(
+        `Module added successfully at sequence ${sequence}`
+      );
+
+
+      return;
 
     }
 
-  };
+
+    // =====================================================
+    // API RESPONSE FAILED
+    // =====================================================
+
+    toast.error(
+      response?.message ||
+      "Failed to add module"
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "========== ADD MODULE ERROR =========="
+    );
+
+    console.error(
+      error
+    );
+
+    console.error(
+      "STATUS:",
+      error?.response?.status
+    );
+
+    console.error(
+      "API RESPONSE:",
+      error?.response?.data
+    );
+
+
+    // =====================================================
+    // DUPLICATE MODULE
+    // =====================================================
+
+    if (
+      error?.response?.status ===
+      409
+    ) {
+
+      toast.error(
+        error?.response?.data?.message ||
+        `Module "${name}" already exists`
+      );
+
+      return;
+
+    }
+
+
+    // =====================================================
+    // DUPLICATE SEQUENCE
+    // =====================================================
+
+    if (
+      error?.response?.status ===
+      422
+    ) {
+
+      toast.error(
+        error?.response?.data?.message ||
+        `Sequence ${sequence} is already used`
+      );
+
+      return;
+
+    }
+
+
+    // =====================================================
+    // VALID SEQUENCE ERROR
+    // =====================================================
+
+    if (
+      error?.message ===
+      "Valid sequence number is required"
+    ) {
+
+      toast.error(
+        "Please enter valid sequence number"
+      );
+
+      return;
+
+    }
+
+
+    // =====================================================
+    // OTHER API ERROR
+    // =====================================================
+
+    toast.error(
+      error?.response?.data?.message ||
+      error?.message ||
+      "Failed to add module"
+    );
+
+
+  } finally {
+
+    setAdding(false);
+
+  }
+
+};
 
 const handleModuleIconChange = (e) => {
 
@@ -424,23 +762,31 @@ const confirmDeleteModule = async () => {
       ) {
 
         const formattedModules =
-          response.modules.map(
-            (item, index) => ({
+  response.modules
+    .map((item, index) => ({
+      id:
+        item?.id ??
+        index + 1,
 
-              id: index + 1,
+      name:
+        item?.name || "",
 
-              name:
-                item?.name || "",
+      icon:
+        item?.icon || "",
 
-              icon:
-                item?.icon || "",
+      sequence:
+        Number(
+          item?.sequence ??
+          index + 1
+        ),
+    }))
+    .sort(
+      (a, b) =>
+        a.sequence -
+        b.sequence
+    );
 
-            })
-          );
-
-        setModules(
-          formattedModules
-        );
+setModules(formattedModules);
 
       } else {
 
@@ -706,9 +1052,10 @@ const confirmDeleteModule = async () => {
 
 <div
   className="
-    flex
-    flex-col
-    md:flex-row
+    grid
+    grid-cols-1
+    md:grid-cols-2
+    lg:flex
     gap-3
   "
 >
@@ -717,36 +1064,75 @@ const confirmDeleteModule = async () => {
       MODULE NAME
   ================================================= */}
 
-  <input
-    type="text"
-    value={moduleName}
-    onChange={(e) =>
-      setModuleName(
-        e.target.value
-      )
-    }
-    placeholder="Enter module name e.g. Devices"
-    className="
-      flex-1
-      border
-      border-slate-300
-      rounded-lg
-      px-4
-      py-2.5
-      text-sm
-      bg-white
-      focus:outline-none
-      focus:ring-2
-      focus:ring-blue-500
-    "
+ <input
+  type="text"
+  value={moduleName}
+  onChange={(e) =>
+    setModuleName(
+      e.target.value
+    )
+  }
+  placeholder="Enter module name e.g. Devices"
+  className="
+    w-full
+    lg:flex-1
+    border
+    border-slate-300
+    rounded-lg
+    px-4
+    py-2.5
+    text-sm
+    bg-white
+    focus:outline-none
+    focus:ring-2
+    focus:ring-blue-500
+  "
   />
+
+
+  {/* =================================================
+      MODULE SEQUENCE
+  ================================================= */}
+
+  <div className="w-full lg:w-32">
+
+    <input
+      type="number"
+      min="1"
+      value={moduleSequence}
+      onChange={(e) =>
+        setModuleSequence(
+          e.target.value
+        )
+      }
+      placeholder="Sequence"
+      className="
+        w-full
+        border
+        border-slate-300
+        rounded-lg
+        px-4
+        py-2.5
+        text-sm
+        bg-white
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-500
+      "
+    />
+
+    <p className="text-xs text-slate-500 mt-1">
+      Show order
+    </p>
+
+  </div>
 
 
   {/* =================================================
       MODULE ICON
   ================================================= */}
 
-  <div className="flex-1">
+  <div className="w-full lg:flex-1">
 
     <input
       type="file"
@@ -783,6 +1169,8 @@ const confirmDeleteModule = async () => {
     type="submit"
     disabled={adding}
     className="
+     w-full
+  lg:w-auto
       flex
       items-center
       justify-center
@@ -872,160 +1260,306 @@ const confirmDeleteModule = async () => {
 
             /* LIST */
 
-            <div
-              className="
-                space-y-3
-              "
-            >
+        <div className="border border-slate-200 rounded-xl overflow-hidden">
 
-              {modules.map(
-                (module, index) => (
+  {/* =================================================
+      TABLE HEADER
+  ================================================= */}
 
-                  <div
-                    key={module.id}
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                      border
-                      border-slate-200
-                      rounded-xl
-                      px-4
-                      py-4
-                      bg-white
-                      hover:shadow-sm
-                      transition
-                    "
-                  >
-
-                    <div
-                      className="
-                        flex
-                        items-center
-                        gap-4
-                      "
-                    >
-
-      <div
-  className="
-    w-12
-    h-12
-    rounded-lg
-    bg-blue-50
-    flex
-    items-center
-    justify-center
-    overflow-hidden
-    border
-    border-slate-200
-  "
->
-{module.icon ? (
-  <img
-    src={getIconUrl(module.icon)}
-    alt={module.name || "Module icon"}
+  <div
     className="
-      w-6
-      h-6
-      object-contain
-      p-0.5
-    "
-  />
-) : (
-  <span
-    className="
-      text-blue-600
-      font-bold
-      text-lg
+      grid
+      grid-cols-[60px_80px_minmax(150px,1fr)_100px_100px]
+      items-center
+      gap-3
+      px-4
+      py-3
+      bg-slate-50
+      border-b
+      border-slate-200
+      text-sm
+      font-semibold
+      text-slate-600
     "
   >
-    {index + 1}
-  </span>
-)}
+
+    {/* S.NO HEADER */}
+
+    <div className="text-center">
+      S.No.
+    </div>
+
+
+    {/* ICON HEADER */}
+
+    <div className="text-center">
+      Icon
+    </div>
+
+
+    {/* MODULE NAME HEADER */}
+
+    <div>
+      Module Name
+    </div>
+
+
+    {/* ACTIVE HEADER */}
+
+    <div className="text-center">
+      Active
+    </div>
+
+
+    {/* ACTION HEADER */}
+
+    <div className="text-center">
+      Actions
+    </div>
+
+  </div>
+
+
+  {/* =================================================
+      MODULE ROWS
+  ================================================= */}
+
+  {modules.map((module, index) => (
+
+    <div
+      key={module.id}
+      className="
+        grid
+        grid-cols-[60px_80px_minmax(150px,1fr)_100px_100px]
+        items-center
+        gap-3
+        px-4
+        py-3
+        bg-white
+        border-b
+        border-slate-100
+        last:border-b-0
+        hover:bg-slate-50
+        transition
+      "
+    >
+
+      {/* =================================================
+          S.NO
+      ================================================= */}
+
+      <div className="text-center">
+
+        <span
+          className="
+            inline-flex
+            items-center
+            justify-center
+            w-8
+            h-8
+            rounded-lg
+            bg-slate-100
+            text-sm
+            font-semibold
+            text-slate-600
+          "
+        >
+          {index + 1}
+        </span>
+
+      </div>
+
+
+      {/* =================================================
+          ICON
+      ================================================= */}
+
+      <div className="flex justify-center">
+
+        <div
+          className="
+            w-11
+            h-11
+            rounded-lg
+            bg-blue-50
+            flex
+            items-center
+            justify-center
+            overflow-hidden
+            border
+            border-slate-200
+          "
+        >
+
+          {module.icon ? (
+
+            <img
+              src={getIconUrl(module.icon)}
+              alt={
+                module.name ||
+                "Module icon"
+              }
+              className="
+                w-7
+                h-7
+                object-contain
+              "
+              onError={(e) => {
+                e.currentTarget.style.display =
+                  "none";
+              }}
+            />
+
+          ) : (
+
+            <span
+              className="
+                text-blue-600
+                font-bold
+                text-lg
+              "
+            >
+              {module.name
+                ?.charAt(0)
+                ?.toUpperCase() || "M"}
+            </span>
+
+          )}
+
+        </div>
+
+      </div>
+
+
+      {/* =================================================
+          MODULE NAME
+      ================================================= */}
+
+      <div className="min-w-0">
+
+        <p
+          className="
+            font-semibold
+            text-slate-800
+            truncate
+          "
+        >
+          {module.name}
+        </p>
+
+        <p
+          className="
+            text-xs
+            text-slate-500
+            mt-0.5
+          "
+        >
+          Sequence: {module.sequence}
+        </p>
+
+      </div>
+
+
+      {/* =================================================
+          ACTIVE
+      ================================================= */}
+
+      <div className="flex justify-center">
+
+        <span
+          className="
+            inline-flex
+            items-center
+            px-3
+            py-1
+            rounded-full
+            text-xs
+            font-semibold
+            bg-green-100
+            text-green-700
+          "
+        >
+          Active
+        </span>
+
+      </div>
+
+
+      {/* =================================================
+          ACTIONS
+      ================================================= */}
+
+      <div
+        className="
+          flex
+          items-center
+          justify-center
+          gap-2
+        "
+      >
+
+        {/* EDIT */}
+
+        <button
+          type="button"
+          onClick={() =>
+            router.push(
+              `/dashboard/modules/edit?module=${encodeURIComponent(
+                module.name
+              )}`
+            )
+          }
+          className="
+            p-2
+            rounded-lg
+            text-blue-500
+            hover:bg-blue-50
+            cursor-pointer
+            transition
+          "
+          title="Edit Module"
+        >
+
+          <RiEditLine
+            size={20}
+          />
+
+        </button>
+
+
+        {/* DELETE */}
+
+        <button
+          type="button"
+          onClick={() =>
+            handleDeleteModule(
+              module.name
+            )
+          }
+          className="
+            p-2
+            rounded-lg
+            text-red-500
+            hover:bg-red-50
+            cursor-pointer
+            transition
+          "
+          title="Delete Module"
+        >
+
+          <RiDeleteBinLine
+            size={20}
+          />
+
+        </button>
+
+      </div>
+
+    </div>
+
+  ))}
+
 </div>
-
-
-                      <div>
-
-                        <p
-                          className="
-                            font-semibold
-                            text-slate-800
-                          "
-                        >
-                          {module.name}
-                        </p>
-
-                        <p
-                          className="
-                            text-xs
-                            text-slate-500
-                          "
-                        >
-                          Module
-                        </p>
-
-                      </div>
-
-                    </div>
-
-
-                    <div
-                      className="
-                        flex
-                        items-center
-                        gap-2
-                      "
-                    >
-
-                      {/* EDIT */}
-
-                  <button
-  type="button"
-  onClick={() =>
-    router.push(
-      `/dashboard/modules/edit?module=${encodeURIComponent(module.name)}`
-    )
-  }
-  className="
-    p-2
-    rounded-lg
-    text-blue-500
-    hover:bg-blue-50
-    cursor-pointer
-  "
-  title="Edit Module"
->
-  <RiEditLine size={20} />
-</button>
-
-
-                      {/* DELETE */}
-<button
-  type="button"
-  onClick={() =>
-    handleDeleteModule(module.name)
-  }
-  className="
-    p-2
-    rounded-lg
-    text-red-500
-    hover:bg-red-50
-    cursor-pointer
-  "
-  title="Delete Module"
->
-  <RiDeleteBinLine size={20} />
-</button>
-
-                    </div>
-
-                  </div>
-
-                )
-              )}
-
-            </div>
 
           )}
 
