@@ -43,6 +43,12 @@ export default function ModulePage() {
   const [moduleName, setModuleName] =
     useState("");
 
+    const [moduleIcon, setModuleIcon] =
+  useState(null);
+
+const [iconPreview, setIconPreview] =
+  useState("");
+
   const [modules, setModules] =
     useState([]);
 
@@ -56,6 +62,8 @@ export default function ModulePage() {
   // =====================================================
   // GET MODULES
   // =====================================================
+
+
 
   useEffect(() => {
 
@@ -182,7 +190,10 @@ setModules(formattedModules);
       // ================================================
 
       const response =
-        await addModule(name);
+  await addModule(
+    name,
+    moduleIcon
+  );
 
       console.log(
         "ADD MODULE RESPONSE:",
@@ -281,6 +292,73 @@ setModules(formattedModules);
     }
 
   };
+
+const handleModuleIconChange = (e) => {
+
+  const file =
+    e.target.files?.[0];
+
+
+  console.log(
+    "SELECTED FILE:",
+    file
+  );
+
+
+  if (!file) {
+
+    setModuleIcon(null);
+
+    return;
+  }
+
+
+  // PNG ONLY
+
+  if (
+    file.type !== "image/png"
+  ) {
+
+    toast.error(
+      "Only PNG images are allowed"
+    );
+
+    e.target.value = "";
+
+    setModuleIcon(null);
+
+    return;
+  }
+
+
+  // 2 MB
+
+  if (
+    file.size >
+    2 * 1024 * 1024
+  ) {
+
+    toast.error(
+      "Image size must be less than 2 MB"
+    );
+
+    e.target.value = "";
+
+    setModuleIcon(null);
+
+    return;
+  }
+
+
+  setModuleIcon(file);
+
+
+  console.log(
+    "MODULE ICON SET:",
+    file
+  );
+
+};
 
 
  // =====================================================
@@ -419,75 +497,114 @@ const handleDeleteModule = async (moduleName) => {
             Add Module
           </h2>
 
+<div
+  className="
+    flex
+    flex-col
+    md:flex-row
+    gap-3
+  "
+>
 
-          <div
-            className="
-              flex
-              flex-col
-              md:flex-row
-              gap-3
-            "
-          >
+  {/* =================================================
+      MODULE NAME
+  ================================================= */}
 
-            <input
-              type="text"
-              value={moduleName}
-              onChange={(e) =>
-                setModuleName(
-                  e.target.value
-                )
-              }
-              placeholder="Enter module name e.g. Devices"
-              className="
-                flex-1
-                border
-                border-slate-300
-                rounded-lg
-                px-4
-                py-2.5
-                text-sm
-                bg-white
-                focus:outline-none
-                focus:ring-2
-                focus:ring-blue-500
-              "
-            />
+  <input
+    type="text"
+    value={moduleName}
+    onChange={(e) =>
+      setModuleName(
+        e.target.value
+      )
+    }
+    placeholder="Enter module name e.g. Devices"
+    className="
+      flex-1
+      border
+      border-slate-300
+      rounded-lg
+      px-4
+      py-2.5
+      text-sm
+      bg-white
+      focus:outline-none
+      focus:ring-2
+      focus:ring-blue-500
+    "
+  />
 
 
-            <button
-              type="submit"
-              disabled={adding}
-              className="
-                flex
-                items-center
-                justify-center
-                gap-2
-                bg-blue-500
-                text-white
-                px-5
-                py-2.5
-                rounded-lg
-                hover:bg-blue-600
-                transition
-                font-semibold
-                cursor-pointer
-                disabled:opacity-50
-                disabled:cursor-not-allowed
-              "
-            >
+  {/* =================================================
+      MODULE ICON
+  ================================================= */}
 
-              <RiAddLine
-                size={20}
-              />
+  <div className="flex-1">
 
-              {adding
-                ? "Adding..."
-                : "Add Module"}
+    <input
+      type="file"
+      accept="image/png"
+      onChange={handleModuleIconChange}
+      className="
+        w-full
+        border
+        border-slate-300
+        rounded-lg
+        px-4
+        py-2.5
+        text-sm
+        bg-white
+        cursor-pointer
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-500
+      "
+    />
 
-            </button>
+    <p className="text-xs text-slate-500 mt-1">
+      PNG only, maximum 2 MB
+    </p>
 
-          </div>
+  </div>
 
+
+  {/* =================================================
+      ADD MODULE BUTTON
+  ================================================= */}
+
+  <button
+    type="submit"
+    disabled={adding}
+    className="
+      flex
+      items-center
+      justify-center
+      gap-2
+      bg-blue-500
+      text-white
+      px-5
+      py-2.5
+      rounded-lg
+      hover:bg-blue-600
+      transition
+      font-semibold
+      cursor-pointer
+      disabled:opacity-50
+      disabled:cursor-not-allowed
+    "
+  >
+
+    <RiAddLine
+      size={20}
+    />
+
+    {adding
+      ? "Adding..."
+      : "Add Module"}
+
+  </button>
+
+</div>
         </form>
 
 

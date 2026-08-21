@@ -1,104 +1,259 @@
 "use client";
+
 import {
   updateModule,
 } from "@/services/api";
 
-import { toast } from "react-toastify";
+import {
+  toast,
+} from "react-toastify";
 
-import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import {
+  useSearchParams,
+  useRouter,
+} from "next/navigation";
+
+import {
+  useEffect,
+  useState,
+} from "react";
 
 export default function EditModulePage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // =================================================
+  // OLD MODULE FROM URL
+  // =================================================
+
   const moduleName =
     searchParams.get("module") || "";
 
-  const [module, setModule] = useState("");
+  // =================================================
+  // STATES
+  // =================================================
+
+  const [module, setModule] =
+    useState("");
+
+  const [icon, setIcon] =
+    useState(null);
+
+  const [preview, setPreview] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
+
+
+  // =================================================
+  // SET OLD MODULE
+  // =================================================
 
   useEffect(() => {
+
     setModule(moduleName);
+
   }, [moduleName]);
 
- const handleSubmit = async (e) => {
 
-  e.preventDefault();
+  // =================================================
+  // HANDLE ICON
+  // =================================================
 
-  const newModule = module.trim();
+  const handleIconChange = (e) => {
 
-  if (!newModule) {
+    const file =
+      e.target.files?.[0];
 
-    toast.error("Please enter module name");
+    if (!file) {
+      return;
+    }
 
-    return;
-  }
+    // ===============================================
+    // PNG ONLY
+    // ===============================================
 
-  if (!moduleName) {
-
-    toast.error("Old module name not found");
-
-    return;
-  }
-
-  if (
-    moduleName.trim().toLowerCase() ===
-    newModule.toLowerCase()
-  ) {
-
-    toast.info("No changes made");
-
-    return;
-  }
-
-  try {
-
-    const response = await updateModule(
-      moduleName,
-      newModule
-    );
-
-    console.log(
-      "UPDATE MODULE RESPONSE:",
-      response
-    );
-
-    if (response?.success) {
-
-      toast.success(
-        response?.message ||
-        "Module updated successfully"
-      );
-
-      router.push("/dashboard/modules");
-
-    } else {
+    if (file.type !== "image/png") {
 
       toast.error(
-        response?.message ||
+        "Only PNG images are allowed"
+      );
+
+      e.target.value = "";
+
+      return;
+    }
+
+
+    // ===============================================
+    // 2 MB LIMIT
+    // ===============================================
+
+    if (file.size > 2 * 1024 * 1024) {
+
+      toast.error(
+        "Image size must be less than 2 MB"
+      );
+
+      e.target.value = "";
+
+      return;
+    }
+
+
+    setIcon(file);
+
+
+    // ===============================================
+    // PREVIEW
+    // ===============================================
+
+    const previewUrl =
+      URL.createObjectURL(file);
+
+    setPreview(previewUrl);
+
+  };
+
+
+  // =================================================
+  // SUBMIT
+  // =================================================
+
+  const handleSubmit = async (e) => {
+
+    e.preventDefault();
+
+
+    // ===============================================
+    // VALIDATION
+    // ===============================================
+
+    const oldModule =
+      moduleName.trim();
+
+    const newModule =
+      module.trim();
+
+
+    if (!oldModule) {
+
+      toast.error(
+        "Old module name not found"
+      );
+
+      return;
+    }
+
+
+    if (!newModule) {
+
+      toast.error(
+        "Please enter module name"
+      );
+
+      return;
+    }
+
+
+    if (!icon) {
+
+      toast.error(
+        "Please select a new PNG icon"
+      );
+
+      return;
+    }
+
+
+    // ===============================================
+    // SUBMIT
+    // ===============================================
+
+    try {
+
+      setLoading(true);
+
+
+      const response =
+        await updateModule(
+          oldModule,
+          newModule,
+          icon
+        );
+
+
+      console.log(
+        "UPDATE MODULE RESPONSE:",
+        response
+      );
+
+
+      // =============================================
+      // SUCCESS
+      // =============================================
+
+      if (response?.success) {
+
+        toast.success(
+          response?.message ||
+          "Module updated successfully"
+        );
+
+
+        // =========================================
+        // REDIRECT
+        // =========================================
+
+        router.push(
+          "/dashboard/modules"
+        );
+
+        router.refresh();
+
+      }
+      else {
+
+        toast.error(
+          response?.message ||
+          "Failed to update module"
+        );
+
+      }
+
+    }
+    catch (error) {
+
+      console.error(
+        "UPDATE MODULE ERROR:",
+        error
+      );
+
+
+      toast.error(
+        error?.response?.data?.message ||
+        error?.message ||
         "Failed to update module"
       );
 
     }
+    finally {
 
-  } catch (error) {
+      setLoading(false);
 
-    console.error(
-      "UPDATE MODULE ERROR:",
-      error
-    );
+    }
 
-    toast.error(
-      error?.response?.data?.message ||
-      "Failed to update module"
-    );
+  };
 
-  }
 
-};
+  // =================================================
+  // UI
+  // =================================================
 
   return (
+
     <div className="max-w-2xl mx-auto">
 
       <div className="bg-white rounded-lg shadow p-6">
@@ -107,17 +262,51 @@ export default function EditModulePage() {
           Edit Module
         </h1>
 
+
         <form
           onSubmit={handleSubmit}
           className="space-y-5"
         >
 
-          {/* MODULE NAME */}
+
+          {/* ======================================
+              OLD MODULE
+          ======================================= */}
 
           <div>
 
             <label className="block mb-2 font-semibold">
-              Module Name
+              Old Module Name
+            </label>
+
+            <input
+              type="text"
+              value={moduleName}
+              readOnly
+              className="
+                w-full
+                border
+                border-gray-300
+                bg-gray-100
+                rounded-md
+                px-4
+                py-3
+                outline-none
+                cursor-not-allowed
+              "
+            />
+
+          </div>
+
+
+          {/* ======================================
+              NEW MODULE
+          ======================================= */}
+
+          <div>
+
+            <label className="block mb-2 font-semibold">
+              Edit Module Name
             </label>
 
             <input
@@ -137,22 +326,96 @@ export default function EditModulePage() {
                 focus:ring-2
                 focus:ring-blue-400
               "
-              placeholder="Enter module name"
+              placeholder="Enter new module name"
             />
 
           </div>
 
 
-          {/* ICON */}
+          {/* ======================================
+              NEW ICON
+          ======================================= */}
 
-      
+          <div>
 
-          {/* BUTTONS */}
+            <label className="block mb-2 font-semibold">
+              New Module Icon
+            </label>
+
+            <input
+              type="file"
+              accept="image/png"
+              onChange={handleIconChange}
+              className="
+                w-full
+                border
+                border-gray-300
+                rounded-md
+                px-4
+                py-3
+                cursor-pointer
+              "
+            />
+
+
+            <p className="text-sm text-gray-500 mt-2">
+              Only PNG images are allowed. Maximum size: 2 MB.
+            </p>
+
+
+            {/* ==================================
+                PREVIEW
+            =================================== */}
+
+            {preview && (
+
+              <div className="mt-4">
+
+                <p className="font-semibold mb-2">
+                  Icon Preview
+                </p>
+
+                <div className="
+                  w-24
+                  h-24
+                  border
+                  border-gray-300
+                  rounded-md
+                  flex
+                  items-center
+                  justify-center
+                  overflow-hidden
+                  bg-gray-50
+                ">
+
+                  <img
+                    src={preview}
+                    alt="Module icon preview"
+                    className="
+                      max-w-full
+                      max-h-full
+                      object-contain
+                    "
+                  />
+
+                </div>
+
+              </div>
+
+            )}
+
+          </div>
+
+
+          {/* ======================================
+              BUTTONS
+          ======================================= */}
 
           <div className="flex gap-3">
 
             <button
               type="submit"
+              disabled={loading}
               className="
                 bg-blue-500
                 text-white
@@ -162,15 +425,26 @@ export default function EditModulePage() {
                 font-semibold
                 hover:bg-blue-600
                 cursor-pointer
+                disabled:opacity-50
+                disabled:cursor-not-allowed
               "
             >
-              Update Module
+
+              {loading
+                ? "Updating..."
+                : "Update Module"
+              }
+
             </button>
+
 
             <button
               type="button"
+              disabled={loading}
               onClick={() =>
-                router.push("/dashboard/modules")
+                router.push(
+                  "/dashboard/modules"
+                )
               }
               className="
                 bg-gray-500
@@ -181,6 +455,7 @@ export default function EditModulePage() {
                 font-semibold
                 hover:bg-gray-600
                 cursor-pointer
+                disabled:opacity-50
               "
             >
               Cancel
@@ -193,5 +468,7 @@ export default function EditModulePage() {
       </div>
 
     </div>
+
   );
+
 }

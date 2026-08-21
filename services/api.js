@@ -174,13 +174,6 @@ export const loginAsUser = async (
 // =====================================================
 // ADD MODULE
 // =====================================================
-// POST /api/add-module
-//
-// BODY:
-// {
-//   "module": "ramm"
-// }
-// =====================================================
 
 export const addModule = async (
   module,
@@ -188,6 +181,27 @@ export const addModule = async (
 ) => {
 
   try {
+
+    // ================================================
+    // VALIDATION
+    // ================================================
+
+    if (!module) {
+      throw new Error(
+        "Module name is required"
+      );
+    }
+
+    if (!(icon instanceof File)) {
+      throw new Error(
+        "Valid icon file is required"
+      );
+    }
+
+
+    // ================================================
+    // FORM DATA
+    // ================================================
 
     const formData =
       new FormData();
@@ -199,33 +213,98 @@ export const addModule = async (
 
     formData.append(
       "icon",
-      icon
+      icon,
+      icon.name
+    );
+
+
+    // ================================================
+    // DEBUG
+    // ================================================
+
+    console.log(
+      "========== ADD MODULE =========="
     );
 
     console.log(
-      "ADD MODULE:",
+      "MODULE:",
       module
     );
 
     console.log(
-      "ADD MODULE ICON:",
+      "ICON:",
       icon
     );
+
+    console.log(
+      "ICON NAME:",
+      icon.name
+    );
+
+    console.log(
+      "ICON TYPE:",
+      icon.type
+    );
+
+    console.log(
+      "ICON SIZE:",
+      icon.size
+    );
+
+    for (
+      const [key, value]
+      of formData.entries()
+    ) {
+
+      console.log(
+        "FORM DATA:",
+        key,
+        value
+      );
+
+    }
+
+
+    // ================================================
+    // TOKEN
+    // ================================================
+
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("token")
+        : null;
+
+
+    // ================================================
+    // API CALL
+    // ================================================
 
     const response =
       await api.post(
         "/add-module",
-        formData
+        formData,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+
+            // IMPORTANT:
+            // Content-Type manually mat lagao
+          },
+        }
       );
+
 
     console.log(
       "ADD MODULE RESPONSE:",
       response.data
     );
 
+
     return response.data;
 
-  } catch (error) {
+  }
+  catch (error) {
 
     console.error(
       "ADD MODULE ERROR:",
@@ -242,8 +321,6 @@ export const addModule = async (
 
 // =====================================================
 // GET MODULES
-// =====================================================
-// GET /api/modules
 // =====================================================
 
 export const getModules = async () => {
@@ -279,13 +356,6 @@ export const getModules = async () => {
 
 // =====================================================
 // DELETE MODULE
-// =====================================================
-// DELETE /api/delete-module
-//
-// BODY:
-// {
-//   "module": "ramm"
-// }
 // =====================================================
 
 export const deleteModule = async (
@@ -335,14 +405,70 @@ export const deleteModule = async (
 
 };
 
-export const updateModule = async (oldModule, newModule) => {
-  const response = await api.put(
-    "/update-module",
-    {
-      oldModule,
-      newModule,
-    }
-  );
+// =====================================================
+// UPDATE MODULE
+// =====================================================
 
-  return response.data;
+export const updateModule = async (
+  oldModule,
+  newModule,
+  icon
+) => {
+
+  try {
+
+    const formData = new FormData();
+
+    formData.append(
+      "oldModule",
+      oldModule
+    );
+
+    formData.append(
+      "newModule",
+      newModule
+    );
+
+    // IMPORTANT:
+    // Backend upload middleware expects "newIcon"
+    formData.append(
+      "newIcon",
+      icon
+    );
+
+    console.log(
+      "UPDATE MODULE FORM DATA:",
+      {
+        oldModule,
+        newModule,
+        icon,
+      }
+    );
+
+    const response =
+      await api.put(
+        "/update-module",
+        formData
+      );
+
+    console.log(
+      "UPDATE MODULE RESPONSE:",
+      response.data
+    );
+
+    return response.data;
+
+  } catch (error) {
+
+    console.error(
+      "UPDATE MODULE ERROR:",
+      error?.response?.data ||
+      error
+    );
+
+    throw error;
+
+  }
+
 };
+
