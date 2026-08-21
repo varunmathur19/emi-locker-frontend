@@ -533,43 +533,30 @@ export const deleteModule = async (
 // UPDATE MODULE
 // =====================================================
 
-// =====================================================
-// UPDATE MODULE
-// =====================================================
-
 export const updateModule = async (
   oldModule,
   newModule,
   newSequence,
-  icon
+  icon,
+  status
 ) => {
 
   try {
 
-    // =================================================
-    // FORM DATA
-    // =================================================
+    const formData = new FormData();
 
-    const formData =
-      new FormData();
-
-
-    // =================================================
+    // ============================================
     // OLD MODULE
-    // Required hai
-    // =================================================
+    // ============================================
 
     formData.append(
       "oldModule",
-      oldModule
+      String(oldModule)
     );
 
-
-    // =================================================
+    // ============================================
     // NEW MODULE
-    // Optional
-    // Sirf tab send hoga jab value available ho
-    // =================================================
+    // ============================================
 
     if (
       newModule !== undefined &&
@@ -584,12 +571,9 @@ export const updateModule = async (
 
     }
 
-
-    // =================================================
+    // ============================================
     // NEW SEQUENCE
-    // Optional
-    // Sirf tab send hoga jab value available ho
-    // =================================================
+    // ============================================
 
     if (
       newSequence !== undefined &&
@@ -604,12 +588,25 @@ export const updateModule = async (
 
     }
 
+    // ============================================
+    // STATUS
+    // ============================================
 
-    // =================================================
+    if (
+      status !== undefined &&
+      status !== null
+    ) {
+
+      formData.append(
+        "status",
+        String(status)
+      );
+
+    }
+
+    // ============================================
     // NEW ICON
-    // Optional
-    // Sirf tab send hoga jab user ne icon select kiya ho
-    // =================================================
+    // ============================================
 
     if (
       icon instanceof File
@@ -622,10 +619,9 @@ export const updateModule = async (
 
     }
 
-
-    // =================================================
+    // ============================================
     // DEBUG
-    // =================================================
+    // ============================================
 
     console.log(
       "========== UPDATE MODULE API =========="
@@ -647,14 +643,18 @@ export const updateModule = async (
     );
 
     console.log(
+      "STATUS:",
+      status
+    );
+
+    console.log(
       "NEW ICON:",
       icon
     );
 
-
-    // =================================================
+    // ============================================
     // API CALL
-    // =================================================
+    // ============================================
 
     const response =
       await api.put(
@@ -662,28 +662,15 @@ export const updateModule = async (
         formData
       );
 
-
-    // =================================================
-    // RESPONSE
-    // =================================================
-
     console.log(
-      "========== UPDATE MODULE RESPONSE =========="
-    );
-
-    console.log(
+      "UPDATE MODULE RESPONSE:",
       response.data
     );
-
 
     return response.data;
 
   }
   catch (error) {
-
-    // =================================================
-    // ERROR
-    // =================================================
 
     console.error(
       "========== UPDATE MODULE ERROR =========="
@@ -694,13 +681,11 @@ export const updateModule = async (
       error
     );
 
-
     throw error;
 
   }
 
 };
-
 // =====================================================
 // UPDATE USER STATUS
 // =====================================================

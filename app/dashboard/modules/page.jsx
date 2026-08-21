@@ -17,7 +17,8 @@ import { toast } from "react-toastify";
 import {
   addModule,
   getModules,
-  deleteModule
+  deleteModule,
+  updateModule
 } from "@/services/api";
 const getIconUrl = (icon) => {
   if (!icon) return "";
@@ -92,20 +93,41 @@ const [iconPreview, setIconPreview] =
           Array.isArray(response?.modules)
         ) {
 
-        const formattedModules =
+      const formattedModules =
   response.modules
     .map((item, index) => ({
-      id: index + 1,
-      name: item?.name || "",
-      icon: item?.icon || "",
-      sequence: Number(item?.sequence ?? index + 1),
+      id:
+        item?.id ??
+        index + 1,
+
+      name:
+        item?.name || "",
+
+      icon:
+        item?.icon || "",
+
+      sequence:
+        Number(
+          item?.sequence ??
+          index + 1
+        ),
+
+      // 1 = Active
+      // 0 = Inactive
+      status:
+        Number(
+          item?.status ?? 1
+        ),
     }))
     .sort(
       (a, b) =>
-        a.sequence - b.sequence
+        a.sequence -
+        b.sequence
     );
 
-setModules(formattedModules);
+setModules(
+  formattedModules
+);
 
         } else {
 
@@ -698,26 +720,159 @@ const handleModuleIconChange = (e) => {
 
 };
 
+// =====================================================
+// TOGGLE MODULE STATUS
 
- // =====================================================
-// DELETE MODULE
-// =====================================================
 
-// =====================================================
-// DELETE MODULE
-// =====================================================
+const handleToggleStatus = async (moduleItem) => {
 
-// =====================================================
-// DELETE MODULE
-// =====================================================
+  // ============================================
+  // MODULE VALIDATION
+  // ============================================
 
-// =====================================================
-// DELETE MODULE
-// =====================================================
+  if (!moduleItem?.name) {
+    return;
+  }
 
+
+  // ============================================
+  // CURRENT STATUS
+  // 1 = Active
+  // 0 = Deactive
+  // ============================================
+
+  const currentStatus =
+    Number(moduleItem?.status ?? 1);
+
+
+  // ============================================
+  // NEW STATUS
+  // ============================================
+
+  const newStatus =
+    currentStatus === 1
+      ? 0
+      : 1;
+
+
+  try {
+
+    // ============================================
+    // UPDATE MODULE API
+    // ONLY STATUS WILL CHANGE
+    // ============================================
+
+    const response =
+      await updateModule(
+        moduleItem.name, // oldModule
+        "",              // newModule
+        "",              // newSequence
+        null,            // icon
+        newStatus        // status
+      );
+
+
+    console.log(
+      "STATUS UPDATE RESPONSE:",
+      response
+    );
+
+
+    // ============================================
+    // API ERROR
+    // ============================================
+
+    if (!response?.success) {
+
+      toast.error(
+        response?.message ||
+        "Failed to update module status"
+      );
+
+      return;
+
+    }
+
+
+    // ============================================
+    // UPDATE FRONTEND STATUS
+    // ============================================
+
+    setModules(
+      (prev) =>
+        prev.map(
+          (item) => {
+
+            if (
+              item?.name
+                ?.trim()
+                .toLowerCase() ===
+              moduleItem?.name
+                ?.trim()
+                .toLowerCase()
+            ) {
+
+              return {
+                ...item,
+                status: newStatus,
+              };
+
+            }
+
+            return item;
+
+          }
+        )
+    );
+
+
+    // ============================================
+    // SUCCESS TOAST
+    // ============================================
+
+    if (newStatus === 1) {
+
+      // ACTIVE
+      toast.success(
+        `"${moduleItem.name}" is now Active`
+      );
+
+    } else {
+
+      // DEACTIVE
+      toast.error(
+        `"${moduleItem.name}" is now Deactive`
+      );
+
+    }
+
+  }
+  catch (error) {
+
+    // ============================================
+    // ERROR
+    // ============================================
+
+    console.error(
+      "TOGGLE MODULE STATUS ERROR:",
+      error
+    );
+
+
+    toast.error(
+      error?.response?.data?.message ||
+      error?.message ||
+      "Failed to update module status"
+    );
+
+  }
+
+};
 // =====================================================
 // OPEN DELETE MODAL
 // =====================================================
+
+
 
 const handleDeleteModule = (moduleName) => {
 
@@ -1464,25 +1619,62 @@ setModules(formattedModules);
           ACTIVE
       ================================================= */}
 
-      <div className="flex justify-center">
+     {/* =================================================
+    ACTIVE / INACTIVE TOGGLE
+================================================= */}
 
-        <span
-          className="
-            inline-flex
-            items-center
-            px-3
-            py-1
-            rounded-full
-            text-xs
-            font-semibold
-            bg-green-100
-            text-green-700
-          "
-        >
-          Active
-        </span>
+<div className="flex justify-center">
 
-      </div>
+  <button
+    type="button"
+    onClick={() =>
+      handleToggleStatus(module)
+    }
+    className={`
+      relative
+      inline-flex
+      h-6
+      w-11
+      items-center
+      rounded-full
+      transition-colors
+      duration-200
+      cursor-pointer
+      ${
+        Number(module.status) === 1
+          ? "bg-green-500"
+          : "bg-gray-300"
+      }
+    `}
+    title={
+      Number(module.status) === 1
+        ? "Active - Click to deactivate"
+        : "Inactive - Click to activate"
+    }
+  >
+
+    <span
+      className={`
+        inline-block
+        h-5
+        w-5
+        transform
+        rounded-full
+        bg-white
+        shadow
+        transition-transform
+        duration-200
+        ${
+          Number(module.status) === 1
+            ? "translate-x-5"
+            : "translate-x-0.5"
+        }
+      `}
+    />
+
+  </button>
+
+</div>
 
 
       {/* =================================================
