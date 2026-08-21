@@ -20,8 +20,12 @@ import {
 
 export default function EditModulePage() {
 
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const router =
+    useRouter();
+
+  const searchParams =
+    useSearchParams();
+
 
   // =================================================
   // OLD MODULE FROM URL
@@ -30,11 +34,15 @@ export default function EditModulePage() {
   const moduleName =
     searchParams.get("module") || "";
 
+
   // =================================================
   // STATES
   // =================================================
 
   const [module, setModule] =
+    useState("");
+
+  const [moduleSequence, setModuleSequence] =
     useState("");
 
   const [icon, setIcon] =
@@ -53,7 +61,9 @@ export default function EditModulePage() {
 
   useEffect(() => {
 
-    setModule(moduleName);
+    setModule(
+      moduleName
+    );
 
   }, [moduleName]);
 
@@ -67,15 +77,26 @@ export default function EditModulePage() {
     const file =
       e.target.files?.[0];
 
+
     if (!file) {
+
+      setIcon(null);
+
+      setPreview("");
+
       return;
+
     }
+
 
     // ===============================================
     // PNG ONLY
     // ===============================================
 
-    if (file.type !== "image/png") {
+    if (
+      file.type !==
+      "image/png"
+    ) {
 
       toast.error(
         "Only PNG images are allowed"
@@ -83,25 +104,46 @@ export default function EditModulePage() {
 
       e.target.value = "";
 
+      setIcon(null);
+
+      setPreview("");
+
       return;
+
     }
 
 
     // ===============================================
-    // 2 MB LIMIT
+    // 20 KB LIMIT
     // ===============================================
 
-    if (file.size > 2 * 1024 * 1024) {
+    const maxSize =
+      20 * 1024;
+
+
+    if (
+      file.size >
+      maxSize
+    ) {
 
       toast.error(
-        "Image size must be less than 2 MB"
+        "PNG icon size must not exceed 20 KB"
       );
 
       e.target.value = "";
 
+      setIcon(null);
+
+      setPreview("");
+
       return;
+
     }
 
+
+    // ===============================================
+    // SET ICON
+    // ===============================================
 
     setIcon(file);
 
@@ -113,7 +155,9 @@ export default function EditModulePage() {
     const previewUrl =
       URL.createObjectURL(file);
 
-    setPreview(previewUrl);
+    setPreview(
+      previewUrl
+    );
 
   };
 
@@ -122,99 +166,278 @@ export default function EditModulePage() {
   // SUBMIT
   // =================================================
 
-  const handleSubmit = async (e) => {
+  const handleSubmit =
+    async (e) => {
 
-    e.preventDefault();
-
-
-    // ===============================================
-    // VALIDATION
-    // ===============================================
-
-    const oldModule =
-      moduleName.trim();
-
-    const newModule =
-      module.trim();
-
-
-    if (!oldModule) {
-
-      toast.error(
-        "Old module name not found"
-      );
-
-      return;
-    }
-
-
-    if (!newModule) {
-
-      toast.error(
-        "Please enter module name"
-      );
-
-      return;
-    }
-
-
-    if (!icon) {
-
-      toast.error(
-        "Please select a new PNG icon"
-      );
-
-      return;
-    }
-
-
-    // ===============================================
-    // SUBMIT
-    // ===============================================
-
-    try {
-
-      setLoading(true);
-
-
-      const response =
-        await updateModule(
-          oldModule,
-          newModule,
-          icon
-        );
-
-
-      console.log(
-        "UPDATE MODULE RESPONSE:",
-        response
-      );
+      e.preventDefault();
 
 
       // =============================================
-      // SUCCESS
+      // OLD MODULE
       // =============================================
 
-      if (response?.success) {
+      const oldModule =
+        moduleName.trim();
 
-        toast.success(
-          response?.message ||
-          "Module updated successfully"
+
+      if (!oldModule) {
+
+        toast.error(
+          "Old module name not found"
         );
 
-
-        // =========================================
-        // REDIRECT
-        // =========================================
-
-        router.push(
-          "/dashboard/modules"
-        );
-
-        router.refresh();
+        return;
 
       }
-      else {
+
+
+      // =============================================
+      // NEW MODULE
+      // =============================================
+
+      const newModule =
+        module.trim();
+
+
+      // =============================================
+      // CHECK NAME CHANGE
+      // =============================================
+
+      const hasNameChange =
+        newModule !== "" &&
+        newModule.toLowerCase() !==
+          oldModule.toLowerCase();
+
+
+      // =============================================
+      // CHECK SEQUENCE CHANGE
+      // =============================================
+
+      const hasSequenceChange =
+        moduleSequence !== "" &&
+        moduleSequence !== null &&
+        moduleSequence !== undefined;
+
+
+      // =============================================
+      // CHECK ICON CHANGE
+      // =============================================
+
+      const hasIconChange =
+        !!icon;
+
+
+      // =============================================
+      // AT LEAST ONE FIELD REQUIRED
+      // =============================================
+
+      if (
+        !hasNameChange &&
+        !hasSequenceChange &&
+        !hasIconChange
+      ) {
+
+        toast.error(
+          "Please update at least one field"
+        );
+
+        return;
+
+      }
+
+
+      // =============================================
+      // SEQUENCE
+      // =============================================
+
+      let sequence = "";
+
+
+      if (hasSequenceChange) {
+
+        sequence =
+          Number(
+            moduleSequence
+          );
+
+
+        if (
+          !Number.isInteger(sequence) ||
+          sequence < 1
+        ) {
+
+          toast.error(
+            "Please enter valid sequence number"
+          );
+
+          return;
+
+        }
+
+      }
+
+
+      // =============================================
+      // ICON VALIDATION
+      // ONLY WHEN ICON IS SELECTED
+      // =============================================
+
+      if (hasIconChange) {
+
+        if (
+          icon.type !==
+          "image/png"
+        ) {
+
+          toast.error(
+            "Only PNG images are allowed"
+          );
+
+          return;
+
+        }
+
+
+        if (
+          icon.size >
+          20 * 1024
+        ) {
+
+          toast.error(
+            "PNG icon size must not exceed 20 KB"
+          );
+
+          return;
+
+        }
+
+      }
+
+
+      // =============================================
+      // API CALL
+      // =============================================
+
+      try {
+
+        setLoading(true);
+
+
+        console.log(
+          "========== UPDATE MODULE =========="
+        );
+
+
+        console.log(
+          "OLD MODULE:",
+          oldModule
+        );
+
+
+        console.log(
+          "NAME UPDATED:",
+          hasNameChange
+        );
+
+
+        console.log(
+          "NEW MODULE:",
+          hasNameChange
+            ? newModule
+            : "NO CHANGE"
+        );
+
+
+        console.log(
+          "SEQUENCE UPDATED:",
+          hasSequenceChange
+        );
+
+
+        console.log(
+          "NEW SEQUENCE:",
+          hasSequenceChange
+            ? sequence
+            : "NO CHANGE"
+        );
+
+
+        console.log(
+          "ICON UPDATED:",
+          hasIconChange
+        );
+
+
+        console.log(
+          "ICON:",
+          hasIconChange
+            ? icon
+            : "NO CHANGE"
+        );
+
+
+        // =========================================
+        // API
+        // =========================================
+
+        const response =
+          await updateModule(
+
+            oldModule,
+
+            hasNameChange
+              ? newModule
+              : "",
+
+            hasSequenceChange
+              ? sequence
+              : "",
+
+            hasIconChange
+              ? icon
+              : null
+
+          );
+
+
+        console.log(
+          "UPDATE MODULE RESPONSE:",
+          response
+        );
+
+
+        // =========================================
+        // SUCCESS
+        // =========================================
+
+        if (
+          response?.success
+        ) {
+
+          toast.success(
+            response?.message ||
+            "Module updated successfully"
+          );
+
+
+          // =======================================
+          // REDIRECT
+          // =======================================
+
+          router.push(
+            "/dashboard/modules"
+          );
+
+          router.refresh();
+
+          return;
+
+        }
+
+
+        // =========================================
+        // API FAILED
+        // =========================================
 
         toast.error(
           response?.message ||
@@ -222,30 +445,72 @@ export default function EditModulePage() {
         );
 
       }
+      catch (error) {
 
-    }
-    catch (error) {
-
-      console.error(
-        "UPDATE MODULE ERROR:",
-        error
-      );
+        console.error(
+          "UPDATE MODULE ERROR:",
+          error
+        );
 
 
-      toast.error(
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to update module"
-      );
+        // =========================================
+        // DUPLICATE MODULE
+        // =========================================
 
-    }
-    finally {
+        if (
+          error?.response?.status ===
+          409
+        ) {
 
-      setLoading(false);
+          toast.error(
+            error?.response?.data?.message ||
+            "Module already exists"
+          );
 
-    }
+          return;
 
-  };
+        }
+
+
+        // =========================================
+        // DUPLICATE SEQUENCE
+        // =========================================
+
+        if (
+          error?.response?.status ===
+          422
+        ) {
+
+          toast.error(
+            error?.response?.data?.message ||
+            "Sequence is already used"
+          );
+
+          return;
+
+        }
+
+
+        // =========================================
+        // OTHER ERROR
+        // =========================================
+
+        toast.error(
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update module"
+        );
+
+      }
+      finally {
+
+        setLoading(
+          false
+        );
+
+      }
+
+    };
 
 
   // =================================================
@@ -254,11 +519,29 @@ export default function EditModulePage() {
 
   return (
 
-    <div className="max-w-2xl mx-auto">
+    <div
+      className="
+        max-w-2xl
+        mx-auto
+      "
+    >
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div
+        className="
+          bg-white
+          rounded-lg
+          shadow
+          p-6
+        "
+      >
 
-        <h1 className="text-2xl font-bold mb-6">
+        <h1
+          className="
+            text-2xl
+            font-bold
+            mb-6
+          "
+        >
           Edit Module
         </h1>
 
@@ -275,9 +558,16 @@ export default function EditModulePage() {
 
           <div>
 
-            <label className="block mb-2 font-semibold">
+            <label
+              className="
+                block
+                mb-2
+                font-semibold
+              "
+            >
               Old Module Name
             </label>
+
 
             <input
               type="text"
@@ -305,15 +595,24 @@ export default function EditModulePage() {
 
           <div>
 
-            <label className="block mb-2 font-semibold">
+            <label
+              className="
+                block
+                mb-2
+                font-semibold
+              "
+            >
               Edit Module Name
             </label>
+
 
             <input
               type="text"
               value={module}
               onChange={(e) =>
-                setModule(e.target.value)
+                setModule(
+                  e.target.value
+                )
               }
               className="
                 w-full
@@ -333,14 +632,75 @@ export default function EditModulePage() {
 
 
           {/* ======================================
+              NEW SEQUENCE
+          ======================================= */}
+
+          <div>
+
+            <label
+              className="
+                block
+                mb-2
+                font-semibold
+              "
+            >
+              Module Sequence
+            </label>
+
+
+            <input
+              type="number"
+              min="1"
+              value={moduleSequence}
+              onChange={(e) =>
+                setModuleSequence(
+                  e.target.value
+                )
+              }
+              className="
+                w-full
+                border
+                border-gray-300
+                rounded-md
+                px-4
+                py-3
+                outline-none
+                focus:ring-2
+                focus:ring-blue-400
+              "
+              placeholder="Enter sequence number"
+            />
+
+
+            <p
+              className="
+                text-sm
+                text-gray-500
+                mt-2
+              "
+            >
+              Sequence determines the module display order.
+            </p>
+
+          </div>
+
+
+          {/* ======================================
               NEW ICON
           ======================================= */}
 
           <div>
 
-            <label className="block mb-2 font-semibold">
+            <label
+              className="
+                block
+                mb-2
+                font-semibold
+              "
+            >
               New Module Icon
             </label>
+
 
             <input
               type="file"
@@ -358,8 +718,15 @@ export default function EditModulePage() {
             />
 
 
-            <p className="text-sm text-gray-500 mt-2">
-              Only PNG images are allowed. Maximum size: 2 MB.
+            <p
+              className="
+                text-sm
+                text-gray-500
+                mt-2
+              "
+            >
+              PNG icon is optional.
+              Maximum size: 20 KB.
             </p>
 
 
@@ -369,24 +736,36 @@ export default function EditModulePage() {
 
             {preview && (
 
-              <div className="mt-4">
+              <div
+                className="
+                  mt-4
+                "
+              >
 
-                <p className="font-semibold mb-2">
+                <p
+                  className="
+                    font-semibold
+                    mb-2
+                  "
+                >
                   Icon Preview
                 </p>
 
-                <div className="
-                  w-24
-                  h-24
-                  border
-                  border-gray-300
-                  rounded-md
-                  flex
-                  items-center
-                  justify-center
-                  overflow-hidden
-                  bg-gray-50
-                ">
+
+                <div
+                  className="
+                    w-24
+                    h-24
+                    border
+                    border-gray-300
+                    rounded-md
+                    flex
+                    items-center
+                    justify-center
+                    overflow-hidden
+                    bg-gray-50
+                  "
+                >
 
                   <img
                     src={preview}
@@ -409,9 +788,16 @@ export default function EditModulePage() {
 
           {/* ======================================
               BUTTONS
-          ======================================= */}
+          ====================================== */}
 
-          <div className="flex gap-3">
+          <div
+            className="
+              flex
+              gap-3
+            "
+          >
+
+            {/* UPDATE */}
 
             <button
               type="submit"
@@ -437,6 +823,8 @@ export default function EditModulePage() {
 
             </button>
 
+
+            {/* CANCEL */}
 
             <button
               type="button"

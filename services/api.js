@@ -533,41 +533,128 @@ export const deleteModule = async (
 // UPDATE MODULE
 // =====================================================
 
+// =====================================================
+// UPDATE MODULE
+// =====================================================
+
 export const updateModule = async (
   oldModule,
   newModule,
+  newSequence,
   icon
 ) => {
 
   try {
 
-    const formData = new FormData();
+    // =================================================
+    // FORM DATA
+    // =================================================
+
+    const formData =
+      new FormData();
+
+
+    // =================================================
+    // OLD MODULE
+    // Required hai
+    // =================================================
 
     formData.append(
       "oldModule",
       oldModule
     );
 
-    formData.append(
-      "newModule",
-      newModule
-    );
 
-    // IMPORTANT:
-    // Backend upload middleware expects "newIcon"
-    formData.append(
-      "newIcon",
-      icon
+    // =================================================
+    // NEW MODULE
+    // Optional
+    // Sirf tab send hoga jab value available ho
+    // =================================================
+
+    if (
+      newModule !== undefined &&
+      newModule !== null &&
+      String(newModule).trim() !== ""
+    ) {
+
+      formData.append(
+        "newModule",
+        String(newModule).trim()
+      );
+
+    }
+
+
+    // =================================================
+    // NEW SEQUENCE
+    // Optional
+    // Sirf tab send hoga jab value available ho
+    // =================================================
+
+    if (
+      newSequence !== undefined &&
+      newSequence !== null &&
+      String(newSequence).trim() !== ""
+    ) {
+
+      formData.append(
+        "newSequence",
+        String(newSequence)
+      );
+
+    }
+
+
+    // =================================================
+    // NEW ICON
+    // Optional
+    // Sirf tab send hoga jab user ne icon select kiya ho
+    // =================================================
+
+    if (
+      icon instanceof File
+    ) {
+
+      formData.append(
+        "newIcon",
+        icon
+      );
+
+    }
+
+
+    // =================================================
+    // DEBUG
+    // =================================================
+
+    console.log(
+      "========== UPDATE MODULE API =========="
     );
 
     console.log(
-      "UPDATE MODULE FORM DATA:",
-      {
-        oldModule,
-        newModule,
-        icon,
-      }
+      "OLD MODULE:",
+      oldModule
     );
+
+    console.log(
+      "NEW MODULE:",
+      newModule
+    );
+
+    console.log(
+      "NEW SEQUENCE:",
+      newSequence
+    );
+
+    console.log(
+      "NEW ICON:",
+      icon
+    );
+
+
+    // =================================================
+    // API CALL
+    // =================================================
 
     const response =
       await api.put(
@@ -575,20 +662,38 @@ export const updateModule = async (
         formData
       );
 
+
+    // =================================================
+    // RESPONSE
+    // =================================================
+
     console.log(
-      "UPDATE MODULE RESPONSE:",
+      "========== UPDATE MODULE RESPONSE =========="
+    );
+
+    console.log(
       response.data
     );
 
+
     return response.data;
 
-  } catch (error) {
+  }
+  catch (error) {
+
+    // =================================================
+    // ERROR
+    // =================================================
 
     console.error(
-      "UPDATE MODULE ERROR:",
+      "========== UPDATE MODULE ERROR =========="
+    );
+
+    console.error(
       error?.response?.data ||
       error
     );
+
 
     throw error;
 
