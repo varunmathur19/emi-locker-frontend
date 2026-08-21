@@ -298,64 +298,60 @@ const handleModuleIconChange = (e) => {
   const file =
     e.target.files?.[0];
 
-
-  console.log(
-    "SELECTED FILE:",
-    file
-  );
-
-
   if (!file) {
-
     setModuleIcon(null);
-
     return;
   }
 
 
+  // ================================================
   // PNG ONLY
+  // ================================================
 
-  if (
-    file.type !== "image/png"
-  ) {
+  if (file.type !== "image/png") {
 
     toast.error(
       "Only PNG images are allowed"
     );
 
     e.target.value = "";
-
     setModuleIcon(null);
 
     return;
   }
 
 
-  // 2 MB
+  // ================================================
+  // MAX 20 KB
+  // ================================================
 
-  if (
-    file.size >
-    2 * 1024 * 1024
-  ) {
+  const maxSize =
+    20 * 1024; // 20 KB
+
+  if (file.size > maxSize) {
 
     toast.error(
-      "Image size must be less than 2 MB"
+      "PNG icon size must not exceed 20 KB"
     );
 
     e.target.value = "";
-
     setModuleIcon(null);
 
     return;
   }
 
 
+  // ================================================
+  // SET ICON
+  // ================================================
+
   setModuleIcon(file);
 
-
   console.log(
-    "MODULE ICON SET:",
-    file
+    "MODULE ICON:",
+    file.name,
+    file.size,
+    "bytes"
   );
 
 };
@@ -365,68 +361,143 @@ const handleModuleIconChange = (e) => {
 // DELETE MODULE
 // =====================================================
 
+// =====================================================
+// DELETE MODULE
+// =====================================================
+
+// =====================================================
+// DELETE MODULE
+// =====================================================
+
 const handleDeleteModule = async (moduleName) => {
+
   try {
 
     console.log(
-      "FRONTEND DELETE:",
+      "FRONTEND DELETE MODULE:",
       moduleName
     );
+
+
+    // ================================================
+    // API CALL
+    // ================================================
 
     const response =
       await deleteModule(moduleName);
 
+
     console.log(
-      "DELETE RESPONSE:",
+      "DELETE MODULE RESPONSE:",
       response
     );
 
+
+    // ================================================
+    // SUCCESS
+    // ================================================
+
     if (response?.success === true) {
 
-      const updatedModules =
-        Array.isArray(response.modules)
-          ? response.modules.map(
-              (name, index) => ({
-                id: index + 1,
-                name,
-              })
-            )
-          : [];
+      // ==============================================
+      // UPDATE MODULE LIST
+      // ==============================================
 
-      setModules(updatedModules);
+      if (
+        Array.isArray(
+          response?.modules
+        )
+      ) {
+
+        const formattedModules =
+          response.modules.map(
+            (item, index) => ({
+
+              id: index + 1,
+
+              name:
+                item?.name || "",
+
+              icon:
+                item?.icon || "",
+
+            })
+          );
+
+
+        setModules(
+          formattedModules
+        );
+
+      } else {
+
+        // ==========================================
+        // FALLBACK
+        // ==========================================
+
+        setModules(
+          (prev) =>
+            prev.filter(
+              (item) =>
+                item.name
+                  .trim()
+                  .toLowerCase() !==
+                moduleName
+                  .trim()
+                  .toLowerCase()
+            )
+        );
+
+      }
+
+
+      // ==============================================
+      // SUCCESS TOAST
+      // ==============================================
 
       toast.success(
-        response.message ||
         "Module deleted successfully"
       );
 
+
       return;
+
     }
+
+
+    // ================================================
+    // API FAILURE
+    // ================================================
 
     toast.error(
       response?.message ||
       "Failed to delete module"
     );
 
-  } catch (error) {
+  }
+  catch (error) {
 
     console.error(
       "DELETE MODULE ERROR:",
       error
     );
 
+
     console.error(
       "BACKEND RESPONSE:",
       error?.response?.data
     );
 
+
     toast.error(
       error?.response?.data?.message ||
+      error?.message ||
       "Failed to delete module"
     );
-  }
-};
 
+  }
+
+};
 
   // =====================================================
   // UI
@@ -562,7 +633,7 @@ const handleDeleteModule = async (moduleName) => {
     />
 
     <p className="text-xs text-slate-500 mt-1">
-      PNG only, maximum 2 MB
+      PNG only, maximum 20 KB
     </p>
 
   </div>
@@ -797,7 +868,7 @@ const handleDeleteModule = async (moduleName) => {
 
                  <button
   type="button"
-  onClick={() =>
+   onClick={() =>
     handleDeleteModule(module.name)
   }
   className="

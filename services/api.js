@@ -359,42 +359,41 @@ export const getModules = async () => {
 // =====================================================
 
 export const deleteModule = async (
-  moduleName
+  module
 ) => {
 
   try {
 
     console.log(
-      "DELETE MODULE NAME:",
-      moduleName
+      "DELETE MODULE API:",
+      module
     );
+
 
     const response =
       await api.delete(
         "/delete-module",
         {
           data: {
-            module: moduleName,
-          },
-
-          headers: {
-            "Content-Type":
-              "application/json",
+            module,
           },
         }
       );
 
+
     console.log(
-      "DELETE MODULE RESPONSE:",
+      "DELETE MODULE API RESPONSE:",
       response.data
     );
 
+
     return response.data;
 
-  } catch (error) {
+  }
+  catch (error) {
 
     console.error(
-      "DELETE MODULE ERROR:",
+      "DELETE MODULE API ERROR:",
       error?.response?.data ||
       error
     );
