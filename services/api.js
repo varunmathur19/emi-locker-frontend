@@ -471,3 +471,44 @@ export const updateModule = async (
 
 };
 
+// =====================================================
+// UPDATE USER STATUS
+// =====================================================
+
+export const updateUserStatus = async (
+  user_id,
+  userStatus
+) => {
+
+  try {
+
+    const response =
+      await api.patch(
+        "/user-status",
+        {
+          user_id,
+          userStatus,
+        }
+      );
+
+    console.log(
+      "UPDATE USER STATUS RESPONSE:",
+      response.data
+    );
+
+    return response.data;
+
+  } catch (error) {
+
+    console.error(
+      "UPDATE USER STATUS ERROR:",
+      error?.response?.data ||
+      error
+    );
+
+    throw error;
+
+  }
+
+};
+
