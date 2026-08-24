@@ -2,6 +2,7 @@
 
 import { useParams, useRouter  } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 
 import {
   RiEyeLine,
@@ -1176,6 +1177,34 @@ export default function EditStaffPage() {
           onSubmit={handleSubmit}
           className="pt-2 md:pt-3"
         >
+           <div className="mb-6 flex  gap-3">
+
+    {/* ROLE LIST */}
+    {formData.role_id && (
+      <Link
+        href={`/dashboard?role=${Number(
+          formData.role_id
+        )}`}
+        className="
+          bg-gray-700
+          text-white
+          px-4
+          py-2
+          rounded-sm
+          hover:bg-gray-800
+          whitespace-nowrap
+          flex
+          items-center
+          justify-center
+        "
+      >
+        {getRoleName(formData.role_id)} List
+      </Link>
+    )}
+
+
+
+  </div>
 
 
           {/* ================================================= */}
@@ -2094,16 +2123,60 @@ export default function EditStaffPage() {
           {/* SUBMIT */}
           {/* ================================================= */}
 
-          <div className="mt-8 flex justify-end">
+  
 
-            <button
-              type="submit"
-              className="bg-blue-400 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98] cursor-pointer"
-            >
-              Update
-            </button>
+<div className="mt-8 flex justify-end gap-3">
 
-          </div>
+  {/* ROLE LIST */}
+
+  {formData.role_id && (
+    <Link
+      href={`/dashboard?role=${Number(
+        formData.role_id
+      )}`}
+      className="
+        bg-gray-700
+        text-white
+        px-4
+        py-2
+        rounded-sm
+        hover:bg-gray-800
+        whitespace-nowrap
+        flex
+        items-center
+        justify-center
+      "
+    >
+      {getRoleName(
+        formData.role_id
+      )} List
+    </Link>
+  )}
+
+
+  {/* UPDATE */}
+
+  <button
+    type="submit"
+    className="
+      bg-blue-400
+      text-white
+      font-medium
+      px-8
+      py-3
+      rounded-lg
+      shadow-md
+      hover:shadow-lg
+      transition-all
+      duration-200
+      active:scale-[0.98]
+      cursor-pointer
+    "
+  >
+    Update
+  </button>
+
+</div>
 
         </form>
 
