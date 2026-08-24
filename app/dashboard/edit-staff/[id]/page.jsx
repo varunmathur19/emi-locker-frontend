@@ -30,14 +30,7 @@ const initialFormData = {
   state: "",
   city: "",
 
-  parent_admin_id: null,
-  parent_cnf_id: null,
-  parent_super_distributor_id: null,
-  parent_distributor_id: null,
-  parent_fos_id: null,
-  parent_retailer_id: null,
-  parent_employee_id: null,
-  parent_staff_id: null,
+  parent_id: null,
 
   new_device: 0,
   old_device: 0,
@@ -57,6 +50,7 @@ export default function EditStaffPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [parentUsers, setParentUsers] = useState({});
+  const [selectedParents, setSelectedParents] = useState({});
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
 
@@ -97,15 +91,7 @@ export default function EditStaffPage() {
   const getRoleName = (roleId) => {
   return roles[Number(roleId)] || "Parent";
 };
-const parentIdKeys = {
-  2: "parent_admin_id",
-  3: "parent_cnf_id",
-  4: "parent_super_distributor_id",
-  5: "parent_distributor_id",
-  6: "parent_fos_id",
-  7: "parent_retailer_id",
-  8: "parent_employee_id",
-};
+
 
   const parentRoles = {
   2: [1],
@@ -117,16 +103,7 @@ const parentIdKeys = {
   8: [],
 };
 
-const roleParentField = {
-  1: "parent_admin_id",
-  2: "parent_cnf_id",
-  3: "parent_super_distributor_id",
-  4: "parent_distributor_id",
-  5: "parent_fos_id",
-  6: "parent_retailer_id",
-  7: "parent_employee_id",
-  8: "parent_staff_id",
-};
+
 
 
 const visibleParentRoles = (() => {
@@ -227,75 +204,34 @@ const loadEditParentDropdowns = async (
   try {
     const currentRole = Number(roleId);
 
-    console.log(
-      "EDIT PARENT FLOW START:",
-      userData
+    const parentId =
+      userData?.parent_id != null
+        ? Number(userData.parent_id)
+        : null;
+
+    console.log("=================================");
+    console.log("EDIT PARENT FLOW");
+    console.log("Current Role:", currentRole);
+    console.log("Parent ID:", parentId);
+    console.log("=================================");
+
+    if (!parentId) {
+      console.log("No parent_id found");
+      return;
+    }
+
+    const requiredParents =
+      parentRoles[currentRole] || [];
+
+    if (requiredParents.length === 0) {
+      return;
+    }
+
+    // First dropdown
+    await loadParentDropdown(
+      requiredParents[0],
+      null
     );
-
-    // -----------------------------------------
-    // CNF
-    // -----------------------------------------
-    if (
-      currentRole >= 3 &&
-      userData?.parent_cnf_id
-    ) {
-      await loadParentDropdown(
-        2,
-        null
-      );
-    }
-
-    // -----------------------------------------
-    // SUPER DISTRIBUTOR
-    // -----------------------------------------
-    if (
-      currentRole >= 4 &&
-      userData?.parent_super_distributor_id
-    ) {
-      await loadParentDropdown(
-        3,
-        Number(userData.parent_cnf_id)
-      );
-    }
-
-    // -----------------------------------------
-    // DISTRIBUTOR
-    // -----------------------------------------
-    if (
-      currentRole >= 5 &&
-      userData?.parent_distributor_id
-    ) {
-      await loadParentDropdown(
-        4,
-        Number(userData.parent_super_distributor_id)
-      );
-    }
-
-    // -----------------------------------------
-    // FOS
-    // -----------------------------------------
-    if (
-      currentRole >= 6 &&
-      userData?.parent_fos_id
-    ) {
-      await loadParentDropdown(
-        5,
-        Number(userData.parent_distributor_id)
-      );
-    }
-
-    // -----------------------------------------
-    // RETAILER
-    // -----------------------------------------
-    if (
-      currentRole >= 7 &&
-      userData?.parent_retailer_id
-    ) {
-      await loadParentDropdown(
-        6,
-        Number(userData.parent_fos_id)
-      );
-    }
 
   } catch (error) {
     console.error(
@@ -324,128 +260,165 @@ useEffect(() => {
         return;
       }
 
-      // API CALL
+      // =========================================
+      // GET STAFF API
+      // =========================================
+
       const res = await getStaffDataById(id);
 
-      console.log("GET STAFF API RESPONSE:", res);
+      console.log(
+        "GET STAFF API RESPONSE:",
+        res
+      );
 
-      /*
-        Agar API response:
-
-        {
-          success: true,
-          data: {
-            id: 10,
-            name: "Test",
-            role_id: 6
-          }
-        }
-
-        hai to user = res.data
-      */
+      // =========================================
+      // API SUCCESS CHECK
+      // =========================================
 
       if (!res?.success) {
-        toast.error(res?.message || "Failed to load staff data");
+        toast.error(
+          res?.message ||
+            "Failed to load staff data"
+        );
         return;
       }
 
-      const user = res.data;
+      // =========================================
+      // USER DATA
+      // =========================================
+
+      const user = res?.data;
+
+      console.log(
+        "STAFF USER DATA:",
+        user
+      );
 
       if (!user) {
-        toast.error("Staff data not found");
+        toast.error(
+          "Staff data not found"
+        );
         return;
       }
 
-      console.log("STAFF USER DATA:", user);
+      // =========================================
+      // SET FORM DATA
+      // =========================================
 
       setFormData({
-  organization_name: user.organization_name || "",
+        organization_name:
+          user.organization_name || "",
 
-  role_id:
-    user.role_id != null
-      ? Number(user.role_id)
-      : "",
+        role_id:
+          user.role_id != null
+            ? Number(user.role_id)
+            : "",
 
-  name: user.name || "",
-  email: user.email || "",
-  phone: user.phone || "",
+        name:
+          user.name || "",
 
-  password: user.password || "",
-  confirm_password: user.password || "",
+        email:
+          user.email || "",
 
-  company_address:
-    user.company_address || "",
+        phone:
+          user.phone || "",
 
-  country: user.country || "",
-  state: user.state || "",
-  city: user.city || "",
+        // Password edit ke time empty rakho
+        password: "",
 
-  parent_admin_id:
-    user.parent_admin_id != null
-      ? Number(user.parent_admin_id)
-      : null,
+        confirm_password: "",
 
-  parent_cnf_id:
-    user.parent_cnf_id != null
-      ? Number(user.parent_cnf_id)
-      : null,
+        company_address:
+          user.company_address || "",
 
-  parent_super_distributor_id:
-    user.parent_super_distributor_id != null
-      ? Number(user.parent_super_distributor_id)
-      : null,
+        country:
+          user.country || "",
 
-  parent_distributor_id:
-    user.parent_distributor_id != null
-      ? Number(user.parent_distributor_id)
-      : null,
+        state:
+          user.state || "",
 
-  parent_fos_id:
-    user.parent_fos_id != null
-      ? Number(user.parent_fos_id)
-      : null,
+        city:
+          user.city || "",
 
-  parent_retailer_id:
-    user.parent_retailer_id != null
-      ? Number(user.parent_retailer_id)
-      : null,
+        parent_id:
+          user.parent_id != null
+            ? Number(user.parent_id)
+            : null,
 
-  parent_employee_id:
-    user.parent_employee_id != null
-      ? Number(user.parent_employee_id)
-      : null,
+        new_device:
+          Number(user.new_device || 0),
 
-  parent_staff_id:
-    user.parent_staff_id != null
-      ? Number(user.parent_staff_id)
-      : null,
+        old_device:
+          Number(user.old_device || 0),
 
-  new_device: Number(user.new_device || 0),
-  old_device: Number(user.old_device || 0),
-  supreme_device: Number(user.supreme_device || 0),
-  pro_star: Number(user.pro_star || 0),
-  lite: Number(user.lite || 0),
-  google_tv: Number(user.google_tv || 0),
-  supreme_lock: Number(user.supreme_lock || 0),
-});
+        supreme_device:
+          Number(user.supreme_device || 0),
 
-// IMPORTANT: sequential parent dropdown loading
-await loadEditParentDropdowns(
-  Number(user.role_id),
-  user
-);
+        pro_star:
+          Number(user.pro_star || 0),
 
-console.log("FORM DATA UPDATED:", user);
+        lite:
+          Number(user.lite || 0),
 
-   await loadEditParentDropdowns(
-  user.role_id,
-  user
-);
+        google_tv:
+          Number(user.google_tv || 0),
 
-      console.log("FORM DATA UPDATED:", user);
+        supreme_lock:
+          Number(user.supreme_lock || 0),
+      });
+
+      // =========================================
+      // SET SELECTED PARENT
+      // =========================================
+
+      if (user.parent_id != null) {
+        const currentRole =
+          Number(user.role_id);
+
+        const requiredParents =
+          parentRoles[currentRole] || [];
+
+        /*
+         * Current user's direct parent
+         * required parent roles me last role hoga.
+         *
+         * Example:
+         * Retailer = 6
+         * parents = [2,3,4,5]
+         * direct parent = FOS (5)
+         */
+
+        const directParentRole =
+          requiredParents[
+            requiredParents.length - 1
+          ];
+
+        if (directParentRole != null) {
+          setSelectedParents({
+            [directParentRole]:
+              Number(user.parent_id),
+          });
+        }
+      }
+
+      // =========================================
+      // LOAD FIRST PARENT DROPDOWN
+      // =========================================
+
+      await loadEditParentDropdowns(
+        Number(user.role_id),
+        user
+      );
+
+      console.log(
+        "STAFF DATA LOADED SUCCESSFULLY"
+      );
 
     } catch (error) {
-      console.error("GET STAFF ERROR:", error);
+      console.error(
+        "GET STAFF ERROR:",
+        error
+      );
 
       console.error(
         "ERROR RESPONSE:",
@@ -459,8 +432,8 @@ console.log("FORM DATA UPDATED:", user);
 
       toast.error(
         error?.response?.data?.message ||
-        error?.message ||
-        "Failed to load staff data"
+          error?.message ||
+          "Failed to load staff data"
       );
     }
   };
@@ -476,7 +449,9 @@ const handleSubmit = async (e) => {
     return;
   }
 
-  // Password match check
+  // =========================================
+  // PASSWORD MATCH CHECK
+  // =========================================
   if (
     formData.password &&
     formData.password !== formData.confirm_password
@@ -488,78 +463,98 @@ const handleSubmit = async (e) => {
   }
 
   try {
+    // =========================================
+    // UPDATE PAYLOAD
+    // =========================================
     const payload = {
       ...formData,
 
+      // User ID
       id: Number(userId),
+
+      // Role ID
       role_id: Number(formData.role_id),
 
-      parent_admin_id: formData.parent_admin_id
-        ? Number(formData.parent_admin_id)
+      // =========================================
+      // ONLY ONE PARENT ID
+      // =========================================
+      parent_id: formData.parent_id
+        ? Number(formData.parent_id)
         : null,
 
-      parent_cnf_id: formData.parent_cnf_id
-        ? Number(formData.parent_cnf_id)
-        : null,
+      // =========================================
+      // DEVICE PERMISSIONS
+      // =========================================
+      new_device: Number(
+        formData.new_device || 0
+      ),
 
-      parent_super_distributor_id:
-        formData.parent_super_distributor_id
-          ? Number(formData.parent_super_distributor_id)
-          : null,
+      old_device: Number(
+        formData.old_device || 0
+      ),
 
-      parent_distributor_id:
-        formData.parent_distributor_id
-          ? Number(formData.parent_distributor_id)
-          : null,
-
-      parent_fos_id: formData.parent_fos_id
-        ? Number(formData.parent_fos_id)
-        : null,
-
-      parent_retailer_id: formData.parent_retailer_id
-        ? Number(formData.parent_retailer_id)
-        : null,
-
-      parent_employee_id: formData.parent_employee_id
-        ? Number(formData.parent_employee_id)
-        : null,
-
-      parent_staff_id: formData.parent_staff_id
-        ? Number(formData.parent_staff_id)
-        : null,
-
-      new_device: Number(formData.new_device || 0),
-      old_device: Number(formData.old_device || 0),
       supreme_device: Number(
         formData.supreme_device || 0
       ),
-      pro_star: Number(formData.pro_star || 0),
-      lite: Number(formData.lite || 0),
-      google_tv: Number(formData.google_tv || 0),
+
+      pro_star: Number(
+        formData.pro_star || 0
+      ),
+
+      lite: Number(
+        formData.lite || 0
+      ),
+
+      google_tv: Number(
+        formData.google_tv || 0
+      ),
+
       supreme_lock: Number(
         formData.supreme_lock || 0
       ),
     };
 
-    // Agar password empty hai to payload se hata do
-    // taki existing password change na ho
+    // =========================================
+    // PASSWORD EMPTY HAI TO REMOVE KAR DO
+    // Existing password change nahi hogi
+    // =========================================
     if (!payload.password) {
       delete payload.password;
       delete payload.confirm_password;
     }
 
-    console.log("UPDATE USER ID:", userId);
-    console.log("UPDATE PAYLOAD:", payload);
+    // =========================================
+    // DEBUG
+    // =========================================
+    console.log(
+      "UPDATE USER ID:",
+      Number(userId)
+    );
 
+    console.log(
+      "UPDATE PAYLOAD:",
+      payload
+    );
+
+    // =========================================
+    // UPDATE API
+    // =========================================
     const res = await updateStaffData(
       Number(userId),
       payload
     );
 
-    console.log("UPDATE RESPONSE:", res);
+    console.log(
+      "UPDATE RESPONSE:",
+      res
+    );
 
+    // =========================================
+    // SUCCESS
+    // =========================================
     toast.success(
-      res?.message || "Staff updated successfully"
+      res?.message ||
+        "Staff updated successfully"
     );
 
   } catch (error) {
@@ -570,6 +565,7 @@ const handleSubmit = async (e) => {
 
     toast.error(
       error?.response?.data?.message ||
+        error?.message ||
         "Failed to update staff data"
     );
   }
@@ -613,7 +609,7 @@ const handleSubmit = async (e) => {
 
 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
   {visibleParentRoles.map((parentRoleId) => {
-    const parentIdKey = parentIdKeys[parentRoleId];
+    const parentIdKey = "parent_id";
     const users = parentUsers[parentRoleId] || [];
 
     return (
@@ -629,64 +625,66 @@ const handleSubmit = async (e) => {
         <div className="relative">
           <select
             name={parentIdKey}
-            value={formData[parentIdKey] || ""}
-           onChange={async (e) => {
+            value={selectedParents[parentRoleId] || ""}
+        onChange={async (e) => {
   const value = e.target.value;
-  const selectedId = value ? Number(value) : null;
+
+  const selectedId = value
+    ? Number(value)
+    : null;
+
+  // =========================================
+  // SELECTED PARENT STORE
+  // =========================================
+
+  setSelectedParents((prev) => ({
+    ...prev,
+    [parentRoleId]: selectedId,
+  }));
+
+  // =========================================
+  // DATABASE PARENT ID
+  // =========================================
 
   setFormData((prev) => ({
     ...prev,
-    [parentIdKey]: selectedId,
-
-    // Neeche ke dependent dropdown reset
-    ...(parentRoleId === 2 && {
-      parent_super_distributor_id: null,
-      parent_distributor_id: null,
-      parent_fos_id: null,
-    }),
-
-    ...(parentRoleId === 3 && {
-      parent_distributor_id: null,
-      parent_fos_id: null,
-    }),
-
-    ...(parentRoleId === 4 && {
-      parent_fos_id: null,
-    }),
+    parent_id: selectedId,
   }));
 
-  // Current selected parent ke according
-  // next dropdown ki API call
+  // =========================================
+  // EMPTY SELECTION
+  // =========================================
+
   if (!selectedId) {
     return;
   }
 
+  // =========================================
+  // NEXT ROLE
+  // =========================================
+
   let nextRoleId = null;
 
   if (parentRoleId === 2) {
-    // CNF selected
+    // CNF -> Super Distributor
     nextRoleId = 3;
-  }
-
-  if (parentRoleId === 3) {
-    // Super Distributor selected
+  } else if (parentRoleId === 3) {
+    // Super Distributor -> Distributor
     nextRoleId = 4;
-  }
-
-  if (parentRoleId === 4) {
-    // Distributor selected
+  } else if (parentRoleId === 4) {
+    // Distributor -> FOS
     nextRoleId = 5;
-  }
-
-  if (parentRoleId === 5) {
-    // FOS selected
+  } else if (parentRoleId === 5) {
+    // FOS -> Retailer
     nextRoleId = 6;
-  }
-
-  if (parentRoleId === 6) {
-    // Retailer selected
+  } else if (parentRoleId === 6) {
+    // Retailer -> Employee
     nextRoleId = 7;
   }
+
+  // =========================================
+  // LOAD NEXT DROPDOWN
+  // =========================================
 
   if (nextRoleId) {
     await loadParentDropdown(

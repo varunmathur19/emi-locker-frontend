@@ -172,16 +172,21 @@ export const updateStaffData = async (
 // GET STAFF DATA BY ID
 // =====================================================
 
-export const getStaffDataById = async (
-  id
-) => {
+export const getStaffDataById = async (id) => {
+  try {
+    const response = await api.get(`/staff-data/${id}`);
 
-  const response =
-    await api.get(
-      `/staff-data/${id}`
+    console.log("GET STAFF API:", response.data);
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "GET STAFF DATA BY ID ERROR:",
+      error?.response?.data || error
     );
 
-  return response.data;
+    throw error;
+  }
 };
 
 
