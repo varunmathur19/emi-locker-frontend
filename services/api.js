@@ -61,8 +61,7 @@ export const getDropdownUsers = async (
   parent_id = null
 ) => {
 
-  const params =
-    new URLSearchParams();
+  const params = new URLSearchParams();
 
   params.append(
     "role_id",
@@ -70,12 +69,10 @@ export const getDropdownUsers = async (
   );
 
   if (parent_id) {
-
     params.append(
       "parent_id",
       parent_id
     );
-
   }
 
   const response =

@@ -175,6 +175,11 @@ export default function Page() {
     setParentUsers,
   ] = useState({});
 
+  const [
+  disabledParentRoles,
+  setDisabledParentRoles,
+] = useState({});
+
 
   // ===================================================
   // CNF ADMIN
@@ -280,6 +285,45 @@ export default function Page() {
   8: [2, 3, 4, 5, 6, 7],
 
   9: [1],
+
+};
+
+const handleParentDisable = (
+  roleId,
+  disabled
+) => {
+
+  const role =
+    Number(roleId);
+
+  setDisabledParents(
+    (prev) => ({
+      ...prev,
+      [role]: disabled,
+    })
+  );
+
+  // =================================================
+  // Disable karte hi selected value clear
+  // =================================================
+
+  if (disabled) {
+
+    const field =
+      roleParentField[role];
+
+    if (field) {
+
+      setFormData(
+        (prev) => ({
+          ...prev,
+          [field]: null,
+        })
+      );
+
+    }
+
+  }
 
 };
 
@@ -426,24 +470,24 @@ const visibleParentRoles = (
         : [];
 
     // Backend agar actual returned role bhej raha hai
-    const returnedRoleId =
-      Number(
-        res?.current_role_id ||
-        res?.data?.current_role_id ||
-        0
-      );
+   const returnedRoleId =
+  Number(
+    res?.current_role_id ||
+    res?.data?.current_role_id ||
+    0
+  );
 
-    setParentUsers((prev) => ({
-      ...prev,
+setParentUsers((prev) => ({
+  ...prev,
 
-      [Number(roleId)]: users,
+  [Number(roleId)]: users,
 
-      ...(returnedRoleId
-        ? {
-            [returnedRoleId]: users,
-          }
-        : {}),
-    }));
+  ...(returnedRoleId
+    ? {
+        [returnedRoleId]: users,
+      }
+    : {}),
+}));
 
   } catch (error) {
     console.error(
@@ -2069,30 +2113,350 @@ if (currentRoleId === 8) {
     }
 
 
-    // ===================================================
-    // NORMAL NEXT DROPDOWN
-    // ===================================================
+   // ===================================================
+// FIND NEXT ENABLED ROLE
+// ===================================================
 
-    const nextRoleId =
-      parents[
-        currentIndex + 1
-      ];
+let nextRoleIndex =
+  currentIndex + 1;
+
+while (
+  nextRoleIndex < parents.length &&
+  disabledParentRoles[
+    Number(parents[nextRoleIndex])
+  ] === true
+) {
+
+  nextRoleIndex++;
+
+}
 
 
-    if (!nextRoleId) {
+const nextRoleId =
+  parents[nextRoleIndex];
+
+
+if (!nextRoleId) {
+  return;
+}
+
+
+// ===================================================
+// NEXT ROLE PARENT ID
+// ===================================================
+
+const nextParentId =
+  disabledParentRoles[
+    currentRoleId
+  ] === true
+    ? null
+    : selectedId;
+
+
+// ===================================================
+// LOAD NEXT ROLE
+// ===================================================
+
+await loadParentUsers(
+  Number(nextRoleId),
+  nextParentId
+);
+
+  };
+
+
+ // =====================================================
+// DISABLE / ENABLE PARENT ROLE
+// =====================================================
+
+const handleParentCheckbox = async (
+  roleId,
+  checked
+) => {
+
+  const disabledRole =
+    Number(roleId);
+
+  // ===================================================
+  // SAVE DISABLED STATE
+  // ===================================================
+
+  setDisabledParentRoles((prev) => ({
+    ...prev,
+    [disabledRole]: checked,
+  }));
+
+
+  // ===================================================
+  // DISABLED ROLE FIELD CLEAR
+  // ===================================================
+
+  const disabledField =
+    roleParentField[disabledRole];
+
+  if (disabledField) {
+
+    setFormData((prev) => ({
+      ...prev,
+      [disabledField]: null,
+    }));
+
+  }
+
+
+  // ===================================================
+  // CURRENT CREATE ROLE KE PARENT ROLES
+  // ===================================================
+
+  const parents =
+    parentRoles[selectedRole] || [];
+
+
+  const disabledIndex =
+    parents.indexOf(disabledRole);
+
+
+  if (disabledIndex === -1) {
+    return;
+  }
+
+
+  // ===================================================
+  // DISABLE
+  // ===================================================
+
+  if (checked) {
+
+    // -------------------------------------------------
+    // NEXT ROLE FIND KARO
+    // -------------------------------------------------
+
+    let nextIndex =
+      disabledIndex + 1;
+
+
+    // -------------------------------------------------
+    // Agar next role bhi disabled hai
+    // toh usko skip karo
+    // -------------------------------------------------
+
+    while (
+      nextIndex < parents.length &&
+      disabledParentRoles[
+        Number(parents[nextIndex])
+      ] === true
+    ) {
+
+      nextIndex++;
+
+    }
+
+
+    const nextRole =
+      parents[nextIndex];
+
+
+    if (!nextRole) {
+
+      // Koi next role nahi hai
+      setParentUsers((prev) => ({
+        ...prev,
+        [disabledRole]: [],
+      }));
 
       return;
 
     }
 
 
-    await loadParentUsers(
-      nextRoleId,
-      selectedId
-    );
+    const nextRoleId =
+      Number(nextRole);
 
-  };
 
+    // =================================================
+    // CLEAR NEXT DROPDOWN
+    // =================================================
+
+    setParentUsers((prev) => ({
+      ...prev,
+      [disabledRole]: [],
+      [nextRoleId]: [],
+    }));
+
+
+    // =================================================
+    // IMPORTANT
+    //
+    // Disabled parent ke baad next role ko
+    // GLOBAL DATA chahiye.
+    //
+    // Example:
+    //
+    // CNF disabled
+    // next = Super Distributor
+    //
+    // API:
+    //
+    // getDropdownUsers(3, null)
+    //
+    // Backend:
+    //
+    // WHERE role_id = 3
+    //
+    // =================================================
+
+    try {
+
+      const response =
+        await getDropdownUsers(
+          nextRoleId,
+          null
+        );
+
+
+      const users =
+        getUsersFromResponse(
+          response
+        );
+
+
+      console.log(
+        "================================="
+      );
+
+      console.log(
+        "DISABLED ROLE:",
+        disabledRole
+      );
+
+      console.log(
+        "NEXT ROLE:",
+        nextRoleId
+      );
+
+      console.log(
+        "GLOBAL USERS:",
+        users
+      );
+
+
+      // =================================================
+      // SAVE GLOBAL USERS
+      // =================================================
+
+      setParentUsers((prev) => ({
+        ...prev,
+        [nextRoleId]: users,
+      }));
+
+
+      // =================================================
+      // CLEAR NEXT KE BAAD KE DROPDOWNS
+      // =================================================
+
+      const nextRoleIndex =
+        parents.indexOf(nextRoleId);
+
+
+      if (
+        nextRoleIndex !== -1
+      ) {
+
+        setParentUsers((prev) => {
+
+          const updated = {
+            ...prev,
+          };
+
+
+          parents
+            .slice(nextRoleIndex + 1)
+            .forEach((role) => {
+
+              updated[
+                Number(role)
+              ] = [];
+
+            });
+
+
+          return updated;
+
+        });
+
+      }
+
+
+    } catch (error) {
+
+      console.error(
+        "GLOBAL NEXT ROLE ERROR:",
+        error?.response?.data ||
+        error
+      );
+
+
+      setParentUsers((prev) => ({
+        ...prev,
+        [nextRoleId]: [],
+      }));
+
+
+      toast.error(
+        `${getRoleName(nextRoleId)} dropdown load failed`
+      );
+
+    }
+
+
+    return;
+
+  }
+
+
+  // ===================================================
+  // ENABLE
+  //
+  // Checkbox uncheck hone par disabled state remove
+  // karo aur normal hierarchy dobara load karne do.
+  // ===================================================
+
+  if (!checked) {
+
+    // -------------------------------------------------
+    // Next role find karo
+    // -------------------------------------------------
+
+    const nextRole =
+      parents[
+        disabledIndex + 1
+      ];
+
+
+    if (!nextRole) {
+      return;
+    }
+
+
+    const nextRoleId =
+      Number(nextRole);
+
+
+    // -------------------------------------------------
+    // Next dropdown clear
+    // -------------------------------------------------
+
+    setParentUsers((prev) => ({
+      ...prev,
+      [nextRoleId]: [],
+    }));
+
+
+    return;
+
+  }
+
+};
 
   // =====================================================
   // GET PARENT ID FOR REGISTER
@@ -2263,7 +2627,7 @@ if (
   // SUBMIT
   // =====================================================
 
- const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
 
   e.preventDefault();
 
@@ -2321,6 +2685,13 @@ if (
 
   // ===================================================
   // COMPLETE HIERARCHY
+  //
+  // IMPORTANT:
+  //
+  // Hierarchy OPTIONAL hai.
+  //
+  // Agar user ne koi parent select nahi kiya
+  // toh corresponding value null rahegi.
   // ===================================================
 
   const hierarchy = {
@@ -2503,11 +2874,17 @@ if (
   //
   // IMPORTANT:
   //
-  // Current logged-in user ko uske role ke according
-  // parent field mein set karo.
+  // Logged-in user ko automatically parent banane
+  // ki existing functionality rakhi gayi hai.
+  //
+  // Lekin agar parent hierarchy intentionally disable
+  // ki gayi hai, toh usko automatically set nahi karenge.
   // ===================================================
 
-  if (loggedUserRoleId === 1) {
+  if (
+    loggedUserRoleId === 1 &&
+    disabledParentRoles[1] !== true
+  ) {
 
     hierarchy.parent_admin_id =
       loggedUserId;
@@ -2515,7 +2892,10 @@ if (
   }
 
 
-  if (loggedUserRoleId === 2) {
+  if (
+    loggedUserRoleId === 2 &&
+    disabledParentRoles[2] !== true
+  ) {
 
     hierarchy.parent_cnf_id =
       loggedUserId;
@@ -2523,7 +2903,10 @@ if (
   }
 
 
-  if (loggedUserRoleId === 3) {
+  if (
+    loggedUserRoleId === 3 &&
+    disabledParentRoles[3] !== true
+  ) {
 
     hierarchy.parent_super_distributor_id =
       loggedUserId;
@@ -2531,7 +2914,10 @@ if (
   }
 
 
-  if (loggedUserRoleId === 4) {
+  if (
+    loggedUserRoleId === 4 &&
+    disabledParentRoles[4] !== true
+  ) {
 
     hierarchy.parent_distributor_id =
       loggedUserId;
@@ -2539,7 +2925,10 @@ if (
   }
 
 
-  if (loggedUserRoleId === 5) {
+  if (
+    loggedUserRoleId === 5 &&
+    disabledParentRoles[5] !== true
+  ) {
 
     hierarchy.parent_fos_id =
       loggedUserId;
@@ -2547,7 +2936,10 @@ if (
   }
 
 
-  if (loggedUserRoleId === 6) {
+  if (
+    loggedUserRoleId === 6 &&
+    disabledParentRoles[6] !== true
+  ) {
 
     hierarchy.parent_retailer_id =
       loggedUserId;
@@ -2555,7 +2947,10 @@ if (
   }
 
 
-  if (loggedUserRoleId === 7) {
+  if (
+    loggedUserRoleId === 7 &&
+    disabledParentRoles[7] !== true
+  ) {
 
     hierarchy.parent_sub_retailer_id =
       loggedUserId;
@@ -2563,7 +2958,10 @@ if (
   }
 
 
-  if (loggedUserRoleId === 8) {
+  if (
+    loggedUserRoleId === 8 &&
+    disabledParentRoles[8] !== true
+  ) {
 
     hierarchy.parent_employee_id =
       loggedUserId;
@@ -2571,7 +2969,10 @@ if (
   }
 
 
-  if (loggedUserRoleId === 9) {
+  if (
+    loggedUserRoleId === 9 &&
+    disabledParentRoles[9] !== true
+  ) {
 
     hierarchy.parent_staff_id =
       loggedUserId;
@@ -2580,21 +2981,10 @@ if (
 
 
   // ===================================================
-  // IMPORTANT:
-  //
-  // Agar CNF login hai:
-  //
-  // parent_cnf_id = logged CNF ID
-  //
-  // parent_admin_id token se inherited rahega.
-  //
-  // Isliye CNF -> Super Distributor ke liye
-  // Admin ko separately select/require nahi karenge.
-  // ===================================================
-
-
-  // ===================================================
   // GET ACTUAL IMMEDIATE parent_id
+  //
+  // Hierarchy optional hone ki wajah se agar parent
+  // nahi mila toh null jayega.
   // ===================================================
 
   const parent_id =
@@ -2602,7 +2992,7 @@ if (
       roleId,
       hierarchy,
       tokenUser
-    );
+    ) || null;
 
 
   // ===================================================
@@ -2640,195 +3030,16 @@ if (
 
 
   // ===================================================
-  // PARENT VALIDATION
+  // NO PARENT VALIDATION
   //
   // IMPORTANT:
   //
-  // Yahan sirf IMMEDIATE parent required hoga.
+  // Yahan pehle parent required validation thi.
   //
-  // Ancestor parents token/API hierarchy se aa jayenge.
+  // Ab koi bhi hierarchy select karna mandatory nahi hai.
+  //
+  // parent_id null bhi allowed hai.
   // ===================================================
-
-  if (roleId > 1) {
-
-
-    // =================================================
-    // CNF
-    // CNF -> ADMIN
-    // =================================================
-
-    if (
-      roleId === 2 &&
-      !hierarchy.parent_admin_id
-    ) {
-
-      toast.error(
-        "Admin parent is required"
-      );
-
-      return;
-
-    }
-
-
-    // =================================================
-    // SUPER DISTRIBUTOR
-    // SUPER -> CNF
-    //
-    // CNF login:
-    //
-    // parent_cnf_id = logged CNF ID
-    //
-    // Admin ko separately required nahi karna.
-    // =================================================
-
-    if (
-      roleId === 3 &&
-      !hierarchy.parent_cnf_id
-    ) {
-
-      toast.error(
-        "CNF parent is required"
-      );
-
-      return;
-
-    }
-
-
-    // =================================================
-    // DISTRIBUTOR
-    // DISTRIBUTOR -> SUPER DISTRIBUTOR
-    // =================================================
-
-    if (
-      roleId === 4 &&
-      !hierarchy.parent_super_distributor_id
-    ) {
-
-      toast.error(
-        "Super Distributor parent is required"
-      );
-
-      return;
-
-    }
-
-
-    // =================================================
-    // FOS
-    // FOS -> DISTRIBUTOR
-    // =================================================
-
-    if (
-      roleId === 5 &&
-      !hierarchy.parent_distributor_id
-    ) {
-
-      toast.error(
-        "Distributor parent is required"
-      );
-
-      return;
-
-    }
-
-
-    // =================================================
-    // RETAILER
-    //
-    // Retailer FOS ke under bhi ho sakta hai
-    // ya direct Distributor ke under.
-    // =================================================
-
-    if (
-      roleId === 6 &&
-      !hierarchy.parent_fos_id &&
-      !hierarchy.parent_distributor_id
-    ) {
-
-      toast.error(
-        "FOS or Distributor parent is required"
-      );
-
-      return;
-
-    }
-
-
-    // =================================================
-    // SUB RETAILER
-    // SUB RETAILER -> RETAILER
-    // =================================================
-
-    if (
-      roleId === 7 &&
-      !hierarchy.parent_retailer_id
-    ) {
-
-      toast.error(
-        "Retailer parent is required"
-      );
-
-      return;
-
-    }
-
-
-    // =================================================
-    // EMPLOYEE
-    // EMPLOYEE -> RETAILER
-    // =================================================
-
-    if (
-  roleId === 8 &&
-  !hierarchy.parent_sub_retailer_id &&
-  !hierarchy.parent_retailer_id
-) {
-
-  toast.error(
-    "Retailer or Sub Retailer parent is required"
-  );
-
-  return;
-
-}
-
-
-    // =================================================
-    // STAFF
-    // STAFF -> ADMIN
-    // =================================================
-
-    if (
-      roleId === 9 &&
-      !hierarchy.parent_admin_id
-    ) {
-
-      toast.error(
-        "Admin parent is required for Staff"
-      );
-
-      return;
-
-    }
-
-
-    // =================================================
-    // FINAL parent_id
-    // =================================================
-
-    if (!parent_id) {
-
-      toast.error(
-        "Parent ID is required"
-      );
-
-      return;
-
-    }
-
-  }
 
 
   // ===================================================
@@ -2857,48 +3068,127 @@ if (
 
     ...formData,
 
+
+    // =================================================
+    // ROLE
+    // =================================================
+
     role_id:
       roleId,
 
 
     // =================================================
-    // COMPLETE HIERARCHY
+    // HIERARCHY
     // =================================================
 
     parent_admin_id:
-      hierarchy.parent_admin_id,
+      hierarchy.parent_admin_id || null,
+
 
     parent_cnf_id:
-      hierarchy.parent_cnf_id,
+      hierarchy.parent_cnf_id || null,
+
 
     parent_super_distributor_id:
-      hierarchy.parent_super_distributor_id,
+      hierarchy.parent_super_distributor_id || null,
+
 
     parent_distributor_id:
-      hierarchy.parent_distributor_id,
+      hierarchy.parent_distributor_id || null,
+
 
     parent_fos_id:
-      hierarchy.parent_fos_id,
+      hierarchy.parent_fos_id || null,
+
 
     parent_retailer_id:
-      hierarchy.parent_retailer_id,
+      hierarchy.parent_retailer_id || null,
+
 
     parent_sub_retailer_id:
-      hierarchy.parent_sub_retailer_id,
+      hierarchy.parent_sub_retailer_id || null,
+
 
     parent_employee_id:
-      hierarchy.parent_employee_id,
+      hierarchy.parent_employee_id || null,
+
 
     parent_staff_id:
-      hierarchy.parent_staff_id,
+      hierarchy.parent_staff_id || null,
 
 
     // =================================================
     // IMMEDIATE PARENT
+    //
+    // No parent selected =
+    // null
     // =================================================
 
     parent_id:
-      parent_id,
+      parent_id || null,
+
+
+    // =================================================
+    // DISABLED HIERARCHY
+    //
+    // IMPORTANT:
+    //
+    // disabledParentRoles use karna hai.
+    // disabledParents nahi.
+    // =================================================
+
+    parent_admin_disabled:
+      disabledParentRoles[1]
+        ? 1
+        : 0,
+
+
+    parent_cnf_disabled:
+      disabledParentRoles[2]
+        ? 1
+        : 0,
+
+
+    parent_super_distributor_disabled:
+      disabledParentRoles[3]
+        ? 1
+        : 0,
+
+
+    parent_distributor_disabled:
+      disabledParentRoles[4]
+        ? 1
+        : 0,
+
+
+    parent_fos_disabled:
+      disabledParentRoles[5]
+        ? 1
+        : 0,
+
+
+    parent_retailer_disabled:
+      disabledParentRoles[6]
+        ? 1
+        : 0,
+
+
+    parent_sub_retailer_disabled:
+      disabledParentRoles[7]
+        ? 1
+        : 0,
+
+
+    parent_employee_disabled:
+      disabledParentRoles[8]
+        ? 1
+        : 0,
+
+
+    parent_staff_disabled:
+      disabledParentRoles[9]
+        ? 1
+        : 0,
 
   };
 
@@ -2938,6 +3228,10 @@ if (
     );
 
 
+    // =================================================
+    // SUCCESS MESSAGE
+    // =================================================
+
     toast.success(
       res?.message ||
       "Registered Successfully"
@@ -2945,7 +3239,7 @@ if (
 
 
     // =================================================
-    // RESET
+    // RESET FORM
     // =================================================
 
     setFormData({
@@ -2958,8 +3252,23 @@ if (
     });
 
 
+    // =================================================
+    // RESET PARENT USERS
+    // =================================================
+
     setParentUsers({});
 
+
+    // =================================================
+    // RESET DISABLED STATES
+    // =================================================
+
+    setDisabledParentRoles({});
+
+
+    // =================================================
+    // RESET PASSWORD VISIBILITY
+    // =================================================
 
     setShowPassword(
       false
@@ -3089,31 +3398,50 @@ if (
                   CNF
               ================================================= */}
 
-           {Number(selectedRole) !== 2 && (
+       {Number(selectedRole) !== 2 && (
 
   /* =================================================
       OTHER ROLES
   ================================================= */
 
-  visibleParentRoles.map(
-    (parentRoleId) => {
+  visibleParentRoles.map((parentRoleId) => {
 
-      const users =
-        parentUsers[
-          parentRoleId
-        ] || [];
+    const role =
+      Number(parentRoleId);
 
+    const users =
+      parentUsers[role] || [];
 
-      return (
+    const isDisabled =
+      disabledParentRoles[role] === true;
+
+    const parentField =
+      roleParentField[role];
+
+    return (
+
+      <div
+        key={role}
+        className="
+          space-y-1.5
+        "
+      >
+
+        {/* =================================================
+            ROLE LABEL + CHECKBOX
+        ================================================= */}
 
         <div
-          key={
-            parentRoleId
-          }
           className="
-            space-y-1.5
+            flex
+            items-center
+            justify-between
           "
         >
+
+          {/* =================================================
+              ROLE NAME
+          ================================================= */}
 
           <label
             className="
@@ -3123,104 +3451,207 @@ if (
             "
           >
 
-            {getRoleName(
-              parentRoleId
-            )}
+            {getRoleName(role)}
 
           </label>
 
 
-          <div
+          {/* =================================================
+              DISABLE CHECKBOX
+          ================================================= */}
+
+          <label
             className="
-              relative
+              flex
+              items-center
+              gap-2
+              text-xs
+              text-slate-500
+              cursor-pointer
+              select-none
             "
           >
 
-            <select
-              value={
+            <input
+              type="checkbox"
 
-                formData[
-                  roleParentField[
-                    parentRoleId
-                  ]
-                ] || ""
-
+              checked={
+                isDisabled
               }
+
               onChange={(e) =>
-                handleParentChange(
-                  parentRoleId,
-                  e.target.value
+                handleParentCheckbox(
+                  role,
+                  e.target.checked
                 )
               }
-              required
+
               className="
-                w-full
-                appearance-none
-                border
-                border-slate-300
-                rounded-lg
-                px-4
-                py-2.5
-                pr-10
-                text-sm
-                bg-white
+                h-4
+                w-4
+                accent-blue-600
                 cursor-pointer
-              "
-            >
-
-              <option value="">
-
-                Select{" "}
-
-                {getRoleName(
-                  parentRoleId
-                )}
-
-              </option>
-
-
-              {users.map(
-                (user) => (
-
-                  <option
-                    key={
-                      user.id
-                    }
-                    value={
-                      user.id
-                    }
-                  >
-
-                    {user.name}
-
-                  </option>
-
-                )
-              )}
-
-            </select>
-
-
-            <RiArrowDownSLine
-              size={22}
-              className="
-                absolute
-                right-3
-                top-1/2
-                -translate-y-1/2
-                text-slate-500
-                pointer-events-none
               "
             />
 
-          </div>
+            Disable
+
+          </label>
 
         </div>
 
-      );
 
-    }
-  )
+        {/* =================================================
+            DROPDOWN
+        ================================================= */}
+
+        <div
+          className="
+            relative
+          "
+        >
+
+          <select
+
+            name={
+              parentField
+            }
+
+            value={
+              isDisabled
+                ? ""
+                : (
+                    formData[
+                      parentField
+                    ] || ""
+                  )
+            }
+
+            onChange={(e) =>
+              handleParentChange(
+                role,
+                e.target.value
+              )
+            }
+
+            required={
+              !isDisabled
+            }
+
+            disabled={
+              isDisabled
+            }
+
+            className={`
+              w-full
+              appearance-none
+              border
+              rounded-lg
+              px-4
+              py-2.5
+              pr-10
+              text-sm
+              transition
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+
+              ${
+                isDisabled
+
+                  ? `
+                    bg-slate-100
+                    border-slate-200
+                    text-slate-400
+                    cursor-not-allowed
+                  `
+
+                  : `
+                    bg-white
+                    border-slate-300
+                    text-slate-700
+                    cursor-pointer
+                  `
+              }
+            `}
+          >
+
+            {/* =================================================
+                DEFAULT OPTION
+            ================================================= */}
+
+            <option value="">
+
+              {isDisabled
+
+                ? `${getRoleName(
+                    role
+                  )} Disabled`
+
+                : `Select ${getRoleName(
+                    role
+                  )}`
+
+              }
+
+            </option>
+
+
+            {/* =================================================
+                USERS
+            ================================================= */}
+
+            {!isDisabled &&
+              users.map((user) => (
+
+                <option
+                  key={
+                    user.id
+                  }
+                  value={
+                    user.id
+                  }
+                >
+
+                  {user.name}
+
+                </option>
+
+              ))
+            }
+
+          </select>
+
+
+          {/* =================================================
+              DROPDOWN ARROW
+          ================================================= */}
+
+          <RiArrowDownSLine
+            size={22}
+
+            className={`
+              absolute
+              right-3
+              top-1/2
+              -translate-y-1/2
+              pointer-events-none
+
+              ${
+                isDisabled
+                  ? "text-slate-300"
+                  : "text-slate-500"
+              }
+            `}
+          />
+
+        </div>
+
+      </div>
+
+    );
+
+  })
 
 )}
 
