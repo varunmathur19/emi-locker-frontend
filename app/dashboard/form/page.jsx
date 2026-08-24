@@ -26,6 +26,7 @@ import {
 import {
   useState,
   useEffect,
+  useRef
 } from "react";
 
 import {
@@ -180,6 +181,11 @@ export default function Page() {
   setDisabledParentRoles,
 ] = useState({});
 
+const [openDropdown, setOpenDropdown] = useState(null);
+
+const [parentSearch, setParentSearch] = useState({});
+
+
 
   // ===================================================
   // CNF ADMIN
@@ -286,6 +292,45 @@ export default function Page() {
 
   9: [1],
 
+};
+const getFilteredParentUsers = (
+  role,
+  users
+) => {
+
+  const search =
+    (
+      parentSearch[role] || ""
+    ).toLowerCase().trim();
+
+  if (!search) {
+    return users;
+  }
+
+  return users.filter((user) => {
+
+    const name =
+      String(
+        user.name || ""
+      ).toLowerCase();
+
+    const email =
+      String(
+        user.email || ""
+      ).toLowerCase();
+
+    const phone =
+      String(
+        user.phone || ""
+      ).toLowerCase();
+
+    return (
+      name.includes(search) ||
+      email.includes(search) ||
+      phone.includes(search)
+    );
+
+  });
 };
 
 const handleParentDisable = (
@@ -1124,6 +1169,137 @@ useEffect(() => {
 }, [
   selectedRole,
   loggedInRoleId,
+]);
+
+useEffect(() => {
+
+  if (!openDropdown) {
+    return;
+  }
+
+  const roleId =
+    Number(openDropdown);
+
+  const search =
+    (
+      parentSearch[roleId] || ""
+    ).trim();
+
+  const timer =
+    setTimeout(async () => {
+
+      try {
+
+        // ---------------------------------------------
+        // Current selected parent
+        // ---------------------------------------------
+
+        let parentId = null;
+
+        const parents =
+          parentRoles[selectedRole] || [];
+
+        const currentIndex =
+          parents.indexOf(roleId);
+
+        if (currentIndex > 0) {
+
+          // Previous enabled parent find karo
+          for (
+            let i = currentIndex - 1;
+            i >= 0;
+            i--
+          ) {
+
+            const previousRole =
+              Number(parents[i]);
+
+            if (
+              disabledParentRoles[
+                previousRole
+              ] === true
+            ) {
+              continue;
+            }
+
+            const previousField =
+              roleParentField[
+                previousRole
+              ];
+
+            if (
+              previousField &&
+              formData[previousField]
+            ) {
+
+              parentId =
+                Number(
+                  formData[previousField]
+                );
+
+              break;
+
+            }
+
+          }
+
+        }
+
+        // ---------------------------------------------
+        // API SEARCH
+        // ---------------------------------------------
+
+        const response =
+          await getDropdownUsers(
+            roleId,
+            parentId,
+            search
+          );
+
+        const users =
+          getUsersFromResponse(
+            response
+          );
+
+        setParentUsers(
+          (prev) => ({
+            ...prev,
+            [roleId]: users,
+          })
+        );
+
+        console.log(
+          "API SEARCH:",
+          {
+            roleId,
+            parentId,
+            search,
+            total: users.length,
+            response,
+          }
+        );
+
+      } catch (error) {
+
+        console.error(
+          "API SEARCH ERROR:",
+          error?.response?.data ||
+          error
+        );
+
+      }
+
+    }, 400);
+
+  return () =>
+    clearTimeout(timer);
+
+}, [
+  openDropdown,
+  parentSearch,
+  selectedRole,
+  formData,
+  disabledParentRoles,
 ]);
 
 
@@ -3505,147 +3681,344 @@ const handleSubmit = async (e) => {
             DROPDOWN
         ================================================= */}
 
+        <div className="relative">
+
+  {/* =================================================
+      SELECTED VALUE / DROPDOWN BUTTON
+  ================================================= */}
+
+  <button
+    type="button"
+    disabled={isDisabled}
+    onClick={() => {
+
+      if (isDisabled) {
+        return;
+      }
+
+      setOpenDropdown(
+        openDropdown === role
+          ? null
+          : role
+      );
+
+    }}
+    className={`
+      w-full
+      flex
+      items-center
+      justify-between
+      border
+      rounded-lg
+      px-4
+      py-2.5
+      text-sm
+      text-left
+      transition
+      focus:outline-none
+      focus:ring-2
+      focus:ring-blue-500
+
+      ${
+        isDisabled
+          ? `
+            bg-slate-100
+            border-slate-200
+            text-slate-400
+            cursor-not-allowed
+          `
+          : `
+            bg-white
+            border-slate-300
+            text-slate-700
+            cursor-pointer
+          `
+      }
+    `}
+  >
+
+    <span className="truncate">
+
+      {isDisabled
+
+        ? `${getRoleName(role)} Disabled`
+
+        : formData[parentField]
+
+        ? (
+            users.find(
+              (user) =>
+                Number(user.id) ===
+                Number(
+                  formData[parentField]
+                )
+            )?.name ||
+            `Selected ${getRoleName(role)}`
+          )
+
+        : `Select ${getRoleName(role)}`
+
+      }
+
+    </span>
+
+
+    <RiArrowDownSLine
+      size={22}
+      className={`
+        shrink-0
+        transition-transform
+
+        ${
+          openDropdown === role
+            ? "rotate-180"
+            : ""
+        }
+
+        ${
+          isDisabled
+            ? "text-slate-300"
+            : "text-slate-500"
+        }
+      `}
+    />
+
+  </button>
+
+
+  {/* =================================================
+      DROPDOWN
+  ================================================= */}
+
+  {openDropdown === role &&
+    !isDisabled && (
+
+      <div
+        className="
+          absolute
+          z-50
+          left-0
+          right-0
+          mt-1
+          bg-white
+          border
+          border-slate-200
+          rounded-lg
+          shadow-xl
+          overflow-hidden
+        "
+      >
+
+        {/* =================================================
+            SEARCH INPUT
+        ================================================= */}
+
         <div
           className="
-            relative
+            p-2
+            border-b
+            border-slate-200
+            bg-white
           "
         >
 
-          <select
-
-            name={
-              parentField
-            }
-
+          <input
+            type="text"
             value={
-              isDisabled
-                ? ""
-                : (
-                    formData[
-                      parentField
-                    ] || ""
-                  )
+              parentSearch[role] || ""
             }
-
             onChange={(e) =>
-              handleParentChange(
-                role,
-                e.target.value
+              setParentSearch(
+                (prev) => ({
+                  ...prev,
+                  [role]:
+                    e.target.value,
+                })
               )
             }
-
-            required={
-              !isDisabled
+            onClick={(e) =>
+              e.stopPropagation()
             }
-
-            disabled={
-              isDisabled
-            }
-
-            className={`
+            placeholder={`Search ${getRoleName(role)}...`}
+            autoFocus
+            className="
               w-full
-              appearance-none
               border
-              rounded-lg
-              px-4
-              py-2.5
-              pr-10
+              border-slate-300
+              rounded-md
+              px-3
+              py-2
               text-sm
-              transition
               focus:outline-none
               focus:ring-2
               focus:ring-blue-500
-
-              ${
-                isDisabled
-
-                  ? `
-                    bg-slate-100
-                    border-slate-200
-                    text-slate-400
-                    cursor-not-allowed
-                  `
-
-                  : `
-                    bg-white
-                    border-slate-300
-                    text-slate-700
-                    cursor-pointer
-                  `
-              }
-            `}
-          >
-
-            {/* =================================================
-                DEFAULT OPTION
-            ================================================= */}
-
-            <option value="">
-
-              {isDisabled
-
-                ? `${getRoleName(
-                    role
-                  )} Disabled`
-
-                : `Select ${getRoleName(
-                    role
-                  )}`
-
-              }
-
-            </option>
-
-
-            {/* =================================================
-                USERS
-            ================================================= */}
-
-            {!isDisabled &&
-              users.map((user) => (
-
-                <option
-                  key={
-                    user.id
-                  }
-                  value={
-                    user.id
-                  }
-                >
-
-                  {user.name}
-
-                </option>
-
-              ))
-            }
-
-          </select>
-
-
-          {/* =================================================
-              DROPDOWN ARROW
-          ================================================= */}
-
-          <RiArrowDownSLine
-            size={22}
-
-            className={`
-              absolute
-              right-3
-              top-1/2
-              -translate-y-1/2
-              pointer-events-none
-
-              ${
-                isDisabled
-                  ? "text-slate-300"
-                  : "text-slate-500"
-              }
-            `}
+            "
           />
 
         </div>
+
+
+        {/* =================================================
+            USER LIST
+        ================================================= */}
+
+        <div
+          className="
+            max-h-60
+            overflow-y-auto
+          "
+        >
+
+          {/* =================================================
+              DEFAULT / CLEAR OPTION
+          ================================================= */}
+
+          <button
+            type="button"
+            onClick={() => {
+
+              handleParentChange(
+                role,
+                ""
+              );
+
+              setOpenDropdown(null);
+
+              setParentSearch(
+                (prev) => ({
+                  ...prev,
+                  [role]: "",
+                })
+              );
+
+            }}
+            className="
+              w-full
+              text-left
+              px-4
+              py-2.5
+              text-sm
+              text-slate-500
+              hover:bg-slate-50
+            "
+          >
+
+            Select {getRoleName(role)}
+
+          </button>
+
+
+          {/* =================================================
+              FILTERED USERS
+          ================================================= */}
+
+          {getFilteredParentUsers(
+            role,
+            users
+          ).map((user) => (
+
+            <button
+              key={user.id}
+              type="button"
+              onClick={() => {
+
+                handleParentChange(
+                  role,
+                  user.id
+                );
+
+                setOpenDropdown(null);
+
+                setParentSearch(
+                  (prev) => ({
+                    ...prev,
+                    [role]: "",
+                  })
+                );
+
+              }}
+              className={`
+                w-full
+                text-left
+                px-4
+                py-2.5
+                text-sm
+                transition
+
+                ${
+                  Number(
+                    formData[parentField]
+                  ) === Number(user.id)
+
+                    ? `
+                      bg-blue-50
+                      text-blue-700
+                      font-medium
+                    `
+
+                    : `
+                      text-slate-700
+                      hover:bg-slate-50
+                    `
+                }
+              `}
+            >
+
+              <div>
+                {user.name}
+              </div>
+
+              {user.email && (
+
+                <div
+                  className="
+                    text-xs
+                    text-slate-400
+                    mt-0.5
+                  "
+                >
+                  {user.email}
+                </div>
+
+              )}
+
+            </button>
+
+          ))}
+
+
+          {/* =================================================
+              NO RESULT
+          ================================================= */}
+
+          {getFilteredParentUsers(
+            role,
+            users
+          ).length === 0 && (
+
+            <div
+              className="
+                px-4
+                py-4
+                text-center
+                text-sm
+                text-slate-400
+              "
+            >
+
+              No {getRoleName(role)} found
+
+            </div>
+
+          )}
+
+        </div>
+
+      </div>
+
+    )}
+
+</div>
 
       </div>
 

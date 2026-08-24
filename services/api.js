@@ -58,29 +58,69 @@ export const addStaff = async (data) => {
 
 export const getDropdownUsers = async (
   role_id,
-  parent_id = null
+  parent_id = null,
+  search = ""
 ) => {
 
   const params = new URLSearchParams();
+
+  // =====================================================
+  // ROLE ID
+  // =====================================================
 
   params.append(
     "role_id",
     role_id
   );
 
-  if (parent_id) {
+
+  // =====================================================
+  // PARENT ID
+  // =====================================================
+
+  if (
+    parent_id !== null &&
+    parent_id !== undefined &&
+    parent_id !== ""
+  ) {
+
     params.append(
       "parent_id",
       parent_id
     );
+
   }
+
+
+  // =====================================================
+  // SEARCH
+  // =====================================================
+
+  if (
+    search &&
+    search.trim()
+  ) {
+
+    params.append(
+      "search",
+      search.trim()
+    );
+
+  }
+
+
+  // =====================================================
+  // API CALL
+  // =====================================================
 
   const response =
     await api.get(
       `/hierarchy-dropdown?${params.toString()}`
     );
 
+
   return response.data;
+
 };
 
 
