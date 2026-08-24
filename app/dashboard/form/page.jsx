@@ -185,6 +185,8 @@ const [openDropdown, setOpenDropdown] = useState(null);
 
 const [parentSearch, setParentSearch] = useState({});
 
+const [searchLoading, setSearchLoading] = useState({});
+
 
 
   // ===================================================
@@ -293,45 +295,45 @@ const [parentSearch, setParentSearch] = useState({});
   9: [1],
 
 };
-const getFilteredParentUsers = (
-  role,
-  users
-) => {
+// const getFilteredParentUsers = (
+//   role,
+//   users
+// ) => {
 
-  const search =
-    (
-      parentSearch[role] || ""
-    ).toLowerCase().trim();
+//   const search =
+//     (
+//       parentSearch[role] || ""
+//     ).toLowerCase().trim();
 
-  if (!search) {
-    return users;
-  }
+//   if (!search) {
+//     return users;
+//   }
 
-  return users.filter((user) => {
+//   return users.filter((user) => {
 
-    const name =
-      String(
-        user.name || ""
-      ).toLowerCase();
+//     const name =
+//       String(
+//         user.name || ""
+//       ).toLowerCase();
 
-    const email =
-      String(
-        user.email || ""
-      ).toLowerCase();
+//     const email =
+//       String(
+//         user.email || ""
+//       ).toLowerCase();
 
-    const phone =
-      String(
-        user.phone || ""
-      ).toLowerCase();
+//     const phone =
+//       String(
+//         user.phone || ""
+//       ).toLowerCase();
 
-    return (
-      name.includes(search) ||
-      email.includes(search) ||
-      phone.includes(search)
-    );
+//     return (
+//       name.includes(search) ||
+//       email.includes(search) ||
+//       phone.includes(search)
+//     );
 
-  });
-};
+//   });
+// };
 
 const handleParentDisable = (
   roleId,
@@ -341,12 +343,12 @@ const handleParentDisable = (
   const role =
     Number(roleId);
 
-  setDisabledParents(
-    (prev) => ({
-      ...prev,
-      [role]: disabled,
-    })
-  );
+setDisabledParentRoles(
+  (prev) => ({
+    ...prev,
+    [role]: disabled,
+  })
+);
 
   // =================================================
   // Disable karte hi selected value clear
@@ -1171,9 +1173,16 @@ useEffect(() => {
   loggedInRoleId,
 ]);
 
+// =====================================================
+// API SEARCH WITH DEBOUNCE
+// =====================================================
+
 useEffect(() => {
 
-  if (!openDropdown) {
+  if (
+    openDropdown === null ||
+    openDropdown === undefined
+  ) {
     return;
   }
 
@@ -1185,111 +1194,179 @@ useEffect(() => {
       parentSearch[roleId] || ""
     ).trim();
 
+  const parents =
+    parentRoles[selectedRole] || [];
+
+  const currentIndex =
+    parents.indexOf(roleId);
+
+  // ===================================================
+  // FIND PARENT ID
+  // ===================================================
+
+  let parentId = null;
+
+  if (currentIndex > 0) {
+
+    for (
+      let i = currentIndex - 1;
+      i >= 0;
+      i--
+    ) {
+
+      const previousRole =
+        Number(parents[i]);
+
+      // Disabled parent skip
+      if (
+        disabledParentRoles[
+          previousRole
+        ] === true
+      ) {
+        continue;
+      }
+
+      const previousField =
+        roleParentField[
+          previousRole
+        ];
+
+      if (
+        previousField &&
+        formData[previousField]
+      ) {
+
+        parentId =
+          Number(
+            formData[previousField]
+          );
+
+        break;
+      }
+
+    }
+
+  }
+
+  // ===================================================
+  // DEBOUNCE
+  // ===================================================
+
   const timer =
-    setTimeout(async () => {
+    setTimeout(
+      async () => {
 
-      try {
+        try {
 
-        // ---------------------------------------------
-        // Current selected parent
-        // ---------------------------------------------
+          // =============================================
+          // SHOW SEARCHING
+          // =============================================
 
-        let parentId = null;
+          setSearchLoading(
+            (prev) => ({
+              ...prev,
+              [roleId]: true,
+            })
+          );
 
-        const parents =
-          parentRoles[selectedRole] || [];
+          console.log(
+            "================================="
+          );
 
-        const currentIndex =
-          parents.indexOf(roleId);
+          console.log(
+            "API SEARCH STARTED"
+          );
 
-        if (currentIndex > 0) {
+          console.log(
+            "Role ID:",
+            roleId
+          );
 
-          // Previous enabled parent find karo
-          for (
-            let i = currentIndex - 1;
-            i >= 0;
-            i--
-          ) {
+          console.log(
+            "Parent ID:",
+            parentId
+          );
 
-            const previousRole =
-              Number(parents[i]);
-
-            if (
-              disabledParentRoles[
-                previousRole
-              ] === true
-            ) {
-              continue;
-            }
-
-            const previousField =
-              roleParentField[
-                previousRole
-              ];
-
-            if (
-              previousField &&
-              formData[previousField]
-            ) {
-
-              parentId =
-                Number(
-                  formData[previousField]
-                );
-
-              break;
-
-            }
-
-          }
-
-        }
-
-        // ---------------------------------------------
-        // API SEARCH
-        // ---------------------------------------------
-
-        const response =
-          await getDropdownUsers(
-            roleId,
-            parentId,
+          console.log(
+            "Search:",
             search
           );
 
-        const users =
-          getUsersFromResponse(
-            response
+          // =============================================
+          // API CALL
+          // =============================================
+
+          const response =
+            await getDropdownUsers(
+              roleId,
+              parentId,
+              search
+            );
+
+          // =============================================
+          // RESPONSE
+          // =============================================
+
+          const users =
+            getUsersFromResponse(
+              response
+            );
+
+          // =============================================
+          // SAVE USERS
+          // =============================================
+
+          setParentUsers(
+            (prev) => ({
+              ...prev,
+              [roleId]: users,
+            })
           );
 
-        setParentUsers(
-          (prev) => ({
-            ...prev,
-            [roleId]: users,
-          })
-        );
+          console.log(
+            "API SEARCH SUCCESS:",
+            {
+              roleId,
+              parentId,
+              search,
+              total: users.length,
+              response,
+            }
+          );
 
-        console.log(
-          "API SEARCH:",
-          {
-            roleId,
-            parentId,
-            search,
-            total: users.length,
-            response,
-          }
-        );
+        } catch (error) {
 
-      } catch (error) {
+          console.error(
+            "API SEARCH ERROR:",
+            error?.response?.data ||
+            error
+          );
 
-        console.error(
-          "API SEARCH ERROR:",
-          error?.response?.data ||
-          error
-        );
+          setParentUsers(
+            (prev) => ({
+              ...prev,
+              [roleId]: [],
+            })
+          );
 
-      }
+        } finally {
 
-    }, 400);
+          // =============================================
+          // HIDE SEARCHING
+          // =============================================
+
+          setSearchLoading(
+            (prev) => ({
+              ...prev,
+              [roleId]: false,
+            })
+          );
+
+        }
+
+      },
+      400
+    );
 
   return () =>
     clearTimeout(timer);
@@ -3822,38 +3899,70 @@ const handleSubmit = async (e) => {
           "
         >
 
-          <input
-            type="text"
-            value={
-              parentSearch[role] || ""
-            }
-            onChange={(e) =>
-              setParentSearch(
-                (prev) => ({
-                  ...prev,
-                  [role]:
-                    e.target.value,
-                })
-              )
-            }
-            onClick={(e) =>
-              e.stopPropagation()
-            }
-            placeholder={`Search ${getRoleName(role)}...`}
-            autoFocus
-            className="
-              w-full
-              border
-              border-slate-300
-              rounded-md
-              px-3
-              py-2
-              text-sm
-              focus:outline-none
-              focus:ring-2
-              focus:ring-blue-500
-            "
-          />
+         <div className="relative">
+
+  <input
+    type="text"
+    value={
+      parentSearch[role] || ""
+    }
+    onChange={(e) =>
+      setParentSearch(
+        (prev) => ({
+          ...prev,
+          [role]:
+            e.target.value,
+        })
+      )
+    }
+    onClick={(e) =>
+      e.stopPropagation()
+    }
+    placeholder={`Search ${getRoleName(role)}...`}
+    autoFocus
+    className="
+      w-full
+      border
+      border-slate-300
+      rounded-md
+      px-3
+      py-2
+      pr-10
+      text-sm
+      focus:outline-none
+      focus:ring-2
+      focus:ring-blue-500
+    "
+  />
+
+  {searchLoading[role] && (
+
+    <div
+      className="
+        absolute
+        right-3
+        top-1/2
+        -translate-y-1/2
+      "
+    >
+
+      <div
+        className="
+          h-4
+          w-4
+          border-2
+          border-blue-500
+          border-t-transparent
+          rounded-full
+          animate-spin
+        "
+      />
+
+    </div>
+
+  )}
+
+</div>
 
         </div>
 
@@ -3862,157 +3971,185 @@ const handleSubmit = async (e) => {
             USER LIST
         ================================================= */}
 
-        <div
-          className="
-            max-h-60
-            overflow-y-auto
-          "
-        >
+       <div
+  className="
+    max-h-60
+    overflow-y-auto
+  "
+>
 
-          {/* =================================================
-              DEFAULT / CLEAR OPTION
-          ================================================= */}
+  {/* =================================================
+      DEFAULT / CLEAR OPTION
+  ================================================= */}
 
-          <button
-            type="button"
-            onClick={() => {
+  {!searchLoading[role] && (
 
-              handleParentChange(
-                role,
-                ""
-              );
+    <button
+      type="button"
+      onClick={() => {
 
-              setOpenDropdown(null);
+        handleParentChange(
+          role,
+          ""
+        );
 
-              setParentSearch(
-                (prev) => ({
-                  ...prev,
-                  [role]: "",
-                })
-              );
+        setOpenDropdown(null);
 
-            }}
-            className="
-              w-full
-              text-left
-              px-4
-              py-2.5
-              text-sm
-              text-slate-500
-              hover:bg-slate-50
-            "
-          >
+        setParentSearch(
+          (prev) => ({
+            ...prev,
+            [role]: "",
+          })
+        );
 
-            Select {getRoleName(role)}
+      }}
+      className="
+        w-full
+        text-left
+        px-4
+        py-2.5
+        text-sm
+        text-slate-500
+        hover:bg-slate-50
+      "
+    >
 
-          </button>
+      Select {getRoleName(role)}
+
+    </button>
+
+  )}
 
 
-          {/* =================================================
-              FILTERED USERS
-          ================================================= */}
+  {/* =================================================
+      SEARCHING
+  ================================================= */}
 
-          {getFilteredParentUsers(
+  {searchLoading[role] && (
+
+    <div
+      className="
+        flex
+        items-center
+        justify-center
+        gap-2
+        px-4
+        py-4
+        text-sm
+        text-blue-600
+      "
+    >
+
+      <div
+        className="
+          h-4
+          w-4
+          border-2
+          border-blue-500
+          border-t-transparent
+          rounded-full
+          animate-spin
+        "
+      />
+
+      Searching {getRoleName(role)}...
+
+    </div>
+
+  )}
+
+
+  {/* =================================================
+      USERS
+  ================================================= */}
+
+  {!searchLoading[role] &&
+    users.map((user) => (
+
+      <button
+        key={user.id}
+        type="button"
+        onClick={() => {
+
+          handleParentChange(
             role,
-            users
-          ).map((user) => (
+            user.id
+          );
 
-            <button
-              key={user.id}
-              type="button"
-              onClick={() => {
+          setOpenDropdown(null);
 
-                handleParentChange(
-                  role,
-                  user.id
-                );
+          setParentSearch(
+            (prev) => ({
+              ...prev,
+              [role]: "",
+            })
+          );
 
-                setOpenDropdown(null);
+        }}
+        className={`
+          w-full
+          text-left
+          px-4
+          py-2.5
+          text-sm
+          transition
 
-                setParentSearch(
-                  (prev) => ({
-                    ...prev,
-                    [role]: "",
-                  })
-                );
+          ${
+            Number(
+              formData[parentField]
+            ) === Number(user.id)
 
-              }}
-              className={`
-                w-full
-                text-left
-                px-4
-                py-2.5
-                text-sm
-                transition
+              ? `
+                bg-blue-50
+                text-blue-700
+                font-medium
+              `
 
-                ${
-                  Number(
-                    formData[parentField]
-                  ) === Number(user.id)
+              : `
+                text-slate-700
+                hover:bg-slate-50
+              `
+          }
+        `}
+      >
 
-                    ? `
-                      bg-blue-50
-                      text-blue-700
-                      font-medium
-                    `
-
-                    : `
-                      text-slate-700
-                      hover:bg-slate-50
-                    `
-                }
-              `}
-            >
-
-              <div>
-                {user.name}
-              </div>
-
-              {user.email && (
-
-                <div
-                  className="
-                    text-xs
-                    text-slate-400
-                    mt-0.5
-                  "
-                >
-                  {user.email}
-                </div>
-
-              )}
-
-            </button>
-
-          ))}
-
-
-          {/* =================================================
-              NO RESULT
-          ================================================= */}
-
-          {getFilteredParentUsers(
-            role,
-            users
-          ).length === 0 && (
-
-            <div
-              className="
-                px-4
-                py-4
-                text-center
-                text-sm
-                text-slate-400
-              "
-            >
-
-              No {getRoleName(role)} found
-
-            </div>
-
-          )}
-
+        <div>
+          {user.name}
         </div>
+
+      </button>
+
+    ))
+  }
+
+
+  {/* =================================================
+      NO RESULT
+  ================================================= */}
+
+  {!searchLoading[role] &&
+    users.length === 0 && (
+
+      <div
+        className="
+          px-4
+          py-4
+          text-center
+          text-sm
+          text-slate-400
+        "
+      >
+
+        {parentSearch[role]?.trim()
+          ? `No ${getRoleName(role)} found`
+          : `No ${getRoleName(role)} available`
+        }
+
+      </div>
+
+    )}
+
+</div>
 
       </div>
 
