@@ -36,13 +36,11 @@ import {
   RiLoginBoxLine,
 } from "react-icons/ri";
 
-
 // =====================================================
 // GET API ICON URL
 // =====================================================
 
 const getIconUrl = (icon) => {
-
   if (!icon) {
     return "";
   }
@@ -68,7 +66,6 @@ const getIconUrl = (icon) => {
   return `${baseURL}/${icon.replace(/^\/+/, "")}`;
 };
 
-
 // =====================================================
 // SIDEBAR
 // =====================================================
@@ -76,110 +73,71 @@ const getIconUrl = (icon) => {
 export default function Sidebar({
   sidebarOpen,
 }) {
-
   // =====================================================
   // CURRENT LOGGED-IN ROLE
   // =====================================================
 
-  const [roleId, setRoleId] =
-    useState(null);
-
+  const [roleId, setRoleId] = useState(null);
 
   // =====================================================
   // MODULES FROM API
   // =====================================================
 
-  const [modules, setModules] =
-    useState([]);
-
+  const [modules, setModules] = useState([]);
 
   // =====================================================
   // PATH
   // =====================================================
 
-  const pathname =
-    usePathname();
-
-  const searchParams =
-    useSearchParams();
-
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const activeRole =
     searchParams.get("role") ||
     searchParams.get("role_id");
-
 
   // =====================================================
   // GET MODULES FROM API
   // =====================================================
 
   useEffect(() => {
-
     const loadModules = async () => {
-
       try {
-
-        const response =
-          await getModules();
+        const response = await getModules();
 
         console.log(
           "MODULE API RESPONSE:",
           response
         );
 
-
-        // =================================================
-        // API RESPONSE
-        // =================================================
-
         if (
           response?.success &&
-          Array.isArray(
-            response?.modules
-          )
+          Array.isArray(response?.modules)
         ) {
-
-          setModules(
-            response.modules
-          );
-
+          setModules(response.modules);
         } else {
-
           setModules([]);
-
         }
-
       } catch (error) {
-
         console.error(
           "GET MODULES ERROR:",
           error
         );
 
         setModules([]);
-
       }
-
     };
 
-
     loadModules();
-
   }, []);
-
 
   // =====================================================
   // GET CURRENT ROLE
   // =====================================================
 
   useEffect(() => {
-
-    const currentRole =
-      getRoleId();
-
-    const originalRole =
-      getOriginalRoleId();
-
+    const currentRole = getRoleId();
+    const originalRole = getOriginalRoleId();
 
     console.log(
       "======================================"
@@ -203,71 +161,50 @@ export default function Sidebar({
       "======================================"
     );
 
-
     if (
       currentRole !== null &&
       currentRole !== undefined
     ) {
-
-      setRoleId(
-        Number(currentRole)
-      );
-
+      setRoleId(Number(currentRole));
     }
-
   }, []);
-
 
   // =====================================================
   // MY LOGIN
   // =====================================================
 
   const myLogin = () => {
-
     console.log(
       "Restoring Original Login..."
     );
 
-
     const restored =
       restoreOriginalLogin();
 
-
     if (!restored) {
-
       alert(
         "Original login session not found"
       );
-
       return;
-
     }
-
 
     window.location.href =
       "/dashboard";
-
   };
-
 
   // =====================================================
   // LOGOUT
   // =====================================================
 
   const logout = async () => {
-
     console.log(
       "Logout button clicked"
     );
 
-
     try {
-
       await logoutStaff();
 
-
       removeToken();
-
 
       localStorage.removeItem(
         "user"
@@ -277,22 +214,15 @@ export default function Sidebar({
         "original_token"
       );
 
-
-      window.location.href =
-        "/";
-
+      window.location.href = "/";
     } catch (error) {
-
       console.log(
         "Logout API error:",
         error
       );
 
-
       // API fail hone par bhi logout
-
       removeToken();
-
 
       localStorage.removeItem(
         "user"
@@ -302,23 +232,16 @@ export default function Sidebar({
         "original_token"
       );
 
-
-      window.location.href =
-        "/";
-
+      window.location.href = "/";
     }
-
   };
-
 
   // =====================================================
   // ROLE NOT LOADED
   // =====================================================
 
   if (roleId === null) {
-
     return (
-
       <aside
         className={`
           fixed
@@ -341,7 +264,6 @@ export default function Sidebar({
           }
         `}
       >
-
         <h2
           className="
             relative
@@ -359,221 +281,264 @@ export default function Sidebar({
         >
           Dashboard
         </h2>
-
       </aside>
-
     );
-
   }
-
 
   // =====================================================
   // ROLE MAP
   // =====================================================
 
   const roleMap = {
-
     // ===================================================
-    // CNF
-    // ===================================================
-
-    cnf: {
-
-      role: 2,
-
-      label: "CNF",
-
-      icon: (
-        <RiUserStarLine
-          size={18}
-          className="text-[1.4rem]"
-        />
-      ),
-
-    },
-
-
-    // ===================================================
-    // SUPER DISTRIBUTOR
+    // ADMIN
     // ===================================================
 
-    "super distributer": {
-
-      role: 3,
-
-      label: "Super Distributor",
-
-      icon: (
-        <RiBuilding2Line
-          size={18}
-          className="text-[1.4rem]"
-        />
-      ),
-
-    },
-
-
-    "super distributor": {
-
-      role: 3,
-
-      label: "Super Distributor",
-
-      icon: (
-        <RiBuilding2Line
-          size={18}
-          className="text-[1.4rem]"
-        />
-      ),
-
-    },
-
-
-    // ===================================================
-    // DISTRIBUTOR
-    // ===================================================
-
-    distributor: {
-
-      role: 4,
-
-      label: "Distributor",
-
-      icon: (
-        <RiStore2Line
-          size={18}
-          className="text-[1.4rem]"
-        />
-      ),
-
-    },
-
-
-    // ===================================================
-    // FOS
-    // ===================================================
-
-    fos: {
-
-      role: 5,
-
-      label: "FOS",
-
-      icon: (
-        <RiUserLocationLine
-          size={18}
-          className="text-[1.4rem]"
-        />
-      ),
-
-    },
-
-
-    // ===================================================
-    // RETAILER
-    // ===================================================
-
-    retailer: {
-
-      role: 6,
-
-      label: "Retailer",
-
-      icon: (
-        <RiStore2Line
-          size={18}
-          className="text-[1.4rem]"
-        />
-      ),
-
-    },
-
-
-    // ===================================================
-    // SUB RETAILER
-    // ===================================================
-
-    "sub retailer": {
-
-      role: 7,
-
-      label: "Sub Retailer",
-
-      icon: (
-        <RiUser3Line
-          size={18}
-          className="text-[1.4rem]"
-        />
-      ),
-
-    },
-
-
-    // ===================================================
-    // EMPLOYEE
-    //
-    // IMPORTANT:
-    //
-    // Employee STATICALLY render nahi hoga.
-    //
-    // Employee API se aayega.
-    //
-    // API:
-    //
-    // {
-    //   name: "employee",
-    //   icon: "/uploads/modules/employee.png",
-    //   status: 1
-    // }
-    //
-    // Isko automatically:
-    //
-    // role = 8
-    // label = Employee
-    // API icon
-    //
-    // milega.
-    // ===================================================
-
-    employee: {
-
-      role: 8,
-
-      label: "Employee",
-
-      icon: (
-        <RiUser3Line
-          size={18}
-          className="text-[1.4rem]"
-        />
-      ),
-
-    },
-
-
-    // ===================================================
-    // STAFF
-    //
-    // STAFF STATIC HI RAHEGA.
-    // ===================================================
-
-    staff: {
-
-      role: 9,
-
-      label: "Staff",
-
+    admin: {
+      role: 1,
+      label: "Admin",
       icon: (
         <RiShieldUserLine
           size={18}
           className="text-[1.4rem]"
         />
       ),
-
     },
 
+    // ===================================================
+    // CNF
+    // ===================================================
+
+    cnf: {
+      role: 2,
+      label: "CNF",
+      icon: (
+        <RiUserStarLine
+          size={18}
+          className="text-[1.4rem]"
+        />
+      ),
+    },
+
+    // ===================================================
+    // SUPER DISTRIBUTOR
+    // ===================================================
+
+    "super distributer": {
+      role: 3,
+      label: "Super Distributor",
+      icon: (
+        <RiBuilding2Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      ),
+    },
+
+    "super distributor": {
+      role: 3,
+      label: "Super Distributor",
+      icon: (
+        <RiBuilding2Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      ),
+    },
+
+    // ===================================================
+    // DISTRIBUTOR
+    // ===================================================
+
+    distributor: {
+      role: 4,
+      label: "Distributor",
+      icon: (
+        <RiStore2Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      ),
+    },
+
+    // ===================================================
+    // FOS
+    // ===================================================
+
+    fos: {
+      role: 5,
+      label: "FOS",
+      icon: (
+        <RiUserLocationLine
+          size={18}
+          className="text-[1.4rem]"
+        />
+      ),
+    },
+
+    // ===================================================
+    // RETAILER
+    // ===================================================
+
+    retailer: {
+      role: 6,
+      label: "Retailer",
+      icon: (
+        <RiStore2Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      ),
+    },
+
+    // ===================================================
+    // SUB RETAILER
+    // ===================================================
+
+    "sub retailer": {
+      role: 7,
+      label: "Sub Retailer",
+      icon: (
+        <RiUser3Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      ),
+    },
+
+    // ===================================================
+    // EMPLOYEE
+    // ===================================================
+
+    employee: {
+      role: 8,
+      label: "Employee",
+      icon: (
+        <RiUser3Line
+          size={18}
+          className="text-[1.4rem]"
+        />
+      ),
+    },
+
+    // ===================================================
+    // STAFF
+    // ===================================================
+
+    staff: {
+      role: 9,
+      label: "Staff",
+      icon: (
+        <RiShieldUserLine
+          size={18}
+          className="text-[1.4rem]"
+        />
+      ),
+    },
   };
 
+  // =====================================================
+  // ROLE HIERARCHY
+  //
+  // CURRENT ROLE KE NICHE WALE ROLES HI ACCESSIBLE HAIN
+  //
+  // 0 = MASTER ADMIN
+  // 1 = ADMIN
+  // 2 = CNF
+  // 3 = SUPER DISTRIBUTOR
+  // 4 = DISTRIBUTOR
+  // 5 = FOS
+  // 6 = RETAILER
+  // 7 = SUB RETAILER
+  // 8 = EMPLOYEE
+  // 9 = STAFF
+  // =====================================================
+
+  const allowedRolesByRole = {
+    // Master Admin
+    0: [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+    ],
+
+    // Admin
+    1: [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+    ],
+
+    // CNF
+    2: [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+    ],
+
+    // Super Distributor
+    3: [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+    ],
+
+    // Distributor
+    4: [
+      5,
+      6,
+      7,
+      8,
+      9,
+    ],
+
+    // FOS
+    5: [
+      6,
+      7,
+      8,
+      9,
+    ],
+
+    // Retailer
+    6: [
+      7,
+      8,
+      9,
+    ],
+
+    // Sub Retailer
+    7: [
+      8,
+      9,
+    ],
+
+    // Employee
+    8: [
+      9,
+    ],
+
+    // Staff
+    9: [],
+  };
 
   // =====================================================
   // ROLE LINK COMPONENT
@@ -584,9 +549,7 @@ export default function Sidebar({
     label,
     icon,
   }) => {
-
     return (
-
       <Link
         href={`/dashboard?role=${role}`}
         className={`
@@ -604,256 +567,234 @@ export default function Sidebar({
           }
         `}
       >
-
         {icon}
 
         <span>
           {label}
         </span>
-
       </Link>
-
     );
-
   };
-
 
   // =====================================================
   // RENDER API MODULE LINKS
   // =====================================================
 
   const renderModuleLinks = () => {
+    const currentRole =
+      Number(roleId);
 
-    return modules
+    const allowedRoles =
+      allowedRolesByRole[
+        currentRole
+      ] || [];
 
-      // =================================================
-      // ONLY ACTIVE MODULES
-      //
-      // status = 1 => SHOW
-      // status = 0 => HIDE
-      // =================================================
+    return (
+      modules
 
-      .filter(
-        (moduleItem) => {
+        // =================================================
+        // ONLY ACTIVE MODULES
+        // =================================================
 
-          // ---------------------------------------------
-          // OLD STRING FORMAT
-          // ---------------------------------------------
-
+        .filter((moduleItem) => {
+          // Old string format
           if (
             typeof moduleItem === "string"
           ) {
-
             return true;
-
           }
 
-
-          // ---------------------------------------------
-          // OBJECT FORMAT
-          // ---------------------------------------------
-
+          // Object format
           return (
             Number(
               moduleItem?.status ?? 1
             ) === 1
           );
+        })
 
-        }
-      )
+        // =================================================
+        // MAP MODULES
+        // =================================================
 
+        .map(
+          (moduleItem, index) => {
+            // =================================================
+            // MODULE NAME
+            // =================================================
 
-      // =================================================
-      // MAP MODULES
-      // =================================================
+            const moduleName =
+              typeof moduleItem === "string"
+                ? moduleItem
+                : moduleItem?.name || "";
 
-      .map(
-        (moduleItem, index) => {
-
-
-          // =================================================
-          // MODULE NAME
-          // =================================================
-
-          const moduleName =
-            typeof moduleItem === "string"
-              ? moduleItem
-              : moduleItem?.name || "";
-
-
-          // =================================================
-          // MODULE ICON
-          // =================================================
-
-          const moduleIcon =
-            typeof moduleItem === "object"
-              ? moduleItem?.icon
-              : null;
-
-
-          // =================================================
-          // MODULE KEY
-          // =================================================
-
-          const key =
-            String(moduleName)
-              .trim()
-              .toLowerCase();
-
-
-          // =================================================
-          // ROLE MODULE
-          // =================================================
-
-          const module =
-            roleMap[key];
-
-
-          // =================================================
-          // ROLE MODULE FOUND
-          // =================================================
-
-          if (module) {
-
-            // ---------------------------------------------
-            // API ICON
-            // ---------------------------------------------
-
-            let apiIcon = null;
-
-
-            if (moduleIcon) {
-
-              apiIcon = (
-
-                <img
-                  src={getIconUrl(moduleIcon)}
-                  alt={
-                    module.label ||
-                    moduleName ||
-                    "Module icon"
-                  }
-                  className="
-                    w-5
-                    h-5
-                    object-contain
-                    flex-shrink-0
-                    brightness-0
-                    invert
-                  "
-                />
-
-              );
-
+            if (!moduleName) {
+              return null;
             }
 
+            // =================================================
+            // MODULE ICON
+            // =================================================
 
-            // ---------------------------------------------
-            // FALLBACK ICON
-            // ---------------------------------------------
+            const moduleIcon =
+              typeof moduleItem === "object"
+                ? moduleItem?.icon
+                : null;
 
-            const finalIcon =
-              apiIcon ||
-              module.icon;
+            // =================================================
+            // MODULE KEY
+            // =================================================
 
+            const key =
+              String(moduleName)
+                .trim()
+                .toLowerCase();
 
-            // ---------------------------------------------
-            // ROLE LINK
-            // ---------------------------------------------
+            // =================================================
+            // ROLE MODULE
+            // =================================================
+
+            const module =
+              roleMap[key];
+
+            // =================================================
+            // ROLE MODULE FOUND
+            // =================================================
+
+            if (module) {
+              // ===============================================
+              // CURRENT ROLE SE UPPER ROLE HIDE
+              // ===============================================
+
+              if (
+                !allowedRoles.includes(
+                  Number(module.role)
+                )
+              ) {
+                return null;
+              }
+
+              // ===============================================
+              // API ICON
+              // ===============================================
+
+              let apiIcon = null;
+
+              if (moduleIcon) {
+                apiIcon = (
+                  <img
+                    src={getIconUrl(
+                      moduleIcon
+                    )}
+                    alt={
+                      module.label ||
+                      moduleName ||
+                      "Module icon"
+                    }
+                    className="
+                      w-5
+                      h-5
+                      object-contain
+                      flex-shrink-0
+                      brightness-0
+                      invert
+                    "
+                  />
+                );
+              }
+
+              // ===============================================
+              // FALLBACK ICON
+              // ===============================================
+
+              const finalIcon =
+                apiIcon ||
+                module.icon;
+
+              // ===============================================
+              // ROLE LINK
+              // ===============================================
+
+              return (
+                <RoleLink
+                  key={`${key}-${index}`}
+                  role={module.role}
+                  label={module.label}
+                  icon={finalIcon}
+                />
+              );
+            }
+
+            // =================================================
+            // CUSTOM MODULE
+            // =================================================
 
             return (
-
-              <RoleLink
+              <Link
                 key={`${key}-${index}`}
-                role={module.role}
-                label={module.label}
-                icon={finalIcon}
-              />
+                href={`/dashboard?module=${encodeURIComponent(
+                  moduleName
+                )}`}
+                className="
+                  flex
+                  items-center
+                  gap-3
+                  p-3
+                  rounded
+                  transition-all
+                  font-semibold
+                  hover:bg-gray-700
+                "
+              >
+                {/* API MODULE ICON */}
 
+                {moduleIcon ? (
+                  <img
+                    src={getIconUrl(
+                      moduleIcon
+                    )}
+                    alt={
+                      moduleName ||
+                      "Module icon"
+                    }
+                    className="
+                      w-5
+                      h-5
+                      object-contain
+                      flex-shrink-0
+                      brightness-0
+                      invert
+                    "
+                  />
+                ) : (
+                  <RiBuilding2Line
+                    size={18}
+                    className="text-white"
+                  />
+                )}
+
+                {/* MODULE NAME */}
+
+                <span>
+                  {moduleName}
+                </span>
+              </Link>
             );
-
           }
+        )
 
+        // =================================================
+        // REMOVE NULL
+        // =================================================
 
-          // =================================================
-          // CUSTOM MODULE
-          // =================================================
-
-          return (
-
-            <Link
-              key={`${key}-${index}`}
-              href={`/dashboard?module=${encodeURIComponent(
-                moduleName
-              )}`}
-              className="
-                flex
-                items-center
-                gap-3
-                p-3
-                rounded
-                transition-all
-                font-semibold
-                hover:bg-gray-700
-              "
-            >
-
-              {/* =========================================
-                  API MODULE ICON
-              ========================================= */}
-
-              {moduleIcon ? (
-
-                <img
-                  src={getIconUrl(moduleIcon)}
-                  alt={
-                    moduleName ||
-                    "Module icon"
-                  }
-                  className="
-                    w-5
-                    h-5
-                    object-contain
-                    flex-shrink-0
-                    brightness-0
-                    invert
-                  "
-                />
-
-              ) : (
-
-                <RiBuilding2Line
-                  size={18}
-                  className="text-white"
-                />
-
-              )}
-
-
-              {/* =========================================
-                  MODULE NAME
-              ========================================= */}
-
-              <span>
-                {moduleName}
-              </span>
-
-            </Link>
-
-          );
-
-        }
-      );
-
+        .filter(Boolean)
+    );
   };
-
 
   // =====================================================
   // SIDEBAR
   // =====================================================
 
   return (
-
     <aside
       className={`
         fixed
@@ -876,7 +817,6 @@ export default function Sidebar({
         }
       `}
     >
-
       {/* =================================================
           HEADER
       ================================================= */}
@@ -900,7 +840,6 @@ export default function Sidebar({
         Dashboard
       </h2>
 
-
       {/* =================================================
           SCROLLABLE CONTENT
       ================================================= */}
@@ -915,7 +854,6 @@ export default function Sidebar({
           scrollbar-hide
         "
       >
-
         {/* =================================================
             DASHBOARD
         ================================================= */}
@@ -938,28 +876,21 @@ export default function Sidebar({
             }
           `}
         >
-
           <RiDashboardLine
             size={18}
             className="text-[1.4rem]"
           />
 
           Dashboard
-
         </Link>
-
 
         {/* =================================================
             MASTER ADMIN - ROLE 0
         ================================================= */}
 
         {Number(roleId) === 0 && (
-
           <>
-
-            {/* =============================================
-                ADMIN
-            ============================================= */}
+            {/* ADMIN */}
 
             <RoleLink
               role={1}
@@ -972,10 +903,7 @@ export default function Sidebar({
               }
             />
 
-
-            {/* =============================================
-                MODULE
-            ============================================= */}
+            {/* MODULE */}
 
             <Link
               href="/dashboard/modules"
@@ -988,26 +916,22 @@ export default function Sidebar({
                 transition-all
                 font-semibold
                 ${
-                  pathname === "/dashboard/modules"
+                  pathname ===
+                  "/dashboard/modules"
                     ? "bg-blue-400 text-black"
                     : "hover:bg-gray-700"
                 }
               `}
             >
-
               <RiBuilding2Line
                 size={18}
                 className="text-[1.4rem]"
               />
 
               Module
-
             </Link>
 
-
-            {/* =============================================
-                SUB MODULE
-            ============================================= */}
+            {/* SUB MODULE */}
 
             <Link
               href="/dashboard/sub-modules"
@@ -1020,263 +944,64 @@ export default function Sidebar({
                 transition-all
                 font-semibold
                 ${
-                  pathname === "/dashboard/sub-modules"
+                  pathname ===
+                  "/dashboard/sub-modules"
                     ? "bg-blue-400 text-black"
                     : "hover:bg-gray-700"
                 }
               `}
             >
-
               <RiStore2Line
                 size={18}
                 className="text-[1.4rem]"
               />
 
               Sub Module
-
             </Link>
-
           </>
-
         )}
 
-
         {/* =================================================
-            ADMIN - ROLE 1
+            ADMIN TO EMPLOYEE
+            API MODULES
         ================================================= */}
 
-        {Number(roleId) === 1 && (
+        {Number(roleId) >= 1 &&
+          Number(roleId) <= 8 && (
+            <>
+              {renderModuleLinks()}
 
-          <>
+              {/* ===========================================
+                  STAFF
+                  
+                  IMPORTANT:
+                  STAFF ONLY ADMIN KO SHOW HOGA
+              =========================================== */}
 
-            {/* API MODULES
-                Employee bhi yahin se aayega
-            */}
-
-            {renderModuleLinks()}
-
-
-            {/* =============================================
-                STATIC STAFF
-            ============================================= */}
-
-            <RoleLink
-              role={9}
-              label="Staff"
-              icon={
-                <RiShieldUserLine
-                  size={18}
-                  className="text-[1.4rem]"
+              {Number(roleId) === 1 && (
+                <RoleLink
+                  role={9}
+                  label="Staff"
+                  icon={
+                    <RiShieldUserLine
+                      size={18}
+                      className="text-[1.4rem]"
+                    />
+                  }
                 />
-              }
-            />
-
-          </>
-
-        )}
-
-
-        {/* =================================================
-            CNF - ROLE 2
-        ================================================= */}
-
-        {Number(roleId) === 2 && (
-
-          <>
-
-            {/* API MODULES */}
-
-            {renderModuleLinks()}
-
-
-            {/* STATIC STAFF */}
-
-            <RoleLink
-              role={9}
-              label="Staff"
-              icon={
-                <RiShieldUserLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
-
-
-        {/* =================================================
-            SUPER DISTRIBUTOR - ROLE 3
-        ================================================= */}
-
-        {Number(roleId) === 3 && (
-
-          <>
-
-            {renderModuleLinks()}
-
-
-            {/* STATIC STAFF */}
-
-            <RoleLink
-              role={9}
-              label="Staff"
-              icon={
-                <RiShieldUserLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
-
-
-        {/* =================================================
-            DISTRIBUTOR - ROLE 4
-        ================================================= */}
-
-        {Number(roleId) === 4 && (
-
-          <>
-
-            {renderModuleLinks()}
-
-
-            {/* STATIC STAFF */}
-
-            <RoleLink
-              role={9}
-              label="Staff"
-              icon={
-                <RiShieldUserLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
-
-
-        {/* =================================================
-            FOS - ROLE 5
-        ================================================= */}
-
-        {Number(roleId) === 5 && (
-
-          <>
-
-            {renderModuleLinks()}
-
-
-            {/* STATIC STAFF */}
-
-            <RoleLink
-              role={9}
-              label="Staff"
-              icon={
-                <RiShieldUserLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
-
-
-        {/* =================================================
-            RETAILER - ROLE 6
-        ================================================= */}
-
-        {Number(roleId) === 6 && (
-
-          <>
-
-            {renderModuleLinks()}
-
-
-            {/* STATIC STAFF */}
-
-            <RoleLink
-              role={9}
-              label="Staff"
-              icon={
-                <RiShieldUserLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
-
-
-        {/* =================================================
-            SUB RETAILER - ROLE 7
-        ================================================= */}
-
-        {Number(roleId) === 7 && (
-
-          <>
-
-            {renderModuleLinks()}
-
-
-            {/* STATIC STAFF */}
-
-            <RoleLink
-              role={9}
-              label="Staff"
-              icon={
-                <RiShieldUserLine
-                  size={18}
-                  className="text-[1.4rem]"
-                />
-              }
-            />
-
-          </>
-
-        )}
-
-
-        {/* =================================================
-            EMPLOYEE - ROLE 8
-        =================================================
-
-            Employee ka koi static RoleLink nahi hai.
-
-            Employee API ke modules se aayega.
-
-        ================================================= */}
-
+              )}
+            </>
+          )}
 
         {/* =================================================
             STAFF - ROLE 9
         ================================================= */}
 
         {Number(roleId) === 9 && (
-
           <>
-
             {renderModuleLinks()}
-
           </>
-
         )}
-
 
         {/* =================================================
             MY LOGIN
@@ -1303,15 +1028,12 @@ export default function Sidebar({
             mt-4
           "
         >
-
           <RiLoginBoxLine
             size={20}
           />
 
           My Login
-
         </button>
-
 
         {/* =================================================
             LOGOUT
@@ -1337,19 +1059,13 @@ export default function Sidebar({
             font-semibold
           "
         >
-
           <RiLogoutBoxLine
             size={20}
           />
 
           Logout
-
         </button>
-
       </div>
-
     </aside>
-
   );
-
 }
