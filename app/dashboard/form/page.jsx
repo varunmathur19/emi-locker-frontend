@@ -1194,6 +1194,30 @@ useEffect(() => {
       parentSearch[roleId] || ""
     ).trim();
 
+    const isPreviousRoleDisabled =
+  (() => {
+
+    const parents =
+      parentRoles[selectedRole] || [];
+
+    const currentIndex =
+      parents.indexOf(roleId);
+
+    if (currentIndex <= 0) {
+      return false;
+    }
+
+    return parents
+      .slice(0, currentIndex)
+      .some(
+        (role) =>
+          disabledParentRoles[
+            Number(role)
+          ] === true
+      );
+
+  })();
+
   const parents =
     parentRoles[selectedRole] || [];
 
@@ -1204,49 +1228,58 @@ useEffect(() => {
   // FIND PARENT ID
   // ===================================================
 
-  let parentId = null;
+let parentId = null;
 
-  if (currentIndex > 0) {
+if (currentIndex > 0) {
 
-    for (
-      let i = currentIndex - 1;
-      i >= 0;
-      i--
+  for (
+    let i = currentIndex - 1;
+    i >= 0;
+    i--
+  ) {
+
+    const previousRole =
+      Number(parents[i]);
+
+    // =============================================
+    // IMPORTANT
+    //
+    // Agar previous role disabled hai,
+    // toh uske upar ka parent use MAT karo.
+    //
+    // Next dropdown ko GLOBAL data chahiye.
+    // =============================================
+
+    if (
+      disabledParentRoles[previousRole] === true
     ) {
 
-      const previousRole =
-        Number(parents[i]);
+      parentId = null;
 
-      // Disabled parent skip
-      if (
-        disabledParentRoles[
-          previousRole
-        ] === true
-      ) {
-        continue;
-      }
+      break;
 
-      const previousField =
-        roleParentField[
-          previousRole
-        ];
+    }
 
-      if (
-        previousField &&
-        formData[previousField]
-      ) {
+    const previousField =
+      roleParentField[previousRole];
 
-        parentId =
-          Number(
-            formData[previousField]
-          );
+    if (
+      previousField &&
+      formData[previousField]
+    ) {
 
-        break;
-      }
+      parentId =
+        Number(
+          formData[previousField]
+        );
+
+      break;
 
     }
 
   }
+
+}
 
   // ===================================================
   // DEBOUNCE
@@ -2431,14 +2464,38 @@ const handleParentCheckbox = async (
     Number(roleId);
 
   // ===================================================
+  // CURRENT PARENT ROLES
+  // ===================================================
+
+  const parents =
+    parentRoles[selectedRole] || [];
+
+  const disabledIndex =
+    parents.indexOf(disabledRole);
+
+  if (disabledIndex === -1) {
+    return;
+  }
+
+  // ===================================================
+  // IMPORTANT
+  //
+  // Local state immediately calculate karo.
+  // React setState async hota hai.
+  // ===================================================
+
+  const updatedDisabledRoles = {
+    ...disabledParentRoles,
+    [disabledRole]: checked,
+  };
+
+  // ===================================================
   // SAVE DISABLED STATE
   // ===================================================
 
-  setDisabledParentRoles((prev) => ({
-    ...prev,
-    [disabledRole]: checked,
-  }));
-
+  setDisabledParentRoles(
+    updatedDisabledRoles
+  );
 
   // ===================================================
   // DISABLED ROLE FIELD CLEAR
@@ -2447,7 +2504,7 @@ const handleParentCheckbox = async (
   const disabledField =
     roleParentField[disabledRole];
 
-  if (disabledField) {
+  if (checked && disabledField) {
 
     setFormData((prev) => ({
       ...prev,
@@ -2456,23 +2513,43 @@ const handleParentCheckbox = async (
 
   }
 
+  // ===================================================
+  // NEXT ENABLED ROLE FIND KARO
+  // ===================================================
+
+  let nextIndex =
+    disabledIndex + 1;
+
+  while (
+    nextIndex < parents.length &&
+    updatedDisabledRoles[
+      Number(parents[nextIndex])
+    ] === true
+  ) {
+
+    nextIndex++;
+
+  }
+
+  const nextRole =
+    parents[nextIndex];
 
   // ===================================================
-  // CURRENT CREATE ROLE KE PARENT ROLES
+  // NO NEXT ROLE
   // ===================================================
 
-  const parents =
-    parentRoles[selectedRole] || [];
+  if (!nextRole) {
 
+    setParentUsers((prev) => ({
+      ...prev,
+      [disabledRole]: [],
+    }));
 
-  const disabledIndex =
-    parents.indexOf(disabledRole);
-
-
-  if (disabledIndex === -1) {
     return;
   }
 
+  const nextRoleId =
+    Number(nextRole);
 
   // ===================================================
   // DISABLE
@@ -2480,55 +2557,10 @@ const handleParentCheckbox = async (
 
   if (checked) {
 
-    // -------------------------------------------------
-    // NEXT ROLE FIND KARO
-    // -------------------------------------------------
-
-    let nextIndex =
-      disabledIndex + 1;
-
-
-    // -------------------------------------------------
-    // Agar next role bhi disabled hai
-    // toh usko skip karo
-    // -------------------------------------------------
-
-    while (
-      nextIndex < parents.length &&
-      disabledParentRoles[
-        Number(parents[nextIndex])
-      ] === true
-    ) {
-
-      nextIndex++;
-
-    }
-
-
-    const nextRole =
-      parents[nextIndex];
-
-
-    if (!nextRole) {
-
-      // Koi next role nahi hai
-      setParentUsers((prev) => ({
-        ...prev,
-        [disabledRole]: [],
-      }));
-
-      return;
-
-    }
-
-
-    const nextRoleId =
-      Number(nextRole);
-
-
-    // =================================================
-    // CLEAR NEXT DROPDOWN
-    // =================================================
+    // -----------------------------------------------
+    // Current disabled dropdown clear
+    // Next dropdown bhi fresh karo
+    // -----------------------------------------------
 
     setParentUsers((prev) => ({
       ...prev,
@@ -2536,124 +2568,112 @@ const handleParentCheckbox = async (
       [nextRoleId]: [],
     }));
 
-
-    // =================================================
-    // IMPORTANT
-    //
-    // Disabled parent ke baad next role ko
-    // GLOBAL DATA chahiye.
-    //
-    // Example:
-    //
-    // CNF disabled
-    // next = Super Distributor
-    //
-    // API:
-    //
-    // getDropdownUsers(3, null)
-    //
-    // Backend:
-    //
-    // WHERE role_id = 3
-    //
-    // =================================================
-
     try {
+
+      console.log(
+        "CHECKBOX DISABLED"
+      );
+
+      console.log(
+        "Disabled Role:",
+        disabledRole
+      );
+
+      console.log(
+        "Next Role:",
+        nextRoleId
+      );
+
+      console.log(
+        "API:",
+        `getDropdownUsers(${nextRoleId}, null)`
+      );
+
+      // =============================================
+      // IMPORTANT
+      //
+      // Disabled parent ke baad NEXT ROLE
+      // GLOBAL DATA se load hoga.
+      // =============================================
 
       const response =
         await getDropdownUsers(
           nextRoleId,
-          null
+          null,
+          ""
         );
-
 
       const users =
         getUsersFromResponse(
           response
         );
 
-
       console.log(
-        "================================="
-      );
-
-      console.log(
-        "DISABLED ROLE:",
-        disabledRole
-      );
-
-      console.log(
-        "NEXT ROLE:",
-        nextRoleId
-      );
-
-      console.log(
-        "GLOBAL USERS:",
+        "NEXT ROLE GLOBAL USERS:",
         users
       );
 
-
-      // =================================================
-      // SAVE GLOBAL USERS
-      // =================================================
+      // =============================================
+      // SAVE NEXT ROLE DATA
+      // =============================================
 
       setParentUsers((prev) => ({
         ...prev,
         [nextRoleId]: users,
       }));
 
+      // =============================================
+      // NEXT KE BAAD SAB CLEAR
+      // =============================================
 
-      // =================================================
-      // CLEAR NEXT KE BAAD KE DROPDOWNS
-      // =================================================
+      setParentUsers((prev) => {
 
-      const nextRoleIndex =
-        parents.indexOf(nextRoleId);
+        const updated = {
+          ...prev,
+        };
 
+        parents
+          .slice(nextIndex + 1)
+          .forEach((role) => {
 
-      if (
-        nextRoleIndex !== -1
-      ) {
+            updated[
+              Number(role)
+            ] = [];
 
-        setParentUsers((prev) => {
+          });
 
-          const updated = {
-            ...prev,
-          };
+        return updated;
 
+      });
 
-          parents
-            .slice(nextRoleIndex + 1)
-            .forEach((role) => {
+      // =============================================
+      // OPEN NEXT DROPDOWN AUTOMATICALLY
+      //
+      // Agar checkbox click karte hi next dropdown
+      // open karwana hai toh ye rakho.
+      // =============================================
 
-              updated[
-                Number(role)
-              ] = [];
+     setOpenDropdown(null);
 
-            });
-
-
-          return updated;
-
-        });
-
-      }
-
+setParentSearch(
+  (prev) => ({
+    ...prev,
+    [nextRoleId]: "",
+  })
+);
 
     } catch (error) {
 
       console.error(
-        "GLOBAL NEXT ROLE ERROR:",
+        "NEXT ROLE GLOBAL ERROR:",
         error?.response?.data ||
         error
       );
-
 
       setParentUsers((prev) => ({
         ...prev,
         [nextRoleId]: [],
       }));
-
 
       toast.error(
         `${getRoleName(nextRoleId)} dropdown load failed`
@@ -2661,52 +2681,31 @@ const handleParentCheckbox = async (
 
     }
 
-
     return;
-
   }
-
 
   // ===================================================
   // ENABLE
-  //
-  // Checkbox uncheck hone par disabled state remove
-  // karo aur normal hierarchy dobara load karne do.
   // ===================================================
 
   if (!checked) {
 
-    // -------------------------------------------------
-    // Next role find karo
-    // -------------------------------------------------
-
-    const nextRole =
-      parents[
-        disabledIndex + 1
-      ];
-
-
-    if (!nextRole) {
-      return;
-    }
-
-
-    const nextRoleId =
-      Number(nextRole);
-
-
-    // -------------------------------------------------
-    // Next dropdown clear
-    // -------------------------------------------------
+    // -----------------------------------------------
+    // Enable hone par next dropdown clear
+    // -----------------------------------------------
 
     setParentUsers((prev) => ({
       ...prev,
       [nextRoleId]: [],
     }));
 
+    // -----------------------------------------------
+    // Dropdown automatically open nahi karna
+    // -----------------------------------------------
+
+    setOpenDropdown(null);
 
     return;
-
   }
 
 };
