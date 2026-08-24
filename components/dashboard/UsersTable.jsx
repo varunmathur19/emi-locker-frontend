@@ -606,11 +606,17 @@ const handleStatusToggle = async (user) => {
 
                           <button
                             type="button"
+                            // onClick={() =>
+                            //   router.push(
+                            //     `/dashboard/edit-staff/${user.id}`
+                            //   )
+                            // }
+
                             onClick={() =>
-                              router.push(
-                                `/dashboard/edit-staff/${user.id}`
-                              )
-                            }
+  router.push(
+    `/dashboard/edit-staff/${user.id}?role=${user.role_id}`
+  )
+}
                             className="
                               inline-flex
                               items-center
