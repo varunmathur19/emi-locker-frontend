@@ -15,6 +15,7 @@ import { toast } from "react-toastify";
 
 import {
   loginAsUser,
+  updateUserStatus
 } from "@/services/api";
 
 import {
@@ -34,6 +35,8 @@ export default function UsersTable({
   const [search, setSearch] = useState("");
 
   const [loginLoading, setLoginLoading] = useState(null);
+  const [statusLoading, setStatusLoading] =
+  useState(null);
 
   const router = useRouter();
 
@@ -166,6 +169,86 @@ const handleLoginAsUser = async (user) => {
     setLoginLoading(null);
 
   }
+};
+
+// ==========================================
+// UPDATE USER STATUS
+// ==========================================
+
+const handleStatusToggle = async (user) => {
+
+  try {
+
+    setStatusLoading(user.id);
+
+    const currentStatus =
+      Number(user.userStatus ?? 1);
+
+    const newStatus =
+      currentStatus === 1
+        ? 0
+        : 1;
+
+    const response =
+      await updateUserStatus(
+        user.id,
+        newStatus
+      );
+
+    console.log(
+      "STATUS RESPONSE:",
+      response
+    );
+
+    if (!response?.success) {
+
+      toast.error(
+        response?.message ||
+        "Failed to update user status"
+      );
+
+      return;
+    }
+
+    // Update local user status
+    user.userStatus = newStatus;
+
+    // ==========================================
+    // ACTIVE / INACTIVE TOAST
+    // ==========================================
+
+    if (newStatus === 1) {
+
+      toast.success(
+        "User activated successfully"
+      );
+
+    } else {
+
+      toast.error(
+        "User deactivated successfully"
+      );
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "USER STATUS ERROR:",
+      error
+    );
+
+    toast.error(
+      error?.response?.data?.message ||
+      "Failed to update user status"
+    );
+
+  } finally {
+
+    setStatusLoading(null);
+
+  }
+
 };
 
   return (
@@ -523,11 +606,17 @@ const handleLoginAsUser = async (user) => {
 
                           <button
                             type="button"
+                            // onClick={() =>
+                            //   router.push(
+                            //     `/dashboard/edit-staff/${user.id}`
+                            //   )
+                            // }
+
                             onClick={() =>
-                              router.push(
-                                `/dashboard/edit-staff/${user.id}`
-                              )
-                            }
+  router.push(
+    `/dashboard/edit-staff/${user.id}?role=${user.role_id}`
+  )
+}
                             className="
                               inline-flex
                               items-center
@@ -578,9 +667,91 @@ const handleLoginAsUser = async (user) => {
 
                       <td className="p-3 py-1">
 
-                        <span className="text-green-600 font-semibold">
-                          Active
-                        </span>
+                       {/* =================================
+    STATUS
+================================= */}
+
+<td className="p-3 py-1">
+
+  <div className="flex items-center gap-3">
+
+    {/* TOGGLE */}
+
+    <button
+      type="button"
+      disabled={statusLoading === user.id}
+      onClick={() =>
+        handleStatusToggle(user)
+      }
+      className={`
+        relative
+        inline-flex
+        h-6
+        w-11
+        items-center
+        rounded-full
+        transition
+        duration-200
+        cursor-pointer
+        disabled:opacity-50
+        disabled:cursor-not-allowed
+
+        ${
+          Number(user.userStatus ?? 1) === 1
+            ? "bg-green-500"
+            : "bg-gray-400"
+        }
+      `}
+      title={
+        Number(user.userStatus ?? 1) === 1
+          ? "Deactivate User"
+          : "Activate User"
+      }
+    >
+
+      <span
+        className={`
+          inline-block
+          h-5
+          w-5
+          transform
+          rounded-full
+          bg-white
+          shadow
+          transition
+          duration-200
+
+          ${
+            Number(user.userStatus ?? 1) === 1
+              ? "translate-x-5"
+              : "translate-x-1"
+          }
+        `}
+      />
+
+    </button>
+
+
+    {/* STATUS TEXT */}
+
+    <span
+      className={`
+        font-semibold
+        text-sm
+
+        ${
+          Number(user.userStatus ?? 1) === 1
+            ? "text-green-600"
+            : "text-red-500"
+        }
+      `}
+    >
+      
+    </span>
+
+  </div>
+
+</td>
 
                       </td>
 

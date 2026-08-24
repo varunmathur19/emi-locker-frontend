@@ -58,18 +58,31 @@ export const addStaff = async (data) => {
 
 export const getDropdownUsers = async (
   role_id,
-  parent_id = null
+  parent_id = null,
+  search = ""
 ) => {
 
-  const params =
-    new URLSearchParams();
+  const params = new URLSearchParams();
+
+  // =====================================================
+  // ROLE ID
+  // =====================================================
 
   params.append(
     "role_id",
     role_id
   );
 
-  if (parent_id) {
+
+  // =====================================================
+  // PARENT ID
+  // =====================================================
+
+  if (
+    parent_id !== null &&
+    parent_id !== undefined &&
+    parent_id !== ""
+  ) {
 
     params.append(
       "parent_id",
@@ -78,12 +91,36 @@ export const getDropdownUsers = async (
 
   }
 
+
+  // =====================================================
+  // SEARCH
+  // =====================================================
+
+  if (
+    search &&
+    search.trim()
+  ) {
+
+    params.append(
+      "search",
+      search.trim()
+    );
+
+  }
+
+
+  // =====================================================
+  // API CALL
+  // =====================================================
+
   const response =
     await api.get(
       `/hierarchy-dropdown?${params.toString()}`
     );
 
+
   return response.data;
+
 };
 
 
@@ -135,16 +172,21 @@ export const updateStaffData = async (
 // GET STAFF DATA BY ID
 // =====================================================
 
-export const getStaffDataById = async (
-  id
-) => {
+export const getStaffDataById = async (id) => {
+  try {
+    const response = await api.get(`/staff-data/${id}`);
 
-  const response =
-    await api.get(
-      `/staff-data/${id}`
+    console.log("GET STAFF API:", response.data);
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "GET STAFF DATA BY ID ERROR:",
+      error?.response?.data || error
     );
 
-  return response.data;
+    throw error;
+  }
 };
 
 
@@ -176,26 +218,108 @@ export const loginAsUser = async (
 // =====================================================
 
 export const addModule = async (
-  module,
-  icon
+   name,
+    sequence,
+    moduleIcon
 ) => {
 
   try {
 
     // ================================================
-    // VALIDATION
+    // MODULE VALIDATION
     // ================================================
 
-    if (!module) {
+    const moduleName =
+      String(name || "").trim();
+
+    if (!moduleName) {
+
       throw new Error(
         "Module name is required"
       );
+
     }
 
-    if (!(icon instanceof File)) {
+
+    // ================================================
+    // SEQUENCE VALIDATION
+    // ================================================
+
+    const moduleSequence =
+      Number(sequence);
+
+    if (
+      sequence === undefined ||
+      sequence === null ||
+      sequence === "" ||
+      !Number.isInteger(moduleSequence) ||
+      moduleSequence < 1
+    ) {
+
       throw new Error(
-        "Valid icon file is required"
+        "Valid sequence number is required"
       );
+
+    }
+
+
+    // ================================================
+    // ICON VALIDATION
+    // ================================================
+
+    if (
+      typeof File !== "undefined" &&
+      !(moduleIcon instanceof File)
+    ) {
+
+      throw new Error(
+        "Valid PNG icon file is required"
+      );
+
+    }
+
+
+    if (!moduleIcon) {
+
+      throw new Error(
+        "Valid PNG icon file is required"
+      );
+
+    }
+
+
+    // ================================================
+    // PNG ONLY
+    // ================================================
+
+    if (
+      moduleIcon.type !==
+      "image/png"
+    ) {
+
+      throw new Error(
+        "Only PNG images are allowed"
+      );
+
+    }
+
+
+    // ================================================
+    // MAX 20 KB
+    // ================================================
+
+    const maxSize =
+      20 * 1024;
+
+    if (
+      moduleIcon.size >
+      maxSize
+    ) {
+
+      throw new Error(
+        "PNG icon size must not exceed 20 KB"
+      );
+
     }
 
 
@@ -206,15 +330,35 @@ export const addModule = async (
     const formData =
       new FormData();
 
+
+    // ================================================
+    // MODULE NAME
+    // ================================================
+
     formData.append(
       "module",
-      module
+      moduleName
     );
+
+
+    // ================================================
+    // SEQUENCE
+    // ================================================
+
+    formData.append(
+      "sequence",
+      String(moduleSequence)
+    );
+
+
+    // ================================================
+    // ICON
+    // ================================================
 
     formData.append(
       "icon",
-      icon,
-      icon.name
+      moduleIcon,
+      moduleIcon.name
     );
 
 
@@ -228,31 +372,45 @@ export const addModule = async (
 
     console.log(
       "MODULE:",
-      module
+      moduleName
+    );
+
+    console.log(
+      "SEQUENCE:",
+      moduleSequence
     );
 
     console.log(
       "ICON:",
-      icon
+      moduleIcon
     );
 
     console.log(
       "ICON NAME:",
-      icon.name
+      moduleIcon.name
     );
 
     console.log(
       "ICON TYPE:",
-      icon.type
+      moduleIcon.type
     );
 
     console.log(
       "ICON SIZE:",
-      icon.size
+      moduleIcon.size,
+      "bytes"
     );
 
+
+    // ================================================
+    // DEBUG FORM DATA
+    // ================================================
+
     for (
-      const [key, value]
+      const [
+        key,
+        value
+      ]
       of formData.entries()
     ) {
 
@@ -271,7 +429,9 @@ export const addModule = async (
 
     const token =
       typeof window !== "undefined"
-        ? localStorage.getItem("token")
+        ? localStorage.getItem(
+            "token"
+          )
         : null;
 
 
@@ -285,15 +445,22 @@ export const addModule = async (
         formData,
         {
           headers: {
+
             Authorization:
               `Bearer ${token}`,
 
-            // IMPORTANT:
-            // Content-Type manually mat lagao
+            // Content-Type manually mat lagao.
+            // Axios/browser automatically
+            // multipart/form-data boundary set karega.
+
           },
         }
       );
 
+
+    // ================================================
+    // RESPONSE
+    // ================================================
 
     console.log(
       "ADD MODULE RESPONSE:",
@@ -303,8 +470,8 @@ export const addModule = async (
 
     return response.data;
 
-  }
-  catch (error) {
+
+  } catch (error) {
 
     console.error(
       "ADD MODULE ERROR:",
@@ -359,42 +526,41 @@ export const getModules = async () => {
 // =====================================================
 
 export const deleteModule = async (
-  moduleName
+  module
 ) => {
 
   try {
 
     console.log(
-      "DELETE MODULE NAME:",
-      moduleName
+      "DELETE MODULE API:",
+      module
     );
+
 
     const response =
       await api.delete(
         "/delete-module",
         {
           data: {
-            module: moduleName,
-          },
-
-          headers: {
-            "Content-Type":
-              "application/json",
+            module,
           },
         }
       );
 
+
     console.log(
-      "DELETE MODULE RESPONSE:",
+      "DELETE MODULE API RESPONSE:",
       response.data
     );
 
+
     return response.data;
 
-  } catch (error) {
+  }
+  catch (error) {
 
     console.error(
-      "DELETE MODULE ERROR:",
+      "DELETE MODULE API ERROR:",
       error?.response?.data ||
       error
     );
@@ -412,38 +578,125 @@ export const deleteModule = async (
 export const updateModule = async (
   oldModule,
   newModule,
-  icon
+  newSequence,
+  icon,
+  status
 ) => {
 
   try {
 
     const formData = new FormData();
 
+    // ============================================
+    // OLD MODULE
+    // ============================================
+
     formData.append(
       "oldModule",
-      oldModule
+      String(oldModule)
     );
 
-    formData.append(
-      "newModule",
-      newModule
-    );
+    // ============================================
+    // NEW MODULE
+    // ============================================
 
-    // IMPORTANT:
-    // Backend upload middleware expects "newIcon"
-    formData.append(
-      "newIcon",
-      icon
+    if (
+      newModule !== undefined &&
+      newModule !== null &&
+      String(newModule).trim() !== ""
+    ) {
+
+      formData.append(
+        "newModule",
+        String(newModule).trim()
+      );
+
+    }
+
+    // ============================================
+    // NEW SEQUENCE
+    // ============================================
+
+    if (
+      newSequence !== undefined &&
+      newSequence !== null &&
+      String(newSequence).trim() !== ""
+    ) {
+
+      formData.append(
+        "newSequence",
+        String(newSequence)
+      );
+
+    }
+
+    // ============================================
+    // STATUS
+    // ============================================
+
+    if (
+      status !== undefined &&
+      status !== null
+    ) {
+
+      formData.append(
+        "status",
+        String(status)
+      );
+
+    }
+
+    // ============================================
+    // NEW ICON
+    // ============================================
+
+    if (
+      icon instanceof File
+    ) {
+
+      formData.append(
+        "newIcon",
+        icon
+      );
+
+    }
+
+    // ============================================
+    // DEBUG
+    // ============================================
+
+    console.log(
+      "========== UPDATE MODULE API =========="
     );
 
     console.log(
-      "UPDATE MODULE FORM DATA:",
-      {
-        oldModule,
-        newModule,
-        icon,
-      }
+      "OLD MODULE:",
+      oldModule
     );
+
+    console.log(
+      "NEW MODULE:",
+      newModule
+    );
+
+    console.log(
+      "NEW SEQUENCE:",
+      newSequence
+    );
+
+    console.log(
+      "STATUS:",
+      status
+    );
+
+    console.log(
+      "NEW ICON:",
+      icon
+    );
+
+    // ============================================
+    // API CALL
+    // ============================================
 
     const response =
       await api.put(
@@ -458,10 +711,54 @@ export const updateModule = async (
 
     return response.data;
 
+  }
+  catch (error) {
+
+    console.error(
+      "========== UPDATE MODULE ERROR =========="
+    );
+
+    console.error(
+      error?.response?.data ||
+      error
+    );
+
+    throw error;
+
+  }
+
+};
+// =====================================================
+// UPDATE USER STATUS
+// =====================================================
+
+export const updateUserStatus = async (
+  user_id,
+  userStatus
+) => {
+
+  try {
+
+    const response =
+      await api.patch(
+        "/user-status",
+        {
+          user_id,
+          userStatus,
+        }
+      );
+
+    console.log(
+      "UPDATE USER STATUS RESPONSE:",
+      response.data
+    );
+
+    return response.data;
+
   } catch (error) {
 
     console.error(
-      "UPDATE MODULE ERROR:",
+      "UPDATE USER STATUS ERROR:",
       error?.response?.data ||
       error
     );
