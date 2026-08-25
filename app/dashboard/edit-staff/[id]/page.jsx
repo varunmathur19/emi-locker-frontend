@@ -258,46 +258,42 @@ export default function EditStaffPage() {
   // ===================================================
 
   const visibleParentRoles =
-    (() => {
-      const currentRole =
-        Number(formData.role_id);
+  (() => {
+    const currentRole =
+      Number(formData.role_id);
 
-      if (
-        !loggedInRoleId ||
-        !currentRole
-      ) {
-        return [];
-      }
+    if (
+      !loggedInRoleId ||
+      !currentRole
+    ) {
+      return [];
+    }
 
-      const loggedRole =
-        Number(loggedInRoleId);
+    const loggedRole =
+      Number(loggedInRoleId);
 
-      const requiredParents =
-        parentRoles[currentRole] || [];
+    const requiredParents =
+      parentRoles[currentRole] || [];
 
-      return requiredParents.filter(
-        (roleId) => {
+    return requiredParents.filter(
+      (roleId) => {
 
-          // Logged-in user khud parent nahi
-          if (
-            roleId === loggedRole
-          ) {
-            return false;
-          }
-
-          // Logged-in role se upar ke
-          // roles hide
-          if (
-            roleId < loggedRole
-          ) {
-            return false;
-          }
-
-          return true;
+        if (
+          roleId === loggedRole
+        ) {
+          return false;
         }
-      );
-    })();
 
+        if (
+          roleId < loggedRole
+        ) {
+          return false;
+        }
+
+        return true;
+      }
+    );
+  })();
 
   // ===================================================
   // COMMON INPUT CHANGE
@@ -1242,9 +1238,9 @@ export default function EditStaffPage() {
           <label className="text-sm font-medium text-slate-700">
             {getRoleName(role)}
 
-            <span className="text-red-500 ml-1">
+            {/* <span className="text-red-500 ml-1">
               *
-            </span>
+            </span> */}
           </label>
 
           {/* CUSTOM DROPDOWN */}
@@ -1564,9 +1560,9 @@ export default function EditStaffPage() {
 
               <label className="text-sm font-medium text-slate-700">
                 Organization Name{" "}
-                <span className="text-red-500">
+                {/* <span className="text-red-500">
                   *
-                </span>
+                </span> */}
               </label>
 
               <input
@@ -1592,9 +1588,9 @@ export default function EditStaffPage() {
 
               <label className="text-sm font-medium text-slate-700">
                 Full Name{" "}
-                <span className="text-red-500">
+                {/* <span className="text-red-500">
                   *
-                </span>
+                </span> */}
               </label>
 
               <input
@@ -1620,9 +1616,9 @@ export default function EditStaffPage() {
 
               <label className="text-sm font-medium text-slate-700">
                 Email Address{" "}
-                <span className="text-red-500">
+                {/* <span className="text-red-500">
                   *
-                </span>
+                </span> */}
               </label>
 
               <input
@@ -1648,9 +1644,9 @@ export default function EditStaffPage() {
 
               <label className="text-sm font-medium text-slate-700">
                 Phone Number{" "}
-                <span className="text-red-500">
+                {/* <span className="text-red-500">
                   *
-                </span>
+                </span> */}
               </label>
 
               <input
@@ -1685,9 +1681,9 @@ export default function EditStaffPage() {
 
               <label className="text-sm font-medium text-slate-700">
                 Company Address{" "}
-                <span className="text-red-500">
+                {/* <span className="text-red-500">
                   *
-                </span>
+                </span> */}
               </label>
 
               <input
@@ -1823,9 +1819,9 @@ export default function EditStaffPage() {
 
               <label className="text-sm font-medium text-slate-700">
                 Country{" "}
-                <span className="text-red-500">
+                {/* <span className="text-red-500">
                   *
-                </span>
+                </span> */}
               </label>
 
               <div className="relative">
@@ -1881,9 +1877,9 @@ export default function EditStaffPage() {
 
               <label className="text-sm font-medium text-slate-700">
                 State{" "}
-                <span className="text-red-500">
+                {/* <span className="text-red-500">
                   *
-                </span>
+                </span> */}
               </label>
 
               <div className="relative">
@@ -1942,9 +1938,9 @@ export default function EditStaffPage() {
 
               <label className="text-sm font-medium text-slate-700">
                 City{" "}
-                <span className="text-red-500">
+                {/* <span className="text-red-500">
                   *
-                </span>
+                </span> */}
               </label>
 
               <div className="relative">

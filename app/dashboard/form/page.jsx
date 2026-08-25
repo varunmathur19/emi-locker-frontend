@@ -2714,165 +2714,95 @@ setParentSearch(
   // GET PARENT ID FOR REGISTER
   // =====================================================
 
-  const getFinalParentId = (
-    roleId,
-    hierarchy,
-    tokenUser
-  ) => {
+ const getFinalParentId = (
+  roleId,
+  hierarchy,
+  tokenUser
+) => {
 
-    // ===================================================
-    // CNF
-    // CNF -> ADMIN
-    // ===================================================
+  // ===================================================
+  // ADMIN
+  // Master Admin -> Admin
+  // ===================================================
 
-    if (
-      roleId === 2
-    ) {
-
-      return (
-        hierarchy.parent_admin_id ||
-        null
-      );
-
-    }
-
-
-    // ===================================================
-    // SUPER DISTRIBUTOR
-    // SUPER -> CNF
-    // ===================================================
-
-    if (
-      roleId === 3
-    ) {
-
-      return (
-        hierarchy.parent_cnf_id ||
-        null
-      );
-
-    }
-
-
-    // ===================================================
-    // DISTRIBUTOR
-    // DISTRIBUTOR -> SUPER DISTRIBUTOR
-    // ===================================================
-
-    if (
-      roleId === 4
-    ) {
-
-      return (
-        hierarchy.parent_super_distributor_id ||
-        null
-      );
-
-    }
-
-
-    // ===================================================
-    // FOS
-    // FOS -> DISTRIBUTOR
-    // ===================================================
-
-    if (
-      roleId === 5
-    ) {
-
-      return (
-        hierarchy.parent_distributor_id ||
-        null
-      );
-
-    }
-
-
-    // ===================================================
-    // RETAILER
-    //
-    // Priority:
-    // FOS
-    // otherwise Distributor
-    // ===================================================
-
-    if (
-      roleId === 6
-    ) {
-
-      return (
-        hierarchy.parent_fos_id ||
-        hierarchy.parent_distributor_id ||
-        null
-      );
-
-    }
-
-
-    // ===================================================
-    // EMPLOYEE
-    // EMPLOYEE -> RETAILER
-    // ===================================================
-
- if (
-  roleId === 7
-) {
-  return (
-    hierarchy.parent_retailer_id ||
-    null
-  );
-}
-
-   // ===================================================
-// EMPLOYEE
-// EMPLOYEE -> RETAILER
-// ===================================================
-
-
-if (
-  roleId === 8
-) {
-  return (
-    hierarchy.parent_sub_retailer_id ||
-    hierarchy.parent_retailer_id ||
-    null
-  );
-}
-
-if (
-  roleId === 9
-) {
-  return (
-    hierarchy.parent_admin_id ||
-    null
-  );
-}
-
-
-    // ===================================================
-    // ADMIN
-    // ADMIN -> MASTER ADMIN
-    //
-    // Agar backend master admin ka parent_id use karta hai
-    // to yahan token user id jayega.
-    // ===================================================
-
-    if (
-      roleId === 1
-    ) {
-
-      return (
-        tokenUser?.id
-          ? Number(tokenUser.id)
-          : null
-      );
-
-    }
-
-
+  if (roleId === 1) {
     return null;
+  }
 
-  };
+  // ===================================================
+  // CNF -> ADMIN
+  // ===================================================
+
+  if (roleId === 2) {
+    return hierarchy.parent_admin_id || null;
+  }
+
+  // ===================================================
+  // SUPER DISTRIBUTOR -> CNF
+  // ===================================================
+
+  if (roleId === 3) {
+    return hierarchy.parent_cnf_id || null;
+  }
+
+  // ===================================================
+  // DISTRIBUTOR -> SUPER DISTRIBUTOR
+  // ===================================================
+
+  if (roleId === 4) {
+    return hierarchy.parent_super_distributor_id || null;
+  }
+
+  // ===================================================
+  // FOS -> DISTRIBUTOR
+  // ===================================================
+
+  if (roleId === 5) {
+    return hierarchy.parent_distributor_id || null;
+  }
+
+  // ===================================================
+  // RETAILER -> FOS / DISTRIBUTOR
+  // ===================================================
+
+  if (roleId === 6) {
+    return (
+      hierarchy.parent_fos_id ||
+      hierarchy.parent_distributor_id ||
+      null
+    );
+  }
+
+  // ===================================================
+  // SUB RETAILER -> RETAILER
+  // ===================================================
+
+  if (roleId === 7) {
+    return hierarchy.parent_retailer_id || null;
+  }
+
+  // ===================================================
+  // EMPLOYEE -> SUB RETAILER / RETAILER
+  // ===================================================
+
+  if (roleId === 8) {
+    return (
+      hierarchy.parent_sub_retailer_id ||
+      hierarchy.parent_retailer_id ||
+      null
+    );
+  }
+
+  // ===================================================
+  // STAFF -> ADMIN
+  // ===================================================
+
+  if (roleId === 9) {
+    return hierarchy.parent_admin_id || null;
+  }
+
+  return null;
+};
 
 
   // =====================================================
