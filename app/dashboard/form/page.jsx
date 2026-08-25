@@ -1305,68 +1305,186 @@ const isRoleActive = (roleId) => {
     setOpenDropdown(null);
   };
 
-  const getFinalParentId = (
-    roleId,
-    hierarchy
-  ) => {
-    if (roleId === 1) {
-      return null;
-    }
+ const getFinalParentId = (
+  roleId,
+  hierarchy,
+  disabledRoles
+) => {
+  const role = Number(roleId);
 
-    if (roleId === 2) {
-      return hierarchy.parent_admin_id || null;
-    }
+  // =====================================================
+  // ROLE 1 = ADMIN
+  // =====================================================
 
-    if (roleId === 3) {
-      return hierarchy.parent_cnf_id || null;
-    }
-
-    if (roleId === 4) {
-      return (
-        hierarchy.parent_super_distributor_id ||
-        null
-      );
-    }
-
-    if (roleId === 5) {
-      return (
-        hierarchy.parent_distributor_id ||
-        null
-      );
-    }
-
-    if (roleId === 6) {
-      return (
-        hierarchy.parent_fos_id ||
-        hierarchy.parent_distributor_id ||
-        null
-      );
-    }
-
-    if (roleId === 7) {
-      return (
-        hierarchy.parent_retailer_id ||
-        null
-      );
-    }
-
-    if (roleId === 8) {
-      return (
-        hierarchy.parent_sub_retailer_id ||
-        hierarchy.parent_retailer_id ||
-        null
-      );
-    }
-
-    if (roleId === 9) {
-      return (
-        hierarchy.parent_admin_id ||
-        null
-      );
-    }
-
+  if (role === 1) {
     return null;
+  }
+
+  // =====================================================
+  // PARENT FIELD ORDER
+  // nearest parent ko pehle check karna hai
+  // =====================================================
+
+  const hierarchyOrder = {
+    2: [
+      { role: 1, field: "parent_admin_id" },
+    ],
+
+    3: [
+      { role: 2, field: "parent_cnf_id" },
+      { role: 1, field: "parent_admin_id" },
+    ],
+
+    4: [
+      {
+        role: 3,
+        field: "parent_super_distributor_id",
+      },
+      {
+        role: 2,
+        field: "parent_cnf_id",
+      },
+      {
+        role: 1,
+        field: "parent_admin_id",
+      },
+    ],
+
+    5: [
+      {
+        role: 4,
+        field: "parent_distributor_id",
+      },
+      {
+        role: 3,
+        field: "parent_super_distributor_id",
+      },
+      {
+        role: 2,
+        field: "parent_cnf_id",
+      },
+      {
+        role: 1,
+        field: "parent_admin_id",
+      },
+    ],
+
+    6: [
+      {
+        role: 5,
+        field: "parent_fos_id",
+      },
+      {
+        role: 4,
+        field: "parent_distributor_id",
+      },
+      {
+        role: 3,
+        field: "parent_super_distributor_id",
+      },
+      {
+        role: 2,
+        field: "parent_cnf_id",
+      },
+      {
+        role: 1,
+        field: "parent_admin_id",
+      },
+    ],
+
+    7: [
+      {
+        role: 6,
+        field: "parent_retailer_id",
+      },
+      {
+        role: 5,
+        field: "parent_fos_id",
+      },
+      {
+        role: 4,
+        field: "parent_distributor_id",
+      },
+      {
+        role: 3,
+        field: "parent_super_distributor_id",
+      },
+      {
+        role: 2,
+        field: "parent_cnf_id",
+      },
+      {
+        role: 1,
+        field: "parent_admin_id",
+      },
+    ],
+
+    8: [
+      {
+        role: 7,
+        field: "parent_sub_retailer_id",
+      },
+      {
+        role: 6,
+        field: "parent_retailer_id",
+      },
+      {
+        role: 5,
+        field: "parent_fos_id",
+      },
+      {
+        role: 4,
+        field: "parent_distributor_id",
+      },
+      {
+        role: 3,
+        field: "parent_super_distributor_id",
+      },
+      {
+        role: 2,
+        field: "parent_cnf_id",
+      },
+      {
+        role: 1,
+        field: "parent_admin_id",
+      },
+    ],
+
+    9: [
+      {
+        role: 1,
+        field: "parent_admin_id",
+      },
+    ],
   };
+
+  const possibleParents =
+    hierarchyOrder[role] || [];
+
+  // =====================================================
+  // FIND NEAREST ACTIVE + SELECTED PARENT
+  // =====================================================
+
+  for (const parent of possibleParents) {
+    const parentRole = Number(parent.role);
+
+    // Disabled parent ko skip karo
+    if (
+      disabledRoles[parentRole] === true
+    ) {
+      continue;
+    }
+
+    const parentId =
+      hierarchy[parent.field];
+
+    if (parentId) {
+      return Number(parentId);
+    }
+  }
+
+  return null;
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1570,11 +1688,12 @@ const isRoleActive = (roleId) => {
         loggedUserId;
     }
 
-    const parent_id =
-      getFinalParentId(
-        roleId,
-        hierarchy
-      ) || null;
+ const parent_id =
+  getFinalParentId( 
+    roleId,
+    hierarchy,
+    disabledParentRoles
+  ) || null;
 
     if (
       formData.password !==
