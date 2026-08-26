@@ -150,45 +150,63 @@ export default function EditStaffPage() {
     return Number(module?.status) === 1;
   };
 
-  // const visibleParentRoles = (() => {
-  //   const currentRole = Number(formData.role_id);
-
-  //   if (!currentRole || loggedInRoleId == null) {
-  //     return [];
-  //   }
-
-  //   const loggedRole = Number(loggedInRoleId);
-
-  //   return (parentRoles[currentRole] || []).filter((roleId) => {
-  //     const role = Number(roleId);
-
-  //     if (!isRoleActive(role)) {
-  //       return false;
-  //     }
-
-  //     if (role === loggedRole) {
-  //       return false;
-  //     }
-
-  //     if (role < loggedRole) {
-  //       return false;
-  //     }
-
-  //     return true;
-  //   });
-  // })();
-
+  /*
+   * =========================================================
+   * VISIBLE PARENT ROLES
+   * =========================================================
+   *
+   * Existing hierarchy is kept exactly the same.
+   *
+   * Only logged-in user's role is used to hide the roles
+   * before him in hierarchy.
+   *
+   * Example:
+   *
+   * Distributor login (4)
+   * Retailer parents = [CNF, SD, Distributor, FOS]
+   *
+   * After login filter:
+   * [FOS]
+   *
+   * FOS login (5)
+   * Retailer parents = [CNF, SD, Distributor, FOS]
+   *
+   * After login filter:
+   * [Retailer]
+   *
+   * CNF login (2)
+   * Retailer parents =
+   * [CNF, SD, Distributor, FOS]
+   *
+   * After login filter:
+   * [SD, Distributor, FOS]
+   * =========================================================
+   */
   const visibleParentRoles = (() => {
-  const currentRole = Number(formData.role_id);
+    const currentRole = Number(formData.role_id);
+    const currentLoggedInRole = Number(loggedInRoleId);
 
-  if (!currentRole) {
-    return [];
-  }
+    if (!currentRole) {
+      return [];
+    }
 
-  return (parentRoles[currentRole] || []).filter(
-    (roleId) => isRoleActive(roleId)
-  );
-})();
+    const requiredParents = parentRoles[currentRole] || [];
+
+    return requiredParents.filter((roleId) => {
+      const role = Number(roleId);
+
+      // Logged-in role ke pehle wale roles hide honge.
+      if (
+        Number.isInteger(currentLoggedInRole) &&
+        currentLoggedInRole > 0 &&
+        role <= currentLoggedInRole
+      ) {
+        return false;
+      }
+
+      return isRoleActive(role);
+    });
+  })();
 
   useEffect(() => {
     const user = getUserFromToken();
@@ -692,6 +710,7 @@ export default function EditStaffPage() {
             {visibleParentRoles.map(
               (parentRoleId, index) => {
                 const role = Number(parentRoleId);
+
                 const users =
                   parentUsers[role] || [];
 
@@ -831,6 +850,7 @@ export default function EditStaffPage() {
                                     "",
                                     index
                                   );
+
                                   setOpenDropdown(null);
                                 }}
                                 className="w-full text-left px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50"
@@ -859,6 +879,7 @@ export default function EditStaffPage() {
                                       user.id,
                                       index
                                     );
+
                                     setOpenDropdown(null);
                                   }}
                                   className={`w-full text-left px-4 py-2.5 text-sm transition ${
