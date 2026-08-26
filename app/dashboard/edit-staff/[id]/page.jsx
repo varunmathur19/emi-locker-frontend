@@ -150,33 +150,45 @@ export default function EditStaffPage() {
     return Number(module?.status) === 1;
   };
 
+  // const visibleParentRoles = (() => {
+  //   const currentRole = Number(formData.role_id);
+
+  //   if (!currentRole || loggedInRoleId == null) {
+  //     return [];
+  //   }
+
+  //   const loggedRole = Number(loggedInRoleId);
+
+  //   return (parentRoles[currentRole] || []).filter((roleId) => {
+  //     const role = Number(roleId);
+
+  //     if (!isRoleActive(role)) {
+  //       return false;
+  //     }
+
+  //     if (role === loggedRole) {
+  //       return false;
+  //     }
+
+  //     if (role < loggedRole) {
+  //       return false;
+  //     }
+
+  //     return true;
+  //   });
+  // })();
+
   const visibleParentRoles = (() => {
-    const currentRole = Number(formData.role_id);
+  const currentRole = Number(formData.role_id);
 
-    if (!currentRole || loggedInRoleId == null) {
-      return [];
-    }
+  if (!currentRole) {
+    return [];
+  }
 
-    const loggedRole = Number(loggedInRoleId);
-
-    return (parentRoles[currentRole] || []).filter((roleId) => {
-      const role = Number(roleId);
-
-      if (!isRoleActive(role)) {
-        return false;
-      }
-
-      if (role === loggedRole) {
-        return false;
-      }
-
-      if (role < loggedRole) {
-        return false;
-      }
-
-      return true;
-    });
-  })();
+  return (parentRoles[currentRole] || []).filter(
+    (roleId) => isRoleActive(roleId)
+  );
+})();
 
   useEffect(() => {
     const user = getUserFromToken();
