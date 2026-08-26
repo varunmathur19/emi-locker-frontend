@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  useSearchParams,
-  useRouter,
-} from "next/navigation";
-
+import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 
 import {
@@ -24,18 +20,14 @@ import {
   Line,
 } from "recharts";
 
-import { getAllStaffData } from "@/services/api";
-
 import {
-  getRoleId,
-  getUserFromToken,
-} from "@/utils/token";
+  getAllStaffData,
+  getModules,
+} from "@/services/api";
+
+import { getRoleId } from "@/utils/token";
 
 import UsersTable from "../../components/dashboard/UsersTable";
-
-// ======================================================
-// PIE COLORS
-// ======================================================
 
 const PIE_COLORS = [
   "#6366f1",
@@ -48,31 +40,14 @@ const PIE_COLORS = [
   "#14b8a6",
 ];
 
-// ======================================================
-// DASHBOARD
-// ======================================================
-
 export default function Dashboard() {
-  // ====================================================
-  // ROUTER
-  // ====================================================
-
   const router = useRouter();
-
   const searchParams = useSearchParams();
 
-  // ====================================================
-  // STATE
-  // ====================================================
-
-  const [allUsers, setAllUsers] = useState([]);
-
   const [roleId, setRoleId] = useState(null);
-
+  const [modules, setModules] = useState([]);
   const [page, setPage] = useState(1);
-
   const [pagination, setPagination] = useState({});
-
   const [users, setUsers] = useState([]);
 
   const [counts, setCounts] = useState({
@@ -87,185 +62,70 @@ export default function Dashboard() {
     staff: 0,
   });
 
-  // ====================================================
-  // ROLE HIERARCHY
-  // ====================================================
-  //
-  // 0 = MASTER ADMIN
-  // 1 = ADMIN
-  // 2 = CNF
-  // 3 = SUPER DISTRIBUTOR
-  // 4 = DISTRIBUTOR
-  // 5 = FOS
-  // 6 = RETAILER
-  // 7 = SUB RETAILER
-  // 8 = EMPLOYEE
-  // 9 = STAFF
-  //
-  // STAFF KO SIRF ADMIN ACCESS KAR SAKTA HAI
-  //
-  // ====================================================
-
   const allowedRoles = {
-    // ==================================================
-    // MASTER ADMIN
-    // ==================================================
-
-    0: [
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-    ],
-
-    // ==================================================
-    // ADMIN
-    // ==================================================
-
-    1: [
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-    ],
-
-    // ==================================================
-    // CNF
-    // ==================================================
-
-    2: [
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-    ],
-
-    // ==================================================
-    // SUPER DISTRIBUTOR
-    // ==================================================
-
-    3: [
-      4,
-      5,
-      6,
-      7,
-      8,
-    ],
-
-    // ==================================================
-    // DISTRIBUTOR
-    // ==================================================
-
-    4: [
-      5,
-      6,
-      7,
-      8,
-    ],
-
-    // ==================================================
-    // FOS
-    // ==================================================
-
-    5: [
-      6,
-      7,
-      8,
-    ],
-
-    // ==================================================
-    // RETAILER
-    // ==================================================
-
-    6: [
-      7,
-      8,
-    ],
-
-    // ==================================================
-    // SUB RETAILER
-    // ==================================================
-
-    7: [
-      8,
-    ],
-
-    // ==================================================
-    // EMPLOYEE
-    // ==================================================
-
+    0: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    1: [2, 3, 4, 5, 6, 7, 8, 9],
+    2: [3, 4, 5, 6, 7, 8],
+    3: [4, 5, 6, 7, 8],
+    4: [5, 6, 7, 8],
+    5: [6, 7, 8],
+    6: [7, 8],
+    7: [8],
     8: [],
-
-    // ==================================================
-    // STAFF
-    // ==================================================
-
     9: [],
   };
 
-  // ====================================================
-  // GET LOGGED-IN ROLE
-  // ====================================================
+  const roles = {
+    0: "Master Admin",
+    1: "Admin",
+    2: "CNF",
+    3: "Super Distributor",
+    4: "Distributor",
+    5: "FOS",
+    6: "Retailer",
+    7: "Sub Retailer",
+    8: "Employee",
+    9: "Staff",
+  };
 
   useEffect(() => {
-    const tokenUser = getUserFromToken();
-
     const role = getRoleId();
 
-    console.log(
-      "================================"
-    );
-
-    console.log(
-      "Dashboard Token User:",
-      tokenUser
-    );
-
-    console.log(
-      "Dashboard Role:",
-      role
-    );
-
-    console.log(
-      "================================"
-    );
-
-    if (
-      role === null ||
-      role === undefined
-    ) {
+    if (role === null || role === undefined) {
       return;
     }
 
     setRoleId(Number(role));
   }, []);
 
-  // ====================================================
-  // URL ROLE
-  // ====================================================
+  useEffect(() => {
+    const loadModules = async () => {
+      try {
+        const response = await getModules();
 
-  const urlRoleParam =
-    searchParams.get("role");
+        if (
+          response?.success &&
+          Array.isArray(response?.modules)
+        ) {
+          setModules(response.modules);
+        } else {
+          setModules([]);
+        }
+      } catch (error) {
+        console.error("GET MODULES ERROR:", error);
+        setModules([]);
+      }
+    };
+
+    loadModules();
+  }, []);
+
+  const urlRoleParam = searchParams.get("role");
 
   const urlRole =
     urlRoleParam !== null
       ? Number(urlRoleParam)
       : null;
-
-  // ====================================================
-  // SELECTED ROLE
-  // ====================================================
 
   const selectedRole =
     roleId !== null &&
@@ -277,142 +137,88 @@ export default function Dashboard() {
       ? urlRole
       : null;
 
-  // ====================================================
-  // DASHBOARD HOME
-  // ====================================================
-
-  const isDashboardHome =
-    selectedRole === null;
-
-  // ====================================================
-  // HANDLE ROLE LIST
-  // ====================================================
+  const isDashboardHome = selectedRole === null;
 
   const handleRoleList = (role) => {
-    router.push(
-      `/dashboard?role=${role}`
-    );
+    router.push(`/dashboard?role=${role}`);
   };
-
-  // ====================================================
-  // ROLE NAME
-  // ====================================================
 
   const getRoleName = (id) => {
-    const roles = {
-      0: "Master Admin",
-      1: "Admin",
-      2: "CNF",
-      3: "Super Distributor",
-      4: "Distributor",
-      5: "FOS",
-      6: "Retailer",
-      7: "Sub Retailer",
-      8: "Employee",
-      9: "Staff",
-    };
-
-    return (
-      roles[Number(id)] ||
-      "Unknown"
-    );
+    return roles[Number(id)] || "Unknown";
   };
 
-  // ====================================================
-  // URL ROLE ACCESS CHECK
-  // ====================================================
+  const roleMap = {
+    admin: 1,
+    cnf: 2,
+    "super distributor": 3,
+    "super distributer": 3,
+    distributor: 4,
+    fos: 5,
+    retailer: 6,
+    "sub retailer": 7,
+    employee: 8,
+    staff: 9,
+  };
+
+  const activeRoleIds = modules
+    .filter((module) => {
+      if (typeof module === "string") {
+        return true;
+      }
+
+      return Number(module?.status) === 1;
+    })
+    .map((module) => {
+      const name =
+        typeof module === "string"
+          ? module
+          : module?.name;
+
+      if (!name) {
+        return null;
+      }
+
+      const key = String(name)
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+
+      return roleMap[key] ?? null;
+    })
+    .filter(
+      (role, index, array) =>
+        role !== null &&
+        array.indexOf(role) === index
+    );
+
+  const isRoleActive = (role) => {
+    return activeRoleIds.includes(Number(role));
+  };
 
   useEffect(() => {
-    if (roleId === null) {
+    if (roleId === null || !urlRoleParam) {
       return;
     }
 
-    // URL me role nahi hai
-    if (!urlRoleParam) {
-      return;
-    }
+    const currentUrlRole = Number(urlRoleParam);
 
-    const currentUrlRole =
-      Number(urlRoleParam);
-
-    // ==================================================
-    // OWN ROLE
-    // ==================================================
-
-    const isOwnRole =
-      currentUrlRole === roleId;
-
-    // ==================================================
-    // CHILD ROLE
-    // ==================================================
+    const isOwnRole = currentUrlRole === roleId;
 
     const isChildRole =
-      allowedRoles[roleId]?.includes(
-        currentUrlRole
-      );
+      allowedRoles[roleId]?.includes(currentUrlRole);
 
-    console.log(
-      "================================"
-    );
-
-    console.log(
-      "Dashboard Access Check"
-    );
-
-    console.log(
-      "Logged Role:",
-      roleId
-    );
-
-    console.log(
-      "URL Role:",
-      currentUrlRole
-    );
-
-    console.log(
-      "Allowed Roles:",
-      allowedRoles[roleId]
-    );
-
-    console.log(
-      "Is Own Role:",
-      isOwnRole
-    );
-
-    console.log(
-      "Is Child Role:",
-      isChildRole
-    );
-
-    console.log(
-      "================================"
-    );
-
-    // ==================================================
-    // NOT ALLOWED
-    // ==================================================
-
-    if (
-      !isOwnRole &&
-      !isChildRole
-    ) {
+    if (!isOwnRole && !isChildRole) {
       toast.error(
         "You are not allowed to access this role"
       );
 
-      router.replace(
-        "/dashboard"
-      );
+      router.replace("/dashboard");
     }
   }, [
     roleId,
     urlRoleParam,
     router,
   ]);
-
-  // ====================================================
-  // FETCH USERS
-  // ====================================================
 
   useEffect(() => {
     if (roleId === null) {
@@ -426,31 +232,16 @@ export default function Dashboard() {
     roleId,
   ]);
 
-  // ====================================================
-  // FETCH USERS
-  // ====================================================
-
   const fetchUsers = async () => {
     try {
-      // ==================================================
-      // GET ALL USERS
-      // ==================================================
-
-      const countRes =
-        await getAllStaffData(
-          1,
-          10000,
-          ""
-        );
+      const countRes = await getAllStaffData(
+        1,
+        10000,
+        ""
+      );
 
       const allData =
         countRes?.data || [];
-
-      setAllUsers(allData);
-
-      // ==================================================
-      // ROLE COUNTS
-      // ==================================================
 
       const roleCounts = {
         admin: 0,
@@ -465,9 +256,7 @@ export default function Dashboard() {
       };
 
       allData.forEach((user) => {
-        switch (
-          Number(user.role_id)
-        ) {
+        switch (Number(user.role_id)) {
           case 1:
             roleCounts.admin++;
             break;
@@ -511,22 +300,13 @@ export default function Dashboard() {
 
       setCounts(roleCounts);
 
-      // ==================================================
-      // DASHBOARD HOME
-      // ==================================================
-
       if (isDashboardHome) {
         setUsers([]);
         setPagination({});
         return;
       }
 
-      // ==================================================
-      // SELECTED ROLE
-      // ==================================================
-
-      let roleFilter =
-        selectedRole;
+      let roleFilter = selectedRole;
 
       if (
         roleFilter === null ||
@@ -535,10 +315,6 @@ export default function Dashboard() {
         roleFilter =
           Number(roleId) + 1;
       }
-
-      // ==================================================
-      // GET ROLE USERS
-      // ==================================================
 
       const res =
         await getAllStaffData(
@@ -562,59 +338,47 @@ export default function Dashboard() {
     }
   };
 
-  // ====================================================
-  // CARDS
-  // ====================================================
-
   const cards = [
     {
       title: "Admin",
       count: counts.admin,
       roleId: 1,
     },
-
     {
       title: "CNF",
       count: counts.cnf,
       roleId: 2,
     },
-
     {
       title: "Super Distributor",
       count: counts.super,
       roleId: 3,
     },
-
     {
       title: "Distributor",
       count: counts.distributor,
       roleId: 4,
     },
-
     {
       title: "FOS",
       count: counts.fos,
       roleId: 5,
     },
-
     {
       title: "Retailer",
       count: counts.retailer,
       roleId: 6,
     },
-
     {
       title: "Sub Retailer",
       count: counts.subRetailer,
       roleId: 7,
     },
-
     {
       title: "Employee",
       count: counts.employee,
       roleId: 8,
     },
-
     {
       title: "Staff",
       count: counts.staff,
@@ -622,193 +386,84 @@ export default function Dashboard() {
     },
   ];
 
-  // ====================================================
-  // CHART DATA
-  // ====================================================
+  const visibleCards = cards.filter((card) => {
+    if (!isRoleActive(card.roleId)) {
+      return false;
+    }
 
-  const chartData =
-    cards.filter((card) => {
-      // Master Admin
-      if (roleId === 0) {
-        return true;
-      }
+    if (roleId === 0) {
+      return true;
+    }
 
-      // Other roles
-      return allowedRoles[
-        roleId
-      ]?.includes(
-        card.roleId
-      );
-    });
-
-  // ====================================================
-  // RENDER
-  // ====================================================
+    return allowedRoles[roleId]?.includes(
+      card.roleId
+    );
+  });
 
   return (
     <div className="bg-gray-100">
-
       <main className="pt-0 p-0">
-
-        <h1
-          className="
-            md:text-3xl
-            font-bold
-            md:mb-6
-            mb-0
-            text-[20px]
-          "
-        >
+        <h1 className="md:text-3xl font-bold md:mb-6 mb-0 text-[20px]">
           Welcome Dashboard
         </h1>
 
-        {/* ==================================================
-            DASHBOARD HOME
-        ================================================== */}
-
         {isDashboardHome && (
           <>
-            {/* ==============================================
-                ROLE CARDS
-            ============================================== */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
+              {visibleCards.map((card) => (
+                <div
+                  key={card.roleId}
+                  className="bg-white p-5 rounded-xl shadow"
+                >
+                  <h3 className="text-gray-500">
+                    {card.title}
+                  </h3>
 
-            <div
-              className="
-                grid
-                grid-cols-1
-                sm:grid-cols-2
-                md:grid-cols-4
-                gap-5
-              "
-            >
-              {cards
-                .filter((card) => {
-                  if (roleId === 0) {
-                    return true;
-                  }
-
-                  return allowedRoles[
-                    roleId
-                  ]?.includes(
-                    card.roleId
-                  );
-                })
-                .map((card) => (
-                  <div
-                    key={card.roleId}
-                    className="
-                      bg-white
-                      p-5
-                      rounded-xl
-                      shadow
-                    "
-                  >
-                    <h3 className="text-gray-500">
-                      {card.title}
-                    </h3>
-
-                    <p className="text-3xl font-bold">
-                      {card.count}
-                    </p>
-                  </div>
-                ))}
+                  <p className="text-3xl font-bold">
+                    {card.count}
+                  </p>
+                </div>
+              ))}
             </div>
 
-            {/* ==================================================
-                CHARTS
-            ================================================== */}
-
-            <div
-              className="
-                grid
-                grid-cols-1
-                md:grid-cols-2
-                gap-5
-                mt-6
-              "
-            >
-              {/* BAR */}
-
-              <div
-                className="
-                  bg-white
-                  p-5
-                  rounded-xl
-                  shadow
-                "
-              >
-                <h3
-                  className="
-                    text-gray-700
-                    font-semibold
-                    mb-4
-                  "
-                >
-                  Role-wise Users
-                  (Bar Chart)
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
+              <div className="bg-white p-5 rounded-xl shadow">
+                <h3 className="text-gray-700 font-semibold mb-4">
+                  Role-wise Users (Bar Chart)
                 </h3>
 
                 <ResponsiveContainer
                   width="100%"
                   height={300}
                 >
-                  <BarChart
-                    data={chartData}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                    />
+                  <BarChart data={visibleCards}>
+                    <CartesianGrid strokeDasharray="3 3" />
 
                     <XAxis
                       dataKey="title"
-                      tick={{
-                        fontSize: 12,
-                      }}
+                      tick={{ fontSize: 12 }}
                       interval={0}
                       angle={-20}
                       textAnchor="end"
                       height={60}
                     />
 
-                    <YAxis
-                      allowDecimals={false}
-                    />
+                    <YAxis allowDecimals={false} />
 
                     <Tooltip />
 
                     <Bar
                       dataKey="count"
                       fill="#6366f1"
-                      radius={[
-                        4,
-                        4,
-                        0,
-                        0,
-                      ]}
+                      radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
-              {/* PIE */}
-
-              <div
-                className="
-                  bg-white
-                  p-5
-                  rounded-xl
-                  shadow
-                "
-              >
-                <h3
-                  className="
-                    text-gray-700
-                    font-semibold
-                    mb-4
-                  "
-                >
-                  Role Distribution
-                  (Pie Chart)
+              <div className="bg-white p-5 rounded-xl shadow">
+                <h3 className="text-gray-700 font-semibold mb-4">
+                  Role Distribution (Pie Chart)
                 </h3>
 
                 <ResponsiveContainer
@@ -816,9 +471,8 @@ export default function Dashboard() {
                   height={300}
                 >
                   <PieChart>
-
                     <Pie
-                      data={chartData}
+                      data={visibleCards}
                       dataKey="count"
                       nameKey="title"
                       cx="50%"
@@ -826,19 +480,14 @@ export default function Dashboard() {
                       outerRadius={100}
                       label
                     >
-                      {chartData.map(
-                        (
-                          entry,
-                          index
-                        ) => (
+                      {visibleCards.map(
+                        (entry, index) => (
                           <Cell
-                            key={
-                              `cell-${entry.roleId}`
-                            }
+                            key={`cell-${entry.roleId}`}
                             fill={
                               PIE_COLORS[
                                 index %
-                                PIE_COLORS.length
+                                  PIE_COLORS.length
                               ]
                             }
                           />
@@ -847,60 +496,33 @@ export default function Dashboard() {
                     </Pie>
 
                     <Tooltip />
-
                     <Legend />
-
                   </PieChart>
                 </ResponsiveContainer>
               </div>
 
-              {/* LINE */}
-
-              <div
-                className="
-                  bg-white
-                  p-5
-                  rounded-xl
-                  shadow
-                  md:col-span-2
-                "
-              >
-                <h3
-                  className="
-                    text-gray-700
-                    font-semibold
-                    mb-4
-                  "
-                >
-                  Role-wise Users
-                  (Line Chart)
+              <div className="bg-white p-5 rounded-xl shadow md:col-span-2">
+                <h3 className="text-gray-700 font-semibold mb-4">
+                  Role-wise Users (Line Chart)
                 </h3>
 
                 <ResponsiveContainer
                   width="100%"
                   height={300}
                 >
-                  <LineChart
-                    data={chartData}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                    />
+                  <LineChart data={visibleCards}>
+                    <CartesianGrid strokeDasharray="3 3" />
 
                     <XAxis
                       dataKey="title"
-                      tick={{
-                        fontSize: 12,
-                      }}
+                      tick={{ fontSize: 12 }}
                       interval={0}
                       angle={-20}
                       textAnchor="end"
                       height={60}
                     />
 
-                    <YAxis
-                      allowDecimals={false}
-                    />
+                    <YAxis allowDecimals={false} />
 
                     <Tooltip />
 
@@ -909,9 +531,7 @@ export default function Dashboard() {
                       dataKey="count"
                       stroke="#22c55e"
                       strokeWidth={2}
-                      dot={{
-                        r: 4,
-                      }}
+                      dot={{ r: 4 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -919,10 +539,6 @@ export default function Dashboard() {
             </div>
           </>
         )}
-
-        {/* ==================================================
-            ROLE USER TABLE
-        ================================================== */}
 
         {!isDashboardHome && (
           <UsersTable
@@ -935,7 +551,6 @@ export default function Dashboard() {
             handleRoleList={handleRoleList}
           />
         )}
-
       </main>
     </div>
   );

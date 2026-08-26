@@ -15,7 +15,7 @@ import { toast } from "react-toastify";
 
 import {
   loginAsUser,
-  updateUserStatus
+  updateUserStatus,
 } from "@/services/api";
 
 import {
@@ -24,9 +24,9 @@ import {
 } from "@/utils/token";
 
 export default function UsersTable({
-  users,
-  page,
-  pagination,
+  users = [],
+  page = 1,
+  pagination = {},
   setPage,
   getRoleName,
   selectedRole,
@@ -34,231 +34,330 @@ export default function UsersTable({
 }) {
   const [search, setSearch] = useState("");
 
-  const [loginLoading, setLoginLoading] = useState(null);
+  const [loginLoading, setLoginLoading] =
+    useState(null);
+
   const [statusLoading, setStatusLoading] =
-  useState(null);
+    useState(null);
 
   const router = useRouter();
 
-  // ==========================================
+  // =====================================================
   // SEARCH
-  // ==========================================
+  // =====================================================
 
   const filteredUsers = users.filter((user) =>
-    user.name
+    user?.name
       ?.toLowerCase()
       .includes(search.toLowerCase())
   );
 
-  // ==========================================
+  // =====================================================
   // ROLE BUTTONS
-  // ==========================================
+  // =====================================================
 
   const roleButtons = {
-  1: "Add Admin",
-  2: "Add CNF",
-  3: "Add Super Distributor",
-  4: "Add Distributor",
-  5: "Add FOS",
-  6: "Add Retailer",
-  7: "Add Sub Retailer",
-  8: "Add Employee",
-  9: "Add Staff",
-};
+    1: "Add Admin",
+    2: "Add CNF",
+    3: "Add Super Distributor",
+    4: "Add Distributor",
+    5: "Add FOS",
+    6: "Add Retailer",
+    7: "Add Sub Retailer",
+    8: "Add Employee",
+    9: "Add Staff",
+  };
 
-  // ==========================================
+  // =====================================================
   // LOGIN AS USER
-  // ==========================================
+  // =====================================================
 
-const handleLoginAsUser = async (user) => {
-  try {
-    setLoginLoading(user.id);
+  const handleLoginAsUser = async (user) => {
+    try {
+      setLoginLoading(user.id);
 
-    console.log("=================================");
-    console.log("LOGIN AS USER");
-    console.log("User ID:", user.id);
-    console.log("User Name:", user.name);
-    console.log("User Role:", user.role_id);
-    console.log("=================================");
+      console.log("=================================");
+      console.log("LOGIN AS USER");
+      console.log("User ID:", user.id);
+      console.log("User Name:", user.name);
+      console.log("User Role:", user.role_id);
+      console.log("=================================");
 
-    const response = await loginAsUser(user.id);
+      const response =
+        await loginAsUser(user.id);
 
-    console.log("Login As User Response:", response);
-
-    if (!response?.success) {
-      toast.error(
-        response?.message || "Login failed"
-      );
-
-      return;
-    }
-
-    // ==========================================
-    // CHECK RESPONSE
-    // ==========================================
-
-    if (!response?.token) {
-      toast.error("Login token not received");
-
-      console.error(
-        "Login As User response has no token:",
+      console.log(
+        "Login As User Response:",
         response
       );
 
-      return;
-    }
+      // =================================================
+      // RESPONSE VALIDATION
+      // =================================================
 
-    if (!response?.user) {
-      toast.error("User data not received");
+      if (!response?.success) {
+        toast.error(
+          response?.message ||
+            "Login failed"
+        );
 
-      console.error(
-        "Login As User response has no user:",
-        response
+        return;
+      }
+
+      if (!response?.token) {
+        toast.error(
+          "Login token not received"
+        );
+
+        console.error(
+          "Login As User response has no token:",
+          response
+        );
+
+        return;
+      }
+
+      if (!response?.user) {
+        toast.error(
+          "User data not received"
+        );
+
+        console.error(
+          "Login As User response has no user:",
+          response
+        );
+
+        return;
+      }
+
+      // =================================================
+      // DEBUG NEW LOGIN
+      // =================================================
+
+      console.log(
+        "================================="
       );
 
-      return;
-    }
-
-    // ==========================================
-    // SAVE NEW USER TOKEN
-    // ==========================================
-
-    saveToken(response.token);
-
-    // ==========================================
-    // SAVE NEW USER
-    // ==========================================
-
-    saveUser(response.user);
-
-    console.log(
-      "New Logged In User:",
-      response.user
-    );
-
-    console.log(
-      "New Logged In Role:",
-      response.user.role_id
-    );
-
-    toast.success(
-      `Logged in as ${response.user.name}`
-    );
-
-    // ==========================================
-    // GO TO NEW USER DASHBOARD
-    // ==========================================
-
-    window.location.href = "/dashboard";
-
-  } catch (error) {
-
-    console.error(
-      "Login As User Error:",
-      error
-    );
-
-    toast.error(
-      error?.response?.data?.message ||
-      error?.message ||
-      "Unable to login as user"
-    );
-
-  } finally {
-
-    setLoginLoading(null);
-
-  }
-};
-
-// ==========================================
-// UPDATE USER STATUS
-// ==========================================
-
-const handleStatusToggle = async (user) => {
-
-  try {
-
-    setStatusLoading(user.id);
-
-    const currentStatus =
-      Number(user.userStatus ?? 1);
-
-    const newStatus =
-      currentStatus === 1
-        ? 0
-        : 1;
-
-    const response =
-      await updateUserStatus(
-        user.id,
-        newStatus
+      console.log(
+        "NEW USER:",
+        response.user
       );
 
-    console.log(
-      "STATUS RESPONSE:",
-      response
-    );
-
-    if (!response?.success) {
-
-      toast.error(
-        response?.message ||
-        "Failed to update user status"
+      console.log(
+        "NEW USER ID:",
+        response.user.id
       );
 
-      return;
-    }
+      console.log(
+        "NEW USER ROLE:",
+        response.user.role_id
+      );
 
-    // Update local user status
-    user.userStatus = newStatus;
+      console.log(
+        "================================="
+      );
 
-    // ==========================================
-    // ACTIVE / INACTIVE TOAST
-    // ==========================================
+      // =================================================
+      // SAVE NEW TOKEN
+      // =================================================
 
-    if (newStatus === 1) {
+      saveToken(response.token);
+
+      // =================================================
+      // SAVE NEW USER
+      // =================================================
+
+      saveUser(response.user);
+
+      // =================================================
+      // SUCCESS MESSAGE
+      // =================================================
 
       toast.success(
-        "User activated successfully"
+        `Logged in as ${response.user.name}`
       );
 
-    } else {
+      // =================================================
+      // GO TO DASHBOARD
+      // =================================================
+
+      window.location.href =
+        "/dashboard";
+
+    } catch (error) {
+
+      console.error(
+        "Login As User Error:",
+        error
+      );
 
       toast.error(
-        "User deactivated successfully"
+        error?.response?.data?.message ||
+          error?.message ||
+          "Unable to login as user"
       );
 
+    } finally {
+
+      setLoginLoading(null);
+
+    }
+  };
+
+  // =====================================================
+  // UPDATE USER STATUS
+  // =====================================================
+
+  const handleStatusToggle = async (
+    user
+  ) => {
+    try {
+
+      setStatusLoading(user.id);
+
+      // ================================================
+      // CURRENT STATUS
+      // ================================================
+
+      const currentStatus =
+        Number(user.userStatus ?? 1);
+
+      // ================================================
+      // NEW STATUS
+      // ================================================
+
+      const newStatus =
+        currentStatus === 1
+          ? 0
+          : 1;
+
+      // ================================================
+      // API CALL
+      // ================================================
+
+      const response =
+        await updateUserStatus(
+          user.id,
+          newStatus
+        );
+
+      console.log(
+        "STATUS RESPONSE:",
+        response
+      );
+
+      // ================================================
+      // API ERROR
+      // ================================================
+
+      if (!response?.success) {
+
+        toast.error(
+          response?.message ||
+            "Failed to update user status"
+        );
+
+        return;
+      }
+
+      // ================================================
+      // UPDATE LOCAL DATA
+      // ================================================
+
+      user.userStatus =
+        newStatus;
+
+      // ================================================
+      // TOAST
+      // ================================================
+
+      if (newStatus === 1) {
+
+        toast.success(
+          "User activated successfully"
+        );
+
+      } else {
+
+        toast.error(
+          "User deactivated successfully"
+        );
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "USER STATUS ERROR:",
+        error
+      );
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update user status"
+      );
+
+    } finally {
+
+      setStatusLoading(null);
+
+    }
+  };
+
+  // =====================================================
+  // PAGE CHANGE
+  // =====================================================
+
+  const handlePreviousPage = () => {
+
+    if (page > 1) {
+      setPage(page - 1);
     }
 
-  } catch (error) {
+  };
 
-    console.error(
-      "USER STATUS ERROR:",
-      error
-    );
+  const handleNextPage = () => {
 
-    toast.error(
-      error?.response?.data?.message ||
-      "Failed to update user status"
-    );
+    const totalPages =
+      pagination?.totalPages || 1;
 
-  } finally {
+    if (page < totalPages) {
+      setPage(page + 1);
+    }
 
-    setStatusLoading(null);
+  };
 
-  }
-
-};
+  // =====================================================
+  // RETURN
+  // =====================================================
 
   return (
-    <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6 max-w-full overflow-hidden">
+    <div
+      className="
+        md:mt-8
+        mt-5
+        bg-white
+        rounded-xl
+        shadow
+        p-6
+        max-w-full
+        overflow-hidden
+      "
+    >
 
-      {/* ==========================================
+      {/* =================================================
           TOP BUTTONS
-      ========================================== */}
+      ================================================= */}
 
-      <div className="flex justify-between items-center mb-4">
+      <div
+        className="
+          flex
+          justify-between
+          items-center
+          mb-4
+        "
+      >
 
         <div
           className="
@@ -272,11 +371,16 @@ const handleStatusToggle = async (user) => {
           "
         >
 
-          {/* ROLE LIST */}
+          {/* ============================================
+              ROLE LIST
+          ============================================ */}
 
           <button
+            type="button"
             onClick={() =>
-              handleRoleList(selectedRole)
+              handleRoleList(
+                selectedRole
+              )
             }
             className="
               bg-gray-700
@@ -289,35 +393,45 @@ const handleStatusToggle = async (user) => {
               whitespace-nowrap
             "
           >
-            {getRoleName(selectedRole)} List
+            {getRoleName(
+              selectedRole
+            )}{" "}
+            List
           </button>
 
-          {/* ADD USER */}
-<Link
-  href={`/dashboard/form?role=${selectedRole}&role_id=${selectedRole}`}
-  className="
-    bg-blue-400
-    text-white
-    px-4
-    py-2
-    rounded-sm
-    hover:bg-blue-500
-    cursor-pointer
-    whitespace-nowrap
-    inline-block
-  "
->
-  {roleButtons[selectedRole] ||
-    `Add ${getRoleName(selectedRole)}`}
-</Link>
+          {/* ============================================
+              ADD USER
+          ============================================ */}
+
+          <Link
+            href={`/dashboard/form?role=${selectedRole}&role_id=${selectedRole}`}
+            className="
+              bg-blue-400
+              text-white
+              px-4
+              py-2
+              rounded-sm
+              hover:bg-blue-500
+              cursor-pointer
+              whitespace-nowrap
+              inline-block
+            "
+          >
+            {roleButtons[
+              selectedRole
+            ] ||
+              `Add ${getRoleName(
+                selectedRole
+              )}`}
+          </Link>
 
         </div>
 
       </div>
 
-      {/* ==========================================
-          SEARCH
-      ========================================== */}
+      {/* =================================================
+          SEARCH HEADER
+      ================================================= */}
 
       <div
         className="
@@ -331,9 +445,23 @@ const handleStatusToggle = async (user) => {
         "
       >
 
-        <h2 className="lg:text-xl md:text-[15px] font-bold">
+        {/* ==============================================
+            TITLE
+        ============================================== */}
+
+        <h2
+          className="
+            lg:text-xl
+            md:text-[15px]
+            font-bold
+          "
+        >
           Recent Users
         </h2>
+
+        {/* ==============================================
+            FILTER + SEARCH
+        ============================================== */}
 
         <div
           className="
@@ -344,7 +472,9 @@ const handleStatusToggle = async (user) => {
           "
         >
 
-          {/* FILTER */}
+          {/* ============================================
+              FILTER
+          ============================================ */}
 
           <button
             type="button"
@@ -368,19 +498,27 @@ const handleStatusToggle = async (user) => {
               ease-in-out
             "
           >
-            <RiFilterLine size={18} />
+
+            <RiFilterLine
+              size={18}
+            />
 
             Filter
+
           </button>
 
-          {/* SEARCH */}
+          {/* ============================================
+              SEARCH
+          ============================================ */}
 
           <input
             type="text"
             placeholder="Search by name..."
             value={search}
             onChange={(e) =>
-              setSearch(e.target.value)
+              setSearch(
+                e.target.value
+              )
             }
             className="
               border
@@ -402,9 +540,9 @@ const handleStatusToggle = async (user) => {
 
       </div>
 
-      {/* ==========================================
-          TABLE
-      ========================================== */}
+      {/* =================================================
+          TABLE WRAPPER
+      ================================================= */}
 
       <div
         className="
@@ -415,57 +553,91 @@ const handleStatusToggle = async (user) => {
         "
       >
 
-        <div className="w-full min-w-[1000px] table-auto">
+        <div
+          className="
+            w-full
+            min-w-[1000px]
+            table-auto
+          "
+        >
 
           <table className="w-full">
 
-            {/* ======================================
-                HEAD
-            ====================================== */}
+            {/* ==========================================
+                TABLE HEAD
+            ========================================== */}
 
             <thead>
 
-              <tr className="border-b">
+              <tr
+                className="border-b"
+              >
 
-                <th className="text-left p-3">
+                <th
+                  className="text-left p-3"
+                >
                   S.No
                 </th>
 
-                <th className="text-left p-3">
+                <th
+                  className="text-left p-3"
+                >
                   Parent Name
                   <br />
 
-                  <span className="text-sm text-gray-500">
+                  <span
+                    className="
+                      text-sm
+                      text-gray-500
+                    "
+                  >
                     Parent Organization
                   </span>
                 </th>
 
-                <th className="text-left p-3">
+                <th
+                  className="text-left p-3"
+                >
                   Name
                   <br />
 
-                  <span className="text-sm text-gray-500">
+                  <span
+                    className="
+                      text-sm
+                      text-gray-500
+                    "
+                  >
                     Organization Name
                   </span>
                 </th>
 
-                <th className="text-left p-3">
+                <th
+                  className="text-left p-3"
+                >
                   Phone
                 </th>
 
-                <th className="text-left p-3">
+                <th
+                  className="text-left p-3"
+                >
                   Role
                 </th>
 
-                <th className="text-left p-3">
+                <th
+                  className="text-left p-3"
+                >
                   Created At
                 </th>
 
-                <th className="text-left p-3">
+                <th
+                  className="text-left p-3"
+                >
                   Actions
                 </th>
 
-                <th className="text-left p-3">
+                <th
+                  className="text-left p-3"
+                >
                   Status
                 </th>
 
@@ -473,9 +645,9 @@ const handleStatusToggle = async (user) => {
 
             </thead>
 
-            {/* ======================================
-                BODY
-            ====================================== */}
+            {/* ==========================================
+                TABLE BODY
+            ========================================== */}
 
             <tbody>
 
@@ -489,69 +661,146 @@ const handleStatusToggle = async (user) => {
                       className="border-b"
                     >
 
-                      {/* S.NO */}
+                      {/* ==================================
+                          S.NO
+                      ================================== */}
 
-                      <td className="p-3">
-                        {((page - 1) * 10) +
+                      <td
+                        className="p-3"
+                      >
+                        {(
+                          (page - 1) *
+                          (
+                            pagination?.limit ||
+                            10
+                          )
+                        ) +
                           index +
                           1}
                       </td>
 
-                      {/* PARENT */}
+                      {/* ==================================
+                          PARENT
+                      ================================== */}
 
-                      <td className="p-3 py-1">
+                      <td
+                        className="
+                          p-3
+                          py-1
+                        "
+                      >
 
-                        <div className="font-semibold">
+                        <div
+                          className="
+                            font-semibold
+                          "
+                        >
                           {user.parent_name ||
                             "-"}
                         </div>
 
-                        <div className="text-sm text-gray-500">
-                         {user.parent_organization_name || "-"}
+                        <div
+                          className="
+                            text-sm
+                            text-gray-500
+                          "
+                        >
+                          {user.parent_organization_name ||
+                            "-"}
                         </div>
 
                       </td>
 
-                      {/* USER */}
+                      {/* ==================================
+                          USER
+                      ================================== */}
 
-                      <td className="p-3 py-1">
+                      <td
+                        className="
+                          p-3
+                          py-1
+                        "
+                      >
 
-                        <div className="font-semibold">
-                          {user.name}
+                        <div
+                          className="
+                            font-semibold
+                          "
+                        >
+                          {user.name ||
+                            "-"}
                         </div>
 
-                        <div className="text-sm text-gray-500">
+                        <div
+                          className="
+                            text-sm
+                            text-gray-500
+                          "
+                        >
                           {user.organization_name ||
                             "-"}
                         </div>
 
                       </td>
 
-                      {/* PHONE */}
+                      {/* ==================================
+                          PHONE
+                      ================================== */}
 
-                      <td className="p-3 py-1">
-                        {user.phone}
+                      <td
+                        className="
+                          p-3
+                          py-1
+                        "
+                      >
+                        {user.phone ||
+                          "-"}
                       </td>
 
-                      {/* ROLE */}
+                      {/* ==================================
+                          ROLE
+                      ================================== */}
 
-                      <td className="p-3 py-1">
+                      <td
+                        className="
+                          p-3
+                          py-1
+                        "
+                      >
                         {getRoleName(
                           user.role_id
                         )}
                       </td>
 
-                      {/* CREATED */}
+                      {/* ==================================
+                          CREATED AT
+                      ================================== */}
 
-                      <td className="p-3 py-1">
+                      <td
+                        className="
+                          p-3
+                          py-1
+                        "
+                      >
 
                         {user.created_at ? (
 
-                          <div className="text-sm leading-5">
+                          <div
+                            className="
+                              text-sm
+                              leading-5
+                            "
+                          >
+
+                            {/* DATE */}
 
                             <div>
 
-                              <span className="font-bold">
+                              <span
+                                className="
+                                  font-bold
+                                "
+                              >
                                 Date:
                               </span>{" "}
 
@@ -568,9 +817,15 @@ const handleStatusToggle = async (user) => {
 
                             </div>
 
+                            {/* TIME */}
+
                             <div>
 
-                              <span className="font-bold">
+                              <span
+                                className="
+                                  font-bold
+                                "
+                              >
                                 Time:
                               </span>{" "}
 
@@ -594,29 +849,38 @@ const handleStatusToggle = async (user) => {
 
                       </td>
 
-                      {/* =================================
+                      {/* ==================================
                           ACTIONS
-                      ================================= */}
+                      ================================== */}
 
-                      <td className="py-1 text-center">
+                      <td
+                        className="
+                          p-3
+                          py-1
+                          text-center
+                        "
+                      >
 
-                        <div className="flex items-center justify-center gap-2">
+                        <div
+                          className="
+                            flex
+                            items-center
+                            justify-center
+                            gap-2
+                          "
+                        >
 
-                          {/* EDIT */}
+                          {/* ==============================
+                              EDIT
+                          ============================== */}
 
                           <button
                             type="button"
-                            // onClick={() =>
-                            //   router.push(
-                            //     `/dashboard/edit-staff/${user.id}`
-                            //   )
-                            // }
-
                             onClick={() =>
-  router.push(
-    `/dashboard/edit-staff/${user.id}?role=${user.role_id}`
-  )
-}
+                              router.push(
+                                `/dashboard/edit-staff/${user.id}?role=${user.role_id}`
+                              )
+                            }
                             className="
                               inline-flex
                               items-center
@@ -630,128 +894,146 @@ const handleStatusToggle = async (user) => {
                             "
                             title="Edit"
                           >
+
                             <RiEditLine
                               size={20}
                             />
+
                           </button>
 
-                          {/* LOGIN */}
+                          {/* ==============================
+                              LOGIN AS USER
+                          ============================== */}
 
-                    <button
-  type="button"
-  disabled={loginLoading === user.id}
-  onClick={() => handleLoginAsUser(user)}
-  className="
-    inline-flex
-    items-center
-    justify-center
-    p-2
-    rounded-md
-    text-green-600
-    hover:bg-green-50
-    transition
-    cursor-pointer
-    disabled:opacity-50
-    disabled:cursor-not-allowed
-  "
-  title="Login"
->
-  <RiLoginBoxLine size={20} />
-</button>
+                          <button
+                            type="button"
+                            disabled={
+                              loginLoading ===
+                              user.id
+                            }
+                            onClick={() =>
+                              handleLoginAsUser(
+                                user
+                              )
+                            }
+                            className="
+                              inline-flex
+                              items-center
+                              justify-center
+                              p-2
+                              rounded-md
+                              text-green-600
+                              hover:bg-green-50
+                              transition
+                              cursor-pointer
+                              disabled:opacity-50
+                              disabled:cursor-not-allowed
+                            "
+                            title="Login"
+                          >
+
+                            <RiLoginBoxLine
+                              size={20}
+                            />
+
+                          </button>
 
                         </div>
 
                       </td>
 
-                      {/* STATUS */}
+                      {/* ==================================
+                          STATUS
+                      ================================== */}
 
-                      <td className="p-3 py-1">
+                      <td
+                        className="
+                          p-3
+                          py-1
+                        "
+                      >
 
-                       {/* =================================
-    STATUS
-================================= */}
+                        <div
+                          className="
+                            flex
+                            items-center
+                            gap-3
+                          "
+                        >
 
-<td className="p-3 py-1">
+                          {/* ==============================
+                              TOGGLE
+                          ============================== */}
 
-  <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            disabled={
+                              statusLoading ===
+                              user.id
+                            }
+                            onClick={() =>
+                              handleStatusToggle(
+                                user
+                              )
+                            }
+                            className={`
+                              relative
+                              inline-flex
+                              h-6
+                              w-11
+                              items-center
+                              rounded-full
+                              transition
+                              duration-200
+                              cursor-pointer
+                              disabled:opacity-50
+                              disabled:cursor-not-allowed
 
-    {/* TOGGLE */}
+                              ${
+                                Number(
+                                  user.userStatus ??
+                                  1
+                                ) === 1
+                                  ? "bg-green-500"
+                                  : "bg-gray-400"
+                              }
+                            `}
+                            title={
+                              Number(
+                                user.userStatus ??
+                                1
+                              ) === 1
+                                ? "Deactivate User"
+                                : "Activate User"
+                            }
+                          >
 
-    <button
-      type="button"
-      disabled={statusLoading === user.id}
-      onClick={() =>
-        handleStatusToggle(user)
-      }
-      className={`
-        relative
-        inline-flex
-        h-6
-        w-11
-        items-center
-        rounded-full
-        transition
-        duration-200
-        cursor-pointer
-        disabled:opacity-50
-        disabled:cursor-not-allowed
+                            <span
+                              className={`
+                                inline-block
+                                h-5
+                                w-5
+                                transform
+                                rounded-full
+                                bg-white
+                                shadow
+                                transition
+                                duration-200
 
-        ${
-          Number(user.userStatus ?? 1) === 1
-            ? "bg-green-500"
-            : "bg-gray-400"
-        }
-      `}
-      title={
-        Number(user.userStatus ?? 1) === 1
-          ? "Deactivate User"
-          : "Activate User"
-      }
-    >
+                                ${
+                                  Number(
+                                    user.userStatus ??
+                                    1
+                                  ) === 1
+                                    ? "translate-x-5"
+                                    : "translate-x-1"
+                                }
+                              `}
+                            />
 
-      <span
-        className={`
-          inline-block
-          h-5
-          w-5
-          transform
-          rounded-full
-          bg-white
-          shadow
-          transition
-          duration-200
+                          </button>
 
-          ${
-            Number(user.userStatus ?? 1) === 1
-              ? "translate-x-5"
-              : "translate-x-1"
-          }
-        `}
-      />
-
-    </button>
-
-
-    {/* STATUS TEXT */}
-
-    <span
-      className={`
-        font-semibold
-        text-sm
-
-        ${
-          Number(user.userStatus ?? 1) === 1
-            ? "text-green-600"
-            : "text-red-500"
-        }
-      `}
-    >
-      
-    </span>
-
-  </div>
-
-</td>
+                        </div>
 
                       </td>
 
@@ -762,11 +1044,19 @@ const handleStatusToggle = async (user) => {
 
               ) : (
 
+                /* ========================================
+                   NO USERS
+                ======================================== */
+
                 <tr>
 
                   <td
                     colSpan="8"
-                    className="text-center p-5"
+                    className="
+                      text-center
+                      p-5
+                      text-gray-500
+                    "
                   >
                     No Users Found
                   </td>
@@ -783,70 +1073,100 @@ const handleStatusToggle = async (user) => {
 
       </div>
 
-      {/* ==========================================
+      {/* =================================================
           PAGINATION
-      ========================================== */}
+      ================================================= */}
 
-      <div className="flex justify-center items-center gap-3 mt-5">
+      <div
+        className="
+          flex
+          justify-center
+          items-center
+          gap-3
+          mt-5
+        "
+      >
 
-        {/* PREVIOUS */}
+        {/* ==============================================
+            PREVIOUS
+        ============================================== */}
 
         <button
+          type="button"
           disabled={page <= 1}
-          onClick={() =>
-            setPage(page - 1)
+          onClick={
+            handlePreviousPage
           }
           className={`
             px-4
             py-2
             rounded
             cursor-pointer
+
             ${
               page <= 1
                 ? "bg-gray-200 cursor-not-allowed"
-                : "bg-blue-500 text-white"
+                : "bg-blue-500 text-white hover:bg-blue-600"
             }
           `}
         >
           Previous
         </button>
 
-        {/* PAGE */}
+        {/* ==============================================
+            PAGE NUMBER
+        ============================================== */}
 
-        <span className="px-4 py-2 font-semibold">
+        <span
+          className="
+            px-4
+            py-2
+            font-semibold
+          "
+        >
 
           Page{" "}
 
-          {pagination.currentPage ||
+          {pagination?.currentPage ||
             page}
 
-          /
+          {" "}/{" "}
 
-          {pagination.totalPages ||
+          {pagination?.totalPages ||
             1}
 
         </span>
 
-        {/* NEXT */}
+        {/* ==============================================
+            NEXT
+        ============================================== */}
 
         <button
+          type="button"
           disabled={
             page >=
-            (pagination.totalPages || 1)
+            (
+              pagination?.totalPages ||
+              1
+            )
           }
-          onClick={() =>
-            setPage(page + 1)
+          onClick={
+            handleNextPage
           }
           className={`
             px-4
             py-2
             rounded
             cursor-pointer
+
             ${
               page >=
-              (pagination.totalPages || 1)
+              (
+                pagination?.totalPages ||
+                1
+              )
                 ? "bg-gray-200 cursor-not-allowed"
-                : "bg-blue-500 text-white"
+                : "bg-blue-500 text-white hover:bg-blue-600"
             }
           `}
         >

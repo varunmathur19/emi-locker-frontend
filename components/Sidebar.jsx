@@ -34,6 +34,7 @@ import {
   RiUser3Line,
   RiLogoutBoxLine,
   RiLoginBoxLine,
+  RiSettings3Line 
 } from "react-icons/ri";
 
 // =====================================================
@@ -540,6 +541,7 @@ export default function Sidebar({
     9: [],
   };
 
+  
   // =====================================================
   // ROLE LINK COMPONENT
   // =====================================================
@@ -923,12 +925,12 @@ export default function Sidebar({
                 }
               `}
             >
-              <RiBuilding2Line
-                size={18}
-                className="text-[1.4rem]"
-              />
+              <RiSettings3Line
+  size={18}
+  className="text-[1.4rem]"
+/>
 
-              Module
+              Master Settings
             </Link>
 
             {/* SUB MODULE */}
