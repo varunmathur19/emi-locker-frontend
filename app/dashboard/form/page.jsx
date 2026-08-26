@@ -80,7 +80,6 @@ export default function Page() {
 
   const [formData, setFormData] = useState(initialFormData);
   const [parentUsers, setParentUsers] = useState({});
-  const [disabledParentRoles, setDisabledParentRoles] = useState({});
   const [openDropdown, setOpenDropdown] = useState(null);
   const [parentSearch, setParentSearch] = useState({});
   const [searchLoading, setSearchLoading] = useState({});
@@ -136,86 +135,76 @@ export default function Page() {
   };
 
   const normalizeRoleName = (name) => {
-  return String(name || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "");
-};
+    return String(name || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, "");
+  };
 
-const isRoleActive = (roleId) => {
-  const role = Number(roleId);
+  const isRoleActive = (roleId) => {
+    const role = Number(roleId);
 
-  const roleName = normalizeRoleName(
-    getRoleName(role)
-  );
+    const roleName = normalizeRoleName(
+      getRoleName(role)
+    );
 
-  const module = modules.find((item) => {
-    const moduleName =
-      typeof item === "string"
-        ? item
-        : item?.name;
+    const module = modules.find((item) => {
+      const moduleName =
+        typeof item === "string"
+          ? item
+          : item?.name;
 
-    const normalizedModuleName =
-      normalizeRoleName(moduleName);
+      const normalizedModuleName =
+        normalizeRoleName(moduleName);
 
-    if (
-      role === 3 &&
-      (
-        normalizedModuleName ===
-          "superdistributor" ||
-        normalizedModuleName ===
-          "superdistributer"
-      )
-    ) {
-      return true;
+      if (
+        role === 3 &&
+        (
+          normalizedModuleName === "superdistributor" ||
+          normalizedModuleName === "superdistributer"
+        )
+      ) {
+        return true;
+      }
+
+      return normalizedModuleName === roleName;
+    });
+
+    if (!module) {
+      return false;
+    }
+
+    return Number(module?.status) === 1;
+  };
+
+  const visibleParentRoles = (
+    parentRoles[selectedRole] || []
+  ).filter((roleId) => {
+    const role = Number(roleId);
+    const loggedRole = Number(loggedInRoleId);
+    const createRole = Number(selectedRole);
+
+    if (!isRoleActive(role)) {
+      return false;
+    }
+
+    if (loggedRole === 0) {
+      return role < createRole;
+    }
+
+    if (role === loggedRole) {
+      return false;
+    }
+
+    if (role < loggedRole) {
+      return false;
     }
 
     return (
-      normalizedModuleName === roleName
+      role > loggedRole &&
+      role < createRole
     );
   });
-
-  if (!module) {
-    return false;
-  }
-
-  return Number(module?.status) === 1;
-};
-  const visibleParentRoles = (
-  parentRoles[selectedRole] || []
-).filter((roleId) => {
-  const role = Number(roleId);
-  const loggedRole = Number(loggedInRoleId);
-  const createRole = Number(selectedRole);
-
-  // ==========================================
-  // FIRST: DATABASE ACTIVE/INACTIVE CHECK
-  // ==========================================
-
-  if (!isRoleActive(role)) {
-    return false;
-  }
-
-  // ==========================================
-  // MASTER ADMIN
-  // ==========================================
-
-  if (loggedRole === 0) {
-    return role < createRole;
-  }
-
-  if (role === loggedRole) {
-    return false;
-  }
-
-  if (role < loggedRole) {
-    return false;
-  }
-  return (
-    role > loggedRole &&
-    role < createRole
-  );
-});
 
   const getUsersFromResponse = (response) => {
     if (Array.isArray(response?.data)) {
@@ -235,26 +224,6 @@ const isRoleActive = (roleId) => {
     }
 
     return [];
-  };
-
-  const handleParentDisable = (roleId, disabled) => {
-    const role = Number(roleId);
-
-    setDisabledParentRoles((prev) => ({
-      ...prev,
-      [role]: disabled,
-    }));
-
-    if (disabled) {
-      const field = roleParentField[role];
-
-      if (field) {
-        setFormData((prev) => ({
-          ...prev,
-          [field]: null,
-        }));
-      }
-    }
   };
 
   const loadParentUsers = async (
@@ -367,9 +336,10 @@ const isRoleActive = (roleId) => {
           ? Number(user.parent_sub_retailer_id)
           : null,
 
-      parent_employee_id: user.parent_employee_id
-        ? Number(user.parent_employee_id)
-        : null,
+      parent_employee_id:
+        user.parent_employee_id
+          ? Number(user.parent_employee_id)
+          : null,
 
       parent_staff_id: user.parent_staff_id
         ? Number(user.parent_staff_id)
@@ -478,7 +448,8 @@ const isRoleActive = (roleId) => {
       return;
     }
 
-    const firstParentRole = filteredParents[0];
+    const firstParentRole =
+      filteredParents[0];
 
     const loadFirstParent = async () => {
       try {
@@ -519,6 +490,7 @@ const isRoleActive = (roleId) => {
     }
 
     const roleId = Number(openDropdown);
+
     const search = (
       parentSearch[roleId] || ""
     ).trim();
@@ -539,15 +511,6 @@ const isRoleActive = (roleId) => {
       ) {
         const previousRole =
           Number(parents[i]);
-
-        if (
-          disabledParentRoles[
-            previousRole
-          ] === true
-        ) {
-          parentId = null;
-          break;
-        }
 
         const previousField =
           roleParentField[previousRole];
@@ -612,7 +575,6 @@ const isRoleActive = (roleId) => {
     parentSearch,
     selectedRole,
     formData,
-    disabledParentRoles,
   ]);
 
   useEffect(() => {
@@ -1138,17 +1100,8 @@ const isRoleActive = (roleId) => {
       }
     }
 
-    let nextRoleIndex =
+    const nextRoleIndex =
       currentIndex + 1;
-
-    while (
-      nextRoleIndex < parents.length &&
-      disabledParentRoles[
-        Number(parents[nextRoleIndex])
-      ] === true
-    ) {
-      nextRoleIndex++;
-    }
 
     const nextRole =
       parents[nextRoleIndex];
@@ -1157,334 +1110,178 @@ const isRoleActive = (roleId) => {
       return;
     }
 
-    const nextParentId =
-      disabledParentRoles[
-        currentRoleId
-      ] === true
-        ? null
-        : selectedId;
-
     await loadParentUsers(
       Number(nextRole),
-      nextParentId
+      selectedId
     );
   };
 
-  const handleParentCheckbox = async (
+  const getFinalParentId = (
     roleId,
-    checked
+    hierarchy
   ) => {
-    const disabledRole =
-      Number(roleId);
+    const role = Number(roleId);
 
-    const parents =
-      parentRoles[selectedRole] || [];
-
-    const disabledIndex =
-      parents.indexOf(disabledRole);
-
-    if (disabledIndex === -1) {
-      return;
+    if (role === 1) {
+      return null;
     }
 
-    const updatedDisabledRoles = {
-      ...disabledParentRoles,
-      [disabledRole]: checked,
+    const hierarchyOrder = {
+      2: [
+        {
+          role: 1,
+          field: "parent_admin_id",
+        },
+      ],
+
+      3: [
+        {
+          role: 2,
+          field: "parent_cnf_id",
+        },
+        {
+          role: 1,
+          field: "parent_admin_id",
+        },
+      ],
+
+      4: [
+        {
+          role: 3,
+          field: "parent_super_distributor_id",
+        },
+        {
+          role: 2,
+          field: "parent_cnf_id",
+        },
+        {
+          role: 1,
+          field: "parent_admin_id",
+        },
+      ],
+
+      5: [
+        {
+          role: 4,
+          field: "parent_distributor_id",
+        },
+        {
+          role: 3,
+          field: "parent_super_distributor_id",
+        },
+        {
+          role: 2,
+          field: "parent_cnf_id",
+        },
+        {
+          role: 1,
+          field: "parent_admin_id",
+        },
+      ],
+
+      6: [
+        {
+          role: 5,
+          field: "parent_fos_id",
+        },
+        {
+          role: 4,
+          field: "parent_distributor_id",
+        },
+        {
+          role: 3,
+          field: "parent_super_distributor_id",
+        },
+        {
+          role: 2,
+          field: "parent_cnf_id",
+        },
+        {
+          role: 1,
+          field: "parent_admin_id",
+        },
+      ],
+
+      7: [
+        {
+          role: 6,
+          field: "parent_retailer_id",
+        },
+        {
+          role: 5,
+          field: "parent_fos_id",
+        },
+        {
+          role: 4,
+          field: "parent_distributor_id",
+        },
+        {
+          role: 3,
+          field: "parent_super_distributor_id",
+        },
+        {
+          role: 2,
+          field: "parent_cnf_id",
+        },
+        {
+          role: 1,
+          field: "parent_admin_id",
+        },
+      ],
+
+      8: [
+        {
+          role: 7,
+          field: "parent_sub_retailer_id",
+        },
+        {
+          role: 6,
+          field: "parent_retailer_id",
+        },
+        {
+          role: 5,
+          field: "parent_fos_id",
+        },
+        {
+          role: 4,
+          field: "parent_distributor_id",
+        },
+        {
+          role: 3,
+          field: "parent_super_distributor_id",
+        },
+        {
+          role: 2,
+          field: "parent_cnf_id",
+        },
+        {
+          role: 1,
+          field: "parent_admin_id",
+        },
+      ],
+
+      9: [
+        {
+          role: 1,
+          field: "parent_admin_id",
+        },
+      ],
     };
 
-    setDisabledParentRoles(
-      updatedDisabledRoles
-    );
+    const possibleParents =
+      hierarchyOrder[role] || [];
 
-    const disabledField =
-      roleParentField[disabledRole];
+    for (const parent of possibleParents) {
+      const parentId =
+        hierarchy[parent.field];
 
-    if (checked && disabledField) {
-      setFormData((prev) => ({
-        ...prev,
-        [disabledField]: null,
-      }));
-    }
-
-    let nextIndex =
-      disabledIndex + 1;
-
-    while (
-      nextIndex < parents.length &&
-      updatedDisabledRoles[
-        Number(parents[nextIndex])
-      ] === true
-    ) {
-      nextIndex++;
-    }
-
-    const nextRole =
-      parents[nextIndex];
-
-    if (!nextRole) {
-      setParentUsers((prev) => ({
-        ...prev,
-        [disabledRole]: [],
-      }));
-
-      return;
-    }
-
-    const nextRoleId =
-      Number(nextRole);
-
-    if (checked) {
-      setParentUsers((prev) => ({
-        ...prev,
-        [disabledRole]: [],
-        [nextRoleId]: [],
-      }));
-
-      try {
-        const response =
-          await getDropdownUsers(
-            nextRoleId,
-            null,
-            ""
-          );
-
-        const users =
-          getUsersFromResponse(response);
-
-        setParentUsers((prev) => ({
-          ...prev,
-          [nextRoleId]: users,
-        }));
-
-        setParentUsers((prev) => {
-          const updated = {
-            ...prev,
-          };
-
-          parents
-            .slice(nextIndex + 1)
-            .forEach((role) => {
-              updated[Number(role)] = [];
-            });
-
-          return updated;
-        });
-
-        setOpenDropdown(null);
-
-        setParentSearch((prev) => ({
-          ...prev,
-          [nextRoleId]: "",
-        }));
-      } catch (error) {
-        console.error(
-          "NEXT ROLE GLOBAL ERROR:",
-          error?.response?.data || error
-        );
-
-        setParentUsers((prev) => ({
-          ...prev,
-          [nextRoleId]: [],
-        }));
-
-        toast.error(
-          `${getRoleName(
-            nextRoleId
-          )} dropdown load failed`
-        );
+      if (parentId) {
+        return Number(parentId);
       }
-
-      return;
     }
 
-    setParentUsers((prev) => ({
-      ...prev,
-      [nextRoleId]: [],
-    }));
-
-    setOpenDropdown(null);
-  };
-
- const getFinalParentId = (
-  roleId,
-  hierarchy,
-  disabledRoles
-) => {
-  const role = Number(roleId);
-
-  // =====================================================
-  // ROLE 1 = ADMIN
-  // =====================================================
-
-  if (role === 1) {
     return null;
-  }
-
-  // =====================================================
-  // PARENT FIELD ORDER
-  // nearest parent ko pehle check karna hai
-  // =====================================================
-
-  const hierarchyOrder = {
-    2: [
-      { role: 1, field: "parent_admin_id" },
-    ],
-
-    3: [
-      { role: 2, field: "parent_cnf_id" },
-      { role: 1, field: "parent_admin_id" },
-    ],
-
-    4: [
-      {
-        role: 3,
-        field: "parent_super_distributor_id",
-      },
-      {
-        role: 2,
-        field: "parent_cnf_id",
-      },
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
-
-    5: [
-      {
-        role: 4,
-        field: "parent_distributor_id",
-      },
-      {
-        role: 3,
-        field: "parent_super_distributor_id",
-      },
-      {
-        role: 2,
-        field: "parent_cnf_id",
-      },
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
-
-    6: [
-      {
-        role: 5,
-        field: "parent_fos_id",
-      },
-      {
-        role: 4,
-        field: "parent_distributor_id",
-      },
-      {
-        role: 3,
-        field: "parent_super_distributor_id",
-      },
-      {
-        role: 2,
-        field: "parent_cnf_id",
-      },
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
-
-    7: [
-      {
-        role: 6,
-        field: "parent_retailer_id",
-      },
-      {
-        role: 5,
-        field: "parent_fos_id",
-      },
-      {
-        role: 4,
-        field: "parent_distributor_id",
-      },
-      {
-        role: 3,
-        field: "parent_super_distributor_id",
-      },
-      {
-        role: 2,
-        field: "parent_cnf_id",
-      },
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
-
-    8: [
-      {
-        role: 7,
-        field: "parent_sub_retailer_id",
-      },
-      {
-        role: 6,
-        field: "parent_retailer_id",
-      },
-      {
-        role: 5,
-        field: "parent_fos_id",
-      },
-      {
-        role: 4,
-        field: "parent_distributor_id",
-      },
-      {
-        role: 3,
-        field: "parent_super_distributor_id",
-      },
-      {
-        role: 2,
-        field: "parent_cnf_id",
-      },
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
-
-    9: [
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
   };
-
-  const possibleParents =
-    hierarchyOrder[role] || [];
-
-  // =====================================================
-  // FIND NEAREST ACTIVE + SELECTED PARENT
-  // =====================================================
-
-  for (const parent of possibleParents) {
-    const parentRole = Number(parent.role);
-
-    // Disabled parent ko skip karo
-    if (
-      disabledRoles[parentRole] === true
-    ) {
-      continue;
-    }
-
-    const parentId =
-      hierarchy[parent.field];
-
-    if (parentId) {
-      return Number(parentId);
-    }
-  }
-
-  return null;
-};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1518,24 +1315,16 @@ const isRoleActive = (roleId) => {
     const hierarchy = {
       parent_admin_id:
         formData.parent_admin_id
-          ? Number(
-              formData.parent_admin_id
-            )
+          ? Number(formData.parent_admin_id)
           : tokenUser.parent_admin_id
-          ? Number(
-              tokenUser.parent_admin_id
-            )
+          ? Number(tokenUser.parent_admin_id)
           : null,
 
       parent_cnf_id:
         formData.parent_cnf_id
-          ? Number(
-              formData.parent_cnf_id
-            )
+          ? Number(formData.parent_cnf_id)
           : tokenUser.parent_cnf_id
-          ? Number(
-              tokenUser.parent_cnf_id
-            )
+          ? Number(tokenUser.parent_cnf_id)
           : null,
 
       parent_super_distributor_id:
@@ -1562,24 +1351,16 @@ const isRoleActive = (roleId) => {
 
       parent_fos_id:
         formData.parent_fos_id
-          ? Number(
-              formData.parent_fos_id
-            )
+          ? Number(formData.parent_fos_id)
           : tokenUser.parent_fos_id
-          ? Number(
-              tokenUser.parent_fos_id
-            )
+          ? Number(tokenUser.parent_fos_id)
           : null,
 
       parent_retailer_id:
         formData.parent_retailer_id
-          ? Number(
-              formData.parent_retailer_id
-            )
+          ? Number(formData.parent_retailer_id)
           : tokenUser.parent_retailer_id
-          ? Number(
-              tokenUser.parent_retailer_id
-            )
+          ? Number(tokenUser.parent_retailer_id)
           : null,
 
       parent_sub_retailer_id:
@@ -1595,105 +1376,69 @@ const isRoleActive = (roleId) => {
 
       parent_employee_id:
         formData.parent_employee_id
-          ? Number(
-              formData.parent_employee_id
-            )
+          ? Number(formData.parent_employee_id)
           : tokenUser.parent_employee_id
-          ? Number(
-              tokenUser.parent_employee_id
-            )
+          ? Number(tokenUser.parent_employee_id)
           : null,
 
       parent_staff_id:
         formData.parent_staff_id
-          ? Number(
-              formData.parent_staff_id
-            )
+          ? Number(formData.parent_staff_id)
           : tokenUser.parent_staff_id
-          ? Number(
-              tokenUser.parent_staff_id
-            )
+          ? Number(tokenUser.parent_staff_id)
           : null,
     };
 
-    if (
-      loggedUserRoleId === 1 &&
-      disabledParentRoles[1] !== true
-    ) {
+    if (loggedUserRoleId === 1) {
       hierarchy.parent_admin_id =
         loggedUserId;
     }
 
-    if (
-      loggedUserRoleId === 2 &&
-      disabledParentRoles[2] !== true
-    ) {
+    if (loggedUserRoleId === 2) {
       hierarchy.parent_cnf_id =
         loggedUserId;
     }
 
-    if (
-      loggedUserRoleId === 3 &&
-      disabledParentRoles[3] !== true
-    ) {
+    if (loggedUserRoleId === 3) {
       hierarchy.parent_super_distributor_id =
         loggedUserId;
     }
 
-    if (
-      loggedUserRoleId === 4 &&
-      disabledParentRoles[4] !== true
-    ) {
+    if (loggedUserRoleId === 4) {
       hierarchy.parent_distributor_id =
         loggedUserId;
     }
 
-    if (
-      loggedUserRoleId === 5 &&
-      disabledParentRoles[5] !== true
-    ) {
+    if (loggedUserRoleId === 5) {
       hierarchy.parent_fos_id =
         loggedUserId;
     }
 
-    if (
-      loggedUserRoleId === 6 &&
-      disabledParentRoles[6] !== true
-    ) {
+    if (loggedUserRoleId === 6) {
       hierarchy.parent_retailer_id =
         loggedUserId;
     }
 
-    if (
-      loggedUserRoleId === 7 &&
-      disabledParentRoles[7] !== true
-    ) {
+    if (loggedUserRoleId === 7) {
       hierarchy.parent_sub_retailer_id =
         loggedUserId;
     }
 
-    if (
-      loggedUserRoleId === 8 &&
-      disabledParentRoles[8] !== true
-    ) {
+    if (loggedUserRoleId === 8) {
       hierarchy.parent_employee_id =
         loggedUserId;
     }
 
-    if (
-      loggedUserRoleId === 9 &&
-      disabledParentRoles[9] !== true
-    ) {
+    if (loggedUserRoleId === 9) {
       hierarchy.parent_staff_id =
         loggedUserId;
     }
 
- const parent_id =
-  getFinalParentId( 
-    roleId,
-    hierarchy,
-    disabledParentRoles
-  ) || null;
+    const parent_id =
+      getFinalParentId(
+        roleId,
+        hierarchy
+      ) || null;
 
     if (
       formData.password !==
@@ -1741,51 +1486,6 @@ const isRoleActive = (roleId) => {
         hierarchy.parent_staff_id || null,
 
       parent_id,
-
-      parent_admin_disabled:
-        disabledParentRoles[1]
-          ? 1
-          : 0,
-
-      parent_cnf_disabled:
-        disabledParentRoles[2]
-          ? 1
-          : 0,
-
-      parent_super_distributor_disabled:
-        disabledParentRoles[3]
-          ? 1
-          : 0,
-
-      parent_distributor_disabled:
-        disabledParentRoles[4]
-          ? 1
-          : 0,
-
-      parent_fos_disabled:
-        disabledParentRoles[5]
-          ? 1
-          : 0,
-
-      parent_retailer_disabled:
-        disabledParentRoles[6]
-          ? 1
-          : 0,
-
-      parent_sub_retailer_disabled:
-        disabledParentRoles[7]
-          ? 1
-          : 0,
-
-      parent_employee_disabled:
-        disabledParentRoles[8]
-          ? 1
-          : 0,
-
-      parent_staff_disabled:
-        disabledParentRoles[9]
-          ? 1
-          : 0,
     };
 
     try {
@@ -1803,7 +1503,6 @@ const isRoleActive = (roleId) => {
       });
 
       setParentUsers({});
-      setDisabledParentRoles({});
       setShowPassword(false);
       setShowConfirmPassword(false);
     } catch (error) {
@@ -1844,11 +1543,6 @@ const isRoleActive = (roleId) => {
                   const users =
                     parentUsers[role] || [];
 
-                  const isDisabled =
-                    disabledParentRoles[
-                      role
-                    ] === true;
-
                   const parentField =
                     roleParentField[role];
 
@@ -1857,57 +1551,24 @@ const isRoleActive = (roleId) => {
                       key={role}
                       className="space-y-1.5"
                     >
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium text-slate-700">
-                          {getRoleName(role)}
-                        </label>
-
-                        <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={isDisabled}
-                            onChange={(e) =>
-                              handleParentCheckbox(
-                                role,
-                                e.target.checked
-                              )
-                            }
-                            className="h-4 w-4 accent-blue-600 cursor-pointer"
-                          />
-                          Disable
-                        </label>
-                      </div>
+                      <label className="text-sm font-medium text-slate-700">
+                        {getRoleName(role)}
+                      </label>
 
                       <div className="relative">
                         <button
                           type="button"
-                          disabled={isDisabled}
-                          onClick={() => {
-                            if (isDisabled) {
-                              return;
-                            }
-
+                          onClick={() =>
                             setOpenDropdown(
-                              openDropdown ===
-                                role
+                              openDropdown === role
                                 ? null
                                 : role
-                            );
-                          }}
-                          className={`w-full flex items-center justify-between border rounded-lg px-4 py-2.5 text-sm text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            isDisabled
-                              ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
-                              : "bg-white border-slate-300 text-slate-700 cursor-pointer"
-                          }`}
+                            )
+                          }
+                          className="w-full flex items-center justify-between border border-slate-300 rounded-lg px-4 py-2.5 text-sm text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-700 cursor-pointer"
                         >
                           <span className="truncate">
-                            {isDisabled
-                              ? `${getRoleName(
-                                  role
-                                )} Disabled`
-                              : formData[
-                                  parentField
-                                ]
+                            {formData[parentField]
                               ? users.find(
                                   (user) =>
                                     Number(
@@ -1929,174 +1590,160 @@ const isRoleActive = (roleId) => {
 
                           <RiArrowDownSLine
                             size={22}
-                            className={`shrink-0 transition-transform ${
-                              openDropdown ===
-                              role
+                            className={`shrink-0 transition-transform text-slate-500 ${
+                              openDropdown === role
                                 ? "rotate-180"
                                 : ""
-                            } ${
-                              isDisabled
-                                ? "text-slate-300"
-                                : "text-slate-500"
                             }`}
                           />
                         </button>
 
-                        {openDropdown ===
-                          role &&
-                          !isDisabled && (
-                            <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
-                              <div className="p-2 border-b border-slate-200">
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    value={
-                                      parentSearch[
-                                        role
-                                      ] || ""
-                                    }
-                                    onChange={(e) =>
-                                      setParentSearch(
-                                        (prev) => ({
-                                          ...prev,
-                                          [role]:
-                                            e.target
-                                              .value,
-                                        })
-                                      )
-                                    }
-                                    onClick={(e) =>
-                                      e.stopPropagation()
-                                    }
-                                    placeholder={`Search ${getRoleName(
+                        {openDropdown === role && (
+                          <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
+                            <div className="p-2 border-b border-slate-200">
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={
+                                    parentSearch[
                                       role
-                                    )}...`}
-                                    autoFocus
-                                    className="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-
-                                  {searchLoading[
+                                    ] || ""
+                                  }
+                                  onChange={(e) =>
+                                    setParentSearch(
+                                      (prev) => ({
+                                        ...prev,
+                                        [role]:
+                                          e.target.value,
+                                      })
+                                    )
+                                  }
+                                  onClick={(e) =>
+                                    e.stopPropagation()
+                                  }
+                                  placeholder={`Search ${getRoleName(
                                     role
-                                  ] && (
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                      <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="max-h-60 overflow-y-auto">
-                                {!searchLoading[
-                                  role
-                                ] && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleParentChange(
-                                        role,
-                                        ""
-                                      );
-
-                                      setOpenDropdown(
-                                        null
-                                      );
-
-                                      setParentSearch(
-                                        (prev) => ({
-                                          ...prev,
-                                          [role]:
-                                            "",
-                                        })
-                                      );
-                                    }}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50"
-                                  >
-                                    Select{" "}
-                                    {getRoleName(
-                                      role
-                                    )}
-                                  </button>
-                                )}
+                                  )}...`}
+                                  autoFocus
+                                  className="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
 
                                 {searchLoading[
                                   role
                                 ] && (
-                                  <div className="flex items-center justify-center gap-2 px-4 py-4 text-sm text-blue-600">
+                                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
                                     <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                                    Searching{" "}
-                                    {getRoleName(
-                                      role
-                                    )}
-                                    ...
                                   </div>
                                 )}
-
-                                {!searchLoading[
-                                  role
-                                ] &&
-                                  users.map(
-                                    (user) => (
-                                      <button
-                                        key={
-                                          user.id
-                                        }
-                                        type="button"
-                                        onClick={() => {
-                                          handleParentChange(
-                                            role,
-                                            user.id
-                                          );
-
-                                          setOpenDropdown(
-                                            null
-                                          );
-
-                                          setParentSearch(
-                                            (prev) => ({
-                                              ...prev,
-                                              [role]:
-                                                "",
-                                            })
-                                          );
-                                        }}
-                                        className={`w-full text-left px-4 py-2.5 text-sm transition ${
-                                          Number(
-                                            formData[
-                                              parentField
-                                            ]
-                                          ) ===
-                                          Number(
-                                            user.id
-                                          )
-                                            ? "bg-blue-50 text-blue-700 font-medium"
-                                            : "text-slate-700 hover:bg-slate-50"
-                                        }`}
-                                      >
-                                        {user.name}
-                                      </button>
-                                    )
-                                  )}
-
-                                {!searchLoading[
-                                  role
-                                ] &&
-                                  users.length ===
-                                    0 && (
-                                    <div className="px-4 py-4 text-center text-sm text-slate-400">
-                                      {parentSearch[
-                                        role
-                                      ]?.trim()
-                                        ? `No ${getRoleName(
-                                            role
-                                          )} found`
-                                        : `No ${getRoleName(
-                                            role
-                                          )} available`}
-                                    </div>
-                                  )}
                               </div>
                             </div>
-                          )}
+
+                            <div className="max-h-60 overflow-y-auto">
+                              {!searchLoading[
+                                role
+                              ] && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleParentChange(
+                                      role,
+                                      ""
+                                    );
+
+                                    setOpenDropdown(
+                                      null
+                                    );
+
+                                    setParentSearch(
+                                      (prev) => ({
+                                        ...prev,
+                                        [role]: "",
+                                      })
+                                    );
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50"
+                                >
+                                  Select{" "}
+                                  {getRoleName(
+                                    role
+                                  )}
+                                </button>
+                              )}
+
+                              {searchLoading[
+                                role
+                              ] && (
+                                <div className="flex items-center justify-center gap-2 px-4 py-4 text-sm text-blue-600">
+                                  <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                  Searching{" "}
+                                  {getRoleName(
+                                    role
+                                  )}
+                                  ...
+                                </div>
+                              )}
+
+                              {!searchLoading[
+                                role
+                              ] &&
+                                users.map(
+                                  (user) => (
+                                    <button
+                                      key={user.id}
+                                      type="button"
+                                      onClick={() => {
+                                        handleParentChange(
+                                          role,
+                                          user.id
+                                        );
+
+                                        setOpenDropdown(
+                                          null
+                                        );
+
+                                        setParentSearch(
+                                          (prev) => ({
+                                            ...prev,
+                                            [role]: "",
+                                          })
+                                        );
+                                      }}
+                                      className={`w-full text-left px-4 py-2.5 text-sm transition ${
+                                        Number(
+                                          formData[
+                                            parentField
+                                          ]
+                                        ) ===
+                                        Number(user.id)
+                                          ? "bg-blue-50 text-blue-700 font-medium"
+                                          : "text-slate-700 hover:bg-slate-50"
+                                      }`}
+                                    >
+                                      {user.name}
+                                    </button>
+                                  )
+                                )}
+
+                              {!searchLoading[
+                                role
+                              ] &&
+                                users.length ===
+                                  0 && (
+                                  <div className="px-4 py-4 text-center text-sm text-slate-400">
+                                    {parentSearch[
+                                      role
+                                    ]?.trim()
+                                      ? `No ${getRoleName(
+                                          role
+                                        )} found`
+                                      : `No ${getRoleName(
+                                          role
+                                        )} available`}
+                                  </div>
+                                )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -2113,9 +1760,7 @@ const isRoleActive = (roleId) => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">
                 Organization Name{" "}
-                <span className="text-red-500">
-                  *
-                </span>
+                <span className="text-red-500">*</span>
               </label>
 
               <input
@@ -2134,9 +1779,7 @@ const isRoleActive = (roleId) => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">
                 Full Name{" "}
-                <span className="text-red-500">
-                  *
-                </span>
+                <span className="text-red-500">*</span>
               </label>
 
               <input
@@ -2153,9 +1796,7 @@ const isRoleActive = (roleId) => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">
                 Email Address{" "}
-                <span className="text-red-500">
-                  *
-                </span>
+                <span className="text-red-500">*</span>
               </label>
 
               <input
@@ -2172,9 +1813,7 @@ const isRoleActive = (roleId) => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">
                 Phone Number{" "}
-                <span className="text-red-500">
-                  *
-                </span>
+                <span className="text-red-500">*</span>
               </label>
 
               <input
@@ -2201,9 +1840,7 @@ const isRoleActive = (roleId) => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">
                 Company Address{" "}
-                <span className="text-red-500">
-                  *
-                </span>
+                <span className="text-red-500">*</span>
               </label>
 
               <input
@@ -2222,9 +1859,7 @@ const isRoleActive = (roleId) => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">
                 Password{" "}
-                <span className="text-red-500">
-                  *
-                </span>
+                <span className="text-red-500">*</span>
               </label>
 
               <div className="relative">
@@ -2263,9 +1898,7 @@ const isRoleActive = (roleId) => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">
                 Confirm Password{" "}
-                <span className="text-red-500">
-                  *
-                </span>
+                <span className="text-red-500">*</span>
               </label>
 
               <div className="relative">
@@ -2306,9 +1939,7 @@ const isRoleActive = (roleId) => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">
                 Country{" "}
-                <span className="text-red-500">
-                  *
-                </span>
+                <span className="text-red-500">*</span>
               </label>
 
               <div className="relative">
@@ -2345,9 +1976,7 @@ const isRoleActive = (roleId) => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">
                 State{" "}
-                <span className="text-red-500">
-                  *
-                </span>
+                <span className="text-red-500">*</span>
               </label>
 
               <div className="relative">
@@ -2383,9 +2012,7 @@ const isRoleActive = (roleId) => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">
                 City{" "}
-                <span className="text-red-500">
-                  *
-                </span>
+                <span className="text-red-500">*</span>
               </label>
 
               <div className="relative">
@@ -2418,8 +2045,7 @@ const isRoleActive = (roleId) => {
               </div>
             </div>
 
-            {Number(formData.role_id) ===
-              6 && (
+            {Number(formData.role_id) === 6 && (
               <div className="md:col-span-3 space-y-4">
                 <h3 className="text-lg font-semibold text-slate-700">
                   Device Permissions
@@ -2436,8 +2062,7 @@ const isRoleActive = (roleId) => {
                       name: "old_device",
                     },
                     {
-                      label:
-                        "Supreme Device",
+                      label: "Supreme Device",
                       name: "supreme_device",
                     },
                     {
@@ -2460,9 +2085,7 @@ const isRoleActive = (roleId) => {
                     <label
                       key={item.name}
                       className={`flex items-center justify-between px-4 py-3 rounded-lg border transition cursor-pointer ${
-                        formData[
-                          item.name
-                        ] === 1
+                        formData[item.name] === 1
                           ? "border-blue-500 bg-blue-50"
                           : "border-slate-300 bg-white hover:border-blue-400"
                       }`}
@@ -2474,21 +2097,16 @@ const isRoleActive = (roleId) => {
                       <input
                         type="checkbox"
                         checked={
-                          formData[
-                            item.name
-                          ] === 1
+                          formData[item.name] === 1
                         }
                         onChange={(e) =>
-                          setFormData(
-                            (prev) => ({
-                              ...prev,
-                              [item.name]:
-                                e.target
-                                  .checked
-                                  ? 1
-                                  : 0,
-                            })
-                          )
+                          setFormData((prev) => ({
+                            ...prev,
+                            [item.name]:
+                              e.target.checked
+                                ? 1
+                                : 0,
+                          }))
                         }
                         className="h-5 w-5 accent-blue-600 cursor-pointer"
                       />
