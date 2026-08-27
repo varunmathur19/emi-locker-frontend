@@ -150,64 +150,27 @@ export default function EditStaffPage() {
     return Number(module?.status) === 1;
   };
 
-  /*
-   * =========================================================
-   * VISIBLE PARENT ROLES
-   * =========================================================
-   *
-   * Existing hierarchy is kept exactly the same.
-   *
-   * Only logged-in user's role is used to hide the roles
-   * before him in hierarchy.
-   *
-   * Example:
-   *
-   * Distributor login (4)
-   * Retailer parents = [CNF, SD, Distributor, FOS]
-   *
-   * After login filter:
-   * [FOS]
-   *
-   * FOS login (5)
-   * Retailer parents = [CNF, SD, Distributor, FOS]
-   *
-   * After login filter:
-   * [Retailer]
-   *
-   * CNF login (2)
-   * Retailer parents =
-   * [CNF, SD, Distributor, FOS]
-   *
-   * After login filter:
-   * [SD, Distributor, FOS]
-   * =========================================================
-   */
-  const visibleParentRoles = (() => {
-    const currentRole = Number(formData.role_id);
-    const currentLoggedInRole = Number(loggedInRoleId);
+  
+const visibleParentRoles = (() => {
+  const currentRole = Number(formData.role_id);
 
-    if (!currentRole) {
-      return [];
-    }
+  // Role select/load nahi hua
+  if (!currentRole) {
+    return [];
+  }
 
-    const requiredParents = parentRoles[currentRole] || [];
+  // Current user ke required parent roles
+  const requiredParents = parentRoles[currentRole] || [];
 
-    return requiredParents.filter((roleId) => {
-      const role = Number(roleId);
+  // Edit page par complete hierarchy show hogi.
+  // Logged-in role ke basis par parent roles hide nahi honge.
+  return requiredParents.filter((roleId) => {
+    const role = Number(roleId);
 
-      // Logged-in role ke pehle wale roles hide honge.
-      if (
-        Number.isInteger(currentLoggedInRole) &&
-        currentLoggedInRole > 0 &&
-        role <= currentLoggedInRole
-      ) {
-        return false;
-      }
-
-      return isRoleActive(role);
-    });
-  })();
-
+    // Sirf active role/module show karo
+    return isRoleActive(role);
+  });
+})();
   useEffect(() => {
     const user = getUserFromToken();
 
