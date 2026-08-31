@@ -1756,7 +1756,7 @@ setModules(formattedModules);
           )}
 
         </div>
-
+ 
       </div>
 
     </div>

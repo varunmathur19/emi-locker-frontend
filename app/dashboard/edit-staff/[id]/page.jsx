@@ -153,21 +153,15 @@ export default function EditStaffPage() {
   
 const visibleParentRoles = (() => {
   const currentRole = Number(formData.role_id);
-
-  // Role select/load nahi hua
   if (!currentRole) {
     return [];
   }
 
-  // Current user ke required parent roles
   const requiredParents = parentRoles[currentRole] || [];
 
-  // Edit page par complete hierarchy show hogi.
-  // Logged-in role ke basis par parent roles hide nahi honge.
   return requiredParents.filter((roleId) => {
     const role = Number(roleId);
 
-    // Sirf active role/module show karo
     return isRoleActive(role);
   });
 })();
