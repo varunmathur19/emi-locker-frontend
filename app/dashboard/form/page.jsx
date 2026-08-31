@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  addStaff,
-  getDropdownUsers,
-  getModules,
-} from "@/services/api";
-
+import { addStaff, getDropdownUsers, getModules } from "@/services/api";
 import { getUserFromToken } from "@/utils/token";
 
 import {
@@ -16,16 +11,9 @@ import {
 
 import Link from "next/link";
 
-import {
-  Country,
-  State,
-  City,
-} from "country-state-city";
+import { Country, State, City } from "country-state-city";
 
-import {
-  useState,
-  useEffect,
-} from "react";
+import { useEffect, useState } from "react";
 
 import { useSearchParams } from "next/navigation";
 
@@ -44,15 +32,7 @@ const initialFormData = {
   state: "",
   city: "",
 
-  parent_admin_id: null,
-  parent_cnf_id: null,
-  parent_super_distributor_id: null,
-  parent_distributor_id: null,
-  parent_fos_id: null,
-  parent_retailer_id: null,
-  parent_sub_retailer_id: null,
-  parent_employee_id: null,
-  parent_staff_id: null,
+  parent_id: null,
 
   new_device: 0,
   old_device: 0,
@@ -63,60 +43,34 @@ const initialFormData = {
   supreme_lock: 0,
 };
 
-const roleParentField = {
-  1: "parent_admin_id",
-  2: "parent_cnf_id",
-  3: "parent_super_distributor_id",
-  4: "parent_distributor_id",
-  5: "parent_fos_id",
-  6: "parent_retailer_id",
-  7: "parent_sub_retailer_id",
-  8: "parent_employee_id",
-  9: "parent_staff_id",
-};
-
 export default function Page() {
   const searchParams = useSearchParams();
 
   const [formData, setFormData] = useState(initialFormData);
+
   const [parentUsers, setParentUsers] = useState({});
-  const [disabledParentRoles, setDisabledParentRoles] = useState({});
+
+  const [selectedParents, setSelectedParents] = useState({});
+
   const [openDropdown, setOpenDropdown] = useState(null);
+
   const [parentSearch, setParentSearch] = useState({});
+
   const [searchLoading, setSearchLoading] = useState({});
-  const [cnfAdmin, setCnfAdmin] = useState(null);
-  const [cnfAdmins, setCnfAdmins] = useState([]);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [modules, setModules] = useState([]);
+
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const selectedRole = Number(searchParams.get("role_id"));
 
   const loggedInUser = getUserFromToken();
+
   const loggedInRoleId = Number(loggedInUser?.role_id);
 
-  const roleButtons = {
-    1: "Add Admin",
-    2: "Add CNF",
-    3: "Add Super Distributor",
-    4: "Add Distributor",
-    5: "Add FOS",
-    6: "Add Retailer",
-    7: "Add Sub Retailer",
-    8: "Add Employee",
-    9: "Add Staff",
-  };
-
-  const parentRoles = {
-    2: [1],
-    3: [2],
-    4: [2, 3],
-    5: [2, 3, 4],
-    6: [2, 3, 4, 5],
-    7: [2, 3, 4, 5, 6],
-    8: [2, 3, 4, 5, 6, 7],
-    9: [1],
-  };
+  const loggedInUserId = Number(loggedInUser?.id);
 
   const getRoleName = (roleId) => {
     const roles = {
@@ -135,87 +89,70 @@ export default function Page() {
     return roles[Number(roleId)] || "User";
   };
 
+  const parentRoles = {
+    2: [1],
+    3: [2],
+    4: [2, 3],
+    5: [2, 3, 4],
+    6: [2, 3, 4, 5],
+    7: [2, 3, 4, 5, 6],
+    8: [2, 3, 4, 5, 6, 7],
+    9: [1],
+  };
+
   const normalizeRoleName = (name) => {
-  return String(name || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "");
-};
+    return String(name || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, "");
+  };
 
-const isRoleActive = (roleId) => {
-  const role = Number(roleId);
+  const isRoleActive = (roleId) => {
+    const role = Number(roleId);
 
-  const roleName = normalizeRoleName(
-    getRoleName(role)
-  );
+    const roleName = normalizeRoleName(getRoleName(role));
 
-  const module = modules.find((item) => {
-    const moduleName =
-      typeof item === "string"
-        ? item
-        : item?.name;
+    const module = modules.find((item) => {
+      const moduleName =
+        typeof item === "string" ? item : item?.name;
 
-    const normalizedModuleName =
-      normalizeRoleName(moduleName);
+      const normalizedModuleName = normalizeRoleName(moduleName);
 
-    if (
-      role === 3 &&
-      (
-        normalizedModuleName ===
-          "superdistributor" ||
-        normalizedModuleName ===
-          "superdistributer"
-      )
-    ) {
-      return true;
+      if (
+        role === 3 &&
+        (normalizedModuleName === "superdistributor" ||
+          normalizedModuleName === "superdistributer")
+      ) {
+        return true;
+      }
+
+      return normalizedModuleName === roleName;
+    });
+
+    if (!module) {
+      return false;
     }
 
-    return (
-      normalizedModuleName === roleName
-    );
-  });
+    return Number(module?.status) === 1;
+  };
 
-  if (!module) {
-    return false;
-  }
+  const visibleParentRoles = (parentRoles[selectedRole] || []).filter(
+    (roleId) => {
+      const role = Number(roleId);
+      const loggedRole = Number(loggedInRoleId);
+      const createRole = Number(selectedRole);
 
-  return Number(module?.status) === 1;
-};
-  const visibleParentRoles = (
-  parentRoles[selectedRole] || []
-).filter((roleId) => {
-  const role = Number(roleId);
-  const loggedRole = Number(loggedInRoleId);
-  const createRole = Number(selectedRole);
+      if (!isRoleActive(role)) {
+        return false;
+      }
 
-  // ==========================================
-  // FIRST: DATABASE ACTIVE/INACTIVE CHECK
-  // ==========================================
+      if (loggedRole === 0) {
+        return role < createRole;
+      }
 
-  if (!isRoleActive(role)) {
-    return false;
-  }
-
-  // ==========================================
-  // MASTER ADMIN
-  // ==========================================
-
-  if (loggedRole === 0) {
-    return role < createRole;
-  }
-
-  if (role === loggedRole) {
-    return false;
-  }
-
-  if (role < loggedRole) {
-    return false;
-  }
-  return (
-    role > loggedRole &&
-    role < createRole
+      return role > loggedRole && role < createRole;
+    }
   );
-});
 
   const getUsersFromResponse = (response) => {
     if (Array.isArray(response?.data)) {
@@ -237,61 +174,6 @@ const isRoleActive = (roleId) => {
     return [];
   };
 
-  const handleParentDisable = (roleId, disabled) => {
-    const role = Number(roleId);
-
-    setDisabledParentRoles((prev) => ({
-      ...prev,
-      [role]: disabled,
-    }));
-
-    if (disabled) {
-      const field = roleParentField[role];
-
-      if (field) {
-        setFormData((prev) => ({
-          ...prev,
-          [field]: null,
-        }));
-      }
-    }
-  };
-
-  const loadParentUsers = async (
-    roleId,
-    parentId = null
-  ) => {
-    try {
-      const response = await getDropdownUsers(
-        Number(roleId),
-        parentId ? Number(parentId) : null
-      );
-
-      const users = getUsersFromResponse(response);
-
-      const returnedRoleId = Number(
-        response?.current_role_id ||
-          response?.data?.current_role_id ||
-          0
-      );
-
-      setParentUsers((prev) => ({
-        ...prev,
-        [Number(roleId)]: users,
-        ...(returnedRoleId
-          ? {
-              [returnedRoleId]: users,
-            }
-          : {}),
-      }));
-    } catch (error) {
-      console.error(
-        "Dropdown Error:",
-        error?.response?.data || error
-      );
-    }
-  };
-
   useEffect(() => {
     const loadModules = async () => {
       try {
@@ -306,11 +188,7 @@ const isRoleActive = (roleId) => {
           setModules([]);
         }
       } catch (error) {
-        console.error(
-          "GET MODULES ERROR:",
-          error
-        );
-
+        console.error("GET MODULES ERROR:", error);
         setModules([]);
       }
     };
@@ -319,141 +197,30 @@ const isRoleActive = (roleId) => {
   }, []);
 
   useEffect(() => {
+    const roleId = searchParams.get("role_id");
+
+    if (!roleId) {
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      role_id: Number(roleId),
+      parent_id: null,
+    }));
+
+    setSelectedParents({});
+    setParentUsers({});
+    setParentSearch({});
+    setOpenDropdown(null);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!selectedRole || selectedRole <= 1) {
       return;
     }
 
-    const user = getUserFromToken();
-
-    if (!user?.id) {
-      return;
-    }
-
-    const currentLoggedRole = Number(user.role_id);
-    const currentSelectedRole = Number(selectedRole);
-    const loggedUserId = Number(user.id);
-
-    setFormData((prev) => ({
-      ...prev,
-
-      parent_admin_id: user.parent_admin_id
-        ? Number(user.parent_admin_id)
-        : null,
-
-      parent_cnf_id: user.parent_cnf_id
-        ? Number(user.parent_cnf_id)
-        : null,
-
-      parent_super_distributor_id:
-        user.parent_super_distributor_id
-          ? Number(user.parent_super_distributor_id)
-          : null,
-
-      parent_distributor_id:
-        user.parent_distributor_id
-          ? Number(user.parent_distributor_id)
-          : null,
-
-      parent_fos_id: user.parent_fos_id
-        ? Number(user.parent_fos_id)
-        : null,
-
-      parent_retailer_id: user.parent_retailer_id
-        ? Number(user.parent_retailer_id)
-        : null,
-
-      parent_sub_retailer_id:
-        user.parent_sub_retailer_id
-          ? Number(user.parent_sub_retailer_id)
-          : null,
-
-      parent_employee_id: user.parent_employee_id
-        ? Number(user.parent_employee_id)
-        : null,
-
-      parent_staff_id: user.parent_staff_id
-        ? Number(user.parent_staff_id)
-        : null,
-
-      ...(currentLoggedRole === 1 && {
-        parent_admin_id: loggedUserId,
-      }),
-
-      ...(currentLoggedRole === 2 && {
-        parent_cnf_id: loggedUserId,
-      }),
-
-      ...(currentLoggedRole === 3 && {
-        parent_super_distributor_id: loggedUserId,
-      }),
-
-      ...(currentLoggedRole === 4 && {
-        parent_distributor_id: loggedUserId,
-      }),
-
-      ...(currentLoggedRole === 5 && {
-        parent_fos_id: loggedUserId,
-      }),
-
-      ...(currentLoggedRole === 6 && {
-        parent_retailer_id: loggedUserId,
-      }),
-
-      ...(currentLoggedRole === 7 && {
-        parent_sub_retailer_id: loggedUserId,
-      }),
-
-      ...(currentLoggedRole === 8 && {
-        parent_employee_id: loggedUserId,
-      }),
-
-      ...(currentLoggedRole === 9 && {
-        parent_staff_id: loggedUserId,
-      }),
-    }));
-
-    if (currentSelectedRole === 2) {
-      const loadAdminForCNF = async () => {
-        try {
-          const response =
-            await getDropdownUsers(1, null);
-
-          const admins =
-            getUsersFromResponse(response);
-
-          setCnfAdmins(admins);
-
-          setParentUsers((prev) => ({
-            ...prev,
-            1: admins,
-          }));
-
-          if (admins.length === 1) {
-            const admin = admins[0];
-
-            setCnfAdmin(admin);
-
-            setFormData((prev) => ({
-              ...prev,
-              parent_admin_id: Number(admin.id),
-            }));
-          } else {
-            setCnfAdmin(null);
-
-            setFormData((prev) => ({
-              ...prev,
-              parent_admin_id: null,
-            }));
-          }
-        } catch (error) {
-          console.error(
-            "CNF ADMIN ERROR:",
-            error?.response?.data || error
-          );
-        }
-      };
-
-      loadAdminForCNF();
+    if (!loggedInUserId) {
       return;
     }
 
@@ -463,43 +230,38 @@ const isRoleActive = (roleId) => {
       return;
     }
 
-    const filteredParents = parents.filter(
-      (roleId) => {
-        const role = Number(roleId);
+    const firstParentRole = Number(parents[0]);
 
-        return (
-          role > currentLoggedRole &&
-          role < currentSelectedRole
-        );
-      }
-    );
+    const shouldUseLoggedInUser =
+      firstParentRole === loggedInRoleId;
 
-    if (!filteredParents.length) {
-      return;
-    }
-
-    const firstParentRole = filteredParents[0];
+    const parentId = shouldUseLoggedInUser
+      ? loggedInUserId
+      : null;
 
     const loadFirstParent = async () => {
       try {
-        const response =
-          await getDropdownUsers(
-            Number(firstParentRole),
-            loggedUserId
-          );
+        const response = await getDropdownUsers(
+          firstParentRole,
+          parentId
+        );
 
-        const users =
-          getUsersFromResponse(response);
+        const users = getUsersFromResponse(response);
 
         setParentUsers((prev) => ({
           ...prev,
-          [Number(firstParentRole)]: users,
+          [firstParentRole]: users,
         }));
       } catch (error) {
         console.error(
-          "FIRST PARENT DROPDOWN ERROR:",
+          "INITIAL PARENT ERROR:",
           error?.response?.data || error
         );
+
+        setParentUsers((prev) => ({
+          ...prev,
+          [firstParentRole]: [],
+        }));
       }
     };
 
@@ -507,8 +269,146 @@ const isRoleActive = (roleId) => {
   }, [
     selectedRole,
     loggedInRoleId,
+    loggedInUserId,
     modules,
   ]);
+
+  const loadNextParentUsers = async (
+    currentRoleId,
+    selectedParentId,
+    nextRoleId
+  ) => {
+    try {
+      if (!selectedParentId || !nextRoleId) {
+        return;
+      }
+
+      setSearchLoading((prev) => ({
+        ...prev,
+        [Number(nextRoleId)]: true,
+      }));
+
+      const response = await getDropdownUsers(
+        Number(nextRoleId),
+        Number(selectedParentId)
+      );
+
+      let users = getUsersFromResponse(response);
+
+      if (Number(nextRoleId) === 5) {
+        users = users.filter(
+          (user) =>
+            Number(user?.role_id) === 5 &&
+            Number(user?.parent_id) ===
+              Number(selectedParentId)
+        );
+      }
+
+      setParentUsers((prev) => ({
+        ...prev,
+        [Number(nextRoleId)]: users,
+      }));
+    } catch (error) {
+      console.error(
+        `LOAD ${getRoleName(nextRoleId)} ERROR:`,
+        error?.response?.data || error
+      );
+
+      setParentUsers((prev) => ({
+        ...prev,
+        [Number(nextRoleId)]: [],
+      }));
+    } finally {
+      setSearchLoading((prev) => ({
+        ...prev,
+        [Number(nextRoleId)]: false,
+      }));
+    }
+  };
+
+  const handleParentChange = async (
+    parentRoleId,
+    parentId
+  ) => {
+    const roleId = Number(parentRoleId);
+
+    const selectedId = parentId
+      ? Number(parentId)
+      : null;
+
+    const parents = visibleParentRoles;
+
+    const currentIndex = parents.indexOf(roleId);
+
+    const updatedSelectedParents = {
+      ...selectedParents,
+    };
+
+    if (selectedId) {
+      updatedSelectedParents[roleId] = selectedId;
+    } else {
+      delete updatedSelectedParents[roleId];
+    }
+
+    parents
+      .slice(currentIndex + 1)
+      .forEach((childRoleId) => {
+        delete updatedSelectedParents[
+          Number(childRoleId)
+        ];
+      });
+
+    setSelectedParents(updatedSelectedParents);
+
+    setFormData((prev) => ({
+      ...prev,
+      parent_id: selectedId,
+    }));
+
+    const updatedParentUsers = {
+      ...parentUsers,
+    };
+
+    parents
+      .slice(currentIndex + 1)
+      .forEach((childRoleId) => {
+        updatedParentUsers[
+          Number(childRoleId)
+        ] = [];
+      });
+
+    setParentUsers(updatedParentUsers);
+
+    const updatedSearch = {
+      ...parentSearch,
+    };
+
+    parents
+      .slice(currentIndex + 1)
+      .forEach((childRoleId) => {
+        updatedSearch[
+          Number(childRoleId)
+        ] = "";
+      });
+
+    setParentSearch(updatedSearch);
+
+    if (!selectedId) {
+      return;
+    }
+
+    const nextRole = parents[currentIndex + 1];
+
+    if (!nextRole) {
+      return;
+    }
+
+    await loadNextParentUsers(
+      roleId,
+      selectedId,
+      Number(nextRole)
+    );
+  };
 
   useEffect(() => {
     if (
@@ -519,130 +419,100 @@ const isRoleActive = (roleId) => {
     }
 
     const roleId = Number(openDropdown);
+
     const search = (
       parentSearch[roleId] || ""
     ).trim();
 
-    const parents =
-      parentRoles[selectedRole] || [];
+    const parents = parentRoles[selectedRole] || [];
 
-    const currentIndex =
-      parents.indexOf(roleId);
+    const currentIndex = parents.indexOf(roleId);
 
     let parentId = null;
 
     if (currentIndex > 0) {
-      for (
-        let i = currentIndex - 1;
-        i >= 0;
-        i--
+      const previousRole = Number(
+        parents[currentIndex - 1]
+      );
+
+      parentId = selectedParents[
+        previousRole
+      ]
+        ? Number(
+            selectedParents[previousRole]
+          )
+        : null;
+    }
+
+    if (currentIndex === 0) {
+      if (
+        Number(roleId) ===
+        Number(loggedInRoleId)
       ) {
-        const previousRole =
-          Number(parents[i]);
-
-        if (
-          disabledParentRoles[
-            previousRole
-          ] === true
-        ) {
-          parentId = null;
-          break;
-        }
-
-        const previousField =
-          roleParentField[previousRole];
-
-        if (
-          previousField &&
-          formData[previousField]
-        ) {
-          parentId = Number(
-            formData[previousField]
-          );
-          break;
-        }
+        parentId = loggedInUserId;
+      } else {
+        parentId = null;
       }
     }
 
-    const timer = setTimeout(
-      async () => {
-        try {
-          setSearchLoading((prev) => ({
-            ...prev,
-            [roleId]: true,
-          }));
+    const timer = setTimeout(async () => {
+      try {
+        setSearchLoading((prev) => ({
+          ...prev,
+          [roleId]: true,
+        }));
 
-          const response =
-            await getDropdownUsers(
-              roleId,
-              parentId,
-              search
-            );
-
-          const users =
-            getUsersFromResponse(response);
-
-          setParentUsers((prev) => ({
-            ...prev,
-            [roleId]: users,
-          }));
-        } catch (error) {
-          console.error(
-            "API SEARCH ERROR:",
-            error?.response?.data || error
+        const response =
+          await getDropdownUsers(
+            roleId,
+            parentId,
+            search
           );
 
-          setParentUsers((prev) => ({
-            ...prev,
-            [roleId]: [],
-          }));
-        } finally {
-          setSearchLoading((prev) => ({
-            ...prev,
-            [roleId]: false,
-          }));
+        let users =
+          getUsersFromResponse(response);
+
+        if (roleId === 5) {
+          users = users.filter(
+            (user) =>
+              Number(user?.role_id) === 5 &&
+              (parentId === null ||
+                Number(user?.parent_id) ===
+                  Number(parentId))
+          );
         }
-      },
-      400
-    );
+
+        setParentUsers((prev) => ({
+          ...prev,
+          [roleId]: users,
+        }));
+      } catch (error) {
+        console.error(
+          "DROPDOWN SEARCH ERROR:",
+          error?.response?.data || error
+        );
+
+        setParentUsers((prev) => ({
+          ...prev,
+          [roleId]: [],
+        }));
+      } finally {
+        setSearchLoading((prev) => ({
+          ...prev,
+          [roleId]: false,
+        }));
+      }
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [
     openDropdown,
     parentSearch,
     selectedRole,
-    formData,
-    disabledParentRoles,
+    selectedParents,
+    loggedInRoleId,
+    loggedInUserId,
   ]);
-
-  useEffect(() => {
-    const roleId =
-      searchParams.get("role_id");
-
-    if (roleId) {
-      setFormData((prev) => ({
-        ...prev,
-        role_id: Number(roleId),
-      }));
-    }
-  }, [searchParams]);
-
-  const countries =
-    Country.getAllCountries();
-
-  const states = formData.country
-    ? State.getStatesOfCountry(
-        formData.country
-      )
-    : [];
-
-  const cities =
-    formData.country && formData.state
-      ? City.getCitiesOfState(
-          formData.country,
-          formData.state
-        )
-      : [];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -666,831 +536,26 @@ const isRoleActive = (roleId) => {
     });
   };
 
-  const handleParentChange = async (
-    parentRoleId,
-    parentId
-  ) => {
-    const currentRoleId =
-      Number(parentRoleId);
-
-    const selectedId = parentId
-      ? Number(parentId)
-      : null;
-
-    const parents =
-      visibleParentRoles;
-
-    const currentIndex =
-      parents.indexOf(currentRoleId);
-
-    const selectedUser = (
-      parentUsers[currentRoleId] || []
-    ).find(
-      (user) =>
-        Number(user.id) === selectedId
-    );
-
-    setFormData((prev) => {
-      const updated = { ...prev };
-
-      if (currentRoleId === 1) {
-        updated.parent_admin_id =
-          selectedId;
-      }
-
-      if (currentRoleId === 2) {
-        updated.parent_cnf_id =
-          selectedId;
-
-        if (
-          selectedUser?.parent_admin_id
-        ) {
-          updated.parent_admin_id =
-            Number(
-              selectedUser.parent_admin_id
-            );
-        }
-      }
-
-      if (currentRoleId === 3) {
-        updated.parent_super_distributor_id =
-          selectedId;
-
-        if (
-          selectedUser?.parent_admin_id
-        ) {
-          updated.parent_admin_id =
-            Number(
-              selectedUser.parent_admin_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_cnf_id
-        ) {
-          updated.parent_cnf_id =
-            Number(
-              selectedUser.parent_cnf_id
-            );
-        }
-      }
-
-      if (currentRoleId === 4) {
-        updated.parent_distributor_id =
-          selectedId;
-
-        if (
-          selectedUser?.parent_admin_id
-        ) {
-          updated.parent_admin_id =
-            Number(
-              selectedUser.parent_admin_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_cnf_id
-        ) {
-          updated.parent_cnf_id =
-            Number(
-              selectedUser.parent_cnf_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_super_distributor_id
-        ) {
-          updated.parent_super_distributor_id =
-            Number(
-              selectedUser.parent_super_distributor_id
-            );
-        }
-
-        updated.parent_fos_id = null;
-        updated.parent_retailer_id = null;
-      }
-
-      if (currentRoleId === 5) {
-        updated.parent_fos_id =
-          selectedId;
-
-        if (
-          selectedUser?.parent_admin_id
-        ) {
-          updated.parent_admin_id =
-            Number(
-              selectedUser.parent_admin_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_cnf_id
-        ) {
-          updated.parent_cnf_id =
-            Number(
-              selectedUser.parent_cnf_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_super_distributor_id
-        ) {
-          updated.parent_super_distributor_id =
-            Number(
-              selectedUser.parent_super_distributor_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_distributor_id
-        ) {
-          updated.parent_distributor_id =
-            Number(
-              selectedUser.parent_distributor_id
-            );
-        }
-
-        updated.parent_retailer_id = null;
-      }
-
-      if (currentRoleId === 6) {
-        updated.parent_retailer_id =
-          selectedId;
-
-        if (
-          selectedUser?.parent_admin_id
-        ) {
-          updated.parent_admin_id =
-            Number(
-              selectedUser.parent_admin_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_cnf_id
-        ) {
-          updated.parent_cnf_id =
-            Number(
-              selectedUser.parent_cnf_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_super_distributor_id
-        ) {
-          updated.parent_super_distributor_id =
-            Number(
-              selectedUser.parent_super_distributor_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_distributor_id
-        ) {
-          updated.parent_distributor_id =
-            Number(
-              selectedUser.parent_distributor_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_fos_id
-        ) {
-          updated.parent_fos_id =
-            Number(
-              selectedUser.parent_fos_id
-            );
-        } else if (
-          selectedUser?.parent_id
-        ) {
-          updated.parent_fos_id =
-            Number(
-              selectedUser.parent_id
-            );
-        } else if (
-          !updated.parent_fos_id
-        ) {
-          updated.parent_fos_id = null;
-        }
-      }
-
-      if (currentRoleId === 7) {
-        updated.parent_sub_retailer_id =
-          selectedId;
-
-        if (
-          selectedUser?.parent_admin_id
-        ) {
-          updated.parent_admin_id =
-            Number(
-              selectedUser.parent_admin_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_cnf_id
-        ) {
-          updated.parent_cnf_id =
-            Number(
-              selectedUser.parent_cnf_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_super_distributor_id
-        ) {
-          updated.parent_super_distributor_id =
-            Number(
-              selectedUser.parent_super_distributor_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_distributor_id
-        ) {
-          updated.parent_distributor_id =
-            Number(
-              selectedUser.parent_distributor_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_fos_id
-        ) {
-          updated.parent_fos_id =
-            Number(
-              selectedUser.parent_fos_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_retailer_id
-        ) {
-          updated.parent_retailer_id =
-            Number(
-              selectedUser.parent_retailer_id
-            );
-        }
-      }
-
-      if (currentRoleId === 8) {
-        updated.parent_employee_id =
-          selectedId;
-
-        if (
-          selectedUser?.parent_admin_id
-        ) {
-          updated.parent_admin_id =
-            Number(
-              selectedUser.parent_admin_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_cnf_id
-        ) {
-          updated.parent_cnf_id =
-            Number(
-              selectedUser.parent_cnf_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_super_distributor_id
-        ) {
-          updated.parent_super_distributor_id =
-            Number(
-              selectedUser.parent_super_distributor_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_distributor_id
-        ) {
-          updated.parent_distributor_id =
-            Number(
-              selectedUser.parent_distributor_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_fos_id
-        ) {
-          updated.parent_fos_id =
-            Number(
-              selectedUser.parent_fos_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_retailer_id
-        ) {
-          updated.parent_retailer_id =
-            Number(
-              selectedUser.parent_retailer_id
-            );
-        }
-
-        if (
-          selectedUser?.parent_sub_retailer_id
-        ) {
-          updated.parent_sub_retailer_id =
-            Number(
-              selectedUser.parent_sub_retailer_id
-            );
-        }
-
-        updated.parent_retailer_id =
-          selectedId;
-
-        updated.parent_sub_retailer_id =
-          null;
-      }
-
-      return updated;
-    });
-
-    const updatedParentUsers = {
-      ...parentUsers,
-    };
-
-    if (currentIndex !== -1) {
-      parents
-        .slice(currentIndex + 1)
-        .forEach((roleId) => {
-          updatedParentUsers[roleId] = [];
-        });
-    }
-
-    setParentUsers(updatedParentUsers);
-
-    if (!selectedId) {
-      return;
-    }
-
-    if (currentRoleId === 4) {
-      try {
-        setParentUsers((prev) => ({
-          ...prev,
-          5: [],
-          6: [],
-        }));
-
-        const [
-          fosResponse,
-          retailerResponse,
-        ] = await Promise.all([
-          getDropdownUsers(
-            5,
-            selectedId
-          ),
-          getDropdownUsers(
-            6,
-            selectedId
-          ),
-        ]);
-
-        const fosUsers =
-          getUsersFromResponse(
-            fosResponse
-          );
-
-        const directRetailerUsers =
-          getUsersFromResponse(
-            retailerResponse
-          );
-
-        if (fosUsers.length > 0) {
-          setParentUsers((prev) => ({
-            ...prev,
-            5: fosUsers,
-            6: [],
-          }));
-
-          return;
-        }
-
-        setParentUsers((prev) => ({
-          ...prev,
-          5: [],
-          6: directRetailerUsers,
-        }));
-
-        return;
-      } catch (error) {
-        console.error(
-          "DISTRIBUTOR ERROR:",
-          error?.response?.data || error
-        );
-
-        setParentUsers((prev) => ({
-          ...prev,
-          5: [],
-          6: [],
-        }));
-
-        toast.error(
-          "FOS / Retailer dropdown load failed"
-        );
-
-        return;
-      }
-    }
-
-    if (currentRoleId === 5) {
-      try {
-        setParentUsers((prev) => ({
-          ...prev,
-          6: [],
-        }));
-
-        const response =
-          await getDropdownUsers(
-            6,
-            selectedId
-          );
-
-        const retailerUsers =
-          getUsersFromResponse(response);
-
-        setParentUsers((prev) => ({
-          ...prev,
-          6: retailerUsers,
-        }));
-
-        return;
-      } catch (error) {
-        console.error(
-          "RETAILER ERROR:",
-          error?.response?.data || error
-        );
-
-        setParentUsers((prev) => ({
-          ...prev,
-          6: [],
-        }));
-
-        toast.error(
-          "Retailer dropdown load failed"
-        );
-
-        return;
-      }
-    }
-
-    let nextRoleIndex =
-      currentIndex + 1;
-
-    while (
-      nextRoleIndex < parents.length &&
-      disabledParentRoles[
-        Number(parents[nextRoleIndex])
-      ] === true
-    ) {
-      nextRoleIndex++;
-    }
-
-    const nextRole =
-      parents[nextRoleIndex];
-
-    if (!nextRole) {
-      return;
-    }
-
-    const nextParentId =
-      disabledParentRoles[
-        currentRoleId
-      ] === true
-        ? null
-        : selectedId;
-
-    await loadParentUsers(
-      Number(nextRole),
-      nextParentId
-    );
-  };
-
-  const handleParentCheckbox = async (
-    roleId,
-    checked
-  ) => {
-    const disabledRole =
-      Number(roleId);
-
-    const parents =
-      parentRoles[selectedRole] || [];
-
-    const disabledIndex =
-      parents.indexOf(disabledRole);
-
-    if (disabledIndex === -1) {
-      return;
-    }
-
-    const updatedDisabledRoles = {
-      ...disabledParentRoles,
-      [disabledRole]: checked,
-    };
-
-    setDisabledParentRoles(
-      updatedDisabledRoles
-    );
-
-    const disabledField =
-      roleParentField[disabledRole];
-
-    if (checked && disabledField) {
-      setFormData((prev) => ({
-        ...prev,
-        [disabledField]: null,
-      }));
-    }
-
-    let nextIndex =
-      disabledIndex + 1;
-
-    while (
-      nextIndex < parents.length &&
-      updatedDisabledRoles[
-        Number(parents[nextIndex])
-      ] === true
-    ) {
-      nextIndex++;
-    }
-
-    const nextRole =
-      parents[nextIndex];
-
-    if (!nextRole) {
-      setParentUsers((prev) => ({
-        ...prev,
-        [disabledRole]: [],
-      }));
-
-      return;
-    }
-
-    const nextRoleId =
-      Number(nextRole);
-
-    if (checked) {
-      setParentUsers((prev) => ({
-        ...prev,
-        [disabledRole]: [],
-        [nextRoleId]: [],
-      }));
-
-      try {
-        const response =
-          await getDropdownUsers(
-            nextRoleId,
-            null,
-            ""
-          );
-
-        const users =
-          getUsersFromResponse(response);
-
-        setParentUsers((prev) => ({
-          ...prev,
-          [nextRoleId]: users,
-        }));
-
-        setParentUsers((prev) => {
-          const updated = {
-            ...prev,
-          };
-
-          parents
-            .slice(nextIndex + 1)
-            .forEach((role) => {
-              updated[Number(role)] = [];
-            });
-
-          return updated;
-        });
-
-        setOpenDropdown(null);
-
-        setParentSearch((prev) => ({
-          ...prev,
-          [nextRoleId]: "",
-        }));
-      } catch (error) {
-        console.error(
-          "NEXT ROLE GLOBAL ERROR:",
-          error?.response?.data || error
-        );
-
-        setParentUsers((prev) => ({
-          ...prev,
-          [nextRoleId]: [],
-        }));
-
-        toast.error(
-          `${getRoleName(
-            nextRoleId
-          )} dropdown load failed`
-        );
-      }
-
-      return;
-    }
-
-    setParentUsers((prev) => ({
-      ...prev,
-      [nextRoleId]: [],
-    }));
-
-    setOpenDropdown(null);
-  };
-
- const getFinalParentId = (
-  roleId,
-  hierarchy,
-  disabledRoles
-) => {
-  const role = Number(roleId);
-
-  // =====================================================
-  // ROLE 1 = ADMIN
-  // =====================================================
-
-  if (role === 1) {
-    return null;
-  }
-
-  // =====================================================
-  // PARENT FIELD ORDER
-  // nearest parent ko pehle check karna hai
-  // =====================================================
-
-  const hierarchyOrder = {
-    2: [
-      { role: 1, field: "parent_admin_id" },
-    ],
-
-    3: [
-      { role: 2, field: "parent_cnf_id" },
-      { role: 1, field: "parent_admin_id" },
-    ],
-
-    4: [
-      {
-        role: 3,
-        field: "parent_super_distributor_id",
-      },
-      {
-        role: 2,
-        field: "parent_cnf_id",
-      },
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
-
-    5: [
-      {
-        role: 4,
-        field: "parent_distributor_id",
-      },
-      {
-        role: 3,
-        field: "parent_super_distributor_id",
-      },
-      {
-        role: 2,
-        field: "parent_cnf_id",
-      },
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
-
-    6: [
-      {
-        role: 5,
-        field: "parent_fos_id",
-      },
-      {
-        role: 4,
-        field: "parent_distributor_id",
-      },
-      {
-        role: 3,
-        field: "parent_super_distributor_id",
-      },
-      {
-        role: 2,
-        field: "parent_cnf_id",
-      },
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
-
-    7: [
-      {
-        role: 6,
-        field: "parent_retailer_id",
-      },
-      {
-        role: 5,
-        field: "parent_fos_id",
-      },
-      {
-        role: 4,
-        field: "parent_distributor_id",
-      },
-      {
-        role: 3,
-        field: "parent_super_distributor_id",
-      },
-      {
-        role: 2,
-        field: "parent_cnf_id",
-      },
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
-
-    8: [
-      {
-        role: 7,
-        field: "parent_sub_retailer_id",
-      },
-      {
-        role: 6,
-        field: "parent_retailer_id",
-      },
-      {
-        role: 5,
-        field: "parent_fos_id",
-      },
-      {
-        role: 4,
-        field: "parent_distributor_id",
-      },
-      {
-        role: 3,
-        field: "parent_super_distributor_id",
-      },
-      {
-        role: 2,
-        field: "parent_cnf_id",
-      },
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
-
-    9: [
-      {
-        role: 1,
-        field: "parent_admin_id",
-      },
-    ],
-  };
-
-  const possibleParents =
-    hierarchyOrder[role] || [];
-
-  // =====================================================
-  // FIND NEAREST ACTIVE + SELECTED PARENT
-  // =====================================================
-
-  for (const parent of possibleParents) {
-    const parentRole = Number(parent.role);
-
-    // Disabled parent ko skip karo
-    if (
-      disabledRoles[parentRole] === true
-    ) {
-      continue;
-    }
-
-    const parentId =
-      hierarchy[parent.field];
-
-    if (parentId) {
-      return Number(parentId);
-    }
-  }
-
-  return null;
-};
+  const countries = Country.getAllCountries();
+
+  const states = formData.country
+    ? State.getStatesOfCountry(
+        formData.country
+      )
+    : [];
+
+  const cities =
+    formData.country && formData.state
+      ? City.getCitiesOfState(
+          formData.country,
+          formData.state
+        )
+      : [];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const roleId =
-      Number(formData.role_id);
+    const roleId = Number(formData.role_id);
 
     if (!roleId) {
       toast.error(
@@ -1499,201 +564,12 @@ const isRoleActive = (roleId) => {
       return;
     }
 
-    const tokenUser =
-      getUserFromToken();
+    const tokenUser = getUserFromToken();
 
     if (!tokenUser?.id) {
-      toast.error(
-        "Logged-in user not found"
-      );
+      toast.error("Logged-in user not found");
       return;
     }
-
-    const loggedUserId =
-      Number(tokenUser.id);
-
-    const loggedUserRoleId =
-      Number(tokenUser.role_id);
-
-    const hierarchy = {
-      parent_admin_id:
-        formData.parent_admin_id
-          ? Number(
-              formData.parent_admin_id
-            )
-          : tokenUser.parent_admin_id
-          ? Number(
-              tokenUser.parent_admin_id
-            )
-          : null,
-
-      parent_cnf_id:
-        formData.parent_cnf_id
-          ? Number(
-              formData.parent_cnf_id
-            )
-          : tokenUser.parent_cnf_id
-          ? Number(
-              tokenUser.parent_cnf_id
-            )
-          : null,
-
-      parent_super_distributor_id:
-        formData.parent_super_distributor_id
-          ? Number(
-              formData.parent_super_distributor_id
-            )
-          : tokenUser.parent_super_distributor_id
-          ? Number(
-              tokenUser.parent_super_distributor_id
-            )
-          : null,
-
-      parent_distributor_id:
-        formData.parent_distributor_id
-          ? Number(
-              formData.parent_distributor_id
-            )
-          : tokenUser.parent_distributor_id
-          ? Number(
-              tokenUser.parent_distributor_id
-            )
-          : null,
-
-      parent_fos_id:
-        formData.parent_fos_id
-          ? Number(
-              formData.parent_fos_id
-            )
-          : tokenUser.parent_fos_id
-          ? Number(
-              tokenUser.parent_fos_id
-            )
-          : null,
-
-      parent_retailer_id:
-        formData.parent_retailer_id
-          ? Number(
-              formData.parent_retailer_id
-            )
-          : tokenUser.parent_retailer_id
-          ? Number(
-              tokenUser.parent_retailer_id
-            )
-          : null,
-
-      parent_sub_retailer_id:
-        formData.parent_sub_retailer_id
-          ? Number(
-              formData.parent_sub_retailer_id
-            )
-          : tokenUser.parent_sub_retailer_id
-          ? Number(
-              tokenUser.parent_sub_retailer_id
-            )
-          : null,
-
-      parent_employee_id:
-        formData.parent_employee_id
-          ? Number(
-              formData.parent_employee_id
-            )
-          : tokenUser.parent_employee_id
-          ? Number(
-              tokenUser.parent_employee_id
-            )
-          : null,
-
-      parent_staff_id:
-        formData.parent_staff_id
-          ? Number(
-              formData.parent_staff_id
-            )
-          : tokenUser.parent_staff_id
-          ? Number(
-              tokenUser.parent_staff_id
-            )
-          : null,
-    };
-
-    if (
-      loggedUserRoleId === 1 &&
-      disabledParentRoles[1] !== true
-    ) {
-      hierarchy.parent_admin_id =
-        loggedUserId;
-    }
-
-    if (
-      loggedUserRoleId === 2 &&
-      disabledParentRoles[2] !== true
-    ) {
-      hierarchy.parent_cnf_id =
-        loggedUserId;
-    }
-
-    if (
-      loggedUserRoleId === 3 &&
-      disabledParentRoles[3] !== true
-    ) {
-      hierarchy.parent_super_distributor_id =
-        loggedUserId;
-    }
-
-    if (
-      loggedUserRoleId === 4 &&
-      disabledParentRoles[4] !== true
-    ) {
-      hierarchy.parent_distributor_id =
-        loggedUserId;
-    }
-
-    if (
-      loggedUserRoleId === 5 &&
-      disabledParentRoles[5] !== true
-    ) {
-      hierarchy.parent_fos_id =
-        loggedUserId;
-    }
-
-    if (
-      loggedUserRoleId === 6 &&
-      disabledParentRoles[6] !== true
-    ) {
-      hierarchy.parent_retailer_id =
-        loggedUserId;
-    }
-
-    if (
-      loggedUserRoleId === 7 &&
-      disabledParentRoles[7] !== true
-    ) {
-      hierarchy.parent_sub_retailer_id =
-        loggedUserId;
-    }
-
-    if (
-      loggedUserRoleId === 8 &&
-      disabledParentRoles[8] !== true
-    ) {
-      hierarchy.parent_employee_id =
-        loggedUserId;
-    }
-
-    if (
-      loggedUserRoleId === 9 &&
-      disabledParentRoles[9] !== true
-    ) {
-      hierarchy.parent_staff_id =
-        loggedUserId;
-    }
-
- const parent_id =
-  getFinalParentId( 
-    roleId,
-    hierarchy,
-    disabledParentRoles
-  ) || null;
 
     if (
       formData.password !==
@@ -1705,92 +581,32 @@ const isRoleActive = (roleId) => {
       return;
     }
 
+    let finalParentId = formData.parent_id
+      ? Number(formData.parent_id)
+      : null;
+
+    if (
+      !finalParentId &&
+      roleId > 1 &&
+      loggedInRoleId > 0 &&
+      loggedInRoleId < roleId
+    ) {
+      finalParentId = loggedInUserId;
+    }
+
     const payload = {
       ...formData,
-
       role_id: roleId,
-
-      parent_admin_id:
-        hierarchy.parent_admin_id || null,
-
-      parent_cnf_id:
-        hierarchy.parent_cnf_id || null,
-
-      parent_super_distributor_id:
-        hierarchy.parent_super_distributor_id ||
-        null,
-
-      parent_distributor_id:
-        hierarchy.parent_distributor_id ||
-        null,
-
-      parent_fos_id:
-        hierarchy.parent_fos_id || null,
-
-      parent_retailer_id:
-        hierarchy.parent_retailer_id || null,
-
-      parent_sub_retailer_id:
-        hierarchy.parent_sub_retailer_id ||
-        null,
-
-      parent_employee_id:
-        hierarchy.parent_employee_id || null,
-
-      parent_staff_id:
-        hierarchy.parent_staff_id || null,
-
-      parent_id,
-
-      parent_admin_disabled:
-        disabledParentRoles[1]
-          ? 1
-          : 0,
-
-      parent_cnf_disabled:
-        disabledParentRoles[2]
-          ? 1
-          : 0,
-
-      parent_super_distributor_disabled:
-        disabledParentRoles[3]
-          ? 1
-          : 0,
-
-      parent_distributor_disabled:
-        disabledParentRoles[4]
-          ? 1
-          : 0,
-
-      parent_fos_disabled:
-        disabledParentRoles[5]
-          ? 1
-          : 0,
-
-      parent_retailer_disabled:
-        disabledParentRoles[6]
-          ? 1
-          : 0,
-
-      parent_sub_retailer_disabled:
-        disabledParentRoles[7]
-          ? 1
-          : 0,
-
-      parent_employee_disabled:
-        disabledParentRoles[8]
-          ? 1
-          : 0,
-
-      parent_staff_disabled:
-        disabledParentRoles[9]
-          ? 1
-          : 0,
+      parent_id: finalParentId,
     };
 
+    console.log(
+      "FINAL ADD STAFF PAYLOAD:",
+      payload
+    );
+
     try {
-      const response =
-        await addStaff(payload);
+      const response = await addStaff(payload);
 
       toast.success(
         response?.message ||
@@ -1802,8 +618,11 @@ const isRoleActive = (roleId) => {
         role_id: roleId,
       });
 
+      setSelectedParents({});
       setParentUsers({});
-      setDisabledParentRoles({});
+      setParentSearch({});
+      setOpenDropdown(null);
+
       setShowPassword(false);
       setShowConfirmPassword(false);
     } catch (error) {
@@ -1833,168 +652,159 @@ const isRoleActive = (roleId) => {
         </div>
 
         {selectedRole > 1 &&
-          selectedRole !== 2 &&
           visibleParentRoles.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
               {visibleParentRoles.map(
                 (parentRoleId) => {
-                  const role =
-                    Number(parentRoleId);
+                  const role = Number(parentRoleId);
 
                   const users =
                     parentUsers[role] || [];
 
-                  const isDisabled =
-                    disabledParentRoles[
-                      role
-                    ] === true;
-
-                  const parentField =
-                    roleParentField[role];
+                  const selectedUser =
+                    users.find(
+                      (user) =>
+                        Number(user.id) ===
+                        Number(
+                          selectedParents[role]
+                        )
+                    );
 
                   return (
                     <div
                       key={role}
                       className="space-y-1.5"
                     >
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium text-slate-700">
-                          {getRoleName(role)}
-                        </label>
-
-                        <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={isDisabled}
-                            onChange={(e) =>
-                              handleParentCheckbox(
-                                role,
-                                e.target.checked
-                              )
-                            }
-                            className="h-4 w-4 accent-blue-600 cursor-pointer"
-                          />
-                          Disable
-                        </label>
-                      </div>
+                      <label className="text-sm font-medium text-slate-700">
+                        {getRoleName(role)}
+                      </label>
 
                       <div className="relative">
                         <button
                           type="button"
-                          disabled={isDisabled}
-                          onClick={() => {
-                            if (isDisabled) {
-                              return;
-                            }
-
+                          onClick={() =>
                             setOpenDropdown(
                               openDropdown ===
                                 role
                                 ? null
                                 : role
-                            );
-                          }}
-                          className={`w-full flex items-center justify-between border rounded-lg px-4 py-2.5 text-sm text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            isDisabled
-                              ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
-                              : "bg-white border-slate-300 text-slate-700 cursor-pointer"
-                          }`}
+                            )
+                          }
+                          className="w-full flex items-center justify-between border border-slate-300 rounded-lg px-4 py-2.5 text-sm text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-700 cursor-pointer"
                         >
                           <span className="truncate">
-                            {isDisabled
-                              ? `${getRoleName(
-                                  role
-                                )} Disabled`
-                              : formData[
-                                  parentField
-                                ]
-                              ? users.find(
-                                  (user) =>
-                                    Number(
-                                      user.id
-                                    ) ===
-                                    Number(
-                                      formData[
-                                        parentField
-                                      ]
-                                    )
-                                )?.name ||
-                                `Selected ${getRoleName(
-                                  role
-                                )}`
-                              : `Select ${getRoleName(
-                                  role
-                                )}`}
+                            {selectedUser?.name ||
+                              `Select ${getRoleName(
+                                role
+                              )}`}
                           </span>
 
                           <RiArrowDownSLine
                             size={22}
-                            className={`shrink-0 transition-transform ${
+                            className={`shrink-0 transition-transform text-slate-500 ${
                               openDropdown ===
                               role
                                 ? "rotate-180"
                                 : ""
-                            } ${
-                              isDisabled
-                                ? "text-slate-300"
-                                : "text-slate-500"
                             }`}
                           />
                         </button>
 
-                        {openDropdown ===
-                          role &&
-                          !isDisabled && (
-                            <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
-                              <div className="p-2 border-b border-slate-200">
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    value={
-                                      parentSearch[
-                                        role
-                                      ] || ""
-                                    }
-                                    onChange={(e) =>
-                                      setParentSearch(
-                                        (prev) => ({
-                                          ...prev,
-                                          [role]:
-                                            e.target
-                                              .value,
-                                        })
-                                      )
-                                    }
-                                    onClick={(e) =>
-                                      e.stopPropagation()
-                                    }
-                                    placeholder={`Search ${getRoleName(
+                        {openDropdown === role && (
+                          <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
+                            <div className="p-2 border-b border-slate-200">
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={
+                                    parentSearch[
                                       role
-                                    )}...`}
-                                    autoFocus
-                                    className="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-
-                                  {searchLoading[
+                                    ] || ""
+                                  }
+                                  onChange={(e) =>
+                                    setParentSearch(
+                                      (prev) => ({
+                                        ...prev,
+                                        [role]:
+                                          e.target
+                                            .value,
+                                      })
+                                    )
+                                  }
+                                  onClick={(e) =>
+                                    e.stopPropagation()
+                                  }
+                                  placeholder={`Search ${getRoleName(
                                     role
-                                  ] && (
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                      <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
+                                  )}...`}
+                                  autoFocus
+                                  className="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
 
-                              <div className="max-h-60 overflow-y-auto">
-                                {!searchLoading[
+                                {searchLoading[
                                   role
                                 ] && (
+                                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="max-h-60 overflow-y-auto">
+                              {!searchLoading[
+                                role
+                              ] && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleParentChange(
+                                      role,
+                                      null
+                                    );
+
+                                    setOpenDropdown(
+                                      null
+                                    );
+
+                                    setParentSearch(
+                                      (prev) => ({
+                                        ...prev,
+                                        [role]:
+                                          "",
+                                      })
+                                    );
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50"
+                                >
+                                  Select{" "}
+                                  {getRoleName(role)}
+                                </button>
+                              )}
+
+                              {searchLoading[
+                                role
+                              ] && (
+                                <div className="flex items-center justify-center gap-2 px-4 py-4 text-sm text-blue-600">
+                                  <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+
+                                  Searching{" "}
+                                  {getRoleName(role)}
+                                  ...
+                                </div>
+                              )}
+
+                              {!searchLoading[
+                                role
+                              ] &&
+                                users.map((user) => (
                                   <button
+                                    key={user.id}
                                     type="button"
                                     onClick={() => {
                                       handleParentChange(
                                         role,
-                                        ""
+                                        user.id
                                       );
 
                                       setOpenDropdown(
@@ -2009,94 +819,41 @@ const isRoleActive = (roleId) => {
                                         })
                                       );
                                     }}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50"
+                                    className={`w-full text-left px-4 py-2.5 text-sm transition ${
+                                      Number(
+                                        selectedParents[
+                                          role
+                                        ]
+                                      ) ===
+                                      Number(user.id)
+                                        ? "bg-blue-50 text-blue-700 font-medium"
+                                        : "text-slate-700 hover:bg-slate-50"
+                                    }`}
                                   >
-                                    Select{" "}
-                                    {getRoleName(
-                                      role
-                                    )}
+                                    {user.name}
                                   </button>
-                                )}
+                                ))}
 
-                                {searchLoading[
-                                  role
-                                ] && (
-                                  <div className="flex items-center justify-center gap-2 px-4 py-4 text-sm text-blue-600">
-                                    <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                                    Searching{" "}
-                                    {getRoleName(
+                              {!searchLoading[
+                                role
+                              ] &&
+                                users.length ===
+                                  0 && (
+                                  <div className="px-4 py-4 text-center text-sm text-slate-400">
+                                    {parentSearch[
                                       role
-                                    )}
-                                    ...
+                                    ]?.trim()
+                                      ? `No ${getRoleName(
+                                          role
+                                        )} found`
+                                      : `No ${getRoleName(
+                                          role
+                                        )} available`}
                                   </div>
                                 )}
-
-                                {!searchLoading[
-                                  role
-                                ] &&
-                                  users.map(
-                                    (user) => (
-                                      <button
-                                        key={
-                                          user.id
-                                        }
-                                        type="button"
-                                        onClick={() => {
-                                          handleParentChange(
-                                            role,
-                                            user.id
-                                          );
-
-                                          setOpenDropdown(
-                                            null
-                                          );
-
-                                          setParentSearch(
-                                            (prev) => ({
-                                              ...prev,
-                                              [role]:
-                                                "",
-                                            })
-                                          );
-                                        }}
-                                        className={`w-full text-left px-4 py-2.5 text-sm transition ${
-                                          Number(
-                                            formData[
-                                              parentField
-                                            ]
-                                          ) ===
-                                          Number(
-                                            user.id
-                                          )
-                                            ? "bg-blue-50 text-blue-700 font-medium"
-                                            : "text-slate-700 hover:bg-slate-50"
-                                        }`}
-                                      >
-                                        {user.name}
-                                      </button>
-                                    )
-                                  )}
-
-                                {!searchLoading[
-                                  role
-                                ] &&
-                                  users.length ===
-                                    0 && (
-                                    <div className="px-4 py-4 text-center text-sm text-slate-400">
-                                      {parentSearch[
-                                        role
-                                      ]?.trim()
-                                        ? `No ${getRoleName(
-                                            role
-                                          )} found`
-                                        : `No ${getRoleName(
-                                            role
-                                          )} available`}
-                                    </div>
-                                  )}
-                              </div>
                             </div>
-                          )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -2323,16 +1080,14 @@ const isRoleActive = (roleId) => {
                     Select Country
                   </option>
 
-                  {countries.map(
-                    (country) => (
-                      <option
-                        key={country.isoCode}
-                        value={country.isoCode}
-                      >
-                        {country.name}
-                      </option>
-                    )
-                  )}
+                  {countries.map((country) => (
+                    <option
+                      key={country.isoCode}
+                      value={country.isoCode}
+                    >
+                      {country.name}
+                    </option>
+                  ))}
                 </select>
 
                 <RiArrowDownSLine
@@ -2418,8 +1173,7 @@ const isRoleActive = (roleId) => {
               </div>
             </div>
 
-            {Number(formData.role_id) ===
-              6 && (
+            {Number(formData.role_id) === 6 && (
               <div className="md:col-span-3 space-y-4">
                 <h3 className="text-lg font-semibold text-slate-700">
                   Device Permissions
@@ -2436,8 +1190,7 @@ const isRoleActive = (roleId) => {
                       name: "old_device",
                     },
                     {
-                      label:
-                        "Supreme Device",
+                      label: "Supreme Device",
                       name: "supreme_device",
                     },
                     {
@@ -2460,9 +1213,7 @@ const isRoleActive = (roleId) => {
                     <label
                       key={item.name}
                       className={`flex items-center justify-between px-4 py-3 rounded-lg border transition cursor-pointer ${
-                        formData[
-                          item.name
-                        ] === 1
+                        formData[item.name] === 1
                           ? "border-blue-500 bg-blue-50"
                           : "border-slate-300 bg-white hover:border-blue-400"
                       }`}
@@ -2474,21 +1225,17 @@ const isRoleActive = (roleId) => {
                       <input
                         type="checkbox"
                         checked={
-                          formData[
-                            item.name
-                          ] === 1
+                          formData[item.name] ===
+                          1
                         }
                         onChange={(e) =>
-                          setFormData(
-                            (prev) => ({
-                              ...prev,
-                              [item.name]:
-                                e.target
-                                  .checked
-                                  ? 1
-                                  : 0,
-                            })
-                          )
+                          setFormData((prev) => ({
+                            ...prev,
+                            [item.name]:
+                              e.target.checked
+                                ? 1
+                                : 0,
+                          }))
                         }
                         className="h-5 w-5 accent-blue-600 cursor-pointer"
                       />

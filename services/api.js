@@ -61,66 +61,55 @@ export const getDropdownUsers = async (
   parent_id = null,
   search = ""
 ) => {
-
   const params = new URLSearchParams();
 
-  // =====================================================
+  // =========================================
   // ROLE ID
-  // =====================================================
+  // =========================================
 
   params.append(
     "role_id",
-    role_id
+    Number(role_id)
   );
 
-
-  // =====================================================
+  // =========================================
   // PARENT ID
-  // =====================================================
+  // =========================================
 
   if (
     parent_id !== null &&
     parent_id !== undefined &&
     parent_id !== ""
   ) {
-
     params.append(
       "parent_id",
-      parent_id
+      Number(parent_id)
     );
-
   }
 
-
-  // =====================================================
+  // =========================================
   // SEARCH
-  // =====================================================
+  // =========================================
 
   if (
     search &&
     search.trim()
   ) {
-
     params.append(
       "search",
       search.trim()
     );
-
   }
 
-
-  // =====================================================
+  // =========================================
   // API CALL
-  // =====================================================
+  // =========================================
 
-  const response =
-    await api.get(
-      `/hierarchy-dropdown?${params.toString()}`
-    );
-
+  const response = await api.get(
+    `/hierarchy-dropdown?${params.toString()}`
+  );
 
   return response.data;
-
 };
 
 
@@ -176,13 +165,11 @@ export const getStaffDataById = async (id) => {
   try {
     const response = await api.get(`/staff-data/${id}`);
 
-    console.log("GET STAFF API:", response.data);
-
     return response.data;
   } catch (error) {
     console.error(
       "GET STAFF DATA BY ID ERROR:",
-      error?.response?.data || error
+      error?.response?.data || error?.message || error
     );
 
     throw error;

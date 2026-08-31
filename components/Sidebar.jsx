@@ -1,29 +1,25 @@
 "use client";
 
 import Link from "next/link";
-
 import {
   getRoleId,
   getOriginalRoleId,
   removeToken,
   restoreOriginalLogin,
 } from "@/utils/token";
-
 import {
   logoutStaff,
   getModules,
 } from "@/services/api";
-
 import {
   usePathname,
   useSearchParams,
 } from "next/navigation";
-
 import {
+  useCallback,
   useEffect,
   useState,
 } from "react";
-
 import {
   RiDashboardLine,
   RiShieldUserLine,
@@ -34,19 +30,14 @@ import {
   RiUser3Line,
   RiLogoutBoxLine,
   RiLoginBoxLine,
-  RiSettings3Line 
+  RiSettings3Line,
 } from "react-icons/ri";
-
-// =====================================================
-// GET API ICON URL
-// =====================================================
 
 const getIconUrl = (icon) => {
   if (!icon) {
     return "";
   }
 
-  // Already full URL
   if (
     icon.startsWith("http://") ||
     icon.startsWith("https://")
@@ -67,28 +58,11 @@ const getIconUrl = (icon) => {
   return `${baseURL}/${icon.replace(/^\/+/, "")}`;
 };
 
-// =====================================================
-// SIDEBAR
-// =====================================================
-
 export default function Sidebar({
   sidebarOpen,
 }) {
-  // =====================================================
-  // CURRENT LOGGED-IN ROLE
-  // =====================================================
-
   const [roleId, setRoleId] = useState(null);
-
-  // =====================================================
-  // MODULES FROM API
-  // =====================================================
-
   const [modules, setModules] = useState([]);
-
-  // =====================================================
-  // PATH
-  // =====================================================
 
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -97,56 +71,69 @@ export default function Sidebar({
     searchParams.get("role") ||
     searchParams.get("role_id");
 
-  // =====================================================
-  // GET MODULES FROM API
-  // =====================================================
+  const loadModules = useCallback(async () => {
+    try {
+      const response = await getModules();
+
+      if (
+        response?.success &&
+        Array.isArray(response?.modules)
+      ) {
+        setModules(response.modules);
+      } else {
+        setModules([]);
+      }
+    } catch (error) {
+      console.error(
+        "GET MODULES ERROR:",
+        error
+      );
+
+      setModules([]);
+    }
+  }, []);
 
   useEffect(() => {
-    const loadModules = async () => {
-      try {
-        const response = await getModules();
+    loadModules();
 
-        console.log(
-          "MODULE API RESPONSE:",
-          response
-        );
+    const handleFocus = () => {
+      loadModules();
+    };
 
-        if (
-          response?.success &&
-          Array.isArray(response?.modules)
-        ) {
-          setModules(response.modules);
-        } else {
-          setModules([]);
-        }
-      } catch (error) {
-        console.error(
-          "GET MODULES ERROR:",
-          error
-        );
-
-        setModules([]);
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState === "visible"
+      ) {
+        loadModules();
       }
     };
 
-    loadModules();
-  }, []);
+    window.addEventListener(
+      "focus",
+      handleFocus
+    );
 
-  // =====================================================
-  // GET CURRENT ROLE
-  // =====================================================
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange
+    );
+
+    return () => {
+      window.removeEventListener(
+        "focus",
+        handleFocus
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+    };
+  }, [loadModules]);
 
   useEffect(() => {
     const currentRole = getRoleId();
     const originalRole = getOriginalRoleId();
-
-    console.log(
-      "======================================"
-    );
-
-    console.log(
-      "SIDEBAR ROLE"
-    );
 
     console.log(
       "Current Role:",
@@ -158,10 +145,6 @@ export default function Sidebar({
       originalRole
     );
 
-    console.log(
-      "======================================"
-    );
-
     if (
       currentRole !== null &&
       currentRole !== undefined
@@ -170,15 +153,29 @@ export default function Sidebar({
     }
   }, []);
 
-  // =====================================================
-  // MY LOGIN
-  // =====================================================
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (
+        event.key === "modules_updated"
+      ) {
+        loadModules();
+      }
+    };
 
-  const myLogin = () => {
-    console.log(
-      "Restoring Original Login..."
+    window.addEventListener(
+      "storage",
+      handleStorage
     );
 
+    return () => {
+      window.removeEventListener(
+        "storage",
+        handleStorage
+      );
+    };
+  }, [loadModules]);
+
+  const myLogin = () => {
     const restored =
       restoreOriginalLogin();
 
@@ -193,15 +190,7 @@ export default function Sidebar({
       "/dashboard";
   };
 
-  // =====================================================
-  // LOGOUT
-  // =====================================================
-
   const logout = async () => {
-    console.log(
-      "Logout button clicked"
-    );
-
     try {
       await logoutStaff();
 
@@ -217,12 +206,11 @@ export default function Sidebar({
 
       window.location.href = "/";
     } catch (error) {
-      console.log(
+      console.error(
         "Logout API error:",
         error
       );
 
-      // API fail hone par bhi logout
       removeToken();
 
       localStorage.removeItem(
@@ -236,10 +224,6 @@ export default function Sidebar({
       window.location.href = "/";
     }
   };
-
-  // =====================================================
-  // ROLE NOT LOADED
-  // =====================================================
 
   if (roleId === null) {
     return (
@@ -286,15 +270,7 @@ export default function Sidebar({
     );
   }
 
-  // =====================================================
-  // ROLE MAP
-  // =====================================================
-
   const roleMap = {
-    // ===================================================
-    // ADMIN
-    // ===================================================
-
     admin: {
       role: 1,
       label: "Admin",
@@ -306,10 +282,6 @@ export default function Sidebar({
       ),
     },
 
-    // ===================================================
-    // CNF
-    // ===================================================
-
     cnf: {
       role: 2,
       label: "CNF",
@@ -320,10 +292,6 @@ export default function Sidebar({
         />
       ),
     },
-
-    // ===================================================
-    // SUPER DISTRIBUTOR
-    // ===================================================
 
     "super distributer": {
       role: 3,
@@ -347,10 +315,6 @@ export default function Sidebar({
       ),
     },
 
-    // ===================================================
-    // DISTRIBUTOR
-    // ===================================================
-
     distributor: {
       role: 4,
       label: "Distributor",
@@ -361,10 +325,6 @@ export default function Sidebar({
         />
       ),
     },
-
-    // ===================================================
-    // FOS
-    // ===================================================
 
     fos: {
       role: 5,
@@ -377,10 +337,6 @@ export default function Sidebar({
       ),
     },
 
-    // ===================================================
-    // RETAILER
-    // ===================================================
-
     retailer: {
       role: 6,
       label: "Retailer",
@@ -391,10 +347,6 @@ export default function Sidebar({
         />
       ),
     },
-
-    // ===================================================
-    // SUB RETAILER
-    // ===================================================
 
     "sub retailer": {
       role: 7,
@@ -407,10 +359,6 @@ export default function Sidebar({
       ),
     },
 
-    // ===================================================
-    // EMPLOYEE
-    // ===================================================
-
     employee: {
       role: 8,
       label: "Employee",
@@ -421,10 +369,6 @@ export default function Sidebar({
         />
       ),
     },
-
-    // ===================================================
-    // STAFF
-    // ===================================================
 
     staff: {
       role: 9,
@@ -438,25 +382,7 @@ export default function Sidebar({
     },
   };
 
-  // =====================================================
-  // ROLE HIERARCHY
-  //
-  // CURRENT ROLE KE NICHE WALE ROLES HI ACCESSIBLE HAIN
-  //
-  // 0 = MASTER ADMIN
-  // 1 = ADMIN
-  // 2 = CNF
-  // 3 = SUPER DISTRIBUTOR
-  // 4 = DISTRIBUTOR
-  // 5 = FOS
-  // 6 = RETAILER
-  // 7 = SUB RETAILER
-  // 8 = EMPLOYEE
-  // 9 = STAFF
-  // =====================================================
-
   const allowedRolesByRole = {
-    // Master Admin
     0: [
       1,
       2,
@@ -469,7 +395,6 @@ export default function Sidebar({
       9,
     ],
 
-    // Admin
     1: [
       2,
       3,
@@ -481,7 +406,6 @@ export default function Sidebar({
       9,
     ],
 
-    // CNF
     2: [
       3,
       4,
@@ -492,7 +416,6 @@ export default function Sidebar({
       9,
     ],
 
-    // Super Distributor
     3: [
       4,
       5,
@@ -502,7 +425,6 @@ export default function Sidebar({
       9,
     ],
 
-    // Distributor
     4: [
       5,
       6,
@@ -511,7 +433,6 @@ export default function Sidebar({
       9,
     ],
 
-    // FOS
     5: [
       6,
       7,
@@ -519,32 +440,23 @@ export default function Sidebar({
       9,
     ],
 
-    // Retailer
     6: [
       7,
       8,
       9,
     ],
 
-    // Sub Retailer
     7: [
       8,
       9,
     ],
 
-    // Employee
     8: [
       9,
     ],
 
-    // Staff
     9: [],
   };
-
-  
-  // =====================================================
-  // ROLE LINK COMPONENT
-  // =====================================================
 
   const RoleLink = ({
     role,
@@ -578,10 +490,6 @@ export default function Sidebar({
     );
   };
 
-  // =====================================================
-  // RENDER API MODULE LINKS
-  // =====================================================
-
   const renderModuleLinks = () => {
     const currentRole =
       Number(roleId);
@@ -591,210 +499,143 @@ export default function Sidebar({
         currentRole
       ] || [];
 
-    return (
-      modules
+    return modules
+      .filter((moduleItem) => {
+        if (
+          typeof moduleItem === "string"
+        ) {
+          return true;
+        }
 
-        // =================================================
-        // ONLY ACTIVE MODULES
-        // =================================================
-
-        .filter((moduleItem) => {
-          // Old string format
-          if (
+        return (
+          Number(
+            moduleItem?.status ?? 1
+          ) === 1
+        );
+      })
+      .map(
+        (moduleItem, index) => {
+          const moduleName =
             typeof moduleItem === "string"
-          ) {
-            return true;
+              ? moduleItem
+              : moduleItem?.name || "";
+
+          if (!moduleName) {
+            return null;
           }
 
-          // Object format
-          return (
-            Number(
-              moduleItem?.status ?? 1
-            ) === 1
-          );
-        })
+          const moduleIcon =
+            typeof moduleItem === "object"
+              ? moduleItem?.icon
+              : null;
 
-        // =================================================
-        // MAP MODULES
-        // =================================================
+          const key =
+            String(moduleName)
+              .trim()
+              .toLowerCase();
 
-        .map(
-          (moduleItem, index) => {
-            // =================================================
-            // MODULE NAME
-            // =================================================
+          const module =
+            roleMap[key];
 
-            const moduleName =
-              typeof moduleItem === "string"
-                ? moduleItem
-                : moduleItem?.name || "";
-
-            if (!moduleName) {
+          if (module) {
+            if (
+              !allowedRoles.includes(
+                Number(module.role)
+              )
+            ) {
               return null;
             }
 
-            // =================================================
-            // MODULE ICON
-            // =================================================
+            let apiIcon = null;
 
-            const moduleIcon =
-              typeof moduleItem === "object"
-                ? moduleItem?.icon
-                : null;
-
-            // =================================================
-            // MODULE KEY
-            // =================================================
-
-            const key =
-              String(moduleName)
-                .trim()
-                .toLowerCase();
-
-            // =================================================
-            // ROLE MODULE
-            // =================================================
-
-            const module =
-              roleMap[key];
-
-            // =================================================
-            // ROLE MODULE FOUND
-            // =================================================
-
-            if (module) {
-              // ===============================================
-              // CURRENT ROLE SE UPPER ROLE HIDE
-              // ===============================================
-
-              if (
-                !allowedRoles.includes(
-                  Number(module.role)
-                )
-              ) {
-                return null;
-              }
-
-              // ===============================================
-              // API ICON
-              // ===============================================
-
-              let apiIcon = null;
-
-              if (moduleIcon) {
-                apiIcon = (
-                  <img
-                    src={getIconUrl(
-                      moduleIcon
-                    )}
-                    alt={
-                      module.label ||
-                      moduleName ||
-                      "Module icon"
-                    }
-                    className="
-                      w-5
-                      h-5
-                      object-contain
-                      flex-shrink-0
-                      brightness-0
-                      invert
-                    "
-                  />
-                );
-              }
-
-              // ===============================================
-              // FALLBACK ICON
-              // ===============================================
-
-              const finalIcon =
-                apiIcon ||
-                module.icon;
-
-              // ===============================================
-              // ROLE LINK
-              // ===============================================
-
-              return (
-                <RoleLink
-                  key={`${key}-${index}`}
-                  role={module.role}
-                  label={module.label}
-                  icon={finalIcon}
+            if (moduleIcon) {
+              apiIcon = (
+                <img
+                  src={getIconUrl(
+                    moduleIcon
+                  )}
+                  alt={
+                    module.label ||
+                    moduleName ||
+                    "Module icon"
+                  }
+                  className="
+                    w-5
+                    h-5
+                    object-contain
+                    flex-shrink-0
+                    brightness-0
+                    invert
+                  "
                 />
               );
             }
 
-            // =================================================
-            // CUSTOM MODULE
-            // =================================================
+            const finalIcon =
+              apiIcon ||
+              module.icon;
 
             return (
-              <Link
+              <RoleLink
                 key={`${key}-${index}`}
-                href={`/dashboard?module=${encodeURIComponent(
-                  moduleName
-                )}`}
-                className="
-                  flex
-                  items-center
-                  gap-3
-                  p-3
-                  rounded
-                  transition-all
-                  font-semibold
-                  hover:bg-gray-700
-                "
-              >
-                {/* API MODULE ICON */}
-
-                {moduleIcon ? (
-                  <img
-                    src={getIconUrl(
-                      moduleIcon
-                    )}
-                    alt={
-                      moduleName ||
-                      "Module icon"
-                    }
-                    className="
-                      w-5
-                      h-5
-                      object-contain
-                      flex-shrink-0
-                      brightness-0
-                      invert
-                    "
-                  />
-                ) : (
-                  <RiBuilding2Line
-                    size={18}
-                    className="text-white"
-                  />
-                )}
-
-                {/* MODULE NAME */}
-
-                <span>
-                  {moduleName}
-                </span>
-              </Link>
+                role={module.role}
+                label={module.label}
+                icon={finalIcon}
+              />
             );
           }
-        )
 
-        // =================================================
-        // REMOVE NULL
-        // =================================================
+          return (
+            <Link
+              key={`${key}-${index}`}
+              href={`/dashboard?module=${encodeURIComponent(
+                moduleName
+              )}`}
+              className="
+                flex
+                items-center
+                gap-3
+                p-3
+                rounded
+                transition-all
+                font-semibold
+                hover:bg-gray-700
+              "
+            >
+              {moduleIcon ? (
+                <img
+                  src={getIconUrl(
+                    moduleIcon
+                  )}
+                  alt={
+                    moduleName ||
+                    "Module icon"
+                  }
+                  className="
+                    w-5
+                    h-5
+                    object-contain
+                    flex-shrink-0
+                    brightness-0
+                    invert
+                  "
+                />
+              ) : (
+                <RiBuilding2Line
+                  size={18}
+                  className="text-white"
+                />
+              )}
 
-        .filter(Boolean)
-    );
+              <span>
+                {moduleName}
+              </span>
+            </Link>
+          );
+        }
+      )
+      .filter(Boolean);
   };
-
-  // =====================================================
-  // SIDEBAR
-  // =====================================================
 
   return (
     <aside
@@ -819,10 +660,6 @@ export default function Sidebar({
         }
       `}
     >
-      {/* =================================================
-          HEADER
-      ================================================= */}
-
       <h2
         className="
           relative
@@ -842,10 +679,6 @@ export default function Sidebar({
         Dashboard
       </h2>
 
-      {/* =================================================
-          SCROLLABLE CONTENT
-      ================================================= */}
-
       <div
         className="
           flex-1
@@ -856,10 +689,6 @@ export default function Sidebar({
           scrollbar-hide
         "
       >
-        {/* =================================================
-            DASHBOARD
-        ================================================= */}
-
         <Link
           href="/dashboard"
           className={`
@@ -886,14 +715,8 @@ export default function Sidebar({
           Dashboard
         </Link>
 
-        {/* =================================================
-            MASTER ADMIN - ROLE 0
-        ================================================= */}
-
         {Number(roleId) === 0 && (
           <>
-            {/* ADMIN */}
-
             <RoleLink
               role={1}
               label="Admin"
@@ -904,8 +727,6 @@ export default function Sidebar({
                 />
               }
             />
-
-            {/* MODULE */}
 
             <Link
               href="/dashboard/modules"
@@ -926,14 +747,12 @@ export default function Sidebar({
               `}
             >
               <RiSettings3Line
-  size={18}
-  className="text-[1.4rem]"
-/>
+                size={18}
+                className="text-[1.4rem]"
+              />
 
               Master Settings
             </Link>
-
-            {/* SUB MODULE */}
 
             <Link
               href="/dashboard/sub-modules"
@@ -963,22 +782,10 @@ export default function Sidebar({
           </>
         )}
 
-        {/* =================================================
-            ADMIN TO EMPLOYEE
-            API MODULES
-        ================================================= */}
-
         {Number(roleId) >= 1 &&
           Number(roleId) <= 8 && (
             <>
               {renderModuleLinks()}
-
-              {/* ===========================================
-                  STAFF
-                  
-                  IMPORTANT:
-                  STAFF ONLY ADMIN KO SHOW HOGA
-              =========================================== */}
 
               {Number(roleId) === 1 && (
                 <RoleLink
@@ -995,19 +802,11 @@ export default function Sidebar({
             </>
           )}
 
-        {/* =================================================
-            STAFF - ROLE 9
-        ================================================= */}
-
         {Number(roleId) === 9 && (
           <>
             {renderModuleLinks()}
           </>
         )}
-
-        {/* =================================================
-            MY LOGIN
-        ================================================= */}
 
         <button
           type="button"
@@ -1036,10 +835,6 @@ export default function Sidebar({
 
           My Login
         </button>
-
-        {/* =================================================
-            LOGOUT
-        ================================================= */}
 
         <button
           type="button"

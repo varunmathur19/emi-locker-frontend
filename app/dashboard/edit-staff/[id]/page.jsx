@@ -39,6 +39,7 @@ const initialFormData = {
   state: "",
   city: "",
   parent_id: null,
+
   new_device: 0,
   old_device: 0,
   supreme_device: 0,
@@ -73,36 +74,74 @@ const parentRoles = {
 };
 
 const devicePermissions = [
-  { label: "New Device", name: "new_device" },
-  { label: "Old Device", name: "old_device" },
-  { label: "Supreme Device", name: "supreme_device" },
-  { label: "Pro Star", name: "pro_star" },
-  { label: "Lite", name: "lite" },
-  { label: "Google TV", name: "google_tv" },
-  { label: "Supreme Lock", name: "supreme_lock" },
+  {
+    label: "New Device",
+    name: "new_device",
+  },
+  {
+    label: "Old Device",
+    name: "old_device",
+  },
+  {
+    label: "Supreme Device",
+    name: "supreme_device",
+  },
+  {
+    label: "Pro Star",
+    name: "pro_star",
+  },
+  {
+    label: "Lite",
+    name: "lite",
+  },
+  {
+    label: "Google TV",
+    name: "google_tv",
+  },
+  {
+    label: "Supreme Lock",
+    name: "supreme_lock",
+  },
 ];
 
 export default function EditStaffPage() {
   const params = useParams();
   const userId = params.id;
 
-  const [formData, setFormData] = useState(initialFormData);
+  const [formData, setFormData] =
+    useState(initialFormData);
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
 
-  const [loggedInRoleId, setLoggedInRoleId] = useState(null);
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
 
-  const [openDropdown, setOpenDropdown] = useState(null);
-  const [parentUsers, setParentUsers] = useState({});
-  const [selectedParents, setSelectedParents] = useState({});
-  const [parentSearch, setParentSearch] = useState({});
-  const [parentLoading, setParentLoading] = useState({});
-  const [modules, setModules] = useState([]);
+  const [loggedInRoleId, setLoggedInRoleId] =
+    useState(null);
+
+  const [openDropdown, setOpenDropdown] =
+    useState(null);
+
+  const [parentUsers, setParentUsers] =
+    useState({});
+
+  const [selectedParents, setSelectedParents] =
+    useState({});
+
+  const [parentSearch, setParentSearch] =
+    useState({});
+
+  const [parentLoading, setParentLoading] =
+    useState({});
+
+  const [modules, setModules] =
+    useState([]);
 
   const searchTimers = useRef({});
 
-  const countries = Country.getAllCountries();
+  const countries =
+    Country.getAllCountries();
 
   const states = formData.country
     ? State.getStatesOfCountry(formData.country)
@@ -127,19 +166,26 @@ export default function EditStaffPage() {
 
   const isRoleActive = (roleId) => {
     const role = Number(roleId);
-    const roleName = normalizeRoleName(getRoleName(role));
+
+    const roleName = normalizeRoleName(
+      getRoleName(role)
+    );
 
     const module = modules.find((item) => {
       const moduleName =
-        typeof item === "string" ? item : item?.name;
+        typeof item === "string"
+          ? item
+          : item?.name;
 
-      const normalizedName = normalizeRoleName(moduleName);
+      const normalizedName =
+        normalizeRoleName(moduleName);
 
       if (
         role === 3 &&
-        ["superdistributor", "superdistributer"].includes(
-          normalizedName
-        )
+        [
+          "superdistributor",
+          "superdistributer",
+        ].includes(normalizedName)
       ) {
         return true;
       }
@@ -147,72 +193,132 @@ export default function EditStaffPage() {
       return normalizedName === roleName;
     });
 
+    if (!module) {
+      return true;
+    }
+
     return Number(module?.status) === 1;
   };
 
-  // const visibleParentRoles = (() => {
-  //   const currentRole = Number(formData.role_id);
-
-  //   if (!currentRole || loggedInRoleId == null) {
-  //     return [];
-  //   }
-
-  //   const loggedRole = Number(loggedInRoleId);
-
-  //   return (parentRoles[currentRole] || []).filter((roleId) => {
-  //     const role = Number(roleId);
-
-  //     if (!isRoleActive(role)) {
-  //       return false;
-  //     }
-
-  //     if (role === loggedRole) {
-  //       return false;
-  //     }
-
-  //     if (role < loggedRole) {
-  //       return false;
-  //     }
-
-  //     return true;
-  //   });
-  // })();
-
   const visibleParentRoles = (() => {
-  const currentRole = Number(formData.role_id);
+    const currentRole =
+      Number(formData.role_id);
 
-  if (!currentRole) {
-    return [];
-  }
+    if (!currentRole) {
+      return [];
+    }
 
-  return (parentRoles[currentRole] || []).filter(
-    (roleId) => isRoleActive(roleId)
-  );
-})();
+    const requiredParents =
+      parentRoles[currentRole] || [];
+
+    return requiredParents.filter(
+      (roleId) =>
+        isRoleActive(roleId)
+    );
+  })();
+
+  const getRequiredParentRole = (roleId) => {
+    const role = Number(roleId);
+
+    const requiredParents =
+      parentRoles[role] || [];
+
+    if (!requiredParents.length) {
+      return null;
+    }
+
+    return Number(
+      requiredParents[
+        requiredParents.length - 1
+      ]
+    );
+  };
+
+  const getApiParentId = (
+    roleId,
+    index
+  ) => {
+    const role = Number(roleId);
+
+    if (
+      role === 3 &&
+      isRoleActive(3)
+    ) {
+      return null;
+    }
+
+    const requiredParentRole =
+      getRequiredParentRole(role);
+
+    if (
+      requiredParentRole &&
+      !isRoleActive(
+        requiredParentRole
+      )
+    ) {
+      const previousVisibleRole =
+        visibleParentRoles[index - 1];
+
+      if (!previousVisibleRole) {
+        return null;
+      }
+
+      return (
+        selectedParents[
+          previousVisibleRole
+        ] || null
+      );
+    }
+
+    const previousRole =
+      visibleParentRoles[index - 1];
+
+    if (!previousRole) {
+      return null;
+    }
+
+    return (
+      selectedParents[
+        previousRole
+      ] || null
+    );
+  };
 
   useEffect(() => {
-    const user = getUserFromToken();
+    const user =
+      getUserFromToken();
 
     if (user?.role_id != null) {
-      setLoggedInRoleId(Number(user.role_id));
+      setLoggedInRoleId(
+        Number(user.role_id)
+      );
     }
   }, []);
 
   useEffect(() => {
     const loadModules = async () => {
       try {
-        const response = await getModules();
+        const response =
+          await getModules();
 
         if (
           response?.success &&
-          Array.isArray(response.modules)
+          Array.isArray(
+            response.modules
+          )
         ) {
-          setModules(response.modules);
+          setModules(
+            response.modules
+          );
         } else {
           setModules([]);
         }
       } catch (error) {
-        console.error("GET MODULES ERROR:", error);
+        console.error(
+          "GET MODULES ERROR:",
+          error
+        );
+
         setModules([]);
       }
     };
@@ -221,7 +327,10 @@ export default function EditStaffPage() {
   }, []);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const {
+      name,
+      value,
+    } = e.target;
 
     setFormData((prev) => {
       const updated = {
@@ -248,7 +357,8 @@ export default function EditStaffPage() {
     search = "",
     selectedUser = null
   ) => {
-    const roleId = Number(parentRoleId);
+    const roleId =
+      Number(parentRoleId);
 
     setParentLoading((prev) => ({
       ...prev,
@@ -256,30 +366,79 @@ export default function EditStaffPage() {
     }));
 
     try {
-      const response = await getDropdownUsers(
-        roleId,
-        parentId,
-        search
-      );
+      const response =
+        await getDropdownUsers(
+          roleId,
+          parentId,
+          search
+        );
 
       let users = [];
 
-      if (Array.isArray(response?.data?.users)) {
-        users = response.data.users;
-      } else if (Array.isArray(response?.data)) {
-        users = response.data;
-      } else if (Array.isArray(response?.users)) {
-        users = response.users;
+      if (
+        Array.isArray(
+          response?.data?.users
+        )
+      ) {
+        users =
+          response.data.users;
+      } else if (
+        Array.isArray(
+          response?.data
+        )
+      ) {
+        users =
+          response.data;
+      } else if (
+        Array.isArray(
+          response?.users
+        )
+      ) {
+        users =
+          response.users;
       }
 
       if (
         selectedUser?.id &&
         !users.some(
           (user) =>
-            Number(user.id) === Number(selectedUser.id)
+            Number(user.id) ===
+            Number(selectedUser.id)
         )
       ) {
-        users = [selectedUser, ...users];
+        users = [
+          selectedUser,
+          ...users,
+        ];
+      }
+
+      const existingSelectedId =
+        selectedParents[roleId];
+
+      if (
+        existingSelectedId &&
+        !users.some(
+          (user) =>
+            Number(user.id) ===
+            Number(existingSelectedId)
+        )
+      ) {
+        const existingUsers =
+          parentUsers[roleId] || [];
+
+        const existingSelectedUser =
+          existingUsers.find(
+            (user) =>
+              Number(user.id) ===
+              Number(existingSelectedId)
+          );
+
+        if (existingSelectedUser) {
+          users = [
+            existingSelectedUser,
+            ...users,
+          ];
+        }
       }
 
       setParentUsers((prev) => ({
@@ -294,9 +453,19 @@ export default function EditStaffPage() {
 
       setParentUsers((prev) => ({
         ...prev,
-        [roleId]: selectedUser
-          ? [selectedUser]
-          : [],
+        [roleId]:
+          selectedUser
+            ? [
+                selectedUser,
+                ...(prev[roleId] || []).filter(
+                  (user) =>
+                    Number(user.id) !==
+                    Number(
+                      selectedUser.id
+                    )
+                ),
+              ]
+            : prev[roleId] || [],
       }));
     } finally {
       setParentLoading((prev) => ({
@@ -306,116 +475,210 @@ export default function EditStaffPage() {
     }
   };
 
-  const loadEditParentHierarchy = async (
-    roleId,
-    parentChain = []
-  ) => {
-    const requiredParents = parentRoles[roleId] || [];
+  const loadEditParentHierarchy =
+    async (
+      roleId,
+      parentChain = []
+    ) => {
+      const requiredParents =
+        parentRoles[roleId] || [];
 
-    if (!requiredParents.length) {
-      setSelectedParents({});
-      setParentUsers({});
-      return;
-    }
-
-    const chainMap = new Map(
-      parentChain.map((parent) => [
-        Number(parent.role_id),
-        parent,
-      ])
-    );
-
-    const selected = {};
-
-    requiredParents.forEach((parentRoleId) => {
-      const parent = chainMap.get(Number(parentRoleId));
-
-      if (parent?.id) {
-        selected[Number(parentRoleId)] = Number(parent.id);
+      if (
+        !requiredParents.length
+      ) {
+        setSelectedParents({});
+        setParentUsers({});
+        return;
       }
-    });
 
-    setSelectedParents(selected);
-
-    const usersByRole = {};
-
-    let previousSelectedId = null;
-
-    for (const parentRoleId of requiredParents) {
-      const role = Number(parentRoleId);
-      const selectedId = selected[role];
-
-      const selectedUser = chainMap.get(role) || null;
-
-      try {
-        const response = await getDropdownUsers(
-          role,
-          previousSelectedId,
-          ""
+      const chainMap =
+        new Map(
+          parentChain.map(
+            (parent) => [
+              Number(
+                parent.role_id
+              ),
+              parent,
+            ]
+          )
         );
 
-        let users = [];
+      const selected = {};
 
-        if (Array.isArray(response?.data?.users)) {
-          users = response.data.users;
-        } else if (Array.isArray(response?.data)) {
-          users = response.data;
-        } else if (Array.isArray(response?.users)) {
-          users = response.users;
+      requiredParents.forEach(
+        (parentRoleId) => {
+          const role =
+            Number(parentRoleId);
+
+          const parent =
+            chainMap.get(role);
+
+          if (parent?.id) {
+            selected[role] =
+              Number(parent.id);
+          }
         }
+      );
+
+      setSelectedParents(
+        selected
+      );
+
+      const usersByRole = {};
+
+      for (
+        let index = 0;
+        index <
+        requiredParents.length;
+        index++
+      ) {
+        const parentRoleId =
+          Number(
+            requiredParents[index]
+          );
 
         if (
-          selectedUser?.id &&
-          !users.some(
-            (user) =>
-              Number(user.id) ===
-              Number(selectedUser.id)
+          !isRoleActive(
+            parentRoleId
           )
         ) {
-          users = [selectedUser, ...users];
+          continue;
         }
 
-        usersByRole[role] = users;
+        const selectedUser =
+          chainMap.get(
+            parentRoleId
+          ) || null;
 
-        if (selectedId) {
-          previousSelectedId = selectedId;
+        let apiParentId = null;
+
+        if (
+          parentRoleId === 3 &&
+          isRoleActive(3)
+        ) {
+          apiParentId = null;
+        } else {
+          const visibleIndex =
+            visibleParentRoles.indexOf(
+              parentRoleId
+            );
+
+          if (
+            visibleIndex > 0
+          ) {
+            const previousVisibleRole =
+              visibleParentRoles[
+                visibleIndex - 1
+              ];
+
+            apiParentId =
+              selected[
+                previousVisibleRole
+              ] || null;
+          }
         }
-      } catch (error) {
-        console.error(
-          `EDIT PARENT LOAD ERROR ROLE ${role}:`,
-          error
-        );
 
-        usersByRole[role] = selectedUser
-          ? [selectedUser]
-          : [];
+        try {
+          const response =
+            await getDropdownUsers(
+              parentRoleId,
+              apiParentId,
+              ""
+            );
 
-        if (selectedId) {
-          previousSelectedId = selectedId;
+          let users = [];
+
+          if (
+            Array.isArray(
+              response?.data?.users
+            )
+          ) {
+            users =
+              response.data.users;
+          } else if (
+            Array.isArray(
+              response?.data
+            )
+          ) {
+            users =
+              response.data;
+          } else if (
+            Array.isArray(
+              response?.users
+            )
+          ) {
+            users =
+              response.users;
+          }
+
+          if (
+            selectedUser?.id &&
+            !users.some(
+              (user) =>
+                Number(user.id) ===
+                Number(
+                  selectedUser.id
+                )
+            )
+          ) {
+            users = [
+              selectedUser,
+              ...users,
+            ];
+          }
+
+          usersByRole[
+            parentRoleId
+          ] = users;
+        } catch (error) {
+          console.error(
+            `EDIT PARENT LOAD ERROR ROLE ${parentRoleId}:`,
+            error
+          );
+
+          usersByRole[
+            parentRoleId
+          ] = selectedUser
+            ? [selectedUser]
+            : [];
         }
       }
-    }
 
-    setParentUsers(usersByRole);
-  };
+      setParentUsers(
+        usersByRole
+      );
+    };
 
   const handleParentSearch = (
     parentRoleId,
     parentId,
     value
   ) => {
-    const roleId = Number(parentRoleId);
+    const roleId =
+      Number(parentRoleId);
 
-    setParentSearch((prev) => ({
-      ...prev,
-      [roleId]: value,
-    }));
+    setParentSearch(
+      (prev) => ({
+        ...prev,
+        [roleId]: value,
+      })
+    );
 
-    if (searchTimers.current[roleId]) {
-      clearTimeout(searchTimers.current[roleId]);
+    if (
+      searchTimers.current[
+        roleId
+      ]
+    ) {
+      clearTimeout(
+        searchTimers.current[
+          roleId
+        ]
+      );
     }
 
-    searchTimers.current[roleId] = setTimeout(
+    searchTimers.current[
+      roleId
+    ] = setTimeout(
       () => {
         loadParentDropdown(
           roleId,
@@ -423,56 +686,56 @@ export default function EditStaffPage() {
           value.trim()
         );
       },
-      value.trim() ? 400 : 200
+      value.trim()
+        ? 400
+        : 200
     );
   };
 
-  useEffect(() => {
-    return () => {
-      Object.values(searchTimers.current).forEach(
-        clearTimeout
+  const clearNextParentDropdowns = (
+    parentRoleId,
+    preserveSelections = true
+  ) => {
+    const index =
+      visibleParentRoles.indexOf(
+        Number(parentRoleId)
       );
-    };
-  }, []);
-
-  const clearNextParentDropdowns = (parentRoleId) => {
-    const index = visibleParentRoles.indexOf(
-      Number(parentRoleId)
-    );
 
     if (index === -1) {
       return;
     }
 
     const nextRoles =
-      visibleParentRoles.slice(index + 1);
+      visibleParentRoles.slice(
+        index + 1
+      );
 
-    setSelectedParents((prev) => {
-      const updated = { ...prev };
+    if (!preserveSelections) {
+      setSelectedParents((prev) => {
+        const updated = {
+          ...prev,
+        };
 
-      nextRoles.forEach((roleId) => {
-        delete updated[roleId];
+        nextRoles.forEach(
+          (roleId) => {
+            delete updated[roleId];
+          }
+        );
+
+        return updated;
       });
-
-      return updated;
-    });
-
-    setParentUsers((prev) => {
-      const updated = { ...prev };
-
-      nextRoles.forEach((roleId) => {
-        delete updated[roleId];
-      });
-
-      return updated;
-    });
+    }
 
     setParentSearch((prev) => {
-      const updated = { ...prev };
+      const updated = {
+        ...prev,
+      };
 
-      nextRoles.forEach((roleId) => {
-        delete updated[roleId];
-      });
+      nextRoles.forEach(
+        (roleId) => {
+          delete updated[roleId];
+        }
+      );
 
       return updated;
     });
@@ -483,17 +746,29 @@ export default function EditStaffPage() {
     value,
     index
   ) => {
-    const roleId = Number(parentRoleId);
-    const selectedId = value ? Number(value) : null;
+    const roleId =
+      Number(parentRoleId);
+
+    const selectedId =
+      value
+        ? Number(value)
+        : null;
+
+    const oldSelectedId =
+      selectedParents[roleId] ||
+      null;
+
+    if (
+      Number(oldSelectedId) ===
+      Number(selectedId)
+    ) {
+      setOpenDropdown(null);
+      return;
+    }
 
     setSelectedParents((prev) => ({
       ...prev,
       [roleId]: selectedId,
-    }));
-
-    setFormData((prev) => ({
-      ...prev,
-      parent_id: selectedId,
     }));
 
     setParentSearch((prev) => ({
@@ -501,16 +776,23 @@ export default function EditStaffPage() {
       [roleId]: "",
     }));
 
-    clearNextParentDropdowns(roleId);
+    clearNextParentDropdowns(
+      roleId,
+      true
+    );
 
     if (!selectedId) {
+      setOpenDropdown(null);
       return;
     }
 
     const nextRoleId =
-      visibleParentRoles[index + 1];
+      visibleParentRoles[
+        index + 1
+      ];
 
     if (!nextRoleId) {
+      setOpenDropdown(null);
       return;
     }
 
@@ -519,6 +801,8 @@ export default function EditStaffPage() {
       selectedId,
       ""
     );
+
+    setOpenDropdown(null);
   };
 
   useEffect(() => {
@@ -526,98 +810,205 @@ export default function EditStaffPage() {
       return;
     }
 
-    const fetchStaffData = async () => {
-      try {
-        const id = Number(userId);
+    const fetchStaffData =
+      async () => {
+        try {
+          const id =
+            Number(userId);
 
-        if (!Number.isInteger(id) || id <= 0) {
-          toast.error("Invalid user ID");
-          return;
-        }
+          if (
+            !Number.isInteger(id) ||
+            id <= 0
+          ) {
+            toast.error(
+              "Invalid user ID"
+            );
+            return;
+          }
 
-        const response = await getStaffDataById(id);
+          const response =
+            await getStaffDataById(
+              id
+            );
 
-        if (!response?.success) {
+          if (
+            !response?.success
+          ) {
+            toast.error(
+              response?.message ||
+                "Failed to load staff data"
+            );
+            return;
+          }
+
+          const user =
+            response?.data;
+
+          if (!user) {
+            toast.error(
+              "Staff data not found"
+            );
+            return;
+          }
+
+          const roleId =
+            user.role_id != null
+              ? Number(
+                  user.role_id
+                )
+              : "";
+
+          const parentId =
+            user.parent_id != null
+              ? Number(
+                  user.parent_id
+                )
+              : null;
+
+          setFormData({
+            organization_name:
+              user.organization_name ||
+              "",
+
+            role_id:
+              roleId,
+
+            name:
+              user.name || "",
+
+            email:
+              user.email || "",
+
+            phone:
+              user.phone || "",
+
+            password: "",
+
+            confirm_password: "",
+
+            company_address:
+              user.company_address ||
+              "",
+
+            country:
+              user.country || "",
+
+            state:
+              user.state || "",
+
+            city:
+              user.city || "",
+
+            parent_id:
+              parentId,
+
+            new_device:
+              Number(
+                user.new_device || 0
+              ),
+
+            old_device:
+              Number(
+                user.old_device || 0
+              ),
+
+            supreme_device:
+              Number(
+                user.supreme_device ||
+                  0
+              ),
+
+            pro_star:
+              Number(
+                user.pro_star || 0
+              ),
+
+            lite:
+              Number(
+                user.lite || 0
+              ),
+
+            google_tv:
+              Number(
+                user.google_tv || 0
+              ),
+
+            supreme_lock:
+              Number(
+                user.supreme_lock ||
+                  0
+              ),
+          });
+
+          const parentChain =
+            Array.isArray(
+              user.parent_chain
+            )
+              ? user.parent_chain
+              : [];
+
+          await loadEditParentHierarchy(
+            roleId,
+            parentChain
+          );
+        } catch (error) {
+          console.error(
+            "GET STAFF ERROR:",
+            error
+          );
+
           toast.error(
-            response?.message ||
+            error?.response?.data
+              ?.message ||
+              error?.message ||
               "Failed to load staff data"
           );
-          return;
         }
-
-        const user = response?.data;
-
-        if (!user) {
-          toast.error("Staff data not found");
-          return;
-        }
-
-        const roleId =
-          user.role_id != null
-            ? Number(user.role_id)
-            : "";
-
-        const parentId =
-          user.parent_id != null
-            ? Number(user.parent_id)
-            : null;
-
-        setFormData({
-          organization_name:
-            user.organization_name || "",
-          role_id: roleId,
-          name: user.name || "",
-          email: user.email || "",
-          phone: user.phone || "",
-          password: "",
-          confirm_password: "",
-          company_address:
-            user.company_address || "",
-          country: user.country || "",
-          state: user.state || "",
-          city: user.city || "",
-          parent_id: parentId,
-          new_device: Number(user.new_device || 0),
-          old_device: Number(user.old_device || 0),
-          supreme_device: Number(
-            user.supreme_device || 0
-          ),
-          pro_star: Number(user.pro_star || 0),
-          lite: Number(user.lite || 0),
-          google_tv: Number(user.google_tv || 0),
-          supreme_lock: Number(
-            user.supreme_lock || 0
-          ),
-        });
-
-        const parentChain =
-          Array.isArray(user.parent_chain)
-            ? user.parent_chain
-            : [];
-
-        await loadEditParentHierarchy(
-          roleId,
-          parentChain
-        );
-      } catch (error) {
-        console.error("GET STAFF ERROR:", error);
-
-        toast.error(
-          error?.response?.data?.message ||
-            error?.message ||
-            "Failed to load staff data"
-        );
-      }
-    };
+      };
 
     fetchStaffData();
   }, [userId]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(
+        searchTimers.current
+      ).forEach(clearTimeout);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleOutsideClick =
+      (event) => {
+        if (
+          !event.target.closest(
+            "[data-parent-dropdown]"
+          )
+        ) {
+          setOpenDropdown(null);
+        }
+      };
+
+    document.addEventListener(
+      "mousedown",
+      handleOutsideClick
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleOutsideClick
+      );
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!userId) {
-      toast.error("User ID not found");
+      toast.error(
+        "User ID not found"
+      );
       return;
     }
 
@@ -633,24 +1024,82 @@ export default function EditStaffPage() {
     }
 
     try {
+      const parentHierarchy =
+        Object.entries(
+          selectedParents
+        )
+          .filter(
+            ([, selectedId]) =>
+              selectedId
+          )
+          .map(
+            ([
+              roleId,
+              selectedId,
+            ]) => ({
+              role_id:
+                Number(roleId),
+
+              user_id:
+                Number(selectedId),
+            })
+          );
+
       const payload = {
         ...formData,
+
         id: Number(userId),
-        role_id: Number(formData.role_id),
-        parent_id: formData.parent_id
-          ? Number(formData.parent_id)
-          : null,
-        new_device: Number(formData.new_device || 0),
-        old_device: Number(formData.old_device || 0),
-        supreme_device: Number(
-          formData.supreme_device || 0
+
+        role_id: Number(
+          formData.role_id
         ),
-        pro_star: Number(formData.pro_star || 0),
-        lite: Number(formData.lite || 0),
-        google_tv: Number(formData.google_tv || 0),
-        supreme_lock: Number(
-          formData.supreme_lock || 0
-        ),
+
+        parent_id:
+          formData.parent_id
+            ? Number(
+                formData.parent_id
+              )
+            : null,
+
+        parent_hierarchy:
+          parentHierarchy,
+
+        new_device:
+          Number(
+            formData.new_device || 0
+          ),
+
+        old_device:
+          Number(
+            formData.old_device || 0
+          ),
+
+        supreme_device:
+          Number(
+            formData.supreme_device ||
+              0
+          ),
+
+        pro_star:
+          Number(
+            formData.pro_star || 0
+          ),
+
+        lite:
+          Number(
+            formData.lite || 0
+          ),
+
+        google_tv:
+          Number(
+            formData.google_tv || 0
+          ),
+
+        supreme_lock:
+          Number(
+            formData.supreme_lock ||
+              0
+          ),
       };
 
       if (!payload.password) {
@@ -658,10 +1107,19 @@ export default function EditStaffPage() {
         delete payload.confirm_password;
       }
 
-      const response = await updateStaffData(
-        Number(userId),
-        payload
-      );
+      const response =
+        await updateStaffData(
+          Number(userId),
+          payload
+        );
+
+      if (!response?.success) {
+        toast.error(
+          response?.message ||
+            "Failed to update staff data"
+        );
+        return;
+      }
 
       toast.success(
         response?.message ||
@@ -670,11 +1128,13 @@ export default function EditStaffPage() {
     } catch (error) {
       console.error(
         "UPDATE STAFF ERROR:",
-        error?.response?.data || error
+        error?.response?.data ||
+          error
       );
 
       toast.error(
-        error?.response?.data?.message ||
+        error?.response?.data
+          ?.message ||
           error?.message ||
           "Failed to update staff data"
       );
@@ -687,22 +1147,36 @@ export default function EditStaffPage() {
         onSubmit={handleSubmit}
         className="space-y-5"
       >
-        {visibleParentRoles.length > 0 && (
+        {visibleParentRoles.length >
+          0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {visibleParentRoles.map(
-              (parentRoleId, index) => {
-                const role = Number(parentRoleId);
+              (
+                parentRoleId,
+                index
+              ) => {
+                const role =
+                  Number(parentRoleId);
+
                 const users =
-                  parentUsers[role] || [];
+                  parentUsers[
+                    role
+                  ] || [];
 
                 const searchValue =
-                  parentSearch[role] || "";
+                  parentSearch[
+                    role
+                  ] || "";
 
                 const isLoading =
-                  parentLoading[role] || false;
+                  parentLoading[
+                    role
+                  ] || false;
 
                 const previousRoleId =
-                  visibleParentRoles[index - 1];
+                  visibleParentRoles[
+                    index - 1
+                  ];
 
                 const previousSelectedId =
                   previousRoleId
@@ -712,7 +1186,10 @@ export default function EditStaffPage() {
                     : null;
 
                 const apiParentId =
-                  previousSelectedId || null;
+                  getApiParentId(
+                    role,
+                    index
+                  );
 
                 const isDisabled =
                   index > 0 &&
@@ -721,37 +1198,55 @@ export default function EditStaffPage() {
                 const selectedUser =
                   users.find(
                     (user) =>
-                      Number(user.id) ===
                       Number(
-                        selectedParents[role]
+                        user.id
+                      ) ===
+                      Number(
+                        selectedParents[
+                          role
+                        ]
                       )
                   );
 
                 return (
                   <div
                     key={role}
+                    data-parent-dropdown
                     className="space-y-1.5"
                   >
                     <label className="text-sm font-medium text-slate-700">
-                      {getRoleName(role)}
+                      {getRoleName(
+                        role
+                      )}
                     </label>
 
                     <div className="relative">
                       <button
                         type="button"
-                        disabled={isDisabled}
+                        disabled={
+                          isDisabled
+                        }
                         onClick={() => {
-                          if (isDisabled) return;
+                          if (
+                            isDisabled
+                          ) {
+                            return;
+                          }
 
-                          setOpenDropdown((prev) =>
-                            prev === role
-                              ? null
-                              : role
+                          setOpenDropdown(
+                            (prev) =>
+                              prev ===
+                              role
+                                ? null
+                                : role
                           );
 
                           if (
-                            openDropdown !== role &&
-                            !parentUsers[role]?.length
+                            openDropdown !==
+                              role &&
+                            !parentUsers[
+                              role
+                            ]?.length
                           ) {
                             loadParentDropdown(
                               role,
@@ -782,28 +1277,37 @@ export default function EditStaffPage() {
                         <RiArrowDownSLine
                           size={20}
                           className={`transition-transform ${
-                            openDropdown === role
+                            openDropdown ===
+                            role
                               ? "rotate-180"
                               : ""
                           }`}
                         />
                       </button>
 
-                      {openDropdown === role && (
+                      {openDropdown ===
+                        role && (
                         <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
                           <div className="p-2 border-b border-slate-200">
                             <div className="relative">
                               <input
                                 type="text"
-                                value={searchValue}
-                                onChange={(e) =>
+                                value={
+                                  searchValue
+                                }
+                                onChange={(
+                                  e
+                                ) =>
                                   handleParentSearch(
                                     role,
                                     apiParentId,
-                                    e.target.value
+                                    e.target
+                                      .value
                                   )
                                 }
-                                onClick={(e) =>
+                                onClick={(
+                                  e
+                                ) =>
                                   e.stopPropagation()
                                 }
                                 placeholder={`Search ${getRoleName(
@@ -831,61 +1335,90 @@ export default function EditStaffPage() {
                                     "",
                                     index
                                   );
-                                  setOpenDropdown(null);
+
+                                  setOpenDropdown(
+                                    null
+                                  );
                                 }}
                                 className="w-full text-left px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50"
                               >
                                 Select{" "}
-                                {getRoleName(role)}
+                                {getRoleName(
+                                  role
+                                )}
                               </button>
                             )}
 
                             {isLoading && (
                               <div className="flex items-center justify-center gap-2 px-4 py-4 text-sm text-blue-600">
                                 <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+
                                 Searching{" "}
-                                {getRoleName(role)}...
+                                {getRoleName(
+                                  role
+                                )}
+                                ...
                               </div>
                             )}
 
                             {!isLoading &&
-                              users.map((user) => (
-                                <button
-                                  key={user.id}
-                                  type="button"
-                                  onClick={() => {
-                                    handleParentChange(
-                                      role,
-                                      user.id,
-                                      index
-                                    );
-                                    setOpenDropdown(null);
-                                  }}
-                                  className={`w-full text-left px-4 py-2.5 text-sm transition ${
-                                    Number(
-                                      selectedParents[
-                                        role
-                                      ]
-                                    ) ===
-                                    Number(user.id)
-                                      ? "bg-blue-50 text-blue-700 font-medium"
-                                      : "text-slate-700 hover:bg-slate-50"
-                                  }`}
-                                >
-                                  <div>
-                                    {user.name}
-                                  </div>
-
-                                  {user.email && (
-                                    <div className="text-xs text-slate-400 mt-0.5">
-                                      {user.email}
+                              users.map(
+                                (
+                                  user
+                                ) => (
+                                  <button
+                                    key={
+                                      user.id
+                                    }
+                                    type="button"
+                                    onClick={() =>
+                                      handleParentChange(
+                                        role,
+                                        user.id,
+                                        index
+                                      )
+                                    }
+                                    className={`w-full text-left px-4 py-2.5 text-sm transition ${
+                                      Number(
+                                        selectedParents[
+                                          role
+                                        ]
+                                      ) ===
+                                      Number(
+                                        user.id
+                                      )
+                                        ? "bg-blue-50 text-blue-700 font-medium"
+                                        : "text-slate-700 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    <div>
+                                      {
+                                        user.name
+                                      }
                                     </div>
-                                  )}
-                                </button>
-                              ))}
+
+                                    {user.email && (
+                                      <div className="text-xs text-slate-400 mt-0.5">
+                                        {
+                                          user.email
+                                        }
+                                      </div>
+                                    )}
+
+                                    {user.phone && (
+                                      <div className="text-xs text-slate-400 mt-0.5">
+                                        {
+                                          user.phone
+                                        }
+                                      </div>
+                                    )}
+                                  </button>
+                                )
+                              )}
 
                             {!isLoading &&
-                              users.length === 0 && (
+                              users.length ===
+                                0 && (
                                 <div className="px-4 py-4 text-center text-sm text-slate-400">
                                   {searchValue.trim()
                                     ? `No ${getRoleName(
@@ -917,7 +1450,9 @@ export default function EditStaffPage() {
               type="text"
               name="organization_name"
               placeholder="Enter organization name"
-              value={formData.organization_name}
+              value={
+                formData.organization_name
+              }
               onChange={handleChange}
               required
               className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -933,7 +1468,9 @@ export default function EditStaffPage() {
               type="text"
               name="name"
               placeholder="Enter full name"
-              value={formData.name}
+              value={
+                formData.name
+              }
               onChange={handleChange}
               required
               className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -949,7 +1486,9 @@ export default function EditStaffPage() {
               type="email"
               name="email"
               placeholder="staff@example.com"
-              value={formData.email}
+              value={
+                formData.email
+              }
               onChange={handleChange}
               required
               className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -965,15 +1504,20 @@ export default function EditStaffPage() {
               type="tel"
               name="phone"
               placeholder="+91 98765 43210"
-              value={formData.phone}
+              value={
+                formData.phone
+              }
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  phone: e.target.value.replace(
-                    /[^\d+\s]/g,
-                    ""
-                  ),
-                }))
+                setFormData(
+                  (prev) => ({
+                    ...prev,
+                    phone:
+                      e.target.value.replace(
+                        /[^\d+\s]/g,
+                        ""
+                      ),
+                  })
+                )
               }
               required
               className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -989,7 +1533,9 @@ export default function EditStaffPage() {
               type="text"
               name="company_address"
               placeholder="Street, Building, Area"
-              value={formData.company_address}
+              value={
+                formData.company_address
+              }
               onChange={handleChange}
               required
               className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1010,7 +1556,9 @@ export default function EditStaffPage() {
                 }
                 name="password"
                 placeholder="Enter password"
-                value={formData.password}
+                value={
+                  formData.password
+                }
                 onChange={handleChange}
                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -1025,9 +1573,13 @@ export default function EditStaffPage() {
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 cursor-pointer"
               >
                 {showPassword ? (
-                  <RiEyeOffLine size={20} />
+                  <RiEyeOffLine
+                    size={20}
+                  />
                 ) : (
-                  <RiEyeLine size={20} />
+                  <RiEyeLine
+                    size={20}
+                  />
                 )}
               </button>
             </div>
@@ -1047,7 +1599,9 @@ export default function EditStaffPage() {
                 }
                 name="confirm_password"
                 placeholder="Confirm password"
-                value={formData.confirm_password}
+                value={
+                  formData.confirm_password
+                }
                 onChange={handleChange}
                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -1062,9 +1616,13 @@ export default function EditStaffPage() {
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 cursor-pointer"
               >
                 {showConfirmPassword ? (
-                  <RiEyeOffLine size={20} />
+                  <RiEyeOffLine
+                    size={20}
+                  />
                 ) : (
-                  <RiEyeLine size={20} />
+                  <RiEyeLine
+                    size={20}
+                  />
                 )}
               </button>
             </div>
@@ -1078,7 +1636,9 @@ export default function EditStaffPage() {
             <div className="relative">
               <select
                 name="country"
-                value={formData.country}
+                value={
+                  formData.country
+                }
                 onChange={handleChange}
                 required
                 className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1087,14 +1647,22 @@ export default function EditStaffPage() {
                   Select Country
                 </option>
 
-                {countries.map((country) => (
-                  <option
-                    key={country.isoCode}
-                    value={country.isoCode}
-                  >
-                    {country.name}
-                  </option>
-                ))}
+                {countries.map(
+                  (country) => (
+                    <option
+                      key={
+                        country.isoCode
+                      }
+                      value={
+                        country.isoCode
+                      }
+                    >
+                      {
+                        country.name
+                      }
+                    </option>
+                  )
+                )}
               </select>
 
               <RiArrowDownSLine
@@ -1112,24 +1680,36 @@ export default function EditStaffPage() {
             <div className="relative">
               <select
                 name="state"
-                value={formData.state}
+                value={
+                  formData.state
+                }
                 onChange={handleChange}
                 required
-                disabled={!formData.country}
+                disabled={
+                  !formData.country
+                }
                 className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
               >
                 <option value="">
                   Select State
                 </option>
 
-                {states.map((state) => (
-                  <option
-                    key={state.isoCode}
-                    value={state.isoCode}
-                  >
-                    {state.name}
-                  </option>
-                ))}
+                {states.map(
+                  (state) => (
+                    <option
+                      key={
+                        state.isoCode
+                      }
+                      value={
+                        state.isoCode
+                      }
+                    >
+                      {
+                        state.name
+                      }
+                    </option>
+                  )
+                )}
               </select>
 
               <RiArrowDownSLine
@@ -1147,24 +1727,36 @@ export default function EditStaffPage() {
             <div className="relative">
               <select
                 name="city"
-                value={formData.city}
+                value={
+                  formData.city
+                }
                 onChange={handleChange}
                 required
-                disabled={!formData.state}
+                disabled={
+                  !formData.state
+                }
                 className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
               >
                 <option value="">
                   Select City
                 </option>
 
-                {cities.map((city) => (
-                  <option
-                    key={city.name}
-                    value={city.name}
-                  >
-                    {city.name}
-                  </option>
-                ))}
+                {cities.map(
+                  (city) => (
+                    <option
+                      key={
+                        city.name
+                      }
+                      value={
+                        city.name
+                      }
+                    >
+                      {
+                        city.name
+                      }
+                    </option>
+                  )
+                )}
               </select>
 
               <RiArrowDownSLine
@@ -1175,42 +1767,59 @@ export default function EditStaffPage() {
           </div>
         </div>
 
-        {Number(formData.role_id) === 6 && (
+        {Number(
+          formData.role_id
+        ) === 6 && (
           <div>
             <h2 className="text-base font-semibold text-slate-700 mb-3">
               Retailer Device Permissions
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {devicePermissions.map((item) => (
-                <label
-                  key={item.name}
-                  className={`flex items-center justify-between px-4 py-3 rounded-lg border transition cursor-pointer ${
-                    formData[item.name] === 1
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-slate-300 bg-white hover:border-blue-400"
-                  }`}
-                >
-                  <span className="text-sm font-medium text-slate-700">
-                    {item.label}
-                  </span>
+              {devicePermissions.map(
+                (item) => (
+                  <label
+                    key={
+                      item.name
+                    }
+                    className={`flex items-center justify-between px-4 py-3 rounded-lg border transition cursor-pointer ${
+                      formData[
+                        item.name
+                      ] === 1
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-slate-300 bg-white hover:border-blue-400"
+                    }`}
+                  >
+                    <span className="text-sm font-medium text-slate-700">
+                      {item.label}
+                    </span>
 
-                  <input
-                    type="checkbox"
-                    checked={
-                      formData[item.name] === 1
-                    }
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        [item.name]:
-                          e.target.checked ? 1 : 0,
-                      }))
-                    }
-                    className="h-5 w-5 accent-blue-600 cursor-pointer"
-                  />
-                </label>
-              ))}
+                    <input
+                      type="checkbox"
+                      checked={
+                        formData[
+                          item.name
+                        ] === 1
+                      }
+                      onChange={(
+                        e
+                      ) =>
+                        setFormData(
+                          (prev) => ({
+                            ...prev,
+                            [item.name]:
+                              e.target
+                                .checked
+                                ? 1
+                                : 0,
+                          })
+                        )
+                      }
+                      className="h-5 w-5 accent-blue-600 cursor-pointer"
+                    />
+                  </label>
+                )
+              )}
             </div>
           </div>
         )}
@@ -1223,7 +1832,10 @@ export default function EditStaffPage() {
               )}`}
               className="bg-gray-700 text-white px-4 py-2.5 rounded-lg hover:bg-gray-800 transition"
             >
-              {getRoleName(formData.role_id)} List
+              {getRoleName(
+                formData.role_id
+              )}{" "}
+              List
             </Link>
           )}
 
