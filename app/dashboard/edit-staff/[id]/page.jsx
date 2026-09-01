@@ -141,24 +141,7 @@ export default function EditStaffPage() {
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
 
-  /*
-   * IMPORTANT
-   *
-   * Ye state current selected hierarchy ke according
-   * FOS available hai ya nahi wo store karegi.
-   *
-   * Example:
-   *
-   * Distributor 10 ke under FOS hai
-   * => fosAvailable = true
-   *
-   * Distributor 20 ke under FOS nahi hai
-   * => fosAvailable = false
-   */
   const [fosAvailable, setFosAvailable] =
-    useState(false);
-
-  const [fosChecking, setFosChecking] =
     useState(false);
 
   const searchTimers = useRef({});
@@ -217,40 +200,35 @@ export default function EditStaffPage() {
         getRoleName(role)
       );
 
-    const module =
-      modules.find((item) => {
-        const moduleName =
-          typeof item === "string"
-            ? item
-            : item?.name;
+    const module = modules.find((item) => {
+      const moduleName =
+        typeof item === "string"
+          ? item
+          : item?.name;
 
-        const normalizedModuleName =
-          normalizeRoleName(
-            moduleName
-          );
-
-        if (
-          role === 3 &&
-          [
-            "superdistributor",
-            "superdistributer",
-          ].includes(
-            normalizedModuleName
-          )
-        ) {
-          return true;
-        }
-
-        return (
-          normalizedModuleName ===
-          roleName
+      const normalizedModuleName =
+        normalizeRoleName(
+          moduleName
         );
-      });
 
-    /*
-     * Agar module hi nahi mila to role ko active
-     * maana jayega.
-     */
+      if (
+        role === 3 &&
+        [
+          "superdistributor",
+          "superdistributer",
+        ].includes(
+          normalizedModuleName
+        )
+      ) {
+        return true;
+      }
+
+      return (
+        normalizedModuleName ===
+        roleName
+      );
+    });
+
     if (!module) {
       return true;
     }
@@ -258,16 +236,9 @@ export default function EditStaffPage() {
     return Number(module?.status) === 1;
   };
 
-  /*
-   * ============================================================
-   * GET USERS FROM API RESPONSE
-   * ============================================================
-   */
   const getUsersFromResponse = (response) => {
     if (
-      Array.isArray(
-        response?.data
-      )
+      Array.isArray(response?.data)
     ) {
       return response.data;
     }
@@ -299,28 +270,8 @@ export default function EditStaffPage() {
     return [];
   };
 
-  /*
-   * ============================================================
-   * CHECK FOS FOR SELECTED DISTRIBUTOR
-   * ============================================================
-   *
-   * role_id = 5 => FOS
-   *
-   * parent_id = selected Distributor id
-   *
-   * Agar API se FOS milta hai:
-   *    fosAvailable = true
-   *
-   * Agar API se FOS nahi milta:
-   *    fosAvailable = false
-   *
-   * IMPORTANT:
-   * Ye current edited user's hierarchy par depend nahi karta.
-   * Ye selected Distributor ke actual data par depend karta hai.
-   */
   const checkFosForDistributor = async (
-    distributorId,
-    keepSelectedFos = false
+    distributorId
   ) => {
     const id = Number(distributorId);
 
@@ -329,34 +280,10 @@ export default function EditStaffPage() {
       id <= 0
     ) {
       setFosAvailable(false);
-
-      /*
-       * FOS selected value clear
-       */
-      if (!keepSelectedFos) {
-        setSelectedParents(
-          (prev) => {
-            const updated = {
-              ...prev,
-            };
-
-            delete updated[5];
-
-            return updated;
-          }
-        );
-      }
-
       return false;
     }
 
-    setFosChecking(true);
-
     try {
-      /*
-       * FOS role = 5
-       * parent_id = Distributor ID
-       */
       const response =
         await getDropdownUsers(
           5,
@@ -364,113 +291,45 @@ export default function EditStaffPage() {
           ""
         );
 
-      let users =
+      const users =
         getUsersFromResponse(
           response
+        ).filter(
+          (user) =>
+            Number(user?.role_id) === 5 &&
+            Number(user?.parent_id) === id
         );
-
-      /*
-       * Sirf FOS check karo jo isi Distributor ke
-       * direct parent hain.
-       */
-      users = users.filter(
-        (user) =>
-          Number(user?.role_id) === 5 &&
-          Number(user?.parent_id) === id
-      );
 
       const exists =
         users.length > 0;
 
       setFosAvailable(exists);
 
-      /*
-       * Agar FOS nahi hai to selected FOS bhi clear.
-       *
-       * Lekin edit ke initial load me selected FOS ko
-       * preserve kar sakte hain.
-       */
-      if (!exists && !keepSelectedFos) {
-        setSelectedParents(
-          (prev) => {
-            const updated = {
-              ...prev,
-            };
-
-            delete updated[5];
-
-            return updated;
-          }
-        );
-
-        setParentUsers(
-          (prev) => {
-            const updated = {
-              ...prev,
-            };
-
-            delete updated[5];
-
-            return updated;
-          }
-        );
-      } else if (exists) {
-        /*
-         * FOS users already mil gaye hain.
-         * Dropdown open hone se pehle hi store kar do.
-         */
-        setParentUsers(
-          (prev) => ({
-            ...prev,
-            5: users,
-          })
-        );
-      }
+      setParentUsers((prev) => ({
+        ...prev,
+        5: users,
+      }));
 
       return exists;
     } catch (error) {
       console.error(
-        "CHECK FOS ERROR:",
+        "FOS CHECK ERROR:",
         error?.response?.data ||
           error
       );
 
       setFosAvailable(false);
 
-      if (!keepSelectedFos) {
-        setSelectedParents(
-          (prev) => {
-            const updated = {
-              ...prev,
-            };
-
-            delete updated[5];
-
-            return updated;
-          }
-        );
-      }
+      setParentUsers((prev) => ({
+        ...prev,
+        5: [],
+      }));
 
       return false;
-    } finally {
-      setFosChecking(false);
     }
   };
 
-  /*
-   * ============================================================
-   * VISIBLE PARENT ROLES
-   * ============================================================
-   *
-   * FOS (5) special case hai.
-   *
-   * Agar selected Distributor ke under FOS hai:
-   *    FOS dropdown show
-   *
-   * Agar selected Distributor ke under FOS nahi hai:
-   *    FOS dropdown hide
-   */
-  const visibleParentRoles = useMemo(() => {
+  const getAllowedRoles = () => {
     const currentRole =
       Number(formData.role_id);
 
@@ -492,51 +351,47 @@ export default function EditStaffPage() {
         const role =
           Number(roleId);
 
-        /*
-         * Module inactive role hide.
-         */
         if (!isRoleActive(role)) {
           return false;
         }
 
-        /*
-         * ======================================================
-         * FOS SPECIAL LOGIC
-         * ======================================================
-         *
-         * Current role 6/7/8 etc. me FOS parent required ho
-         * sakta hai.
-         *
-         * Lekin FOS tabhi show hoga jab selected Distributor
-         * ke under FOS actually exist kare.
-         */
-        if (role === 5) {
-          /*
-           * Agar current role FOS khud hai to FOS ko parent
-           * nahi banana hai.
-           */
-          if (currentRole <= 5) {
-            return false;
-          }
-
-          return fosAvailable;
-        }
-
-        /*
-         * Master Admin ke liye saare previous hierarchy roles.
-         */
-        if (loggedRole === 0) {
+        if (
+          loggedRole === 0
+        ) {
           return role < currentRole;
         }
 
-        /*
-         * Logged-in role se upar/neeche hierarchy restriction.
-         */
         if (
           role <= loggedRole ||
           role >= currentRole
         ) {
           return false;
+        }
+
+        return true;
+      }
+    );
+  };
+
+  const visibleParentRoles = useMemo(() => {
+    const rolesList =
+      getAllowedRoles();
+
+    const currentRole =
+      Number(formData.role_id);
+
+    if (
+      currentRole <= 5
+    ) {
+      return rolesList;
+    }
+
+    return rolesList.filter(
+      (role) => {
+        if (
+          Number(role) === 5
+        ) {
+          return fosAvailable;
         }
 
         return true;
@@ -549,106 +404,10 @@ export default function EditStaffPage() {
     fosAvailable,
   ]);
 
-  /*
-   * ============================================================
-   * LOGIN USER
-   * ============================================================
-   */
-  useEffect(() => {
-    const user =
-      getUserFromToken();
-
-    if (user?.role_id != null) {
-      setLoggedInRoleId(
-        Number(user.role_id)
-      );
-    }
-
-    if (user?.id != null) {
-      setLoggedInUserId(
-        Number(user.id)
-      );
-    }
-  }, []);
-
-  /*
-   * ============================================================
-   * LOAD MODULES
-   * ============================================================
-   */
-  useEffect(() => {
-    const loadModules = async () => {
-      try {
-        const response =
-          await getModules();
-
-        if (
-          response?.success &&
-          Array.isArray(
-            response?.modules
-          )
-        ) {
-          setModules(
-            response.modules
-          );
-        } else {
-          setModules([]);
-        }
-      } catch (error) {
-        console.error(
-          "GET MODULES ERROR:",
-          error
-        );
-
-        setModules([]);
-      }
-    };
-
-    loadModules();
-  }, []);
-
-  /*
-   * ============================================================
-   * FORM CHANGE
-   * ============================================================
-   */
-  const handleChange = (e) => {
-    const {
-      name,
-      value,
-    } = e.target;
-
-    setFormData((prev) => {
-      const updated = {
-        ...prev,
-        [name]: value,
-      };
-
-      if (
-        name === "country"
-      ) {
-        updated.state = "";
-        updated.city = "";
-      }
-
-      if (
-        name === "state"
-      ) {
-        updated.city = "";
-      }
-
-      return updated;
-    });
-  };
-
-  /*
-   * ============================================================
-   * GET API PARENT ID
-   * ============================================================
-   */
   const getApiParentId = (
     roleId,
-    index
+    index,
+    rolesList = visibleParentRoles
   ) => {
     const role =
       Number(roleId);
@@ -668,9 +427,7 @@ export default function EditStaffPage() {
     }
 
     const previousRole =
-      visibleParentRoles[
-        index - 1
-      ];
+      rolesList[index - 1];
 
     if (!previousRole) {
       return null;
@@ -683,31 +440,24 @@ export default function EditStaffPage() {
     );
   };
 
-  /*
-   * ============================================================
-   * LOAD PARENT DROPDOWN
-   * ============================================================
-   */
   const loadParentDropdown = async (
-    parentRoleId,
+    roleId,
     parentId = null,
     search = "",
     selectedUser = null
   ) => {
-    const roleId =
-      Number(parentRoleId);
+    const role =
+      Number(roleId);
 
-    setParentLoading(
-      (prev) => ({
-        ...prev,
-        [roleId]: true,
-      })
-    );
+    setParentLoading((prev) => ({
+      ...prev,
+      [role]: true,
+    }));
 
     try {
       const response =
         await getDropdownUsers(
-          roleId,
+          role,
           parentId,
           search
         );
@@ -717,44 +467,22 @@ export default function EditStaffPage() {
           response
         );
 
-      /*
-       * FOS ko hamesha direct Distributor ke
-       * according filter karo.
-       */
-      if (roleId === 5) {
+      users = users.filter(
+        (user) =>
+          Number(user?.role_id) === role
+      );
+
+      if (
+        parentId !== null &&
+        parentId !== undefined
+      ) {
         users = users.filter(
-          (user) => {
-            const sameRole =
-              Number(
-                user?.role_id
-              ) === 5;
-
-            const sameParent =
-              parentId === null ||
-              Number(
-                user?.parent_id
-              ) ===
-                Number(parentId);
-
-            return (
-              sameRole &&
-              sameParent
-            );
-          }
-        );
-
-        /*
-         * FOS availability update.
-         */
-        setFosAvailable(
-          users.length > 0
+          (user) =>
+            Number(user?.parent_id) ===
+            Number(parentId)
         );
       }
 
-      /*
-       * Selected user API response me nahi hai
-       * to manually add it.
-       */
       if (
         selectedUser?.id &&
         !users.some(
@@ -771,103 +499,66 @@ export default function EditStaffPage() {
         ];
       }
 
-      const existingSelectedId =
-        selectedParents[
-          roleId
-        ];
+      setParentUsers((prev) => ({
+        ...prev,
+        [role]: users,
+      }));
 
-      if (
-        existingSelectedId &&
-        !users.some(
-          (user) =>
-            Number(user.id) ===
-            Number(
-              existingSelectedId
-            )
-        )
-      ) {
-        const existingUsers =
-          parentUsers[
-            roleId
-          ] || [];
-
-        const existingSelectedUser =
-          existingUsers.find(
-            (user) =>
-              Number(user.id) ===
-              Number(
-                existingSelectedId
-              )
-          );
-
-        if (
-          existingSelectedUser
-        ) {
-          users = [
-            existingSelectedUser,
-            ...users,
-          ];
-        }
+      if (role === 5) {
+        setFosAvailable(
+          users.length > 0
+        );
       }
-
-      setParentUsers(
-        (prev) => ({
-          ...prev,
-          [roleId]: users,
-        })
-      );
     } catch (error) {
       console.error(
         `LOAD ${getRoleName(
-          roleId
+          role
         )} ERROR:`,
-        error?.response
-          ?.data || error
+        error?.response?.data ||
+          error
       );
 
-      if (roleId === 5) {
+      setParentUsers((prev) => ({
+        ...prev,
+        [role]: selectedUser
+          ? [selectedUser]
+          : [],
+      }));
+
+      if (role === 5) {
         setFosAvailable(false);
       }
-
-      setParentUsers(
-        (prev) => ({
-          ...prev,
-          [roleId]:
-            selectedUser
-              ? [
-                  selectedUser,
-                  ...(prev[
-                    roleId
-                  ] || []).filter(
-                    (user) =>
-                      Number(
-                        user.id
-                      ) !==
-                      Number(
-                        selectedUser.id
-                      )
-                  ),
-                ]
-              : prev[
-                  roleId
-                ] || [],
-        })
-      );
     } finally {
-      setParentLoading(
-        (prev) => ({
-          ...prev,
-          [roleId]: false,
-        })
-      );
+      setParentLoading((prev) => ({
+        ...prev,
+        [role]: false,
+      }));
     }
   };
 
-  /*
-   * ============================================================
-   * LOAD EDIT HIERARCHY
-   * ============================================================
-   */
+  const loadRetailerForParent = async (
+    parentId
+  ) => {
+    const id = Number(parentId);
+
+    if (
+      !Number.isInteger(id) ||
+      id <= 0
+    ) {
+      setParentUsers((prev) => ({
+        ...prev,
+        6: [],
+      }));
+      return;
+    }
+
+    await loadParentDropdown(
+      6,
+      id,
+      ""
+    );
+  };
+
   const loadEditParentHierarchy =
     async (
       roleId,
@@ -881,9 +572,6 @@ export default function EditStaffPage() {
           currentRole
         ] || [];
 
-      /*
-       * Parent chain ko map me convert.
-       */
       const chainMap =
         new Map();
 
@@ -897,21 +585,12 @@ export default function EditStaffPage() {
             if (
               parent?.role_id != null
             ) {
-              const role =
+              chainMap.set(
                 Number(
                   parent.role_id
-                );
-
-              if (
-                Number.isInteger(
-                  role
-                )
-              ) {
-                chainMap.set(
-                  role,
-                  parent
-                );
-              }
+                ),
+                parent
+              );
             }
           }
         );
@@ -920,20 +599,11 @@ export default function EditStaffPage() {
       const loggedRole =
         Number(loggedInRoleId);
 
-      /*
-       * Pehle basic editable parents nikalo.
-       *
-       * FOS ko yahan special-case nahi karenge.
-       * FOS availability selected Distributor ke baad
-       * dynamically check hogi.
-       */
       let editableParents =
         requiredParents.filter(
-          (parentRoleId) => {
+          (roleId) => {
             const role =
-              Number(
-                parentRoleId
-              );
+              Number(roleId);
 
             if (
               !isRoleActive(role)
@@ -942,81 +612,45 @@ export default function EditStaffPage() {
             }
 
             if (
-              role === 5
-            ) {
-              /*
-               * FOS baad me selected Distributor ke
-               * according decide hoga.
-               */
-              return true;
-            }
-
-            if (
               loggedRole === 0
             ) {
               return role < currentRole;
             }
 
-            if (
-              role <= loggedRole ||
-              role >= currentRole
-            ) {
-              return false;
-            }
-
-            return true;
+            return (
+              role > loggedRole &&
+              role < currentRole
+            );
           }
         );
 
-      /*
-       * ========================================================
-       * INITIAL FOS CHECK
-       * ========================================================
-       *
-       * Existing edit user ki parent chain me Distributor
-       * hai to us Distributor ke actual FOS check karo.
-       */
-      const existingDistributor =
+      const distributor =
         chainMap.get(4);
-
-      const existingDistributorId =
-        existingDistributor?.id
-          ? Number(
-              existingDistributor.id
-            )
-          : null;
 
       const existingFos =
         chainMap.get(5);
 
       if (
-        existingDistributorId
+        distributor?.id
       ) {
-        await checkFosForDistributor(
-          existingDistributorId,
-          Boolean(existingFos?.id)
-        );
+        const hasFos =
+          await checkFosForDistributor(
+            distributor.id
+          );
+
+        if (
+          !hasFos &&
+          !existingFos?.id
+        ) {
+          editableParents =
+            editableParents.filter(
+              (role) =>
+                Number(role) !== 5
+            );
+        }
       } else {
         setFosAvailable(false);
-      }
 
-      /*
-       * Agar current selected distributor ke under FOS
-       * nahi hai to FOS ko editableParents se hatao.
-       *
-       * Existing FOS ho to preserve karenge.
-       */
-      const fosExistsForExistingDistributor =
-        existingDistributorId
-          ? await checkFosForDistributor(
-              existingDistributorId,
-              Boolean(existingFos?.id)
-            )
-          : false;
-
-      if (
-        !fosExistsForExistingDistributor
-      ) {
         editableParents =
           editableParents.filter(
             (role) =>
@@ -1033,28 +667,23 @@ export default function EditStaffPage() {
         return;
       }
 
-      /*
-       * ========================================================
-       * SELECTED PARENTS
-       * ========================================================
-       */
       const selected = {};
 
       editableParents.forEach(
-        (parentRoleId) => {
-          const role =
-            Number(
-              parentRoleId
-            );
-
+        (roleId) => {
           const parent =
-            chainMap.get(role);
+            chainMap.get(
+              Number(roleId)
+            );
 
           if (
             parent?.id != null
           ) {
-            selected[role] =
-              Number(parent.id);
+            selected[
+              Number(roleId)
+            ] = Number(
+              parent.id
+            );
           }
         }
       );
@@ -1069,24 +698,17 @@ export default function EditStaffPage() {
             editableParents.length - 1
           ];
 
-        if (lastRole) {
-          selected[
-            Number(lastRole)
-          ] = Number(
-            formData.parent_id
-          );
-        }
+        selected[
+          Number(lastRole)
+        ] = Number(
+          formData.parent_id
+        );
       }
 
       setSelectedParents(
         selected
       );
 
-      /*
-       * ========================================================
-       * LOAD EACH PARENT DROPDOWN
-       * ========================================================
-       */
       const usersByRole = {};
 
       for (
@@ -1095,24 +717,22 @@ export default function EditStaffPage() {
         editableParents.length;
         index++
       ) {
-        const parentRoleId =
+        const role =
           Number(
             editableParents[index]
           );
 
         const selectedUser =
-          chainMap.get(
-            parentRoleId
-          ) || null;
+          chainMap.get(role) ||
+          null;
 
-        let apiParentId = null;
+        let apiParentId =
+          null;
 
         if (index === 0) {
           if (
-            parentRoleId ===
-            Number(
-              loggedInRoleId
-            )
+            role ===
+            Number(loggedInRoleId)
           ) {
             apiParentId =
               loggedInUserId ||
@@ -1135,7 +755,7 @@ export default function EditStaffPage() {
         try {
           const response =
             await getDropdownUsers(
-              parentRoleId,
+              role,
               apiParentId,
               ""
             );
@@ -1145,27 +765,24 @@ export default function EditStaffPage() {
               response
             );
 
-          /*
-           * FOS filter
-           */
+          users = users.filter(
+            (user) =>
+              Number(
+                user?.role_id
+              ) === role
+          );
+
           if (
-            parentRoleId === 5
+            apiParentId !== null
           ) {
             users =
               users.filter(
                 (user) =>
                   Number(
-                    user?.role_id
-                  ) === 5 &&
-                  (
-                    apiParentId ===
-                      null ||
-                    Number(
-                      user?.parent_id
-                    ) ===
-                      Number(
-                        apiParentId
-                      )
+                    user?.parent_id
+                  ) ===
+                  Number(
+                    apiParentId
                   )
               );
           }
@@ -1174,7 +791,9 @@ export default function EditStaffPage() {
             selectedUser?.id &&
             !users.some(
               (user) =>
-                Number(user.id) ===
+                Number(
+                  user.id
+                ) ===
                 Number(
                   selectedUser.id
                 )
@@ -1186,21 +805,19 @@ export default function EditStaffPage() {
             ];
           }
 
-          usersByRole[
-            parentRoleId
-          ] = users;
+          usersByRole[role] =
+            users;
         } catch (error) {
           console.error(
-            `EDIT PARENT LOAD ERROR - ROLE ${parentRoleId}:`,
-            error?.response
-              ?.data || error
+            `PARENT LOAD ERROR ${role}:`,
+            error?.response?.data ||
+              error
           );
 
-          usersByRole[
-            parentRoleId
-          ] = selectedUser
-            ? [selectedUser]
-            : [];
+          usersByRole[role] =
+            selectedUser
+              ? [selectedUser]
+              : [];
         }
       }
 
@@ -1209,29 +826,65 @@ export default function EditStaffPage() {
       );
     };
 
-  /*
-   * ============================================================
-   * LOAD STAFF
-   * ============================================================
-   */
   useEffect(() => {
-    if (!userId) {
-      return;
-    }
+    const user =
+      getUserFromToken();
 
     if (
-      loggedInRoleId === null
+      user?.role_id != null
     ) {
-      return;
+      setLoggedInRoleId(
+        Number(user.role_id)
+      );
     }
 
     if (
+      user?.id != null
+    ) {
+      setLoggedInUserId(
+        Number(user.id)
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadModules =
+      async () => {
+        try {
+          const response =
+            await getModules();
+
+          if (
+            response?.success &&
+            Array.isArray(
+              response?.modules
+            )
+          ) {
+            setModules(
+              response.modules
+            );
+          }
+        } catch (error) {
+          console.error(
+            "MODULE ERROR:",
+            error
+          );
+        }
+      };
+
+    loadModules();
+  }, []);
+
+  useEffect(() => {
+    if (
+      !userId ||
+      loggedInRoleId === null ||
       loggedInUserId === null
     ) {
       return;
     }
 
-    const fetchStaffData =
+    const fetchStaff =
       async () => {
         try {
           const id =
@@ -1263,7 +916,7 @@ export default function EditStaffPage() {
           }
 
           const user =
-            response?.data;
+            response.data;
 
           if (!user) {
             toast.error(
@@ -1335,45 +988,33 @@ export default function EditStaffPage() {
 
             supreme_device:
               Number(
-                user.supreme_device ||
-                  0
+                user.supreme_device || 0
               ),
 
             pro_star:
               Number(
-                user.pro_star ||
-                  0
+                user.pro_star || 0
               ),
 
             lite:
               Number(
-                user.lite ||
-                  0
+                user.lite || 0
               ),
 
             google_tv:
               Number(
-                user.google_tv ||
-                  0
+                user.google_tv || 0
               ),
 
             supreme_lock:
               Number(
-                user.supreme_lock ||
-                  0
+                user.supreme_lock || 0
               ),
           });
 
-          const parentChain =
-            Array.isArray(
-              user.parent_chain
-            )
-              ? user.parent_chain
-              : [];
-
           await loadEditParentHierarchy(
             roleId,
-            parentChain
+            user.parent_chain || []
           );
         } catch (error) {
           console.error(
@@ -1390,97 +1031,81 @@ export default function EditStaffPage() {
         }
       };
 
-    fetchStaffData();
+    fetchStaff();
   }, [
     userId,
     loggedInRoleId,
     loggedInUserId,
   ]);
 
-  /*
-   * ============================================================
-   * CLEAR NEXT DROPDOWNS
-   * ============================================================
-   */
-  const clearNextParentDropdowns =
-    (parentRoleId) => {
-      const roleId =
-        Number(parentRoleId);
+  const clearNextParentDropdowns = (
+    roleId
+  ) => {
+    const currentIndex =
+      visibleParentRoles.indexOf(
+        Number(roleId)
+      );
 
-      const index =
-        visibleParentRoles.indexOf(
-          roleId
-        );
+    if (
+      currentIndex === -1
+    ) {
+      return;
+    }
 
-      if (index === -1) {
-        return;
-      }
+    const nextRoles =
+      visibleParentRoles.slice(
+        currentIndex + 1
+      );
 
-      const nextRoles =
-        visibleParentRoles.slice(
-          index + 1
-        );
+    setSelectedParents((prev) => {
+      const updated = {
+        ...prev,
+      };
 
-      setSelectedParents(
-        (prev) => {
-          const updated = {
-            ...prev,
-          };
-
-          nextRoles.forEach(
-            (nextRole) => {
-              delete updated[
-                Number(nextRole)
-              ];
-            }
-          );
-
-          return updated;
+      nextRoles.forEach(
+        (role) => {
+          delete updated[
+            Number(role)
+          ];
         }
       );
 
-      setParentUsers(
-        (prev) => {
-          const updated = {
-            ...prev,
-          };
+      return updated;
+    });
 
-          nextRoles.forEach(
-            (nextRole) => {
-              delete updated[
-                Number(nextRole)
-              ];
-            }
-          );
+    setParentUsers((prev) => {
+      const updated = {
+        ...prev,
+      };
 
-          return updated;
+      nextRoles.forEach(
+        (role) => {
+          delete updated[
+            Number(role)
+          ];
         }
       );
 
-      setParentSearch(
-        (prev) => {
-          const updated = {
-            ...prev,
-          };
+      return updated;
+    });
 
-          nextRoles.forEach(
-            (nextRole) => {
-              delete updated[
-                Number(nextRole)
-              ];
-            }
-          );
+    setParentSearch((prev) => {
+      const updated = {
+        ...prev,
+      };
 
-          return updated;
+      nextRoles.forEach(
+        (role) => {
+          delete updated[
+            Number(role)
+          ];
         }
       );
-    };
 
-  /*
-   * ============================================================
-   * PARENT CHANGE
-   * ============================================================
-   */
+      return updated;
+    });
+  };
+
   const handleParentChange =
     async (
       parentRoleId,
@@ -1505,218 +1130,98 @@ export default function EditStaffPage() {
         return;
       }
 
-      const oldSelectedId =
-        selectedParents[
-          roleId
-        ] || null;
-
-      if (
-        Number(oldSelectedId) ===
-        Number(selectedId)
-      ) {
-        setOpenDropdown(null);
-        return;
-      }
-
-      /*
-       * ========================================================
-       * DISTRIBUTOR SELECTED
-       * ========================================================
-       *
-       * Distributor role = 4
-       *
-       * Ab selected Distributor ke under FOS check hoga.
-       */
-      if (roleId === 4) {
-        /*
-         * Pehle old FOS aur uske baad wale dropdown clear.
-         */
-        setSelectedParents(
-          (prev) => {
-            const updated = {
-              ...prev,
-            };
-
-            if (selectedId) {
-              updated[4] =
-                selectedId;
-            } else {
-              delete updated[4];
-            }
-
-            /*
-             * Old FOS remove.
-             */
-            delete updated[5];
-
-            /*
-             * Uske neeche ke parents bhi remove.
-             */
-            [6, 7, 8, 9].forEach(
-              (role) => {
-                delete updated[role];
-              }
-            );
-
-            return updated;
-          }
-        );
-
-        setParentUsers(
-          (prev) => {
-            const updated = {
-              ...prev,
-            };
-
-            delete updated[5];
-            delete updated[6];
-            delete updated[7];
-            delete updated[8];
-            delete updated[9];
-
-            return updated;
-          }
-        );
-
-        setFormData(
-          (prev) => ({
-            ...prev,
-            parent_id:
-              selectedId,
-          })
-        );
-
-        setParentSearch(
-          (prev) => ({
-            ...prev,
-            4: "",
-            5: "",
-          })
-        );
-
-        if (!selectedId) {
-          setFosAvailable(false);
-          setOpenDropdown(null);
-          return;
-        }
-
-        /*
-         * IMPORTANT:
-         * Selected Distributor ke actual FOS check karo.
-         */
-        const hasFos =
-          await checkFosForDistributor(
-            selectedId
-          );
-
-        /*
-         * FOS available hai to FOS dropdown ke users
-         * already load ho jayenge.
-         */
-        if (hasFos) {
-          /*
-           * Kuch nahi karna.
-           * visibleParentRoles automatically FOS show karega.
-           */
-        }
-
-        /*
-         * FOS nahi hai to next available parent role
-         * direct Distributor hoga.
-         *
-         * Example:
-         *
-         * CNF -> Super -> Distributor -> Retailer
-         */
-        const nextRole =
-          hasFos
-            ? 5
-            : visibleParentRoles[
-                currentIndex + 2
-              ];
-
-        if (
-          nextRole &&
-          nextRole !== 5
-        ) {
-          await loadParentDropdown(
-            Number(nextRole),
-            selectedId,
-            ""
-          );
-        }
-
-        setOpenDropdown(null);
-        return;
-      }
-
-      /*
-       * ========================================================
-       * NORMAL PARENT CHANGE
-       * ========================================================
-       */
-      setSelectedParents(
-        (prev) => {
-          const updated = {
-            ...prev,
-          };
-
-          if (selectedId) {
-            updated[roleId] =
-              selectedId;
-          } else {
-            delete updated[
-              roleId
-            ];
-          }
-
-          return updated;
-        }
-      );
-
-      setFormData(
-        (prev) => ({
+      setSelectedParents((prev) => {
+        const updated = {
           ...prev,
-          parent_id:
-            selectedId,
-        })
-      );
+        };
 
-      setParentSearch(
-        (prev) => ({
-          ...prev,
-          [roleId]: "",
-        })
-      );
+        if (selectedId) {
+          updated[roleId] =
+            selectedId;
+        } else {
+          delete updated[roleId];
+        }
+
+        return updated;
+      });
+
+      setParentSearch((prev) => ({
+        ...prev,
+        [roleId]: "",
+      }));
+
+      setFormData((prev) => ({
+        ...prev,
+        parent_id:
+          selectedId,
+      }));
 
       clearNextParentDropdowns(
         roleId
       );
 
-      /*
-       * Agar FOS select kiya.
-       */
-      if (roleId === 5) {
-        /*
-         * FOS selected hai to next child parent
-         * FOS hoga.
-         */
-        setFosAvailable(true);
-      }
-
       if (!selectedId) {
+        if (roleId === 4) {
+          setFosAvailable(false);
+        }
+
         setOpenDropdown(null);
         return;
       }
 
-      /*
-       * ========================================================
-       * FIND NEXT ROLE
-       * ========================================================
-       *
-       * visibleParentRoles already FOS ko hide/show kar
-       * chuka hai.
-       */
+      if (roleId === 4) {
+        const hasFos =
+          await checkFosForDistributor(
+            selectedId
+          );
+
+        if (hasFos) {
+          await loadParentDropdown(
+            5,
+            selectedId,
+            ""
+          );
+
+          const retailerRoleExists =
+            visibleParentRoles.includes(
+              6
+            );
+
+          if (
+            retailerRoleExists
+          ) {
+            await loadRetailerForParent(
+              selectedId
+            );
+          }
+        } else {
+          setParentUsers(
+            (prev) => ({
+              ...prev,
+              5: [],
+            })
+          );
+
+          await loadRetailerForParent(
+            selectedId
+          );
+        }
+
+        setOpenDropdown(null);
+        return;
+      }
+
+      if (roleId === 5) {
+        setFosAvailable(true);
+
+        await loadRetailerForParent(
+          selectedId
+        );
+
+        setOpenDropdown(null);
+        return;
+      }
+
       const nextRole =
         visibleParentRoles[
           currentIndex + 1
@@ -1727,37 +1232,18 @@ export default function EditStaffPage() {
         return;
       }
 
-      /*
-       * Agar next role FOS hai to selected Distributor
-       * parentId hona chahiye.
-       */
-      if (
-        Number(nextRole) === 5
-      ) {
-        await loadParentDropdown(
-          5,
-          selectedId,
-          ""
-        );
-
-        setOpenDropdown(null);
-        return;
-      }
+      const nextParentId =
+        selectedId;
 
       await loadParentDropdown(
         Number(nextRole),
-        selectedId,
+        nextParentId,
         ""
       );
 
       setOpenDropdown(null);
     };
 
-  /*
-   * ============================================================
-   * SEARCH PARENT
-   * ============================================================
-   */
   const handleParentSearch = (
     parentRoleId,
     value
@@ -1765,22 +1251,16 @@ export default function EditStaffPage() {
     const roleId =
       Number(parentRoleId);
 
-    setParentSearch(
-      (prev) => ({
-        ...prev,
-        [roleId]: value,
-      })
-    );
+    setParentSearch((prev) => ({
+      ...prev,
+      [roleId]: value,
+    }));
 
     if (
-      searchTimers.current[
-        roleId
-      ]
+      searchTimers.current[roleId]
     ) {
       clearTimeout(
-        searchTimers.current[
-          roleId
-        ]
+        searchTimers.current[roleId]
       );
     }
 
@@ -1816,27 +1296,34 @@ export default function EditStaffPage() {
         ] || null;
     }
 
-    searchTimers.current[
-      roleId
-    ] = setTimeout(
-      () => {
-        loadParentDropdown(
-          roleId,
-          parentId,
-          value.trim()
-        );
-      },
-      value.trim()
-        ? 400
-        : 200
-    );
+    if (roleId === 6) {
+      const fosId =
+        selectedParents[5];
+
+      if (fosId) {
+        parentId = fosId;
+      } else {
+        parentId =
+          selectedParents[4] ||
+          null;
+      }
+    }
+
+    searchTimers.current[roleId] =
+      setTimeout(
+        () => {
+          loadParentDropdown(
+            roleId,
+            parentId,
+            value.trim()
+          );
+        },
+        value.trim()
+          ? 400
+          : 200
+      );
   };
 
-  /*
-   * ============================================================
-   * OPEN DROPDOWN
-   * ============================================================
-   */
   const handleDropdownOpen =
     async (
       roleId,
@@ -1845,51 +1332,44 @@ export default function EditStaffPage() {
       const role =
         Number(roleId);
 
+      const alreadyOpen =
+        openDropdown === role;
+
       setOpenDropdown(
-        (prev) =>
-          prev === role
-            ? null
-            : role
+        alreadyOpen
+          ? null
+          : role
       );
 
-      if (
-        openDropdown === role &&
-        parentUsers[role]?.length
-      ) {
+      if (alreadyOpen) {
         return;
       }
 
-      const apiParentId =
-        getApiParentId(
-          role,
-          index
-        );
-
       const selectedId =
-        selectedParents[
-          role
-        ];
+        selectedParents[role];
 
       const selectedUser =
         (
-          parentUsers[
-            role
-          ] || []
+          parentUsers[role] ||
+          []
         ).find(
           (user) =>
             Number(user.id) ===
             Number(selectedId)
         );
 
-      /*
-       * FOS dropdown open karte waqt bhi actual
-       * selected Distributor ke FOS load honge.
-       */
       if (role === 5) {
         const distributorId =
           selectedParents[4];
 
         if (!distributorId) {
+          setParentUsers(
+            (prev) => ({
+              ...prev,
+              5: [],
+            })
+          );
+
           setFosAvailable(false);
           return;
         }
@@ -1904,6 +1384,34 @@ export default function EditStaffPage() {
         return;
       }
 
+      if (role === 6) {
+        const fosId =
+          selectedParents[5];
+
+        const distributorId =
+          selectedParents[4];
+
+        const parentId =
+          fosId ||
+          distributorId ||
+          null;
+
+        await loadParentDropdown(
+          6,
+          parentId,
+          "",
+          selectedUser
+        );
+
+        return;
+      }
+
+      const apiParentId =
+        getApiParentId(
+          role,
+          index
+        );
+
       await loadParentDropdown(
         role,
         apiParentId,
@@ -1912,11 +1420,6 @@ export default function EditStaffPage() {
       );
     };
 
-  /*
-   * ============================================================
-   * CLEAN TIMERS
-   * ============================================================
-   */
   useEffect(() => {
     return () => {
       Object.values(
@@ -1928,11 +1431,6 @@ export default function EditStaffPage() {
     };
   }, []);
 
-  /*
-   * ============================================================
-   * OUTSIDE CLICK
-   * ============================================================
-   */
   useEffect(() => {
     const handleOutsideClick =
       (event) => {
@@ -1958,11 +1456,35 @@ export default function EditStaffPage() {
     };
   }, []);
 
-  /*
-   * ============================================================
-   * SUBMIT
-   * ============================================================
-   */
+  const handleChange = (e) => {
+    const {
+      name,
+      value,
+    } = e.target;
+
+    setFormData((prev) => {
+      const updated = {
+        ...prev,
+        [name]: value,
+      };
+
+      if (
+        name === "country"
+      ) {
+        updated.state = "";
+        updated.city = "";
+      }
+
+      if (
+        name === "state"
+      ) {
+        updated.city = "";
+      }
+
+      return updated;
+    });
+  };
+
   const handleSubmit =
     async (e) => {
       e.preventDefault();
@@ -1998,30 +1520,12 @@ export default function EditStaffPage() {
       }
 
       try {
-        /*
-         * Visible hierarchy ke according payload banao.
-         *
-         * IMPORTANT:
-         * Agar FOS hidden hai to FOS payload me nahi jayega.
-         *
-         * Example:
-         *
-         * CNF -> Super -> Distributor -> Retailer
-         *
-         * FOS hidden hai to:
-         * [
-         *   CNF,
-         *   Super,
-         *   Distributor
-         * ]
-         */
         const parentHierarchy =
           visibleParentRoles
             .map(
               (roleId) => ({
                 role_id:
                   Number(roleId),
-
                 user_id:
                   selectedParents[
                     Number(roleId)
@@ -2036,9 +1540,6 @@ export default function EditStaffPage() {
             )
             .filter(
               (item) =>
-                Number.isInteger(
-                  item.role_id
-                ) &&
                 item.role_id > 0 &&
                 Number.isInteger(
                   item.user_id
@@ -2049,23 +1550,13 @@ export default function EditStaffPage() {
         let finalParentId = null;
 
         if (
-          parentHierarchy.length >
-          0
+          parentHierarchy.length
         ) {
-          const lastParent =
+          finalParentId =
             parentHierarchy[
               parentHierarchy.length - 1
-            ];
-
-          finalParentId =
-            Number(
-              lastParent.user_id
-            );
-        }
-
-        if (
-          parentHierarchy.length ===
-            0 &&
+            ].user_id;
+        } else if (
           formData.parent_id
         ) {
           finalParentId =
@@ -2077,8 +1568,7 @@ export default function EditStaffPage() {
         const payload = {
           ...formData,
 
-          id:
-            Number(userId),
+          id: Number(userId),
 
           role_id:
             currentRoleId,
@@ -2101,8 +1591,7 @@ export default function EditStaffPage() {
 
           supreme_device:
             Number(
-              formData.supreme_device ||
-                0
+              formData.supreme_device || 0
             ),
 
           pro_star:
@@ -2122,8 +1611,7 @@ export default function EditStaffPage() {
 
           supreme_lock:
             Number(
-              formData.supreme_lock ||
-                0
+              formData.supreme_lock || 0
             ),
         };
 
@@ -2160,8 +1648,8 @@ export default function EditStaffPage() {
       } catch (error) {
         console.error(
           "UPDATE STAFF ERROR:",
-          error?.response
-            ?.data || error
+          error?.response?.data ||
+            error
         );
 
         toast.error(
@@ -2177,13 +1665,8 @@ export default function EditStaffPage() {
     <div className="max-w-5xl mx-auto">
       <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden p-6">
 
-        {/* =====================================================
-            PARENT HIERARCHY
-        ====================================================== */}
-
         {visibleParentRoles.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-
             {visibleParentRoles.map(
               (
                 parentRoleId,
@@ -2195,9 +1678,8 @@ export default function EditStaffPage() {
                   );
 
                 const users =
-                  parentUsers[
-                    role
-                  ] || [];
+                  parentUsers[role] ||
+                  [];
 
                 const searchValue =
                   parentSearch[
@@ -2214,7 +1696,7 @@ export default function EditStaffPage() {
                     index - 1
                   ];
 
-                const previousSelectedId =
+                let previousSelectedId =
                   previousRoleId
                     ? selectedParents[
                         Number(
@@ -2222,6 +1704,13 @@ export default function EditStaffPage() {
                         )
                       ]
                     : null;
+
+                if (role === 6) {
+                  previousSelectedId =
+                    selectedParents[5] ||
+                    selectedParents[4] ||
+                    null;
+                }
 
                 const isDisabled =
                   index > 0 &&
@@ -2256,7 +1745,6 @@ export default function EditStaffPage() {
                     </label>
 
                     <div className="relative">
-
                       <button
                         type="button"
                         disabled={
@@ -2275,12 +1763,10 @@ export default function EditStaffPage() {
                         }`}
                       >
                         <span className="truncate">
-
                           {selectedUser?.name ||
                             `Select ${getRoleName(
                               role
                             )}`}
-
                         </span>
 
                         <RiArrowDownSLine
@@ -2298,12 +1784,8 @@ export default function EditStaffPage() {
                         role && (
                         <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
 
-                          {/* SEARCH */}
-
                           <div className="p-2 border-b border-slate-200">
-
                             <div className="relative">
-
                               <input
                                 type="text"
                                 value={
@@ -2335,15 +1817,10 @@ export default function EditStaffPage() {
                                   <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                                 </div>
                               )}
-
                             </div>
-
                           </div>
 
-                          {/* USERS */}
-
                           <div className="max-h-60 overflow-y-auto">
-
                             {!isLoading && (
                               <button
                                 type="button"
@@ -2364,15 +1841,12 @@ export default function EditStaffPage() {
 
                             {isLoading && (
                               <div className="flex items-center justify-center gap-2 px-4 py-4 text-sm text-blue-600">
-
                                 <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-
                                 Searching{" "}
                                 {getRoleName(
                                   role
                                 )}
                                 ...
-
                               </div>
                             )}
 
@@ -2403,7 +1877,6 @@ export default function EditStaffPage() {
                                         : "text-slate-700 hover:bg-slate-50"
                                     }`}
                                   >
-
                                     <div>
                                       {
                                         user.name
@@ -2425,7 +1898,6 @@ export default function EditStaffPage() {
                                         }
                                       </div>
                                     )}
-
                                   </button>
                                 )
                               )}
@@ -2443,36 +1915,24 @@ export default function EditStaffPage() {
                                       )} available`}
                                 </div>
                               )}
-
                           </div>
-
                         </div>
                       )}
-
                     </div>
                   </div>
                 );
               }
             )}
-
           </div>
         )}
-
-        {/* =====================================================
-            MAIN FORM
-        ====================================================== */}
 
         <form
           onSubmit={handleSubmit}
           className="space-y-5"
         >
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-            {/* ORGANIZATION */}
-
             <div className="space-y-1.5">
-
               <label className="text-sm font-medium text-slate-700">
                 Organization Name
               </label>
@@ -2488,13 +1948,9 @@ export default function EditStaffPage() {
                 required
                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-
             </div>
 
-            {/* NAME */}
-
             <div className="space-y-1.5">
-
               <label className="text-sm font-medium text-slate-700">
                 Full Name
               </label>
@@ -2503,20 +1959,14 @@ export default function EditStaffPage() {
                 type="text"
                 name="name"
                 placeholder="Enter full name"
-                value={
-                  formData.name
-                }
+                value={formData.name}
                 onChange={handleChange}
                 required
                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-
             </div>
 
-            {/* EMAIL */}
-
             <div className="space-y-1.5">
-
               <label className="text-sm font-medium text-slate-700">
                 Email Address
               </label>
@@ -2525,20 +1975,14 @@ export default function EditStaffPage() {
                 type="email"
                 name="email"
                 placeholder="staff@example.com"
-                value={
-                  formData.email
-                }
+                value={formData.email}
                 onChange={handleChange}
                 required
                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-
             </div>
 
-            {/* PHONE */}
-
             <div className="space-y-1.5">
-
               <label className="text-sm font-medium text-slate-700">
                 Phone Number
               </label>
@@ -2547,33 +1991,25 @@ export default function EditStaffPage() {
                 type="tel"
                 name="phone"
                 placeholder="+91 98765 43210"
-                value={
-                  formData.phone
-                }
+                value={formData.phone}
                 onChange={(e) =>
-                  setFormData(
-                    (prev) => ({
-                      ...prev,
-                      phone:
-                        e.target.value.replace(
-                          /[^\d+\s]/g,
-                          ""
-                        ),
-                    })
-                  )
+                  setFormData((prev) => ({
+                    ...prev,
+                    phone:
+                      e.target.value.replace(
+                        /[^\d+\s]/g,
+                        ""
+                      ),
+                  }))
                 }
                 required
                 pattern="^(\+91\s?)?[6-9]\d{9}$"
                 title="Enter a valid Indian mobile number"
                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-
             </div>
 
-            {/* ADDRESS */}
-
             <div className="space-y-1.5">
-
               <label className="text-sm font-medium text-slate-700">
                 Company Address
               </label>
@@ -2589,19 +2025,14 @@ export default function EditStaffPage() {
                 required
                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-
             </div>
 
-            {/* PASSWORD */}
-
             <div className="space-y-1.5">
-
               <label className="text-sm font-medium text-slate-700">
                 Password
               </label>
 
               <div className="relative">
-
                 <input
                   type={
                     showPassword
@@ -2637,21 +2068,15 @@ export default function EditStaffPage() {
                     />
                   )}
                 </button>
-
               </div>
-
             </div>
 
-            {/* CONFIRM PASSWORD */}
-
             <div className="space-y-1.5">
-
               <label className="text-sm font-medium text-slate-700">
                 Confirm Password
               </label>
 
               <div className="relative">
-
                 <input
                   type={
                     showConfirmPassword
@@ -2687,21 +2112,15 @@ export default function EditStaffPage() {
                     />
                   )}
                 </button>
-
               </div>
-
             </div>
 
-            {/* COUNTRY */}
-
             <div className="space-y-1.5">
-
               <label className="text-sm font-medium text-slate-700">
                 Country
               </label>
 
               <div className="relative">
-
                 <select
                   name="country"
                   value={
@@ -2731,28 +2150,21 @@ export default function EditStaffPage() {
                       </option>
                     )
                   )}
-
                 </select>
 
                 <RiArrowDownSLine
                   size={22}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                 />
-
               </div>
-
             </div>
 
-            {/* STATE */}
-
             <div className="space-y-1.5">
-
               <label className="text-sm font-medium text-slate-700">
                 State
               </label>
 
               <div className="relative">
-
                 <select
                   name="state"
                   value={
@@ -2785,28 +2197,21 @@ export default function EditStaffPage() {
                       </option>
                     )
                   )}
-
                 </select>
 
                 <RiArrowDownSLine
                   size={22}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                 />
-
               </div>
-
             </div>
 
-            {/* CITY */}
-
             <div className="space-y-1.5">
-
               <label className="text-sm font-medium text-slate-700">
                 City
               </label>
 
               <div className="relative">
-
                 <select
                   name="city"
                   value={
@@ -2839,35 +2244,25 @@ export default function EditStaffPage() {
                       </option>
                     )
                   )}
-
                 </select>
 
                 <RiArrowDownSLine
                   size={22}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                 />
-
               </div>
-
             </div>
-
           </div>
-
-          {/* =================================================
-              DEVICE PERMISSIONS
-          ================================================== */}
 
           {Number(
             formData.role_id
           ) === 6 && (
             <div>
-
               <h2 className="text-base font-semibold text-slate-700 mb-3">
                 Retailer Device Permissions
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
-
                 {devicePermissions.map(
                   (item) => (
                     <label
@@ -2882,7 +2277,6 @@ export default function EditStaffPage() {
                           : "border-slate-300 bg-white hover:border-blue-400"
                       }`}
                     >
-
                       <span className="text-sm font-medium text-slate-700">
                         {
                           item.label
@@ -2905,8 +2299,7 @@ export default function EditStaffPage() {
                             ) => ({
                               ...prev,
                               [item.name]:
-                                e
-                                  .target
+                                e.target
                                   .checked
                                   ? 1
                                   : 0,
@@ -2915,22 +2308,14 @@ export default function EditStaffPage() {
                         }
                         className="h-5 w-5 accent-blue-600 cursor-pointer"
                       />
-
                     </label>
                   )
                 )}
-
               </div>
-
             </div>
           )}
 
-          {/* =================================================
-              BUTTONS
-          ================================================== */}
-
           <div className="flex justify-end gap-3 pt-2">
-
             {formData.role_id && (
               <Link
                 href={`/dashboard?role=${Number(
@@ -2951,9 +2336,7 @@ export default function EditStaffPage() {
             >
               Update
             </button>
-
           </div>
-
         </form>
       </div>
     </div>
