@@ -822,7 +822,7 @@ export default function Sidebar({
             px-4
             py-3
             rounded-md
-            hover:bg-blue-600
+            hover:bg-blue-500
             transition-all
             cursor-pointer
             font-semibold
