@@ -1,15 +1,15 @@
+
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   RiFilterLine,
   RiEditLine,
   RiLoginBoxLine,
 } from "react-icons/ri";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { toast } from "react-toastify";
 
@@ -33,24 +33,67 @@ export default function UsersTable({
   handleRoleList,
 }) {
   const [search, setSearch] = useState("");
-
-  const [loginLoading, setLoginLoading] =
-    useState(null);
-
-  const [statusLoading, setStatusLoading] =
-    useState(null);
+  const [loginLoading, setLoginLoading] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(null);
 
   const router = useRouter();
+
+  // =====================================================
+  // ROLE MAP
+  // =====================================================
+  //
+  // IMPORTANT:
+  // User ka actual role hamesha user.role_id se niklega.
+  //
+  // parent_id / parent_name / parent_chain ko kabhi
+  // user ka role determine karne ke liye use nahi karna.
+  //
+  // =====================================================
+
+  const roleMap = {
+    0: "Master Admin",
+    1: "Admin",
+    2: "CNF",
+    3: "Super Distributor",
+    4: "Distributor",
+    5: "FOS",
+    6: "Retailer",
+    7: "Sub Retailer",
+    8: "Employee",
+    9: "Staff",
+  };
+
+  // =====================================================
+  // SAFE ROLE NAME
+  // =====================================================
+
+  const getUserRoleName = (roleId) => {
+    const numericRoleId = Number(roleId);
+
+    return (
+      roleMap[numericRoleId] ||
+      getRoleName?.(numericRoleId) ||
+      "Unknown"
+    );
+  };
 
   // =====================================================
   // SEARCH
   // =====================================================
 
-  const filteredUsers = users.filter((user) =>
-    user?.name
-      ?.toLowerCase()
-      .includes(search.toLowerCase())
-  );
+  const normalizedSearch = search
+    .trim()
+    .toLowerCase();
+
+  const filteredUsers = users.filter((user) => {
+    const userName = String(
+      user?.name || ""
+    ).toLowerCase();
+
+    return userName.includes(
+      normalizedSearch
+    );
+  });
 
   // =====================================================
   // ROLE BUTTONS
@@ -76,12 +119,29 @@ export default function UsersTable({
     try {
       setLoginLoading(user.id);
 
-      console.log("=================================");
+      console.log(
+        "================================="
+      );
+
       console.log("LOGIN AS USER");
       console.log("User ID:", user.id);
       console.log("User Name:", user.name);
-      console.log("User Role:", user.role_id);
-      console.log("=================================");
+
+      // IMPORTANT:
+      // Actual role always comes from user.role_id
+      console.log(
+        "User Role ID:",
+        user.role_id
+      );
+
+      console.log(
+        "User Role Name:",
+        getUserRoleName(user.role_id)
+      );
+
+      console.log(
+        "================================="
+      );
 
       const response =
         await loginAsUser(user.id);
@@ -149,8 +209,15 @@ export default function UsersTable({
       );
 
       console.log(
-        "NEW USER ROLE:",
+        "NEW USER ROLE ID:",
         response.user.role_id
+      );
+
+      console.log(
+        "NEW USER ROLE:",
+        getUserRoleName(
+          response.user.role_id
+        )
       );
 
       console.log(
@@ -183,9 +250,7 @@ export default function UsersTable({
 
       window.location.href =
         "/dashboard";
-
     } catch (error) {
-
       console.error(
         "Login As User Error:",
         error
@@ -196,11 +261,8 @@ export default function UsersTable({
           error?.message ||
           "Unable to login as user"
       );
-
     } finally {
-
       setLoginLoading(null);
-
     }
   };
 
@@ -208,32 +270,31 @@ export default function UsersTable({
   // UPDATE USER STATUS
   // =====================================================
 
-  const handleStatusToggle = async (
-    user
-  ) => {
+  const handleStatusToggle = async (user) => {
     try {
-
       setStatusLoading(user.id);
 
-      // ================================================
+      // =================================================
       // CURRENT STATUS
-      // ================================================
+      // =================================================
 
       const currentStatus =
-        Number(user.userStatus ?? 1);
+        Number(
+          user?.userStatus ?? 1
+        );
 
-      // ================================================
+      // =================================================
       // NEW STATUS
-      // ================================================
+      // =================================================
 
       const newStatus =
         currentStatus === 1
           ? 0
           : 1;
 
-      // ================================================
+      // =================================================
       // API CALL
-      // ================================================
+      // =================================================
 
       const response =
         await updateUserStatus(
@@ -246,12 +307,11 @@ export default function UsersTable({
         response
       );
 
-      // ================================================
+      // =================================================
       // API ERROR
-      // ================================================
+      // =================================================
 
       if (!response?.success) {
-
         toast.error(
           response?.message ||
             "Failed to update user status"
@@ -260,33 +320,34 @@ export default function UsersTable({
         return;
       }
 
-      // ================================================
+      // =================================================
       // UPDATE LOCAL DATA
-      // ================================================
+      // =================================================
+      //
+      // Parent component generally owns users state.
+      // Existing object ko directly mutate nahi karenge.
+      //
+      // Agar parent refresh/re-fetch karta hai to latest
+      // status automatically aa jayega.
+      //
+      // =================================================
 
-      user.userStatus =
-        newStatus;
+      user.userStatus = newStatus;
 
-      // ================================================
+      // =================================================
       // TOAST
-      // ================================================
+      // =================================================
 
       if (newStatus === 1) {
-
         toast.success(
           "User activated successfully"
         );
-
       } else {
-
         toast.error(
           "User deactivated successfully"
         );
-
       }
-
     } catch (error) {
-
       console.error(
         "USER STATUS ERROR:",
         error
@@ -297,11 +358,8 @@ export default function UsersTable({
           error?.message ||
           "Failed to update user status"
       );
-
     } finally {
-
       setStatusLoading(null);
-
     }
   };
 
@@ -310,23 +368,26 @@ export default function UsersTable({
   // =====================================================
 
   const handlePreviousPage = () => {
-
     if (page > 1) {
       setPage(page - 1);
     }
-
   };
 
   const handleNextPage = () => {
-
     const totalPages =
       pagination?.totalPages || 1;
 
     if (page < totalPages) {
       setPage(page + 1);
     }
-
   };
+
+  // =====================================================
+  // ROLE LIST NAME
+  // =====================================================
+
+  const selectedRoleName =
+    getUserRoleName(selectedRole);
 
   // =====================================================
   // RETURN
@@ -345,7 +406,6 @@ export default function UsersTable({
         overflow-hidden
       "
     >
-
       {/* =================================================
           TOP BUTTONS
       ================================================= */}
@@ -358,7 +418,6 @@ export default function UsersTable({
           mb-4
         "
       >
-
         <div
           className="
             flex
@@ -370,7 +429,6 @@ export default function UsersTable({
             [&::-webkit-scrollbar]:hidden
           "
         >
-
           {/* ============================================
               ROLE LIST
           ============================================ */}
@@ -393,10 +451,7 @@ export default function UsersTable({
               whitespace-nowrap
             "
           >
-            {getRoleName(
-              selectedRole
-            )}{" "}
-            List
+            {selectedRoleName} List
           </button>
 
           {/* ============================================
@@ -404,7 +459,11 @@ export default function UsersTable({
           ============================================ */}
 
           <Link
-            href={`/dashboard/form?role=${selectedRole}&role_id=${selectedRole}`}
+            href={`/dashboard/form?role=${Number(
+              selectedRole
+            )}&role_id=${Number(
+              selectedRole
+            )}`}
             className="
               bg-blue-400
               text-white
@@ -418,15 +477,11 @@ export default function UsersTable({
             "
           >
             {roleButtons[
-              selectedRole
+              Number(selectedRole)
             ] ||
-              `Add ${getRoleName(
-                selectedRole
-              )}`}
+              `Add ${selectedRoleName}`}
           </Link>
-
         </div>
-
       </div>
 
       {/* =================================================
@@ -444,7 +499,6 @@ export default function UsersTable({
           max-lg:gap-3
         "
       >
-
         {/* ==============================================
             TITLE
         ============================================== */}
@@ -471,7 +525,6 @@ export default function UsersTable({
             max-lg:w-full
           "
         >
-
           {/* ============================================
               FILTER
           ============================================ */}
@@ -498,13 +551,11 @@ export default function UsersTable({
               ease-in-out
             "
           >
-
             <RiFilterLine
               size={18}
             />
 
             Filter
-
           </button>
 
           {/* ============================================
@@ -535,9 +586,7 @@ export default function UsersTable({
               focus:ring-blue-400
             "
           />
-
         </div>
-
       </div>
 
       {/* =================================================
@@ -552,7 +601,6 @@ export default function UsersTable({
           [&::-webkit-scrollbar]:hidden
         "
       >
-
         <div
           className="
             w-full
@@ -560,28 +608,18 @@ export default function UsersTable({
             table-auto
           "
         >
-
           <table className="w-full">
-
             {/* ==========================================
                 TABLE HEAD
             ========================================== */}
 
             <thead>
-
-              <tr
-                className="border-b"
-              >
-
-                <th
-                  className="text-left p-3"
-                >
+              <tr className="border-b">
+                <th className="text-left p-3">
                   S.No
                 </th>
 
-                <th
-                  className="text-left p-3"
-                >
+                <th className="text-left p-3">
                   Parent Name
                   <br />
 
@@ -595,9 +633,7 @@ export default function UsersTable({
                   </span>
                 </th>
 
-                <th
-                  className="text-left p-3"
-                >
+                <th className="text-left p-3">
                   Name
                   <br />
 
@@ -611,38 +647,26 @@ export default function UsersTable({
                   </span>
                 </th>
 
-                <th
-                  className="text-left p-3"
-                >
+                <th className="text-left p-3">
                   Phone
                 </th>
 
-                <th
-                  className="text-left p-3"
-                >
+                <th className="text-left p-3">
                   Role
                 </th>
 
-                <th
-                  className="text-left p-3"
-                >
+                <th className="text-left p-3">
                   Created At
                 </th>
 
-                <th
-                  className="text-left p-3"
-                >
+                <th className="text-left p-3">
                   Actions
                 </th>
 
-                <th
-                  className="text-left p-3"
-                >
+                <th className="text-left p-3">
                   Status
                 </th>
-
               </tr>
-
             </thead>
 
             {/* ==========================================
@@ -650,406 +674,407 @@ export default function UsersTable({
             ========================================== */}
 
             <tbody>
-
               {filteredUsers.length > 0 ? (
-
                 filteredUsers.map(
-                  (user, index) => (
+                  (user, index) => {
+                    // =================================================
+                    // IMPORTANT ROLE LOGIC
+                    // =================================================
+                    //
+                    // YAHAN ROLE SIRF user.role_id SE AAYEGA.
+                    //
+                    // parent_id
+                    // parent_name
+                    // parent_chain
+                    // parent_hierarchy
+                    //
+                    // inme se kisi ko role display ke liye use
+                    // nahi karna hai.
+                    //
+                    // =================================================
 
-                    <tr
-                      key={user.id}
-                      className="border-b"
-                    >
+                    const actualRoleId =
+                      Number(
+                        user?.role_id
+                      );
 
-                      {/* ==================================
-                          S.NO
-                      ================================== */}
+                    const actualRoleName =
+                      getUserRoleName(
+                        actualRoleId
+                      );
 
-                      <td
-                        className="p-3"
+                    const isActive =
+                      Number(
+                        user?.userStatus ?? 1
+                      ) === 1;
+
+                    return (
+                      <tr
+                        key={user.id}
+                        className="border-b"
                       >
-                        {(
-                          (page - 1) *
-                          (
-                            pagination?.limit ||
-                            10
-                          )
-                        ) +
-                          index +
-                          1}
-                      </td>
+                        {/* ==================================
+                            S.NO
+                        ================================== */}
 
-                      {/* ==================================
-                          PARENT
-                      ================================== */}
+                        <td className="p-3">
+                          {(
+                            (page - 1) *
+                            (
+                              pagination?.limit ||
+                              10
+                            )
+                          ) +
+                            index +
+                            1}
+                        </td>
 
-                      <td
-                        className="
-                          p-3
-                          py-1
-                        "
-                      >
+                        {/* ==================================
+                            PARENT
+                        ================================== */}
 
-                        <div
+                        <td
                           className="
-                            font-semibold
+                            p-3
+                            py-1
                           "
                         >
-                          {user.parent_name ||
-                            "-"}
-                        </div>
-
-                        <div
-                          className="
-                            text-sm
-                            text-gray-500
-                          "
-                        >
-                          {user.parent_organization_name ||
-                            "-"}
-                        </div>
-
-                      </td>
-
-                      {/* ==================================
-                          USER
-                      ================================== */}
-
-                      <td
-                        className="
-                          p-3
-                          py-1
-                        "
-                      >
-
-                        <div
-                          className="
-                            font-semibold
-                          "
-                        >
-                          {user.name ||
-                            "-"}
-                        </div>
-
-                        <div
-                          className="
-                            text-sm
-                            text-gray-500
-                          "
-                        >
-                          {user.organization_name ||
-                            "-"}
-                        </div>
-
-                      </td>
-
-                      {/* ==================================
-                          PHONE
-                      ================================== */}
-
-                      <td
-                        className="
-                          p-3
-                          py-1
-                        "
-                      >
-                        {user.phone ||
-                          "-"}
-                      </td>
-
-                      {/* ==================================
-                          ROLE
-                      ================================== */}
-
-                      <td
-                        className="
-                          p-3
-                          py-1
-                        "
-                      >
-                        {getRoleName(
-                          user.role_id
-                        )}
-                      </td>
-
-                      {/* ==================================
-                          CREATED AT
-                      ================================== */}
-
-                      <td
-                        className="
-                          p-3
-                          py-1
-                        "
-                      >
-
-                        {user.created_at ? (
+                          <div
+                            className="
+                              font-semibold
+                            "
+                          >
+                            {user.parent_name ||
+                              "-"}
+                          </div>
 
                           <div
                             className="
                               text-sm
-                              leading-5
+                              text-gray-500
                             "
                           >
+                            {user.parent_organization_name ||
+                              "-"}
+                          </div>
+                        </td>
 
-                            {/* DATE */}
+                        {/* ==================================
+                            USER
+                        ================================== */}
 
-                            <div>
-
-                              <span
-                                className="
-                                  font-bold
-                                "
-                              >
-                                Date:
-                              </span>{" "}
-
-                              {new Date(
-                                user.created_at
-                              ).toLocaleDateString(
-                                "en-IN",
-                                {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                }
-                              )}
-
-                            </div>
-
-                            {/* TIME */}
-
-                            <div>
-
-                              <span
-                                className="
-                                  font-bold
-                                "
-                              >
-                                Time:
-                              </span>{" "}
-
-                              {new Date(
-                                user.created_at
-                              ).toLocaleTimeString(
-                                "en-IN",
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }
-                              )}
-
-                            </div>
-
+                        <td
+                          className="
+                            p-3
+                            py-1
+                          "
+                        >
+                          <div
+                            className="
+                              font-semibold
+                            "
+                          >
+                            {user.name ||
+                              "-"}
                           </div>
 
-                        ) : (
-                          "-"
-                        )}
+                          <div
+                            className="
+                              text-sm
+                              text-gray-500
+                            "
+                          >
+                            {user.organization_name ||
+                              "-"}
+                          </div>
+                        </td>
 
-                      </td>
+                        {/* ==================================
+                            PHONE
+                        ================================== */}
 
-                      {/* ==================================
-                          ACTIONS
-                      ================================== */}
-
-                      <td
-                        className="
-                          p-3
-                          py-1
-                          text-center
-                        "
-                      >
-
-                        <div
+                        <td
                           className="
-                            flex
-                            items-center
-                            justify-center
-                            gap-2
+                            p-3
+                            py-1
                           "
                         >
+                          {user.phone ||
+                            "-"}
+                        </td>
 
-                          {/* ==============================
-                              EDIT
-                          ============================== */}
+                        {/* ==================================
+                            ROLE
+                        ================================== */}
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              router.push(
-                                `/dashboard/edit-staff/${user.id}?role=${user.role_id}`
-                              )
-                            }
-                            className="
-                              inline-flex
-                              items-center
-                              justify-center
-                              p-2
-                              rounded-md
-                              text-blue-600
-                              hover:bg-blue-50
-                              transition
-                              cursor-pointer
-                            "
-                            title="Edit"
-                          >
-
-                            <RiEditLine
-                              size={20}
-                            />
-
-                          </button>
-
-                          {/* ==============================
-                              LOGIN AS USER
-                          ============================== */}
-
-                          <button
-                            type="button"
-                            disabled={
-                              loginLoading ===
-                              user.id
-                            }
-                            onClick={() =>
-                              handleLoginAsUser(
-                                user
-                              )
-                            }
-                            className="
-                              inline-flex
-                              items-center
-                              justify-center
-                              p-2
-                              rounded-md
-                              text-green-600
-                              hover:bg-green-50
-                              transition
-                              cursor-pointer
-                              disabled:opacity-50
-                              disabled:cursor-not-allowed
-                            "
-                            title="Login"
-                          >
-
-                            <RiLoginBoxLine
-                              size={20}
-                            />
-
-                          </button>
-
-                        </div>
-
-                      </td>
-
-                      {/* ==================================
-                          STATUS
-                      ================================== */}
-
-                      <td
-                        className="
-                          p-3
-                          py-1
-                        "
-                      >
-
-                        <div
+                        <td
                           className="
-                            flex
-                            items-center
-                            gap-3
+                            p-3
+                            py-1
                           "
                         >
+                          {actualRoleName}
+                        </td>
 
-                          {/* ==============================
-                              TOGGLE
-                          ============================== */}
+                        {/* ==================================
+                            CREATED AT
+                        ================================== */}
 
-                          <button
-                            type="button"
-                            disabled={
-                              statusLoading ===
-                              user.id
-                            }
-                            onClick={() =>
-                              handleStatusToggle(
-                                user
-                              )
-                            }
-                            className={`
-                              relative
-                              inline-flex
-                              h-6
-                              w-11
+                        <td
+                          className="
+                            p-3
+                            py-1
+                          "
+                        >
+                          {user.created_at ? (
+                            <div
+                              className="
+                                text-sm
+                                leading-5
+                              "
+                            >
+                              {/* DATE */}
+
+                              <div>
+                                <span
+                                  className="
+                                    font-bold
+                                  "
+                                >
+                                  Date:
+                                </span>{" "}
+
+                                {new Date(
+                                  user.created_at
+                                ).toLocaleDateString(
+                                  "en-IN",
+                                  {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                  }
+                                )}
+                              </div>
+
+                              {/* TIME */}
+
+                              <div>
+                                <span
+                                  className="
+                                    font-bold
+                                  "
+                                >
+                                  Time:
+                                </span>{" "}
+
+                                {new Date(
+                                  user.created_at
+                                ).toLocaleTimeString(
+                                  "en-IN",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+
+                        {/* ==================================
+                            ACTIONS
+                        ================================== */}
+
+                        <td
+                          className="
+                            p-3
+                            py-1
+                            text-center
+                          "
+                        >
+                          <div
+                            className="
+                              flex
                               items-center
-                              rounded-full
-                              transition
-                              duration-200
-                              cursor-pointer
-                              disabled:opacity-50
-                              disabled:cursor-not-allowed
+                              justify-center
+                              gap-2
+                            "
+                          >
+                            {/* ==============================
+                                EDIT
+                            ============================== */}
 
-                              ${
-                                Number(
-                                  user.userStatus ??
-                                  1
-                                ) === 1
-                                  ? "bg-green-500"
-                                  : "bg-gray-400"
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // IMPORTANT:
+                                // Edit page ko bhi actual role_id
+                                // pass karenge.
+                                router.push(
+                                  `/dashboard/edit-staff/${user.id}?role=${actualRoleId}`
+                                );
+                              }}
+                              className="
+                                inline-flex
+                                items-center
+                                justify-center
+                                p-2
+                                rounded-md
+                                text-blue-600
+                                hover:bg-blue-50
+                                transition
+                                cursor-pointer
+                              "
+                              title={`Edit ${actualRoleName}`}
+                            >
+                              <RiEditLine
+                                size={20}
+                              />
+                            </button>
+
+                            {/* ==============================
+                                LOGIN AS USER
+                            ============================== */}
+
+                            <button
+                              type="button"
+                              disabled={
+                                loginLoading ===
+                                user.id
                               }
-                            `}
-                            title={
-                              Number(
-                                user.userStatus ??
-                                1
-                              ) === 1
-                                ? "Deactivate User"
-                                : "Activate User"
-                            }
-                          >
+                              onClick={() =>
+                                handleLoginAsUser(
+                                  user
+                                )
+                              }
+                              className="
+                                inline-flex
+                                items-center
+                                justify-center
+                                p-2
+                                rounded-md
+                                text-green-600
+                                hover:bg-green-50
+                                transition
+                                cursor-pointer
+                                disabled:opacity-50
+                                disabled:cursor-not-allowed
+                              "
+                              title={`Login as ${actualRoleName}`}
+                            >
+                              {loginLoading ===
+                              user.id ? (
+                                <span
+                                  className="
+                                    h-5
+                                    w-5
+                                    border-2
+                                    border-green-600
+                                    border-t-transparent
+                                    rounded-full
+                                    animate-spin
+                                  "
+                                />
+                              ) : (
+                                <RiLoginBoxLine
+                                  size={20}
+                                />
+                              )}
+                            </button>
+                          </div>
+                        </td>
 
-                            <span
+                        {/* ==================================
+                            STATUS
+                        ================================== */}
+
+                        <td
+                          className="
+                            p-3
+                            py-1
+                          "
+                        >
+                          <div
+                            className="
+                              flex
+                              items-center
+                              gap-3
+                            "
+                          >
+                            {/* ==============================
+                                TOGGLE
+                            ============================== */}
+
+                            <button
+                              type="button"
+                              disabled={
+                                statusLoading ===
+                                user.id
+                              }
+                              onClick={() =>
+                                handleStatusToggle(
+                                  user
+                                )
+                              }
                               className={`
-                                inline-block
-                                h-5
-                                w-5
-                                transform
+                                relative
+                                inline-flex
+                                h-6
+                                w-11
+                                items-center
                                 rounded-full
-                                bg-white
-                                shadow
                                 transition
                                 duration-200
+                                cursor-pointer
+                                disabled:opacity-50
+                                disabled:cursor-not-allowed
 
                                 ${
-                                  Number(
-                                    user.userStatus ??
-                                    1
-                                  ) === 1
-                                    ? "translate-x-5"
-                                    : "translate-x-1"
+                                  isActive
+                                    ? "bg-green-500"
+                                    : "bg-gray-400"
                                 }
                               `}
-                            />
+                              title={
+                                isActive
+                                  ? "Deactivate User"
+                                  : "Activate User"
+                              }
+                            >
+                              <span
+                                className={`
+                                  inline-block
+                                  h-5
+                                  w-5
+                                  transform
+                                  rounded-full
+                                  bg-white
+                                  shadow
+                                  transition
+                                  duration-200
 
-                          </button>
-
-                        </div>
-
-                      </td>
-
-                    </tr>
-
-                  )
+                                  ${
+                                    isActive
+                                      ? "translate-x-5"
+                                      : "translate-x-1"
+                                  }
+                                `}
+                              />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
                 )
-
               ) : (
-
                 /* ========================================
                    NO USERS
                 ======================================== */
 
                 <tr>
-
                   <td
                     colSpan="8"
                     className="
@@ -1060,17 +1085,11 @@ export default function UsersTable({
                   >
                     No Users Found
                   </td>
-
                 </tr>
-
               )}
-
             </tbody>
-
           </table>
-
         </div>
-
       </div>
 
       {/* =================================================
@@ -1086,7 +1105,6 @@ export default function UsersTable({
           mt-5
         "
       >
-
         {/* ==============================================
             PREVIOUS
         ============================================== */}
@@ -1124,7 +1142,6 @@ export default function UsersTable({
             font-semibold
           "
         >
-
           Page{" "}
 
           {pagination?.currentPage ||
@@ -1134,7 +1151,6 @@ export default function UsersTable({
 
           {pagination?.totalPages ||
             1}
-
         </span>
 
         {/* ==============================================
@@ -1172,9 +1188,7 @@ export default function UsersTable({
         >
           Next
         </button>
-
       </div>
-
     </div>
   );
 }

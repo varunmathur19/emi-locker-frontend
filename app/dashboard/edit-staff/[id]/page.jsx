@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import {
@@ -50,6 +50,7 @@ const initialFormData = {
 };
 
 const roles = {
+  0: "Master Admin",
   1: "Admin",
   2: "CNF",
   3: "Super Distributor",
@@ -62,7 +63,6 @@ const roles = {
 };
 
 const parentRoles = {
-  1: [],
   2: [1],
   3: [2],
   4: [2, 3],
@@ -70,7 +70,7 @@ const parentRoles = {
   6: [2, 3, 4, 5],
   7: [2, 3, 4, 5, 6],
   8: [2, 3, 4, 5, 6, 7],
-  9: [],
+  9: [1],
 };
 
 const devicePermissions = [
@@ -106,22 +106,19 @@ const devicePermissions = [
 
 export default function EditStaffPage() {
   const params = useParams();
-  const userId = params.id;
+  const userId = params?.id;
 
   const [formData, setFormData] =
     useState(initialFormData);
 
-  const [showPassword, setShowPassword] =
-    useState(false);
-
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState(false);
-
   const [loggedInRoleId, setLoggedInRoleId] =
     useState(null);
 
-  const [openDropdown, setOpenDropdown] =
+  const [loggedInUserId, setLoggedInUserId] =
     useState(null);
+
+  const [modules, setModules] =
+    useState([]);
 
   const [parentUsers, setParentUsers] =
     useState({});
@@ -135,41 +132,73 @@ export default function EditStaffPage() {
   const [parentLoading, setParentLoading] =
     useState({});
 
-  const [modules, setModules] =
-    useState([]);
+  const [openDropdown, setOpenDropdown] =
+    useState(null);
+
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
+
+  const [fosAvailable, setFosAvailable] =
+    useState(false);
 
   const searchTimers = useRef({});
 
-  const countries =
-    Country.getAllCountries();
+  const countries = useMemo(
+    () => Country.getAllCountries(),
+    []
+  );
 
-  const states = formData.country
-    ? State.getStatesOfCountry(formData.country)
-    : [];
+  const states = useMemo(() => {
+    if (!formData.country) {
+      return [];
+    }
 
-  const cities =
-    formData.country && formData.state
-      ? City.getCitiesOfState(
-          formData.country,
-          formData.state
-        )
-      : [];
+    return State.getStatesOfCountry(
+      formData.country
+    );
+  }, [formData.country]);
 
-  const getRoleName = (roleId) =>
-    roles[Number(roleId)] || "Parent";
+  const cities = useMemo(() => {
+    if (
+      !formData.country ||
+      !formData.state
+    ) {
+      return [];
+    }
 
-  const normalizeRoleName = (name) =>
-    String(name || "")
+    return City.getCitiesOfState(
+      formData.country,
+      formData.state
+    );
+  }, [
+    formData.country,
+    formData.state,
+  ]);
+
+  const getRoleName = (roleId) => {
+    return (
+      roles[Number(roleId)] ||
+      "User"
+    );
+  };
+
+  const normalizeRoleName = (name) => {
+    return String(name || "")
       .trim()
       .toLowerCase()
       .replace(/[\s_-]+/g, "");
+  };
 
   const isRoleActive = (roleId) => {
     const role = Number(roleId);
 
-    const roleName = normalizeRoleName(
-      getRoleName(role)
-    );
+    const roleName =
+      normalizeRoleName(
+        getRoleName(role)
+      );
 
     const module = modules.find((item) => {
       const moduleName =
@@ -177,20 +206,27 @@ export default function EditStaffPage() {
           ? item
           : item?.name;
 
-      const normalizedName =
-        normalizeRoleName(moduleName);
+      const normalizedModuleName =
+        normalizeRoleName(
+          moduleName
+        );
 
       if (
         role === 3 &&
         [
           "superdistributor",
           "superdistributer",
-        ].includes(normalizedName)
+        ].includes(
+          normalizedModuleName
+        )
       ) {
         return true;
       }
 
-      return normalizedName === roleName;
+      return (
+        normalizedModuleName ===
+        roleName
+      );
     });
 
     if (!module) {
@@ -200,11 +236,110 @@ export default function EditStaffPage() {
     return Number(module?.status) === 1;
   };
 
-  const visibleParentRoles = (() => {
+  const getUsersFromResponse = (response) => {
+    if (
+      Array.isArray(response?.data)
+    ) {
+      return response.data;
+    }
+
+    if (
+      Array.isArray(
+        response?.data?.data
+      )
+    ) {
+      return response.data.data;
+    }
+
+    if (
+      Array.isArray(
+        response?.data?.users
+      )
+    ) {
+      return response.data.users;
+    }
+
+    if (
+      Array.isArray(
+        response?.users
+      )
+    ) {
+      return response.users;
+    }
+
+    return [];
+  };
+
+  const checkFosForDistributor = async (
+    distributorId
+  ) => {
+    const id = Number(distributorId);
+
+    if (
+      !Number.isInteger(id) ||
+      id <= 0
+    ) {
+      setFosAvailable(false);
+      return false;
+    }
+
+    try {
+      const response =
+        await getDropdownUsers(
+          5,
+          id,
+          ""
+        );
+
+      const users =
+        getUsersFromResponse(
+          response
+        ).filter(
+          (user) =>
+            Number(user?.role_id) === 5 &&
+            Number(user?.parent_id) === id
+        );
+
+      const exists =
+        users.length > 0;
+
+      setFosAvailable(exists);
+
+      setParentUsers((prev) => ({
+        ...prev,
+        5: users,
+      }));
+
+      return exists;
+    } catch (error) {
+      console.error(
+        "FOS CHECK ERROR:",
+        error?.response?.data ||
+          error
+      );
+
+      setFosAvailable(false);
+
+      setParentUsers((prev) => ({
+        ...prev,
+        5: [],
+      }));
+
+      return false;
+    }
+  };
+
+  const getAllowedRoles = () => {
     const currentRole =
       Number(formData.role_id);
 
-    if (!currentRole) {
+    const loggedRole =
+      Number(loggedInRoleId);
+
+    if (
+      !currentRole ||
+      currentRole <= 1
+    ) {
       return [];
     }
 
@@ -212,66 +347,87 @@ export default function EditStaffPage() {
       parentRoles[currentRole] || [];
 
     return requiredParents.filter(
-      (roleId) =>
-        isRoleActive(roleId)
-    );
-  })();
+      (roleId) => {
+        const role =
+          Number(roleId);
 
-  const getRequiredParentRole = (roleId) => {
-    const role = Number(roleId);
+        if (!isRoleActive(role)) {
+          return false;
+        }
 
-    const requiredParents =
-      parentRoles[role] || [];
+        if (
+          loggedRole === 0
+        ) {
+          return role < currentRole;
+        }
 
-    if (!requiredParents.length) {
-      return null;
-    }
+        if (
+          role <= loggedRole ||
+          role >= currentRole
+        ) {
+          return false;
+        }
 
-    return Number(
-      requiredParents[
-        requiredParents.length - 1
-      ]
+        return true;
+      }
     );
   };
 
-  const getApiParentId = (
-    roleId,
-    index
-  ) => {
-    const role = Number(roleId);
+  const visibleParentRoles = useMemo(() => {
+    const rolesList =
+      getAllowedRoles();
+
+    const currentRole =
+      Number(formData.role_id);
 
     if (
-      role === 3 &&
-      isRoleActive(3)
+      currentRole <= 5
     ) {
+      return rolesList;
+    }
+
+    return rolesList.filter(
+      (role) => {
+        if (
+          Number(role) === 5
+        ) {
+          return fosAvailable;
+        }
+
+        return true;
+      }
+    );
+  }, [
+    formData.role_id,
+    loggedInRoleId,
+    modules,
+    fosAvailable,
+  ]);
+
+  const getApiParentId = (
+    roleId,
+    index,
+    rolesList = visibleParentRoles
+  ) => {
+    const role =
+      Number(roleId);
+
+    if (index === 0) {
+      if (
+        role ===
+        Number(loggedInRoleId)
+      ) {
+        return (
+          loggedInUserId ||
+          null
+        );
+      }
+
       return null;
     }
 
-    const requiredParentRole =
-      getRequiredParentRole(role);
-
-    if (
-      requiredParentRole &&
-      !isRoleActive(
-        requiredParentRole
-      )
-    ) {
-      const previousVisibleRole =
-        visibleParentRoles[index - 1];
-
-      if (!previousVisibleRole) {
-        return null;
-      }
-
-      return (
-        selectedParents[
-          previousVisibleRole
-        ] || null
-      );
-    }
-
     const previousRole =
-      visibleParentRoles[index - 1];
+      rolesList[index - 1];
 
     if (!previousRole) {
       return null;
@@ -279,123 +435,52 @@ export default function EditStaffPage() {
 
     return (
       selectedParents[
-        previousRole
+        Number(previousRole)
       ] || null
     );
   };
 
-  useEffect(() => {
-    const user =
-      getUserFromToken();
-
-    if (user?.role_id != null) {
-      setLoggedInRoleId(
-        Number(user.role_id)
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    const loadModules = async () => {
-      try {
-        const response =
-          await getModules();
-
-        if (
-          response?.success &&
-          Array.isArray(
-            response.modules
-          )
-        ) {
-          setModules(
-            response.modules
-          );
-        } else {
-          setModules([]);
-        }
-      } catch (error) {
-        console.error(
-          "GET MODULES ERROR:",
-          error
-        );
-
-        setModules([]);
-      }
-    };
-
-    loadModules();
-  }, []);
-
-  const handleChange = (e) => {
-    const {
-      name,
-      value,
-    } = e.target;
-
-    setFormData((prev) => {
-      const updated = {
-        ...prev,
-        [name]: value,
-      };
-
-      if (name === "country") {
-        updated.state = "";
-        updated.city = "";
-      }
-
-      if (name === "state") {
-        updated.city = "";
-      }
-
-      return updated;
-    });
-  };
-
   const loadParentDropdown = async (
-    parentRoleId,
+    roleId,
     parentId = null,
     search = "",
     selectedUser = null
   ) => {
-    const roleId =
-      Number(parentRoleId);
+    const role =
+      Number(roleId);
 
     setParentLoading((prev) => ({
       ...prev,
-      [roleId]: true,
+      [role]: true,
     }));
 
     try {
       const response =
         await getDropdownUsers(
-          roleId,
+          role,
           parentId,
           search
         );
 
-      let users = [];
+      let users =
+        getUsersFromResponse(
+          response
+        );
+
+      users = users.filter(
+        (user) =>
+          Number(user?.role_id) === role
+      );
 
       if (
-        Array.isArray(
-          response?.data?.users
-        )
+        parentId !== null &&
+        parentId !== undefined
       ) {
-        users =
-          response.data.users;
-      } else if (
-        Array.isArray(
-          response?.data
-        )
-      ) {
-        users =
-          response.data;
-      } else if (
-        Array.isArray(
-          response?.users
-        )
-      ) {
-        users =
-          response.users;
+        users = users.filter(
+          (user) =>
+            Number(user?.parent_id) ===
+            Number(parentId)
+        );
       }
 
       if (
@@ -403,7 +488,9 @@ export default function EditStaffPage() {
         !users.some(
           (user) =>
             Number(user.id) ===
-            Number(selectedUser.id)
+            Number(
+              selectedUser.id
+            )
         )
       ) {
         users = [
@@ -412,67 +499,64 @@ export default function EditStaffPage() {
         ];
       }
 
-      const existingSelectedId =
-        selectedParents[roleId];
-
-      if (
-        existingSelectedId &&
-        !users.some(
-          (user) =>
-            Number(user.id) ===
-            Number(existingSelectedId)
-        )
-      ) {
-        const existingUsers =
-          parentUsers[roleId] || [];
-
-        const existingSelectedUser =
-          existingUsers.find(
-            (user) =>
-              Number(user.id) ===
-              Number(existingSelectedId)
-          );
-
-        if (existingSelectedUser) {
-          users = [
-            existingSelectedUser,
-            ...users,
-          ];
-        }
-      }
-
       setParentUsers((prev) => ({
         ...prev,
-        [roleId]: users,
+        [role]: users,
       }));
+
+      if (role === 5) {
+        setFosAvailable(
+          users.length > 0
+        );
+      }
     } catch (error) {
       console.error(
-        `Dropdown API failed for role ${roleId}:`,
-        error
+        `LOAD ${getRoleName(
+          role
+        )} ERROR:`,
+        error?.response?.data ||
+          error
       );
 
       setParentUsers((prev) => ({
         ...prev,
-        [roleId]:
-          selectedUser
-            ? [
-                selectedUser,
-                ...(prev[roleId] || []).filter(
-                  (user) =>
-                    Number(user.id) !==
-                    Number(
-                      selectedUser.id
-                    )
-                ),
-              ]
-            : prev[roleId] || [],
+        [role]: selectedUser
+          ? [selectedUser]
+          : [],
       }));
+
+      if (role === 5) {
+        setFosAvailable(false);
+      }
     } finally {
       setParentLoading((prev) => ({
         ...prev,
-        [roleId]: false,
+        [role]: false,
       }));
     }
+  };
+
+  const loadRetailerForParent = async (
+    parentId
+  ) => {
+    const id = Number(parentId);
+
+    if (
+      !Number.isInteger(id) ||
+      id <= 0
+    ) {
+      setParentUsers((prev) => ({
+        ...prev,
+        6: [],
+      }));
+      return;
+    }
+
+    await loadParentDropdown(
+      6,
+      id,
+      ""
+    );
   };
 
   const loadEditParentHierarchy =
@@ -480,45 +564,146 @@ export default function EditStaffPage() {
       roleId,
       parentChain = []
     ) => {
+      const currentRole =
+        Number(roleId);
+
       const requiredParents =
-        parentRoles[roleId] || [];
+        parentRoles[
+          currentRole
+        ] || [];
+
+      const chainMap =
+        new Map();
 
       if (
-        !requiredParents.length
+        Array.isArray(
+          parentChain
+        )
+      ) {
+        parentChain.forEach(
+          (parent) => {
+            if (
+              parent?.role_id != null
+            ) {
+              chainMap.set(
+                Number(
+                  parent.role_id
+                ),
+                parent
+              );
+            }
+          }
+        );
+      }
+
+      const loggedRole =
+        Number(loggedInRoleId);
+
+      let editableParents =
+        requiredParents.filter(
+          (roleId) => {
+            const role =
+              Number(roleId);
+
+            if (
+              !isRoleActive(role)
+            ) {
+              return false;
+            }
+
+            if (
+              loggedRole === 0
+            ) {
+              return role < currentRole;
+            }
+
+            return (
+              role > loggedRole &&
+              role < currentRole
+            );
+          }
+        );
+
+      const distributor =
+        chainMap.get(4);
+
+      const existingFos =
+        chainMap.get(5);
+
+      if (
+        distributor?.id
+      ) {
+        const hasFos =
+          await checkFosForDistributor(
+            distributor.id
+          );
+
+        if (
+          !hasFos &&
+          !existingFos?.id
+        ) {
+          editableParents =
+            editableParents.filter(
+              (role) =>
+                Number(role) !== 5
+            );
+        }
+      } else {
+        setFosAvailable(false);
+
+        editableParents =
+          editableParents.filter(
+            (role) =>
+              Number(role) !== 5
+          );
+      }
+
+      if (
+        editableParents.length ===
+        0
       ) {
         setSelectedParents({});
         setParentUsers({});
         return;
       }
 
-      const chainMap =
-        new Map(
-          parentChain.map(
-            (parent) => [
-              Number(
-                parent.role_id
-              ),
-              parent,
-            ]
-          )
-        );
-
       const selected = {};
 
-      requiredParents.forEach(
-        (parentRoleId) => {
-          const role =
-            Number(parentRoleId);
-
+      editableParents.forEach(
+        (roleId) => {
           const parent =
-            chainMap.get(role);
+            chainMap.get(
+              Number(roleId)
+            );
 
-          if (parent?.id) {
-            selected[role] =
-              Number(parent.id);
+          if (
+            parent?.id != null
+          ) {
+            selected[
+              Number(roleId)
+            ] = Number(
+              parent.id
+            );
           }
         }
       );
+
+      if (
+        Object.keys(selected)
+          .length === 0 &&
+        formData.parent_id
+      ) {
+        const lastRole =
+          editableParents[
+            editableParents.length - 1
+          ];
+
+        selected[
+          Number(lastRole)
+        ] = Number(
+          formData.parent_id
+        );
+      }
 
       setSelectedParents(
         selected
@@ -529,93 +714,86 @@ export default function EditStaffPage() {
       for (
         let index = 0;
         index <
-        requiredParents.length;
+        editableParents.length;
         index++
       ) {
-        const parentRoleId =
+        const role =
           Number(
-            requiredParents[index]
+            editableParents[index]
           );
 
-        if (
-          !isRoleActive(
-            parentRoleId
-          )
-        ) {
-          continue;
-        }
-
         const selectedUser =
-          chainMap.get(
-            parentRoleId
-          ) || null;
+          chainMap.get(role) ||
+          null;
 
-        let apiParentId = null;
+        let apiParentId =
+          null;
 
-        if (
-          parentRoleId === 3 &&
-          isRoleActive(3)
-        ) {
-          apiParentId = null;
-        } else {
-          const visibleIndex =
-            visibleParentRoles.indexOf(
-              parentRoleId
-            );
-
+        if (index === 0) {
           if (
-            visibleIndex > 0
+            role ===
+            Number(loggedInRoleId)
           ) {
-            const previousVisibleRole =
-              visibleParentRoles[
-                visibleIndex - 1
-              ];
-
             apiParentId =
-              selected[
-                previousVisibleRole
-              ] || null;
+              loggedInUserId ||
+              null;
           }
+        } else {
+          const previousRole =
+            editableParents[
+              index - 1
+            ];
+
+          apiParentId =
+            selected[
+              Number(
+                previousRole
+              )
+            ] || null;
         }
 
         try {
           const response =
             await getDropdownUsers(
-              parentRoleId,
+              role,
               apiParentId,
               ""
             );
 
-          let users = [];
+          let users =
+            getUsersFromResponse(
+              response
+            );
+
+          users = users.filter(
+            (user) =>
+              Number(
+                user?.role_id
+              ) === role
+          );
 
           if (
-            Array.isArray(
-              response?.data?.users
-            )
+            apiParentId !== null
           ) {
             users =
-              response.data.users;
-          } else if (
-            Array.isArray(
-              response?.data
-            )
-          ) {
-            users =
-              response.data;
-          } else if (
-            Array.isArray(
-              response?.users
-            )
-          ) {
-            users =
-              response.users;
+              users.filter(
+                (user) =>
+                  Number(
+                    user?.parent_id
+                  ) ===
+                  Number(
+                    apiParentId
+                  )
+              );
           }
 
           if (
             selectedUser?.id &&
             !users.some(
               (user) =>
-                Number(user.id) ===
+                Number(
+                  user.id
+                ) ===
                 Number(
                   selectedUser.id
                 )
@@ -627,20 +805,19 @@ export default function EditStaffPage() {
             ];
           }
 
-          usersByRole[
-            parentRoleId
-          ] = users;
+          usersByRole[role] =
+            users;
         } catch (error) {
           console.error(
-            `EDIT PARENT LOAD ERROR ROLE ${parentRoleId}:`,
-            error
+            `PARENT LOAD ERROR ${role}:`,
+            error?.response?.data ||
+              error
           );
 
-          usersByRole[
-            parentRoleId
-          ] = selectedUser
-            ? [selectedUser]
-            : [];
+          usersByRole[role] =
+            selectedUser
+              ? [selectedUser]
+              : [];
         }
       }
 
@@ -649,168 +826,65 @@ export default function EditStaffPage() {
       );
     };
 
-  const handleParentSearch = (
-    parentRoleId,
-    parentId,
-    value
-  ) => {
-    const roleId =
-      Number(parentRoleId);
-
-    setParentSearch(
-      (prev) => ({
-        ...prev,
-        [roleId]: value,
-      })
-    );
+  useEffect(() => {
+    const user =
+      getUserFromToken();
 
     if (
-      searchTimers.current[
-        roleId
-      ]
+      user?.role_id != null
     ) {
-      clearTimeout(
-        searchTimers.current[
-          roleId
-        ]
+      setLoggedInRoleId(
+        Number(user.role_id)
       );
     }
-
-    searchTimers.current[
-      roleId
-    ] = setTimeout(
-      () => {
-        loadParentDropdown(
-          roleId,
-          parentId,
-          value.trim()
-        );
-      },
-      value.trim()
-        ? 400
-        : 200
-    );
-  };
-
-  const clearNextParentDropdowns = (
-    parentRoleId,
-    preserveSelections = true
-  ) => {
-    const index =
-      visibleParentRoles.indexOf(
-        Number(parentRoleId)
-      );
-
-    if (index === -1) {
-      return;
-    }
-
-    const nextRoles =
-      visibleParentRoles.slice(
-        index + 1
-      );
-
-    if (!preserveSelections) {
-      setSelectedParents((prev) => {
-        const updated = {
-          ...prev,
-        };
-
-        nextRoles.forEach(
-          (roleId) => {
-            delete updated[roleId];
-          }
-        );
-
-        return updated;
-      });
-    }
-
-    setParentSearch((prev) => {
-      const updated = {
-        ...prev,
-      };
-
-      nextRoles.forEach(
-        (roleId) => {
-          delete updated[roleId];
-        }
-      );
-
-      return updated;
-    });
-  };
-
-  const handleParentChange = async (
-    parentRoleId,
-    value,
-    index
-  ) => {
-    const roleId =
-      Number(parentRoleId);
-
-    const selectedId =
-      value
-        ? Number(value)
-        : null;
-
-    const oldSelectedId =
-      selectedParents[roleId] ||
-      null;
 
     if (
-      Number(oldSelectedId) ===
-      Number(selectedId)
+      user?.id != null
     ) {
-      setOpenDropdown(null);
-      return;
+      setLoggedInUserId(
+        Number(user.id)
+      );
     }
-
-    setSelectedParents((prev) => ({
-      ...prev,
-      [roleId]: selectedId,
-    }));
-
-    setParentSearch((prev) => ({
-      ...prev,
-      [roleId]: "",
-    }));
-
-    clearNextParentDropdowns(
-      roleId,
-      true
-    );
-
-    if (!selectedId) {
-      setOpenDropdown(null);
-      return;
-    }
-
-    const nextRoleId =
-      visibleParentRoles[
-        index + 1
-      ];
-
-    if (!nextRoleId) {
-      setOpenDropdown(null);
-      return;
-    }
-
-    await loadParentDropdown(
-      nextRoleId,
-      selectedId,
-      ""
-    );
-
-    setOpenDropdown(null);
-  };
+  }, []);
 
   useEffect(() => {
-    if (!userId) {
+    const loadModules =
+      async () => {
+        try {
+          const response =
+            await getModules();
+
+          if (
+            response?.success &&
+            Array.isArray(
+              response?.modules
+            )
+          ) {
+            setModules(
+              response.modules
+            );
+          }
+        } catch (error) {
+          console.error(
+            "MODULE ERROR:",
+            error
+          );
+        }
+      };
+
+    loadModules();
+  }, []);
+
+  useEffect(() => {
+    if (
+      !userId ||
+      loggedInRoleId === null ||
+      loggedInUserId === null
+    ) {
       return;
     }
 
-    const fetchStaffData =
+    const fetchStaff =
       async () => {
         try {
           const id =
@@ -842,7 +916,7 @@ export default function EditStaffPage() {
           }
 
           const user =
-            response?.data;
+            response.data;
 
           if (!user) {
             toast.error(
@@ -914,8 +988,7 @@ export default function EditStaffPage() {
 
             supreme_device:
               Number(
-                user.supreme_device ||
-                  0
+                user.supreme_device || 0
               ),
 
             pro_star:
@@ -935,21 +1008,13 @@ export default function EditStaffPage() {
 
             supreme_lock:
               Number(
-                user.supreme_lock ||
-                  0
+                user.supreme_lock || 0
               ),
           });
 
-          const parentChain =
-            Array.isArray(
-              user.parent_chain
-            )
-              ? user.parent_chain
-              : [];
-
           await loadEditParentHierarchy(
             roleId,
-            parentChain
+            user.parent_chain || []
           );
         } catch (error) {
           console.error(
@@ -966,14 +1031,403 @@ export default function EditStaffPage() {
         }
       };
 
-    fetchStaffData();
-  }, [userId]);
+    fetchStaff();
+  }, [
+    userId,
+    loggedInRoleId,
+    loggedInUserId,
+  ]);
+
+  const clearNextParentDropdowns = (
+    roleId
+  ) => {
+    const currentIndex =
+      visibleParentRoles.indexOf(
+        Number(roleId)
+      );
+
+    if (
+      currentIndex === -1
+    ) {
+      return;
+    }
+
+    const nextRoles =
+      visibleParentRoles.slice(
+        currentIndex + 1
+      );
+
+    setSelectedParents((prev) => {
+      const updated = {
+        ...prev,
+      };
+
+      nextRoles.forEach(
+        (role) => {
+          delete updated[
+            Number(role)
+          ];
+        }
+      );
+
+      return updated;
+    });
+
+    setParentUsers((prev) => {
+      const updated = {
+        ...prev,
+      };
+
+      nextRoles.forEach(
+        (role) => {
+          delete updated[
+            Number(role)
+          ];
+        }
+      );
+
+      return updated;
+    });
+
+    setParentSearch((prev) => {
+      const updated = {
+        ...prev,
+      };
+
+      nextRoles.forEach(
+        (role) => {
+          delete updated[
+            Number(role)
+          ];
+        }
+      );
+
+      return updated;
+    });
+  };
+
+  const handleParentChange =
+    async (
+      parentRoleId,
+      value
+    ) => {
+      const roleId =
+        Number(parentRoleId);
+
+      const selectedId =
+        value
+          ? Number(value)
+          : null;
+
+      const currentIndex =
+        visibleParentRoles.indexOf(
+          roleId
+        );
+
+      if (
+        currentIndex === -1
+      ) {
+        return;
+      }
+
+      setSelectedParents((prev) => {
+        const updated = {
+          ...prev,
+        };
+
+        if (selectedId) {
+          updated[roleId] =
+            selectedId;
+        } else {
+          delete updated[roleId];
+        }
+
+        return updated;
+      });
+
+      setParentSearch((prev) => ({
+        ...prev,
+        [roleId]: "",
+      }));
+
+      setFormData((prev) => ({
+        ...prev,
+        parent_id:
+          selectedId,
+      }));
+
+      clearNextParentDropdowns(
+        roleId
+      );
+
+      if (!selectedId) {
+        if (roleId === 4) {
+          setFosAvailable(false);
+        }
+
+        setOpenDropdown(null);
+        return;
+      }
+
+      if (roleId === 4) {
+        const hasFos =
+          await checkFosForDistributor(
+            selectedId
+          );
+
+        if (hasFos) {
+          await loadParentDropdown(
+            5,
+            selectedId,
+            ""
+          );
+
+          const retailerRoleExists =
+            visibleParentRoles.includes(
+              6
+            );
+
+          if (
+            retailerRoleExists
+          ) {
+            await loadRetailerForParent(
+              selectedId
+            );
+          }
+        } else {
+          setParentUsers(
+            (prev) => ({
+              ...prev,
+              5: [],
+            })
+          );
+
+          await loadRetailerForParent(
+            selectedId
+          );
+        }
+
+        setOpenDropdown(null);
+        return;
+      }
+
+      if (roleId === 5) {
+        setFosAvailable(true);
+
+        await loadRetailerForParent(
+          selectedId
+        );
+
+        setOpenDropdown(null);
+        return;
+      }
+
+      const nextRole =
+        visibleParentRoles[
+          currentIndex + 1
+        ];
+
+      if (!nextRole) {
+        setOpenDropdown(null);
+        return;
+      }
+
+      const nextParentId =
+        selectedId;
+
+      await loadParentDropdown(
+        Number(nextRole),
+        nextParentId,
+        ""
+      );
+
+      setOpenDropdown(null);
+    };
+
+  const handleParentSearch = (
+    parentRoleId,
+    value
+  ) => {
+    const roleId =
+      Number(parentRoleId);
+
+    setParentSearch((prev) => ({
+      ...prev,
+      [roleId]: value,
+    }));
+
+    if (
+      searchTimers.current[roleId]
+    ) {
+      clearTimeout(
+        searchTimers.current[roleId]
+      );
+    }
+
+    const index =
+      visibleParentRoles.indexOf(
+        roleId
+      );
+
+    if (index === -1) {
+      return;
+    }
+
+    let parentId = null;
+
+    if (index === 0) {
+      if (
+        roleId ===
+        Number(loggedInRoleId)
+      ) {
+        parentId =
+          loggedInUserId ||
+          null;
+      }
+    } else {
+      const previousRole =
+        visibleParentRoles[
+          index - 1
+        ];
+
+      parentId =
+        selectedParents[
+          Number(previousRole)
+        ] || null;
+    }
+
+    if (roleId === 6) {
+      const fosId =
+        selectedParents[5];
+
+      if (fosId) {
+        parentId = fosId;
+      } else {
+        parentId =
+          selectedParents[4] ||
+          null;
+      }
+    }
+
+    searchTimers.current[roleId] =
+      setTimeout(
+        () => {
+          loadParentDropdown(
+            roleId,
+            parentId,
+            value.trim()
+          );
+        },
+        value.trim()
+          ? 400
+          : 200
+      );
+  };
+
+  const handleDropdownOpen =
+    async (
+      roleId,
+      index
+    ) => {
+      const role =
+        Number(roleId);
+
+      const alreadyOpen =
+        openDropdown === role;
+
+      setOpenDropdown(
+        alreadyOpen
+          ? null
+          : role
+      );
+
+      if (alreadyOpen) {
+        return;
+      }
+
+      const selectedId =
+        selectedParents[role];
+
+      const selectedUser =
+        (
+          parentUsers[role] ||
+          []
+        ).find(
+          (user) =>
+            Number(user.id) ===
+            Number(selectedId)
+        );
+
+      if (role === 5) {
+        const distributorId =
+          selectedParents[4];
+
+        if (!distributorId) {
+          setParentUsers(
+            (prev) => ({
+              ...prev,
+              5: [],
+            })
+          );
+
+          setFosAvailable(false);
+          return;
+        }
+
+        await loadParentDropdown(
+          5,
+          Number(distributorId),
+          "",
+          selectedUser
+        );
+
+        return;
+      }
+
+      if (role === 6) {
+        const fosId =
+          selectedParents[5];
+
+        const distributorId =
+          selectedParents[4];
+
+        const parentId =
+          fosId ||
+          distributorId ||
+          null;
+
+        await loadParentDropdown(
+          6,
+          parentId,
+          "",
+          selectedUser
+        );
+
+        return;
+      }
+
+      const apiParentId =
+        getApiParentId(
+          role,
+          index
+        );
+
+      await loadParentDropdown(
+        role,
+        apiParentId,
+        "",
+        selectedUser
+      );
+    };
 
   useEffect(() => {
     return () => {
       Object.values(
         searchTimers.current
-      ).forEach(clearTimeout);
+      ).forEach(
+        (timer) =>
+          clearTimeout(timer)
+      );
     };
   }, []);
 
@@ -1002,166 +1456,230 @@ export default function EditStaffPage() {
     };
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleChange = (e) => {
+    const {
+      name,
+      value,
+    } = e.target;
 
-    if (!userId) {
-      toast.error(
-        "User ID not found"
-      );
-      return;
-    }
-
-    if (
-      formData.password &&
-      formData.password !==
-        formData.confirm_password
-    ) {
-      toast.error(
-        "Password and Confirm Password do not match!"
-      );
-      return;
-    }
-
-    try {
-      const parentHierarchy =
-        Object.entries(
-          selectedParents
-        )
-          .filter(
-            ([, selectedId]) =>
-              selectedId
-          )
-          .map(
-            ([
-              roleId,
-              selectedId,
-            ]) => ({
-              role_id:
-                Number(roleId),
-
-              user_id:
-                Number(selectedId),
-            })
-          );
-
-      const payload = {
-        ...formData,
-
-        id: Number(userId),
-
-        role_id: Number(
-          formData.role_id
-        ),
-
-        parent_id:
-          formData.parent_id
-            ? Number(
-                formData.parent_id
-              )
-            : null,
-
-        parent_hierarchy:
-          parentHierarchy,
-
-        new_device:
-          Number(
-            formData.new_device || 0
-          ),
-
-        old_device:
-          Number(
-            formData.old_device || 0
-          ),
-
-        supreme_device:
-          Number(
-            formData.supreme_device ||
-              0
-          ),
-
-        pro_star:
-          Number(
-            formData.pro_star || 0
-          ),
-
-        lite:
-          Number(
-            formData.lite || 0
-          ),
-
-        google_tv:
-          Number(
-            formData.google_tv || 0
-          ),
-
-        supreme_lock:
-          Number(
-            formData.supreme_lock ||
-              0
-          ),
+    setFormData((prev) => {
+      const updated = {
+        ...prev,
+        [name]: value,
       };
 
-      if (!payload.password) {
-        delete payload.password;
-        delete payload.confirm_password;
+      if (
+        name === "country"
+      ) {
+        updated.state = "";
+        updated.city = "";
       }
 
-      const response =
-        await updateStaffData(
-          Number(userId),
-          payload
-        );
+      if (
+        name === "state"
+      ) {
+        updated.city = "";
+      }
 
-      if (!response?.success) {
+      return updated;
+    });
+  };
+
+  const handleSubmit =
+    async (e) => {
+      e.preventDefault();
+
+      if (!userId) {
         toast.error(
-          response?.message ||
-            "Failed to update staff data"
+          "User ID not found"
         );
         return;
       }
 
-      toast.success(
-        response?.message ||
-          "Staff updated successfully"
-      );
-    } catch (error) {
-      console.error(
-        "UPDATE STAFF ERROR:",
-        error?.response?.data ||
-          error
-      );
+      const currentRoleId =
+        Number(
+          formData.role_id
+        );
 
-      toast.error(
-        error?.response?.data
-          ?.message ||
-          error?.message ||
-          "Failed to update staff data"
-      );
-    }
-  };
+      if (!currentRoleId) {
+        toast.error(
+          "Role ID missing"
+        );
+        return;
+      }
+
+      if (
+        formData.password &&
+        formData.password !==
+          formData.confirm_password
+      ) {
+        toast.error(
+          "Password and Confirm Password do not match!"
+        );
+        return;
+      }
+
+      try {
+        const parentHierarchy =
+          visibleParentRoles
+            .map(
+              (roleId) => ({
+                role_id:
+                  Number(roleId),
+                user_id:
+                  selectedParents[
+                    Number(roleId)
+                  ]
+                    ? Number(
+                        selectedParents[
+                          Number(roleId)
+                        ]
+                      )
+                    : null,
+              })
+            )
+            .filter(
+              (item) =>
+                item.role_id > 0 &&
+                Number.isInteger(
+                  item.user_id
+                ) &&
+                item.user_id > 0
+            );
+
+        let finalParentId = null;
+
+        if (
+          parentHierarchy.length
+        ) {
+          finalParentId =
+            parentHierarchy[
+              parentHierarchy.length - 1
+            ].user_id;
+        } else if (
+          formData.parent_id
+        ) {
+          finalParentId =
+            Number(
+              formData.parent_id
+            );
+        }
+
+        const payload = {
+          ...formData,
+
+          id: Number(userId),
+
+          role_id:
+            currentRoleId,
+
+          parent_id:
+            finalParentId,
+
+          parent_hierarchy:
+            parentHierarchy,
+
+          new_device:
+            Number(
+              formData.new_device || 0
+            ),
+
+          old_device:
+            Number(
+              formData.old_device || 0
+            ),
+
+          supreme_device:
+            Number(
+              formData.supreme_device || 0
+            ),
+
+          pro_star:
+            Number(
+              formData.pro_star || 0
+            ),
+
+          lite:
+            Number(
+              formData.lite || 0
+            ),
+
+          google_tv:
+            Number(
+              formData.google_tv || 0
+            ),
+
+          supreme_lock:
+            Number(
+              formData.supreme_lock || 0
+            ),
+        };
+
+        if (!payload.password) {
+          delete payload.password;
+          delete payload.confirm_password;
+        }
+
+        console.log(
+          "UPDATE PAYLOAD:",
+          payload
+        );
+
+        const response =
+          await updateStaffData(
+            Number(userId),
+            payload
+          );
+
+        if (
+          !response?.success
+        ) {
+          toast.error(
+            response?.message ||
+              "Failed to update staff data"
+          );
+          return;
+        }
+
+        toast.success(
+          response?.message ||
+            "Staff updated successfully"
+        );
+      } catch (error) {
+        console.error(
+          "UPDATE STAFF ERROR:",
+          error?.response?.data ||
+            error
+        );
+
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            error?.message ||
+            "Failed to update staff data"
+        );
+      }
+    };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-6">
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-5"
-      >
-        {visibleParentRoles.length >
-          0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+    <div className="max-w-5xl mx-auto">
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden p-6">
+
+        {visibleParentRoles.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             {visibleParentRoles.map(
               (
                 parentRoleId,
                 index
               ) => {
                 const role =
-                  Number(parentRoleId);
+                  Number(
+                    parentRoleId
+                  );
 
                 const users =
-                  parentUsers[
-                    role
-                  ] || [];
+                  parentUsers[role] ||
+                  [];
 
                 const searchValue =
                   parentSearch[
@@ -1178,22 +1696,30 @@ export default function EditStaffPage() {
                     index - 1
                   ];
 
-                const previousSelectedId =
+                let previousSelectedId =
                   previousRoleId
                     ? selectedParents[
-                        previousRoleId
+                        Number(
+                          previousRoleId
+                        )
                       ]
                     : null;
 
-                const apiParentId =
-                  getApiParentId(
-                    role,
-                    index
-                  );
+                if (role === 6) {
+                  previousSelectedId =
+                    selectedParents[5] ||
+                    selectedParents[4] ||
+                    null;
+                }
 
                 const isDisabled =
                   index > 0 &&
                   !previousSelectedId;
+
+                const selectedId =
+                  selectedParents[
+                    role
+                  ];
 
                 const selectedUser =
                   users.find(
@@ -1202,9 +1728,7 @@ export default function EditStaffPage() {
                         user.id
                       ) ===
                       Number(
-                        selectedParents[
-                          role
-                        ]
+                        selectedId
                       )
                   );
 
@@ -1226,48 +1750,19 @@ export default function EditStaffPage() {
                         disabled={
                           isDisabled
                         }
-                        onClick={() => {
-                          if (
-                            isDisabled
-                          ) {
-                            return;
-                          }
-
-                          setOpenDropdown(
-                            (prev) =>
-                              prev ===
-                              role
-                                ? null
-                                : role
-                          );
-
-                          if (
-                            openDropdown !==
-                              role &&
-                            !parentUsers[
-                              role
-                            ]?.length
-                          ) {
-                            loadParentDropdown(
-                              role,
-                              apiParentId,
-                              ""
-                            );
-                          }
-                        }}
+                        onClick={() =>
+                          handleDropdownOpen(
+                            role,
+                            index
+                          )
+                        }
                         className={`w-full flex items-center justify-between border border-slate-300 rounded-lg px-4 py-2.5 text-sm text-left bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                           isDisabled
                             ? "bg-slate-50 text-slate-400 cursor-not-allowed"
                             : "text-slate-700 cursor-pointer"
                         }`}
                       >
-                        <span
-                          className={
-                            selectedUser
-                              ? "text-slate-700"
-                              : "text-slate-400"
-                          }
-                        >
+                        <span className="truncate">
                           {selectedUser?.name ||
                             `Select ${getRoleName(
                               role
@@ -1275,8 +1770,8 @@ export default function EditStaffPage() {
                         </span>
 
                         <RiArrowDownSLine
-                          size={20}
-                          className={`transition-transform ${
+                          size={22}
+                          className={`shrink-0 transition-transform text-slate-500 ${
                             openDropdown ===
                             role
                               ? "rotate-180"
@@ -1288,6 +1783,7 @@ export default function EditStaffPage() {
                       {openDropdown ===
                         role && (
                         <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
+
                           <div className="p-2 border-b border-slate-200">
                             <div className="relative">
                               <input
@@ -1300,7 +1796,6 @@ export default function EditStaffPage() {
                                 ) =>
                                   handleParentSearch(
                                     role,
-                                    apiParentId,
                                     e.target
                                       .value
                                   )
@@ -1329,17 +1824,12 @@ export default function EditStaffPage() {
                             {!isLoading && (
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={() =>
                                   handleParentChange(
                                     role,
-                                    "",
-                                    index
-                                  );
-
-                                  setOpenDropdown(
                                     null
-                                  );
-                                }}
+                                  )
+                                }
                                 className="w-full text-left px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50"
                               >
                                 Select{" "}
@@ -1352,7 +1842,6 @@ export default function EditStaffPage() {
                             {isLoading && (
                               <div className="flex items-center justify-center gap-2 px-4 py-4 text-sm text-blue-600">
                                 <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-
                                 Searching{" "}
                                 {getRoleName(
                                   role
@@ -1374,15 +1863,12 @@ export default function EditStaffPage() {
                                     onClick={() =>
                                       handleParentChange(
                                         role,
-                                        user.id,
-                                        index
+                                        user.id
                                       )
                                     }
                                     className={`w-full text-left px-4 py-2.5 text-sm transition ${
                                       Number(
-                                        selectedParents[
-                                          role
-                                        ]
+                                        selectedId
                                       ) ===
                                       Number(
                                         user.id
@@ -1440,413 +1926,419 @@ export default function EditStaffPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              Organization Name
-            </label>
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-5"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-            <input
-              type="text"
-              name="organization_name"
-              placeholder="Enter organization name"
-              value={
-                formData.organization_name
-              }
-              onChange={handleChange}
-              required
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Organization Name
+              </label>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              Full Name
-            </label>
+              <input
+                type="text"
+                name="organization_name"
+                placeholder="Enter organization name"
+                value={
+                  formData.organization_name
+                }
+                onChange={handleChange}
+                required
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
 
-            <input
-              type="text"
-              name="name"
-              placeholder="Enter full name"
-              value={
-                formData.name
-              }
-              onChange={handleChange}
-              required
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Full Name
+              </label>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              Email Address
-            </label>
+              <input
+                type="text"
+                name="name"
+                placeholder="Enter full name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
 
-            <input
-              type="email"
-              name="email"
-              placeholder="staff@example.com"
-              value={
-                formData.email
-              }
-              onChange={handleChange}
-              required
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Email Address
+              </label>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              Phone Number
-            </label>
+              <input
+                type="email"
+                name="email"
+                placeholder="staff@example.com"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
 
-            <input
-              type="tel"
-              name="phone"
-              placeholder="+91 98765 43210"
-              value={
-                formData.phone
-              }
-              onChange={(e) =>
-                setFormData(
-                  (prev) => ({
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Phone Number
+              </label>
+
+              <input
+                type="tel"
+                name="phone"
+                placeholder="+91 98765 43210"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData((prev) => ({
                     ...prev,
                     phone:
                       e.target.value.replace(
                         /[^\d+\s]/g,
                         ""
                       ),
-                  })
-                )
-              }
-              required
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+                  }))
+                }
+                required
+                pattern="^(\+91\s?)?[6-9]\d{9}$"
+                title="Enter a valid Indian mobile number"
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              Company Address
-            </label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Company Address
+              </label>
 
-            <input
-              type="text"
-              name="company_address"
-              placeholder="Street, Building, Area"
-              value={
-                formData.company_address
-              }
-              onChange={handleChange}
-              required
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              Password
-            </label>
-
-            <div className="relative">
               <input
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
-                name="password"
-                placeholder="Enter password"
+                type="text"
+                name="company_address"
+                placeholder="Street, Building, Area"
                 value={
-                  formData.password
-                }
-                onChange={handleChange}
-                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-
-              <button
-                type="button"
-                onClick={() =>
-                  setShowPassword(
-                    (prev) => !prev
-                  )
-                }
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 cursor-pointer"
-              >
-                {showPassword ? (
-                  <RiEyeOffLine
-                    size={20}
-                  />
-                ) : (
-                  <RiEyeLine
-                    size={20}
-                  />
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              Confirm Password
-            </label>
-
-            <div className="relative">
-              <input
-                type={
-                  showConfirmPassword
-                    ? "text"
-                    : "password"
-                }
-                name="confirm_password"
-                placeholder="Confirm password"
-                value={
-                  formData.confirm_password
-                }
-                onChange={handleChange}
-                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-
-              <button
-                type="button"
-                onClick={() =>
-                  setShowConfirmPassword(
-                    (prev) => !prev
-                  )
-                }
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 cursor-pointer"
-              >
-                {showConfirmPassword ? (
-                  <RiEyeOffLine
-                    size={20}
-                  />
-                ) : (
-                  <RiEyeLine
-                    size={20}
-                  />
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              Country
-            </label>
-
-            <div className="relative">
-              <select
-                name="country"
-                value={
-                  formData.country
+                  formData.company_address
                 }
                 onChange={handleChange}
                 required
-                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">
-                  Select Country
-                </option>
-
-                {countries.map(
-                  (country) => (
-                    <option
-                      key={
-                        country.isoCode
-                      }
-                      value={
-                        country.isoCode
-                      }
-                    >
-                      {
-                        country.name
-                      }
-                    </option>
-                  )
-                )}
-              </select>
-
-              <RiArrowDownSLine
-                size={22}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Password
+              </label>
+
+              <div className="relative">
+                <input
+                  type={
+                    showPassword
+                      ? "text"
+                      : "password"
+                  }
+                  name="password"
+                  placeholder="Leave empty to keep old password"
+                  value={
+                    formData.password
+                  }
+                  onChange={handleChange}
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowPassword(
+                      (prev) =>
+                        !prev
+                    )
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 cursor-pointer"
+                >
+                  {showPassword ? (
+                    <RiEyeOffLine
+                      size={20}
+                    />
+                  ) : (
+                    <RiEyeLine
+                      size={20}
+                    />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Confirm Password
+              </label>
+
+              <div className="relative">
+                <input
+                  type={
+                    showConfirmPassword
+                      ? "text"
+                      : "password"
+                  }
+                  name="confirm_password"
+                  placeholder="Confirm password"
+                  value={
+                    formData.confirm_password
+                  }
+                  onChange={handleChange}
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowConfirmPassword(
+                      (prev) =>
+                        !prev
+                    )
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 cursor-pointer"
+                >
+                  {showConfirmPassword ? (
+                    <RiEyeOffLine
+                      size={20}
+                    />
+                  ) : (
+                    <RiEyeLine
+                      size={20}
+                    />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Country
+              </label>
+
+              <div className="relative">
+                <select
+                  name="country"
+                  value={
+                    formData.country
+                  }
+                  onChange={handleChange}
+                  required
+                  className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">
+                    Select Country
+                  </option>
+
+                  {countries.map(
+                    (country) => (
+                      <option
+                        key={
+                          country.isoCode
+                        }
+                        value={
+                          country.isoCode
+                        }
+                      >
+                        {
+                          country.name
+                        }
+                      </option>
+                    )
+                  )}
+                </select>
+
+                <RiArrowDownSLine
+                  size={22}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                State
+              </label>
+
+              <div className="relative">
+                <select
+                  name="state"
+                  value={
+                    formData.state
+                  }
+                  onChange={handleChange}
+                  required
+                  disabled={
+                    !formData.country
+                  }
+                  className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
+                >
+                  <option value="">
+                    Select State
+                  </option>
+
+                  {states.map(
+                    (state) => (
+                      <option
+                        key={
+                          state.isoCode
+                        }
+                        value={
+                          state.isoCode
+                        }
+                      >
+                        {
+                          state.name
+                        }
+                      </option>
+                    )
+                  )}
+                </select>
+
+                <RiArrowDownSLine
+                  size={22}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                City
+              </label>
+
+              <div className="relative">
+                <select
+                  name="city"
+                  value={
+                    formData.city
+                  }
+                  onChange={handleChange}
+                  required
+                  disabled={
+                    !formData.state
+                  }
+                  className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
+                >
+                  <option value="">
+                    Select City
+                  </option>
+
+                  {cities.map(
+                    (city) => (
+                      <option
+                        key={
+                          city.name
+                        }
+                        value={
+                          city.name
+                        }
+                      >
+                        {
+                          city.name
+                        }
+                      </option>
+                    )
+                  )}
+                </select>
+
+                <RiArrowDownSLine
+                  size={22}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              State
-            </label>
+          {Number(
+            formData.role_id
+          ) === 6 && (
+            <div>
+              <h2 className="text-base font-semibold text-slate-700 mb-3">
+                Retailer Device Permissions
+              </h2>
 
-            <div className="relative">
-              <select
-                name="state"
-                value={
-                  formData.state
-                }
-                onChange={handleChange}
-                required
-                disabled={
-                  !formData.country
-                }
-                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
-              >
-                <option value="">
-                  Select State
-                </option>
-
-                {states.map(
-                  (state) => (
-                    <option
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {devicePermissions.map(
+                  (item) => (
+                    <label
                       key={
-                        state.isoCode
-                      }
-                      value={
-                        state.isoCode
-                      }
-                    >
-                      {
-                        state.name
-                      }
-                    </option>
-                  )
-                )}
-              </select>
-
-              <RiArrowDownSLine
-                size={22}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              City
-            </label>
-
-            <div className="relative">
-              <select
-                name="city"
-                value={
-                  formData.city
-                }
-                onChange={handleChange}
-                required
-                disabled={
-                  !formData.state
-                }
-                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
-              >
-                <option value="">
-                  Select City
-                </option>
-
-                {cities.map(
-                  (city) => (
-                    <option
-                      key={
-                        city.name
-                      }
-                      value={
-                        city.name
-                      }
-                    >
-                      {
-                        city.name
-                      }
-                    </option>
-                  )
-                )}
-              </select>
-
-              <RiArrowDownSLine
-                size={22}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-              />
-            </div>
-          </div>
-        </div>
-
-        {Number(
-          formData.role_id
-        ) === 6 && (
-          <div>
-            <h2 className="text-base font-semibold text-slate-700 mb-3">
-              Retailer Device Permissions
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {devicePermissions.map(
-                (item) => (
-                  <label
-                    key={
-                      item.name
-                    }
-                    className={`flex items-center justify-between px-4 py-3 rounded-lg border transition cursor-pointer ${
-                      formData[
                         item.name
-                      ] === 1
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-slate-300 bg-white hover:border-blue-400"
-                    }`}
-                  >
-                    <span className="text-sm font-medium text-slate-700">
-                      {item.label}
-                    </span>
-
-                    <input
-                      type="checkbox"
-                      checked={
+                      }
+                      className={`flex items-center justify-between px-4 py-3 rounded-lg border transition cursor-pointer ${
                         formData[
                           item.name
                         ] === 1
-                      }
-                      onChange={(
-                        e
-                      ) =>
-                        setFormData(
-                          (prev) => ({
-                            ...prev,
-                            [item.name]:
-                              e.target
-                                .checked
-                                ? 1
-                                : 0,
-                          })
-                        )
-                      }
-                      className="h-5 w-5 accent-blue-600 cursor-pointer"
-                    />
-                  </label>
-                )
-              )}
-            </div>
-          </div>
-        )}
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-slate-300 bg-white hover:border-blue-400"
+                      }`}
+                    >
+                      <span className="text-sm font-medium text-slate-700">
+                        {
+                          item.label
+                        }
+                      </span>
 
-        <div className="flex justify-end gap-3">
-          {formData.role_id && (
-            <Link
-              href={`/dashboard?role=${Number(
-                formData.role_id
-              )}`}
-              className="bg-gray-700 text-white px-4 py-2.5 rounded-lg hover:bg-gray-800 transition"
-            >
-              {getRoleName(
-                formData.role_id
-              )}{" "}
-              List
-            </Link>
+                      <input
+                        type="checkbox"
+                        checked={
+                          formData[
+                            item.name
+                          ] === 1
+                        }
+                        onChange={(
+                          e
+                        ) =>
+                          setFormData(
+                            (
+                              prev
+                            ) => ({
+                              ...prev,
+                              [item.name]:
+                                e.target
+                                  .checked
+                                  ? 1
+                                  : 0,
+                            })
+                          )
+                        }
+                        className="h-5 w-5 accent-blue-600 cursor-pointer"
+                      />
+                    </label>
+                  )
+                )}
+              </div>
+            </div>
           )}
 
-          <button
-            type="submit"
-            className="bg-blue-500 text-white font-medium px-8 py-2.5 rounded-lg shadow-md hover:bg-blue-600 hover:shadow-lg transition cursor-pointer"
-          >
-            Update
-          </button>
-        </div>
-      </form>
+          <div className="flex justify-end gap-3 pt-2">
+            {formData.role_id && (
+              <Link
+                href={`/dashboard?role=${Number(
+                  formData.role_id
+                )}`}
+                className="bg-gray-700 text-white px-4 py-2.5 rounded-lg hover:bg-gray-800 transition"
+              >
+                {getRoleName(
+                  formData.role_id
+                )}{" "}
+                List
+              </Link>
+            )}
+
+            <button
+              type="submit"
+              className="bg-blue-500 text-white font-medium px-8 py-2.5 rounded-lg shadow-md hover:bg-blue-600 hover:shadow-lg transition cursor-pointer"
+            >
+              Update
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
