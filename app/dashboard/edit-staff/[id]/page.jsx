@@ -1883,7 +1883,7 @@ export default function EditStaffPage() {
                                       }
                                     </div>
 
-                                    {user.email && (
+                                    {/* {user.email && (
                                       <div className="text-xs text-slate-400 mt-0.5">
                                         {
                                           user.email
@@ -1897,7 +1897,7 @@ export default function EditStaffPage() {
                                           user.phone
                                         }
                                       </div>
-                                    )}
+                                    )} */}
                                   </button>
                                 )
                               )}

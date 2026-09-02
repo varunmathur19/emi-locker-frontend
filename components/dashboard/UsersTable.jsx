@@ -9,9 +9,16 @@ import {
   RiFilterLine,
   RiEditLine,
   RiLoginBoxLine,
+  RiArrowDownSLine,
 } from "react-icons/ri";
 
 import { toast } from "react-toastify";
+
+import {
+  Country,
+  State,
+  City,
+} from "country-state-city";
 
 import {
   loginAsUser,
@@ -32,23 +39,20 @@ export default function UsersTable({
   selectedRole,
   handleRoleList,
 }) {
+  const router = useRouter();
+
   const [search, setSearch] = useState("");
   const [loginLoading, setLoginLoading] = useState(null);
   const [statusLoading, setStatusLoading] = useState(null);
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  const router = useRouter();
-
-  // =====================================================
-  // ROLE MAP
-  // =====================================================
-  //
-  // IMPORTANT:
-  // User ka actual role hamesha user.role_id se niklega.
-  //
-  // parent_id / parent_name / parent_chain ko kabhi
-  // user ka role determine karne ke liye use nahi karna.
-  //
-  // =====================================================
+  const [filters, setFilters] = useState({
+    role: "",
+    country: "",
+    state: "",
+    city: "",
+    status: "",
+  });
 
   const roleMap = {
     0: "Master Admin",
@@ -63,42 +67,6 @@ export default function UsersTable({
     9: "Staff",
   };
 
-  // =====================================================
-  // SAFE ROLE NAME
-  // =====================================================
-
-  const getUserRoleName = (roleId) => {
-    const numericRoleId = Number(roleId);
-
-    return (
-      roleMap[numericRoleId] ||
-      getRoleName?.(numericRoleId) ||
-      "Unknown"
-    );
-  };
-
-  // =====================================================
-  // SEARCH
-  // =====================================================
-
-  const normalizedSearch = search
-    .trim()
-    .toLowerCase();
-
-  const filteredUsers = users.filter((user) => {
-    const userName = String(
-      user?.name || ""
-    ).toLowerCase();
-
-    return userName.includes(
-      normalizedSearch
-    );
-  });
-
-  // =====================================================
-  // ROLE BUTTONS
-  // =====================================================
-
   const roleButtons = {
     1: "Add Admin",
     2: "Add CNF",
@@ -111,56 +79,197 @@ export default function UsersTable({
     9: "Add Staff",
   };
 
-  // =====================================================
-  // LOGIN AS USER
-  // =====================================================
+  const getUserRoleName = (roleId) => {
+    const numericRoleId = Number(roleId);
+
+    return (
+      roleMap[numericRoleId] ||
+      getRoleName?.(numericRoleId) ||
+      "Unknown"
+    );
+  };
+
+  const selectedRoleName =
+    getUserRoleName(selectedRole);
+
+  const roleFilterPlaceholder =
+    `${selectedRoleName} / Organization Name`;
+
+  const handleFilterChange = (field, value) => {
+    setFilters((previous) => {
+      const updatedFilters = {
+        ...previous,
+        [field]: value,
+      };
+
+      if (field === "country") {
+        updatedFilters.state = "";
+        updatedFilters.city = "";
+      }
+
+      if (field === "state") {
+        updatedFilters.city = "";
+      }
+
+      return updatedFilters;
+    });
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      role: "",
+      country: "",
+      state: "",
+      city: "",
+      status: "",
+    });
+  };
+
+  const selectedCountry = filters.country
+    ? Country.getCountryByCode(filters.country)
+    : null;
+
+  const stateOptions = filters.country
+    ? State.getStatesOfCountry(filters.country)
+    : [];
+
+  const cityOptions =
+    filters.country && filters.state
+      ? City.getCitiesOfState(
+          filters.country,
+          filters.state
+        )
+      : [];
+
+  const selectedState = filters.state
+    ? State.getStateByCodeAndCountry(
+        filters.state,
+        filters.country
+      )
+    : null;
+
+  const normalizedSearch = search
+    .trim()
+    .toLowerCase();
+
+  const normalizedRoleFilter = filters.role
+    .trim()
+    .toLowerCase();
+
+  const filteredUsers = users.filter((user) => {
+    const userName = String(
+      user?.name || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const matchesSearch =
+      !normalizedSearch ||
+      userName.includes(normalizedSearch);
+
+    const actualRoleName = getUserRoleName(
+      user?.role_id
+    )
+      .trim()
+      .toLowerCase();
+
+    const organizationName = String(
+      user?.organization_name || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const matchesRole =
+      !normalizedRoleFilter ||
+      actualRoleName.includes(
+        normalizedRoleFilter
+      ) ||
+      organizationName.includes(
+        normalizedRoleFilter
+      );
+
+    const userCountry = String(
+      user?.country || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const selectedCountryName = String(
+      selectedCountry?.name || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const matchesCountry =
+      !filters.country ||
+      userCountry === selectedCountryName;
+
+    const userState = String(
+      user?.state || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const selectedStateName = String(
+      selectedState?.name || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const matchesState =
+      !filters.state ||
+      userState === selectedStateName;
+
+    const userCity = String(
+      user?.city || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const selectedCityName = String(
+      filters.city || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const matchesCity =
+      !filters.city ||
+      userCity === selectedCityName;
+
+    const userStatus = Number(
+      user?.userStatus ?? 1
+    );
+
+    const matchesStatus =
+      !filters.status ||
+      (filters.status === "active" &&
+        userStatus === 1) ||
+      (filters.status === "inactive" &&
+        userStatus === 0);
+
+    return (
+      matchesSearch &&
+      matchesRole &&
+      matchesCountry &&
+      matchesState &&
+      matchesCity &&
+      matchesStatus
+    );
+  });
 
   const handleLoginAsUser = async (user) => {
     try {
       setLoginLoading(user.id);
 
-      console.log(
-        "================================="
+      const response = await loginAsUser(
+        user.id
       );
-
-      console.log("LOGIN AS USER");
-      console.log("User ID:", user.id);
-      console.log("User Name:", user.name);
-
-      // IMPORTANT:
-      // Actual role always comes from user.role_id
-      console.log(
-        "User Role ID:",
-        user.role_id
-      );
-
-      console.log(
-        "User Role Name:",
-        getUserRoleName(user.role_id)
-      );
-
-      console.log(
-        "================================="
-      );
-
-      const response =
-        await loginAsUser(user.id);
-
-      console.log(
-        "Login As User Response:",
-        response
-      );
-
-      // =================================================
-      // RESPONSE VALIDATION
-      // =================================================
 
       if (!response?.success) {
         toast.error(
           response?.message ||
             "Login failed"
         );
-
         return;
       }
 
@@ -168,12 +277,6 @@ export default function UsersTable({
         toast.error(
           "Login token not received"
         );
-
-        console.error(
-          "Login As User response has no token:",
-          response
-        );
-
         return;
       }
 
@@ -181,75 +284,17 @@ export default function UsersTable({
         toast.error(
           "User data not received"
         );
-
-        console.error(
-          "Login As User response has no user:",
-          response
-        );
-
         return;
       }
 
-      // =================================================
-      // DEBUG NEW LOGIN
-      // =================================================
-
-      console.log(
-        "================================="
-      );
-
-      console.log(
-        "NEW USER:",
-        response.user
-      );
-
-      console.log(
-        "NEW USER ID:",
-        response.user.id
-      );
-
-      console.log(
-        "NEW USER ROLE ID:",
-        response.user.role_id
-      );
-
-      console.log(
-        "NEW USER ROLE:",
-        getUserRoleName(
-          response.user.role_id
-        )
-      );
-
-      console.log(
-        "================================="
-      );
-
-      // =================================================
-      // SAVE NEW TOKEN
-      // =================================================
-
       saveToken(response.token);
-
-      // =================================================
-      // SAVE NEW USER
-      // =================================================
-
       saveUser(response.user);
-
-      // =================================================
-      // SUCCESS MESSAGE
-      // =================================================
 
       toast.success(
         `Logged in as ${response.user.name}`
       );
 
-      // =================================================
-      // GO TO DASHBOARD
-      // =================================================
-
-      window.location.href =
-        "/dashboard";
+      window.location.href = "/dashboard";
     } catch (error) {
       console.error(
         "Login As User Error:",
@@ -266,35 +311,16 @@ export default function UsersTable({
     }
   };
 
-  // =====================================================
-  // UPDATE USER STATUS
-  // =====================================================
-
   const handleStatusToggle = async (user) => {
     try {
       setStatusLoading(user.id);
 
-      // =================================================
-      // CURRENT STATUS
-      // =================================================
-
-      const currentStatus =
-        Number(
-          user?.userStatus ?? 1
-        );
-
-      // =================================================
-      // NEW STATUS
-      // =================================================
+      const currentStatus = Number(
+        user?.userStatus ?? 1
+      );
 
       const newStatus =
-        currentStatus === 1
-          ? 0
-          : 1;
-
-      // =================================================
-      // API CALL
-      // =================================================
+        currentStatus === 1 ? 0 : 1;
 
       const response =
         await updateUserStatus(
@@ -302,41 +328,15 @@ export default function UsersTable({
           newStatus
         );
 
-      console.log(
-        "STATUS RESPONSE:",
-        response
-      );
-
-      // =================================================
-      // API ERROR
-      // =================================================
-
       if (!response?.success) {
         toast.error(
           response?.message ||
             "Failed to update user status"
         );
-
         return;
       }
 
-      // =================================================
-      // UPDATE LOCAL DATA
-      // =================================================
-      //
-      // Parent component generally owns users state.
-      // Existing object ko directly mutate nahi karenge.
-      //
-      // Agar parent refresh/re-fetch karta hai to latest
-      // status automatically aa jayega.
-      //
-      // =================================================
-
       user.userStatus = newStatus;
-
-      // =================================================
-      // TOAST
-      // =================================================
 
       if (newStatus === 1) {
         toast.success(
@@ -363,10 +363,6 @@ export default function UsersTable({
     }
   };
 
-  // =====================================================
-  // PAGE CHANGE
-  // =====================================================
-
   const handlePreviousPage = () => {
     if (page > 1) {
       setPage(page - 1);
@@ -382,17 +378,6 @@ export default function UsersTable({
     }
   };
 
-  // =====================================================
-  // ROLE LIST NAME
-  // =====================================================
-
-  const selectedRoleName =
-    getUserRoleName(selectedRole);
-
-  // =====================================================
-  // RETURN
-  // =====================================================
-
   return (
     <div
       className="
@@ -406,10 +391,6 @@ export default function UsersTable({
         overflow-hidden
       "
     >
-      {/* =================================================
-          TOP BUTTONS
-      ================================================= */}
-
       <div
         className="
           flex
@@ -429,16 +410,10 @@ export default function UsersTable({
             [&::-webkit-scrollbar]:hidden
           "
         >
-          {/* ============================================
-              ROLE LIST
-          ============================================ */}
-
           <button
             type="button"
             onClick={() =>
-              handleRoleList(
-                selectedRole
-              )
+              handleRoleList(selectedRole)
             }
             className="
               bg-gray-700
@@ -453,10 +428,6 @@ export default function UsersTable({
           >
             {selectedRoleName} List
           </button>
-
-          {/* ============================================
-              ADD USER
-          ============================================ */}
 
           <Link
             href={`/dashboard/form?role=${Number(
@@ -484,10 +455,6 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* =================================================
-          SEARCH HEADER
-      ================================================= */}
-
       <div
         className="
           flex
@@ -499,10 +466,6 @@ export default function UsersTable({
           max-lg:gap-3
         "
       >
-        {/* ==============================================
-            TITLE
-        ============================================== */}
-
         <h2
           className="
             lg:text-xl
@@ -513,10 +476,6 @@ export default function UsersTable({
           Recent Users
         </h2>
 
-        {/* ==============================================
-            FILTER + SEARCH
-        ============================================== */}
-
         <div
           className="
             flex
@@ -525,51 +484,43 @@ export default function UsersTable({
             max-lg:w-full
           "
         >
-          {/* ============================================
-              FILTER
-          ============================================ */}
-
           <button
             type="button"
-            className="
+            onClick={() =>
+              setFilterOpen(
+                (previous) => !previous
+              )
+            }
+            className={`
               flex
               items-center
               text-white
               cursor-pointer
               gap-2
               border
-              bg-blue-400
-              border-white
               px-4
               py-2
               rounded-md
-              hover:bg-white
-              hover:text-blue-400
-              hover:border-blue-500
               transition-all
               duration-200
               ease-in-out
-            "
+              ${
+                filterOpen
+                  ? "bg-gray-700 border-gray-700"
+                  : "bg-blue-400 border-white hover:bg-white hover:text-blue-400 hover:border-blue-500"
+              }
+            `}
           >
-            <RiFilterLine
-              size={18}
-            />
-
+            <RiFilterLine size={18} />
             Filter
           </button>
-
-          {/* ============================================
-              SEARCH
-          ============================================ */}
 
           <input
             type="text"
             placeholder="Search by name..."
             value={search}
             onChange={(e) =>
-              setSearch(
-                e.target.value
-              )
+              setSearch(e.target.value)
             }
             className="
               border
@@ -589,9 +540,367 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* =================================================
-          TABLE WRAPPER
-      ================================================= */}
+      {filterOpen && (
+        <div
+          className="
+            mb-5
+            border
+            border-gray-200
+            rounded-xl
+            bg-gray-50
+            p-5
+          "
+        >
+          <div
+            className="
+              grid
+              grid-cols-1
+              md:grid-cols-2
+              lg:grid-cols-5
+              gap-4
+            "
+          >
+            <div>
+              <label
+                className="
+                  block
+                  text-sm
+                  font-semibold
+                  text-gray-700
+                  mb-2
+                "
+              >
+                Role / Organization
+              </label>
+
+              <input
+                type="text"
+                value={filters.role}
+                onChange={(e) =>
+                  handleFilterChange(
+                    "role",
+                    e.target.value
+                  )
+                }
+                placeholder={
+                  roleFilterPlaceholder
+                }
+                className="
+                  w-full
+                  border
+                  border-gray-300
+                  rounded-md
+                  px-3
+                  py-2
+                  bg-white
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-blue-400
+                "
+              />
+            </div>
+
+            <div>
+              <label
+                className="
+                  block
+                  text-sm
+                  font-semibold
+                  text-gray-700
+                  mb-2
+                "
+              >
+                Country
+              </label>
+
+              <div className="relative">
+                <select
+                  value={filters.country}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "country",
+                      e.target.value
+                    )
+                  }
+                  className="
+                    w-full
+                    appearance-none
+                    border
+                    border-gray-300
+                    rounded-md
+                    px-3
+                    py-2
+                    pr-10
+                    bg-white
+                    cursor-pointer
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-400
+                  "
+                >
+                  <option value="">
+                    All Countries
+                  </option>
+
+                  {Country.getAllCountries().map(
+                    (country) => (
+                      <option
+                        key={country.isoCode}
+                        value={country.isoCode}
+                      >
+                        {country.name}
+                      </option>
+                    )
+                  )}
+                </select>
+
+                <RiArrowDownSLine
+                  size={20}
+                  className="
+                    pointer-events-none
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-gray-500
+                  "
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                className="
+                  block
+                  text-sm
+                  font-semibold
+                  text-gray-700
+                  mb-2
+                "
+              >
+                State
+              </label>
+
+              <div className="relative">
+                <select
+                  value={filters.state}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "state",
+                      e.target.value
+                    )
+                  }
+                  disabled={!filters.country}
+                  className="
+                    w-full
+                    appearance-none
+                    border
+                    border-gray-300
+                    rounded-md
+                    px-3
+                    py-2
+                    pr-10
+                    bg-white
+                    cursor-pointer
+                    disabled:bg-gray-100
+                    disabled:cursor-not-allowed
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-400
+                  "
+                >
+                  <option value="">
+                    All States
+                  </option>
+
+                  {stateOptions.map(
+                    (state) => (
+                      <option
+                        key={state.isoCode}
+                        value={state.isoCode}
+                      >
+                        {state.name}
+                      </option>
+                    )
+                  )}
+                </select>
+
+                <RiArrowDownSLine
+                  size={20}
+                  className="
+                    pointer-events-none
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-gray-500
+                  "
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                className="
+                  block
+                  text-sm
+                  font-semibold
+                  text-gray-700
+                  mb-2
+                "
+              >
+                City
+              </label>
+
+              <div className="relative">
+                <select
+                  value={filters.city}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "city",
+                      e.target.value
+                    )
+                  }
+                  disabled={!filters.state}
+                  className="
+                    w-full
+                    appearance-none
+                    border
+                    border-gray-300
+                    rounded-md
+                    px-3
+                    py-2
+                    pr-10
+                    bg-white
+                    cursor-pointer
+                    disabled:bg-gray-100
+                    disabled:cursor-not-allowed
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-400
+                  "
+                >
+                  <option value="">
+                    All Cities
+                  </option>
+
+                  {cityOptions.map(
+                    (city, index) => (
+                      <option
+                        key={`${city.name}-${index}`}
+                        value={city.name}
+                      >
+                        {city.name}
+                      </option>
+                    )
+                  )}
+                </select>
+
+                <RiArrowDownSLine
+                  size={20}
+                  className="
+                    pointer-events-none
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-gray-500
+                  "
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                className="
+                  block
+                  text-sm
+                  font-semibold
+                  text-gray-700
+                  mb-2
+                "
+              >
+                Status
+              </label>
+
+              <div className="relative">
+                <select
+                  value={filters.status}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "status",
+                      e.target.value
+                    )
+                  }
+                  className="
+                    w-full
+                    appearance-none
+                    border
+                    border-gray-300
+                    rounded-md
+                    px-3
+                    py-2
+                    pr-10
+                    bg-white
+                    cursor-pointer
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-400
+                  "
+                >
+                  <option value="">
+                    All Status
+                  </option>
+
+                  <option value="active">
+                    Active
+                  </option>
+
+                  <option value="inactive">
+                    Inactive
+                  </option>
+                </select>
+
+                <RiArrowDownSLine
+                  size={20}
+                  className="
+                    pointer-events-none
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-gray-500
+                  "
+                />
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="
+              flex
+              justify-end
+              mt-4
+            "
+          >
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="
+                bg-gray-700
+                text-white
+                px-5
+                py-2
+                rounded-md
+                hover:bg-gray-800
+                cursor-pointer
+              "
+            >
+              Clear Filter
+            </button>
+          </div>
+        </div>
+      )}
 
       <div
         className="
@@ -609,10 +918,6 @@ export default function UsersTable({
           "
         >
           <table className="w-full">
-            {/* ==========================================
-                TABLE HEAD
-            ========================================== */}
-
             <thead>
               <tr className="border-b">
                 <th className="text-left p-3">
@@ -622,13 +927,7 @@ export default function UsersTable({
                 <th className="text-left p-3">
                   Parent Name
                   <br />
-
-                  <span
-                    className="
-                      text-sm
-                      text-gray-500
-                    "
-                  >
+                  <span className="text-sm text-gray-500">
                     Parent Organization
                   </span>
                 </th>
@@ -636,13 +935,7 @@ export default function UsersTable({
                 <th className="text-left p-3">
                   Name
                   <br />
-
-                  <span
-                    className="
-                      text-sm
-                      text-gray-500
-                    "
-                  >
+                  <span className="text-sm text-gray-500">
                     Organization Name
                   </span>
                 </th>
@@ -669,34 +962,12 @@ export default function UsersTable({
               </tr>
             </thead>
 
-            {/* ==========================================
-                TABLE BODY
-            ========================================== */}
-
             <tbody>
               {filteredUsers.length > 0 ? (
                 filteredUsers.map(
                   (user, index) => {
-                    // =================================================
-                    // IMPORTANT ROLE LOGIC
-                    // =================================================
-                    //
-                    // YAHAN ROLE SIRF user.role_id SE AAYEGA.
-                    //
-                    // parent_id
-                    // parent_name
-                    // parent_chain
-                    // parent_hierarchy
-                    //
-                    // inme se kisi ko role display ke liye use
-                    // nahi karna hai.
-                    //
-                    // =================================================
-
                     const actualRoleId =
-                      Number(
-                        user?.role_id
-                      );
+                      Number(user?.role_id);
 
                     const actualRoleName =
                       getUserRoleName(
@@ -713,137 +984,52 @@ export default function UsersTable({
                         key={user.id}
                         className="border-b"
                       >
-                        {/* ==================================
-                            S.NO
-                        ================================== */}
-
                         <td className="p-3">
-                          {(
-                            (page - 1) *
-                            (
-                              pagination?.limit ||
-                              10
-                            )
-                          ) +
+                          {(page - 1) *
+                            (pagination?.limit ||
+                              10) +
                             index +
                             1}
                         </td>
 
-                        {/* ==================================
-                            PARENT
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
-                          <div
-                            className="
-                              font-semibold
-                            "
-                          >
+                        <td className="p-3 py-1">
+                          <div className="font-semibold">
                             {user.parent_name ||
                               "-"}
                           </div>
 
-                          <div
-                            className="
-                              text-sm
-                              text-gray-500
-                            "
-                          >
+                          <div className="text-sm text-gray-500">
                             {user.parent_organization_name ||
                               "-"}
                           </div>
                         </td>
 
-                        {/* ==================================
-                            USER
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
-                          <div
-                            className="
-                              font-semibold
-                            "
-                          >
-                            {user.name ||
-                              "-"}
+                        <td className="p-3 py-1">
+                          <div className="font-semibold">
+                            {user.name || "-"}
                           </div>
 
-                          <div
-                            className="
-                              text-sm
-                              text-gray-500
-                            "
-                          >
+                          <div className="text-sm text-gray-500">
                             {user.organization_name ||
                               "-"}
                           </div>
                         </td>
 
-                        {/* ==================================
-                            PHONE
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
-                          {user.phone ||
-                            "-"}
+                        <td className="p-3 py-1">
+                          {user.phone || "-"}
                         </td>
 
-                        {/* ==================================
-                            ROLE
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
+                        <td className="p-3 py-1">
                           {actualRoleName}
                         </td>
 
-                        {/* ==================================
-                            CREATED AT
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
+                        <td className="p-3 py-1">
                           {user.created_at ? (
-                            <div
-                              className="
-                                text-sm
-                                leading-5
-                              "
-                            >
-                              {/* DATE */}
-
+                            <div className="text-sm leading-5">
                               <div>
-                                <span
-                                  className="
-                                    font-bold
-                                  "
-                                >
+                                <span className="font-bold">
                                   Date:
                                 </span>{" "}
-
                                 {new Date(
                                   user.created_at
                                 ).toLocaleDateString(
@@ -856,17 +1042,10 @@ export default function UsersTable({
                                 )}
                               </div>
 
-                              {/* TIME */}
-
                               <div>
-                                <span
-                                  className="
-                                    font-bold
-                                  "
-                                >
+                                <span className="font-bold">
                                   Time:
                                 </span>{" "}
-
                                 {new Date(
                                   user.created_at
                                 ).toLocaleTimeString(
@@ -883,39 +1062,15 @@ export default function UsersTable({
                           )}
                         </td>
 
-                        {/* ==================================
-                            ACTIONS
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                            text-center
-                          "
-                        >
-                          <div
-                            className="
-                              flex
-                              items-center
-                              justify-center
-                              gap-2
-                            "
-                          >
-                            {/* ==============================
-                                EDIT
-                            ============================== */}
-
+                        <td className="p-3 py-1 text-center">
+                          <div className="flex items-center justify-center gap-2">
                             <button
                               type="button"
-                              onClick={() => {
-                                // IMPORTANT:
-                                // Edit page ko bhi actual role_id
-                                // pass karenge.
+                              onClick={() =>
                                 router.push(
                                   `/dashboard/edit-staff/${user.id}?role=${actualRoleId}`
-                                );
-                              }}
+                                )
+                              }
                               className="
                                 inline-flex
                                 items-center
@@ -933,10 +1088,6 @@ export default function UsersTable({
                                 size={20}
                               />
                             </button>
-
-                            {/* ==============================
-                                LOGIN AS USER
-                            ============================== */}
 
                             <button
                               type="button"
@@ -986,27 +1137,8 @@ export default function UsersTable({
                           </div>
                         </td>
 
-                        {/* ==================================
-                            STATUS
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
-                          <div
-                            className="
-                              flex
-                              items-center
-                              gap-3
-                            "
-                          >
-                            {/* ==============================
-                                TOGGLE
-                            ============================== */}
-
+                        <td className="p-3 py-1">
+                          <div className="flex items-center gap-3">
                             <button
                               type="button"
                               disabled={
@@ -1030,7 +1162,6 @@ export default function UsersTable({
                                 cursor-pointer
                                 disabled:opacity-50
                                 disabled:cursor-not-allowed
-
                                 ${
                                   isActive
                                     ? "bg-green-500"
@@ -1054,7 +1185,6 @@ export default function UsersTable({
                                   shadow
                                   transition
                                   duration-200
-
                                   ${
                                     isActive
                                       ? "translate-x-5"
@@ -1070,10 +1200,6 @@ export default function UsersTable({
                   }
                 )
               ) : (
-                /* ========================================
-                   NO USERS
-                ======================================== */
-
                 <tr>
                   <td
                     colSpan="8"
@@ -1092,10 +1218,6 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* =================================================
-          PAGINATION
-      ================================================= */}
-
       <div
         className="
           flex
@@ -1105,22 +1227,15 @@ export default function UsersTable({
           mt-5
         "
       >
-        {/* ==============================================
-            PREVIOUS
-        ============================================== */}
-
         <button
           type="button"
           disabled={page <= 1}
-          onClick={
-            handlePreviousPage
-          }
+          onClick={handlePreviousPage}
           className={`
             px-4
             py-2
             rounded
             cursor-pointer
-
             ${
               page <= 1
                 ? "bg-gray-200 cursor-not-allowed"
@@ -1131,10 +1246,6 @@ export default function UsersTable({
           Previous
         </button>
 
-        {/* ==============================================
-            PAGE NUMBER
-        ============================================== */}
-
         <span
           className="
             px-4
@@ -1143,44 +1254,27 @@ export default function UsersTable({
           "
         >
           Page{" "}
-
           {pagination?.currentPage ||
-            page}
-
-          {" "}/{" "}
-
-          {pagination?.totalPages ||
-            1}
+            page}{" "}
+          /{" "}
+          {pagination?.totalPages || 1}
         </span>
-
-        {/* ==============================================
-            NEXT
-        ============================================== */}
 
         <button
           type="button"
           disabled={
             page >=
-            (
-              pagination?.totalPages ||
-              1
-            )
+            (pagination?.totalPages || 1)
           }
-          onClick={
-            handleNextPage
-          }
+          onClick={handleNextPage}
           className={`
             px-4
             py-2
             rounded
             cursor-pointer
-
             ${
               page >=
-              (
-                pagination?.totalPages ||
-                1
-              )
+              (pagination?.totalPages || 1)
                 ? "bg-gray-200 cursor-not-allowed"
                 : "bg-blue-500 text-white hover:bg-blue-600"
             }
