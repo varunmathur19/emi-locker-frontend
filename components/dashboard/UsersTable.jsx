@@ -43,28 +43,34 @@ export default function UsersTable({
 }) {
   const router = useRouter();
 
-  // =========================================================
-  // STATES
-  // =========================================================
-
-  // TOP SEARCH
   const [search, setSearch] = useState("");
-
-  // FILTER PANEL SEARCH
   const [filterSearch, setFilterSearch] = useState("");
+
+  const [filterSearchResults, setFilterSearchResults] =
+    useState([]);
+
+  const [filterSearchApplied, setFilterSearchApplied] =
+    useState(false);
 
   const [loginLoading, setLoginLoading] = useState(null);
   const [statusLoading, setStatusLoading] = useState(null);
 
   const [filterOpen, setFilterOpen] = useState(false);
 
-  const [searchSuggestions, setSearchSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] =
+    useState([]);
 
-  // Backend search result
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchApplied, setSearchApplied] = useState(false);
+  const [showSuggestions, setShowSuggestions] =
+    useState(false);
+
+  const [searchLoading, setSearchLoading] =
+    useState(false);
+
+  const [searchResults, setSearchResults] =
+    useState([]);
+
+  const [searchApplied, setSearchApplied] =
+    useState(false);
 
   const [filters, setFilters] = useState({
     country: "",
@@ -72,10 +78,6 @@ export default function UsersTable({
     city: "",
     status: "",
   });
-
-  // =========================================================
-  // ROLE MAP
-  // =========================================================
 
   const roleMap = {
     0: "Master Admin",
@@ -112,12 +114,11 @@ export default function UsersTable({
     );
   };
 
-  const selectedRoleName =
-    getUserRoleName(selectedRole);
+  const selectedRoleName = getUserRoleName(selectedRole);
 
-  // =========================================================
+  // --------------------------------------------------
   // FILTER CHANGE
-  // =========================================================
+  // --------------------------------------------------
 
   const handleFilterChange = (field, value) => {
     setFilters((previous) => {
@@ -126,22 +127,106 @@ export default function UsersTable({
         [field]: value,
       };
 
+      // Country change => reset state and city
       if (field === "country") {
         updatedFilters.state = "";
         updatedFilters.city = "";
       }
 
+      // State change => reset city
       if (field === "state") {
         updatedFilters.city = "";
       }
 
       return updatedFilters;
     });
+
+    setFilterSearchResults([]);
+    setFilterSearchApplied(false);
+
+    setPage?.(1);
   };
 
-  // =========================================================
-  // FILTER SEARCH SUGGESTIONS
-  // =========================================================
+  // --------------------------------------------------
+  // COUNTRY OPTIONS
+  // --------------------------------------------------
+
+  const countryOptions = Country.getAllCountries();
+
+  // --------------------------------------------------
+  // STATE OPTIONS
+  // --------------------------------------------------
+
+  const stateOptions = filters.country
+    ? State.getStatesOfCountry(filters.country).map(
+        (state) => ({
+          ...state,
+          countryCode: filters.country,
+        })
+      )
+    : [];
+
+  // --------------------------------------------------
+  // CITY OPTIONS
+  // --------------------------------------------------
+
+  const cityOptions = (() => {
+    if (!filters.state) {
+      return [];
+    }
+
+    const stateParts = filters.state.split("-");
+
+    const countryCode = stateParts[0];
+    const stateCode = stateParts[1];
+
+    if (!countryCode || !stateCode) {
+      return [];
+    }
+
+    try {
+      const cities = City.getCitiesOfState(
+        countryCode.toUpperCase(),
+        stateCode.toUpperCase()
+      );
+
+      return Array.isArray(cities) ? cities : [];
+    } catch (error) {
+      console.error("City Load Error:", error);
+      return [];
+    }
+  })();
+
+  // --------------------------------------------------
+  // SELECTED STATE
+  // --------------------------------------------------
+
+  const selectedStateParts = filters.state
+    ? filters.state.split("-")
+    : [];
+
+  const selectedCountryCode =
+    selectedStateParts[0] || "";
+
+  const selectedStateCode =
+    selectedStateParts[1] || "";
+
+  const selectedState =
+    selectedCountryCode && selectedStateCode
+      ? State.getStateByCodeAndCountry(
+          selectedStateCode.toUpperCase(),
+          selectedCountryCode.toUpperCase()
+        )
+      : null;
+
+  const selectedStateName =
+    selectedState?.name
+      ?.trim()
+      .toLowerCase() || "";
+
+  // --------------------------------------------------
+  // FILTER SEARCH
+  // --------------------------------------------------
 
   useEffect(() => {
     const searchValue = filterSearch.trim();
@@ -150,7 +235,8 @@ export default function UsersTable({
       setSearchSuggestions([]);
       setShowSuggestions(false);
       setSearchLoading(false);
-
+      setFilterSearchResults([]);
+      setFilterSearchApplied(false);
       return;
     }
 
@@ -180,7 +266,7 @@ export default function UsersTable({
       } catch (error) {
         if (!cancelled) {
           console.error(
-            "Search Suggestion Error:",
+            "Filter Search Error:",
             error
           );
 
@@ -200,9 +286,9 @@ export default function UsersTable({
     };
   }, [filterSearch, selectedRole]);
 
-  // =========================================================
-  // GET SUGGESTION VALUE
-  // =========================================================
+  // --------------------------------------------------
+  // SUGGESTION VALUE
+  // --------------------------------------------------
 
   const getSuggestionValue = (user) => {
     const query = filterSearch
@@ -260,9 +346,9 @@ export default function UsersTable({
     };
   };
 
-  // =========================================================
-  // FILTER SEARCH SUGGESTION CLICK
-  // =========================================================
+  // --------------------------------------------------
+  // SUGGESTION CLICK
+  // --------------------------------------------------
 
   const handleSuggestionClick = (user) => {
     const suggestion =
@@ -276,18 +362,19 @@ export default function UsersTable({
       return;
     }
 
-    // IMPORTANT:
-    // Sirf filter wala search change hoga.
-    // TOP SEARCH bilkul change nahi hoga.
     setFilterSearch(selectedValue);
-
     setShowSuggestions(false);
     setSearchSuggestions([]);
+
+    setFilterSearchResults([user]);
+    setFilterSearchApplied(true);
+
+    setPage?.(1);
   };
 
-  // =========================================================
+  // --------------------------------------------------
   // CLEAR FILTERS
-  // =========================================================
+  // --------------------------------------------------
 
   const clearFilters = () => {
     setFilters({
@@ -298,44 +385,22 @@ export default function UsersTable({
     });
 
     setFilterSearch("");
+
+    setFilterSearchResults([]);
+    setFilterSearchApplied(false);
+
     setSearchSuggestions([]);
     setShowSuggestions(false);
+
+    setPage?.(1);
   };
 
-  // =========================================================
-  // COUNTRY / STATE / CITY
-  // =========================================================
-
-  const selectedCountry = filters.country
-    ? Country.getCountryByCode(filters.country)
-    : null;
-
-  const stateOptions = filters.country
-    ? State.getStatesOfCountry(filters.country)
-    : [];
-
-  const cityOptions =
-    filters.country && filters.state
-      ? City.getCitiesOfState(
-          filters.country,
-          filters.state
-        )
-      : [];
-
-  const selectedState = filters.state
-    ? State.getStateByCodeAndCountry(
-        filters.state,
-        filters.country
-      )
-    : null;
-
-  // =========================================================
-  // BACKEND TOP SEARCH
-  // =========================================================
+  // --------------------------------------------------
+  // MAIN SEARCH
+  // --------------------------------------------------
 
   const handleSearch = async () => {
-    const trimmedSearch =
-      search.trim();
+    const trimmedSearch = search.trim();
 
     setShowSuggestions(false);
     setSearchSuggestions([]);
@@ -358,17 +423,14 @@ export default function UsersTable({
 
       setPage?.(1);
 
-      const response =
-        await getAllStaffData(
-          1,
-          10,
-          selectedRole || "",
-          trimmedSearch
-        );
+      const response = await getAllStaffData(
+        1,
+        10,
+        selectedRole || "",
+        trimmedSearch
+      );
 
-      const data = Array.isArray(
-        response?.data
-      )
+      const data = Array.isArray(response?.data)
         ? response.data
         : [];
 
@@ -397,21 +459,20 @@ export default function UsersTable({
     }
   };
 
-  // =========================================================
-  // ENTER KEY SEARCH
-  // =========================================================
+  // --------------------------------------------------
+  // SEARCH ENTER
+  // --------------------------------------------------
 
   const handleSearchKeyDown = (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-
       handleSearch();
     }
   };
 
-  // =========================================================
-  // CLEAR TOP SEARCH
-  // =========================================================
+  // --------------------------------------------------
+  // CLEAR SEARCH
+  // --------------------------------------------------
 
   const handleClearSearch = () => {
     setSearch("");
@@ -429,24 +490,21 @@ export default function UsersTable({
     }
   };
 
-  // =========================================================
+  // --------------------------------------------------
   // LOGIN AS USER
-  // =========================================================
+  // --------------------------------------------------
 
   const handleLoginAsUser = async (user) => {
     try {
       setLoginLoading(user.id);
 
-      const response = await loginAsUser(
-        user.id
-      );
+      const response = await loginAsUser(user.id);
 
       if (!response?.success) {
         toast.error(
           response?.message ||
             "Login failed"
         );
-
         return;
       }
 
@@ -454,7 +512,6 @@ export default function UsersTable({
         toast.error(
           "Login token not received"
         );
-
         return;
       }
 
@@ -462,7 +519,6 @@ export default function UsersTable({
         toast.error(
           "User data not received"
         );
-
         return;
       }
 
@@ -473,8 +529,7 @@ export default function UsersTable({
         `Logged in as ${response.user.name}`
       );
 
-      window.location.href =
-        "/dashboard";
+      window.location.href = "/dashboard";
     } catch (error) {
       console.error(
         "Login As User Error:",
@@ -491,9 +546,9 @@ export default function UsersTable({
     }
   };
 
-  // =========================================================
+  // --------------------------------------------------
   // STATUS TOGGLE
-  // =========================================================
+  // --------------------------------------------------
 
   const handleStatusToggle = async (user) => {
     try {
@@ -506,24 +561,33 @@ export default function UsersTable({
       const newStatus =
         currentStatus === 1 ? 0 : 1;
 
-      const response =
-        await updateUserStatus(
-          user.id,
-          newStatus
-        );
+      const response = await updateUserStatus(
+        user.id,
+        newStatus
+      );
 
       if (!response?.success) {
         toast.error(
           response?.message ||
             "Failed to update user status"
         );
-
         return;
       }
 
       user.userStatus = newStatus;
 
       setSearchResults((previous) =>
+        previous.map((item) =>
+          item.id === user.id
+            ? {
+                ...item,
+                userStatus: newStatus,
+              }
+            : item
+        )
+      );
+
+      setFilterSearchResults((previous) =>
         previous.map((item) =>
           item.id === user.id
             ? {
@@ -559,9 +623,9 @@ export default function UsersTable({
     }
   };
 
-  // =========================================================
+  // --------------------------------------------------
   // PAGINATION
-  // =========================================================
+  // --------------------------------------------------
 
   const handlePreviousPage = () => {
     if (page > 1) {
@@ -578,24 +642,24 @@ export default function UsersTable({
     }
   };
 
-  // =========================================================
-  // TABLE SOURCE
-  // =========================================================
+  // --------------------------------------------------
+  // TABLE USERS
+  // --------------------------------------------------
 
-  const tableUsers = searchApplied
-    ? searchResults
-    : users;
+  let tableUsers = users;
 
-  // =========================================================
-  // TOP SEARCH + FILTER
-  // =========================================================
+  if (filterSearchApplied) {
+    tableUsers = filterSearchResults;
+  } else if (searchApplied) {
+    tableUsers = searchResults;
+  }
+
+  // --------------------------------------------------
+  // FILTER USERS
+  // --------------------------------------------------
 
   const filteredUsers = tableUsers.filter(
     (user) => {
-      // =====================================================
-      // TOP SEARCH ONLY
-      // =====================================================
-
       const searchValue = search
         .trim()
         .toLowerCase();
@@ -636,6 +700,10 @@ export default function UsersTable({
         .trim()
         .toLowerCase();
 
+      // --------------------------------------------------
+      // MAIN SEARCH
+      // --------------------------------------------------
+
       const matchesSearch =
         !searchValue ||
         userName.includes(searchValue) ||
@@ -645,51 +713,62 @@ export default function UsersTable({
         userState.includes(searchValue) ||
         userCountry.includes(searchValue);
 
-      // =====================================================
-      // COUNTRY
-      // =====================================================
+      // --------------------------------------------------
+      // COUNTRY FILTER
+      // --------------------------------------------------
 
-      const selectedCountryName = String(
-        selectedCountry?.name || ""
-      )
-        .trim()
-        .toLowerCase();
+      const selectedCountry =
+        filters.country
+          .trim()
+          .toLowerCase();
+
+      const selectedCountryName =
+        countryOptions
+          .find(
+            (country) =>
+              country.isoCode
+                .toLowerCase() ===
+              selectedCountry
+          )
+          ?.name
+          ?.trim()
+          .toLowerCase() || "";
 
       const matchesCountry =
-        !filters.country ||
-        userCountry === selectedCountryName;
+        !selectedCountry ||
+        userCountry === selectedCountry ||
+        userCountry ===
+          selectedCountryName;
 
-      // =====================================================
-      // STATE
-      // =====================================================
-
-      const selectedStateName = String(
-        selectedState?.name || ""
-      )
-        .trim()
-        .toLowerCase();
+      // --------------------------------------------------
+      // STATE FILTER
+      // --------------------------------------------------
 
       const matchesState =
-        !filters.state ||
+        !selectedStateCode ||
+        userState ===
+          selectedStateCode
+            .trim()
+            .toLowerCase() ||
         userState === selectedStateName;
 
-      // =====================================================
-      // CITY
-      // =====================================================
+      // --------------------------------------------------
+      // CITY FILTER
+      // --------------------------------------------------
 
-      const selectedCityName = String(
+      const selectedCity = String(
         filters.city || ""
       )
         .trim()
         .toLowerCase();
 
       const matchesCity =
-        !filters.city ||
-        userCity === selectedCityName;
+        !selectedCity ||
+        userCity === selectedCity;
 
-      // =====================================================
-      // STATUS
-      // =====================================================
+      // --------------------------------------------------
+      // STATUS FILTER
+      // --------------------------------------------------
 
       const userStatus = Number(
         user?.userStatus ?? 1
@@ -712,9 +791,9 @@ export default function UsersTable({
     }
   );
 
-  // =========================================================
+  // --------------------------------------------------
   // JSX
-  // =========================================================
+  // --------------------------------------------------
 
   return (
     <div
@@ -729,9 +808,7 @@ export default function UsersTable({
         overflow-hidden
       "
     >
-      {/* =====================================================
-          TOP ROLE BUTTONS
-      ====================================================== */}
+      {/* ROLE HEADER */}
 
       <div
         className="
@@ -797,9 +874,7 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* =====================================================
-          SEARCH + FILTER BUTTON
-      ====================================================== */}
+      {/* SEARCH HEADER */}
 
       <div
         className="
@@ -832,8 +907,6 @@ export default function UsersTable({
             max-sm:items-stretch
           "
         >
-          {/* FILTER BUTTON */}
-
           <button
             type="button"
             onClick={() =>
@@ -866,10 +939,6 @@ export default function UsersTable({
             Filter
           </button>
 
-          {/* =================================================
-              TOP SEARCH
-          ================================================== */}
-
           <div
             className="
               flex
@@ -882,9 +951,9 @@ export default function UsersTable({
               type="text"
               placeholder="Search by name, city, state, phone..."
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-              }}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
               onKeyDown={
                 handleSearchKeyDown
               }
@@ -906,7 +975,9 @@ export default function UsersTable({
             {search.trim() && (
               <button
                 type="button"
-                onClick={handleClearSearch}
+                onClick={
+                  handleClearSearch
+                }
                 className="
                   px-3
                   py-2
@@ -916,7 +987,6 @@ export default function UsersTable({
                   hover:bg-gray-300
                   cursor-pointer
                 "
-                title="Clear Search"
               >
                 Clear
               </button>
@@ -925,9 +995,7 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* =====================================================
-          FILTER PANEL
-      ====================================================== */}
+      {/* FILTER PANEL */}
 
       {filterOpen && (
         <div
@@ -940,9 +1008,7 @@ export default function UsersTable({
             p-5
           "
         >
-          {/* =================================================
-              FILTER SEARCH
-          ================================================== */}
+          {/* FILTER SEARCH */}
 
           <div className="mb-5 relative">
             <label
@@ -965,19 +1031,28 @@ export default function UsersTable({
                   setFilterSearch(
                     e.target.value
                   );
+                  setFilterSearchApplied(
+                    false
+                  );
                   setShowSuggestions(true);
                 }}
                 onFocus={() => {
-                  if (filterSearch.trim()) {
-                    setShowSuggestions(true);
+                  if (
+                    filterSearch.trim()
+                  ) {
+                    setShowSuggestions(
+                      true
+                    );
                   }
                 }}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") {
+                  if (
+                    event.key === "Enter"
+                  ) {
                     event.preventDefault();
                   }
                 }}
-                placeholder="Search "
+                placeholder="Search"
                 className="
                   w-full
                   border
@@ -1005,10 +1080,6 @@ export default function UsersTable({
                 "
               />
             </div>
-
-            {/* =================================================
-                FILTER SEARCH DROPDOWN ONLY
-            ================================================== */}
 
             {showSuggestions &&
               filterSearch.trim() && (
@@ -1042,7 +1113,10 @@ export default function UsersTable({
                   ) : searchSuggestions.length >
                     0 ? (
                     searchSuggestions.map(
-                      (user, index) => {
+                      (
+                        user,
+                        index
+                      ) => {
                         const suggestion =
                           getSuggestionValue(
                             user
@@ -1137,9 +1211,7 @@ export default function UsersTable({
               )}
           </div>
 
-          {/* =================================================
-              EXISTING FILTERS
-          ================================================== */}
+          {/* FILTER DROPDOWNS */}
 
           <div
             className="
@@ -1191,14 +1263,18 @@ export default function UsersTable({
                   "
                 >
                   <option value="">
-                    All Countries
+                    Countries
                   </option>
 
-                  {Country.getAllCountries().map(
+                  {countryOptions.map(
                     (country) => (
                       <option
-                        key={country.isoCode}
-                        value={country.isoCode}
+                        key={
+                          country.isoCode
+                        }
+                        value={
+                          country.isoCode
+                        }
                       >
                         {country.name}
                       </option>
@@ -1244,7 +1320,9 @@ export default function UsersTable({
                       e.target.value
                     )
                   }
-                  disabled={!filters.country}
+                  disabled={
+                    !filters.country
+                  }
                   className="
                     w-full
                     appearance-none
@@ -1264,14 +1342,16 @@ export default function UsersTable({
                   "
                 >
                   <option value="">
-                    All States
+                    {!filters.country
+                      ? "Select States "
+                      : "All States"}
                   </option>
 
                   {stateOptions.map(
-                    (state) => (
+                    (state, index) => (
                       <option
-                        key={state.isoCode}
-                        value={state.isoCode}
+                        key={`${state.countryCode}-${state.isoCode}-${index}`}
+                        value={`${state.countryCode}-${state.isoCode}`}
                       >
                         {state.name}
                       </option>
@@ -1317,7 +1397,9 @@ export default function UsersTable({
                       e.target.value
                     )
                   }
-                  disabled={!filters.state}
+                  disabled={
+                    !filters.state
+                  }
                   className="
                     w-full
                     appearance-none
@@ -1337,13 +1419,17 @@ export default function UsersTable({
                   "
                 >
                   <option value="">
-                    All Cities
+                    {!filters.state
+                      ? "Select city"
+                      : cityOptions.length === 0
+                      ? "No Cities Found"
+                      : "All Cities"}
                   </option>
 
                   {cityOptions.map(
                     (city, index) => (
                       <option
-                        key={`${city.name}-${index}`}
+                        key={`${city.countryCode || selectedCountryCode}-${city.stateCode || selectedStateCode}-${city.name}-${index}`}
                         value={city.name}
                       >
                         {city.name}
@@ -1434,16 +1520,13 @@ export default function UsersTable({
             </div>
           </div>
 
-          {/* =================================================
-              SEARCH + CLEAR FILTER
-          ================================================== */}
+          {/* CLEAR FILTER */}
 
           <div
             className="
               flex
               justify-end
               mt-4
-              gap-2
             "
           >
             <button
@@ -1465,9 +1548,7 @@ export default function UsersTable({
         </div>
       )}
 
-      {/* =====================================================
-          TABLE
-      ====================================================== */}
+      {/* TABLE */}
 
       <div
         className="
@@ -1534,7 +1615,9 @@ export default function UsersTable({
                 filteredUsers.map(
                   (user, index) => {
                     const actualRoleId =
-                      Number(user?.role_id);
+                      Number(
+                        user?.role_id
+                      );
 
                     const actualRoleName =
                       getUserRoleName(
@@ -1573,7 +1656,8 @@ export default function UsersTable({
 
                         <td className="p-3 py-1">
                           <div className="font-semibold">
-                            {user.name || "-"}
+                            {user.name ||
+                              "-"}
                           </div>
 
                           <div className="text-sm text-gray-500">
@@ -1603,8 +1687,10 @@ export default function UsersTable({
                                   "en-IN",
                                   {
                                     day: "2-digit",
-                                    month: "2-digit",
-                                    year: "numeric",
+                                    month:
+                                      "2-digit",
+                                    year:
+                                      "numeric",
                                   }
                                 )}
                               </div>
@@ -1618,8 +1704,10 @@ export default function UsersTable({
                                 ).toLocaleTimeString(
                                   "en-IN",
                                   {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
+                                    hour:
+                                      "2-digit",
+                                    minute:
+                                      "2-digit",
                                   }
                                 )}
                               </div>
@@ -1785,9 +1873,7 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* =====================================================
-          PAGINATION
-      ====================================================== */}
+      {/* PAGINATION */}
 
       <div
         className="
@@ -1801,7 +1887,9 @@ export default function UsersTable({
         <button
           type="button"
           disabled={page <= 1}
-          onClick={handlePreviousPage}
+          onClick={
+            handlePreviousPage
+          }
           className={`
             px-4
             py-2
@@ -1828,7 +1916,8 @@ export default function UsersTable({
           {pagination?.currentPage ||
             page}{" "}
           /{" "}
-          {pagination?.totalPages || 1}
+          {pagination?.totalPages ||
+            1}
         </span>
 
         <button
@@ -1837,7 +1926,9 @@ export default function UsersTable({
             page >=
             (pagination?.totalPages || 1)
           }
-          onClick={handleNextPage}
+          onClick={
+            handleNextPage
+          }
           className={`
             px-4
             py-2
