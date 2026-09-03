@@ -1,8 +1,7 @@
-
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -10,6 +9,7 @@ import {
   RiEditLine,
   RiLoginBoxLine,
   RiArrowDownSLine,
+  RiSearchLine,
 } from "react-icons/ri";
 
 import { toast } from "react-toastify";
@@ -23,6 +23,7 @@ import {
 import {
   loginAsUser,
   updateUserStatus,
+  getAllStaffData,
 } from "@/services/api";
 
 import {
@@ -38,21 +39,43 @@ export default function UsersTable({
   getRoleName,
   selectedRole,
   handleRoleList,
+  onSearch,
 }) {
   const router = useRouter();
 
+  // =========================================================
+  // STATES
+  // =========================================================
+
+  // TOP SEARCH
   const [search, setSearch] = useState("");
+
+  // FILTER PANEL SEARCH
+  const [filterSearch, setFilterSearch] = useState("");
+
   const [loginLoading, setLoginLoading] = useState(null);
   const [statusLoading, setStatusLoading] = useState(null);
+
   const [filterOpen, setFilterOpen] = useState(false);
 
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  // Backend search result
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchApplied, setSearchApplied] = useState(false);
+
   const [filters, setFilters] = useState({
-    role: "",
     country: "",
     state: "",
     city: "",
     status: "",
   });
+
+  // =========================================================
+  // ROLE MAP
+  // =========================================================
 
   const roleMap = {
     0: "Master Admin",
@@ -92,8 +115,9 @@ export default function UsersTable({
   const selectedRoleName =
     getUserRoleName(selectedRole);
 
-  const roleFilterPlaceholder =
-    `${selectedRoleName} / Organization Name`;
+  // =========================================================
+  // FILTER CHANGE
+  // =========================================================
 
   const handleFilterChange = (field, value) => {
     setFilters((previous) => {
@@ -115,15 +139,172 @@ export default function UsersTable({
     });
   };
 
+  // =========================================================
+  // FILTER SEARCH SUGGESTIONS
+  // =========================================================
+
+  useEffect(() => {
+    const searchValue = filterSearch.trim();
+
+    if (!searchValue) {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+      setSearchLoading(false);
+
+      return;
+    }
+
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      try {
+        setSearchLoading(true);
+
+        const response = await getAllStaffData(
+          1,
+          10,
+          selectedRole || "",
+          searchValue
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        const data = Array.isArray(response?.data)
+          ? response.data
+          : [];
+
+        setSearchSuggestions(data);
+        setShowSuggestions(true);
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            "Search Suggestion Error:",
+            error
+          );
+
+          setSearchSuggestions([]);
+          setShowSuggestions(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setSearchLoading(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [filterSearch, selectedRole]);
+
+  // =========================================================
+  // GET SUGGESTION VALUE
+  // =========================================================
+
+  const getSuggestionValue = (user) => {
+    const query = filterSearch
+      .trim()
+      .toLowerCase();
+
+    const fields = [
+      {
+        value: user?.name,
+        label: "Name",
+      },
+      {
+        value: user?.organization_name,
+        label: "Organization",
+      },
+      {
+        value: user?.city,
+        label: "City",
+      },
+      {
+        value: user?.state,
+        label: "State",
+      },
+      {
+        value: user?.country,
+        label: "Country",
+      },
+      {
+        value: user?.phone,
+        label: "Phone",
+      },
+    ];
+
+    const matchedField = fields.find(
+      (field) =>
+        field.value &&
+        String(field.value)
+          .toLowerCase()
+          .includes(query)
+    );
+
+    if (matchedField) {
+      return matchedField;
+    }
+
+    return {
+      value:
+        user?.name ||
+        user?.organization_name ||
+        user?.city ||
+        user?.state ||
+        user?.phone ||
+        "",
+      label: "User",
+    };
+  };
+
+  // =========================================================
+  // FILTER SEARCH SUGGESTION CLICK
+  // =========================================================
+
+  const handleSuggestionClick = (user) => {
+    const suggestion =
+      getSuggestionValue(user);
+
+    const selectedValue = String(
+      suggestion?.value || ""
+    ).trim();
+
+    if (!selectedValue) {
+      return;
+    }
+
+    // IMPORTANT:
+    // Sirf filter wala search change hoga.
+    // TOP SEARCH bilkul change nahi hoga.
+    setFilterSearch(selectedValue);
+
+    setShowSuggestions(false);
+    setSearchSuggestions([]);
+  };
+
+  // =========================================================
+  // CLEAR FILTERS
+  // =========================================================
+
   const clearFilters = () => {
     setFilters({
-      role: "",
       country: "",
       state: "",
       city: "",
       status: "",
     });
+
+    setFilterSearch("");
+    setSearchSuggestions([]);
+    setShowSuggestions(false);
   };
+
+  // =========================================================
+  // COUNTRY / STATE / CITY
+  // =========================================================
 
   const selectedCountry = filters.country
     ? Country.getCountryByCode(filters.country)
@@ -148,114 +329,109 @@ export default function UsersTable({
       )
     : null;
 
-  const normalizedSearch = search
-    .trim()
-    .toLowerCase();
+  // =========================================================
+  // BACKEND TOP SEARCH
+  // =========================================================
 
-  const normalizedRoleFilter = filters.role
-    .trim()
-    .toLowerCase();
+  const handleSearch = async () => {
+    const trimmedSearch =
+      search.trim();
 
-  const filteredUsers = users.filter((user) => {
-    const userName = String(
-      user?.name || ""
-    )
-      .trim()
-      .toLowerCase();
+    setShowSuggestions(false);
+    setSearchSuggestions([]);
 
-    const matchesSearch =
-      !normalizedSearch ||
-      userName.includes(normalizedSearch);
+    if (!trimmedSearch) {
+      setSearchResults([]);
+      setSearchApplied(false);
 
-    const actualRoleName = getUserRoleName(
-      user?.role_id
-    )
-      .trim()
-      .toLowerCase();
+      setPage?.(1);
 
-    const organizationName = String(
-      user?.organization_name || ""
-    )
-      .trim()
-      .toLowerCase();
+      if (typeof onSearch === "function") {
+        onSearch("");
+      }
 
-    const matchesRole =
-      !normalizedRoleFilter ||
-      actualRoleName.includes(
-        normalizedRoleFilter
-      ) ||
-      organizationName.includes(
-        normalizedRoleFilter
+      return;
+    }
+
+    try {
+      setSearchLoading(true);
+
+      setPage?.(1);
+
+      const response =
+        await getAllStaffData(
+          1,
+          10,
+          selectedRole || "",
+          trimmedSearch
+        );
+
+      const data = Array.isArray(
+        response?.data
+      )
+        ? response.data
+        : [];
+
+      setSearchResults(data);
+      setSearchApplied(true);
+
+      if (typeof onSearch === "function") {
+        onSearch(trimmedSearch);
+      }
+    } catch (error) {
+      console.error(
+        "Backend Search Error:",
+        error
       );
 
-    const userCountry = String(
-      user?.country || ""
-    )
-      .trim()
-      .toLowerCase();
+      setSearchResults([]);
+      setSearchApplied(true);
 
-    const selectedCountryName = String(
-      selectedCountry?.name || ""
-    )
-      .trim()
-      .toLowerCase();
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Search failed"
+      );
+    } finally {
+      setSearchLoading(false);
+    }
+  };
 
-    const matchesCountry =
-      !filters.country ||
-      userCountry === selectedCountryName;
+  // =========================================================
+  // ENTER KEY SEARCH
+  // =========================================================
 
-    const userState = String(
-      user?.state || ""
-    )
-      .trim()
-      .toLowerCase();
+  const handleSearchKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
 
-    const selectedStateName = String(
-      selectedState?.name || ""
-    )
-      .trim()
-      .toLowerCase();
+      handleSearch();
+    }
+  };
 
-    const matchesState =
-      !filters.state ||
-      userState === selectedStateName;
+  // =========================================================
+  // CLEAR TOP SEARCH
+  // =========================================================
 
-    const userCity = String(
-      user?.city || ""
-    )
-      .trim()
-      .toLowerCase();
+  const handleClearSearch = () => {
+    setSearch("");
 
-    const selectedCityName = String(
-      filters.city || ""
-    )
-      .trim()
-      .toLowerCase();
+    setSearchSuggestions([]);
+    setShowSuggestions(false);
 
-    const matchesCity =
-      !filters.city ||
-      userCity === selectedCityName;
+    setSearchResults([]);
+    setSearchApplied(false);
 
-    const userStatus = Number(
-      user?.userStatus ?? 1
-    );
+    setPage?.(1);
 
-    const matchesStatus =
-      !filters.status ||
-      (filters.status === "active" &&
-        userStatus === 1) ||
-      (filters.status === "inactive" &&
-        userStatus === 0);
+    if (typeof onSearch === "function") {
+      onSearch("");
+    }
+  };
 
-    return (
-      matchesSearch &&
-      matchesRole &&
-      matchesCountry &&
-      matchesState &&
-      matchesCity &&
-      matchesStatus
-    );
-  });
+  // =========================================================
+  // LOGIN AS USER
+  // =========================================================
 
   const handleLoginAsUser = async (user) => {
     try {
@@ -270,6 +446,7 @@ export default function UsersTable({
           response?.message ||
             "Login failed"
         );
+
         return;
       }
 
@@ -277,6 +454,7 @@ export default function UsersTable({
         toast.error(
           "Login token not received"
         );
+
         return;
       }
 
@@ -284,6 +462,7 @@ export default function UsersTable({
         toast.error(
           "User data not received"
         );
+
         return;
       }
 
@@ -294,7 +473,8 @@ export default function UsersTable({
         `Logged in as ${response.user.name}`
       );
 
-      window.location.href = "/dashboard";
+      window.location.href =
+        "/dashboard";
     } catch (error) {
       console.error(
         "Login As User Error:",
@@ -310,6 +490,10 @@ export default function UsersTable({
       setLoginLoading(null);
     }
   };
+
+  // =========================================================
+  // STATUS TOGGLE
+  // =========================================================
 
   const handleStatusToggle = async (user) => {
     try {
@@ -333,10 +517,22 @@ export default function UsersTable({
           response?.message ||
             "Failed to update user status"
         );
+
         return;
       }
 
       user.userStatus = newStatus;
+
+      setSearchResults((previous) =>
+        previous.map((item) =>
+          item.id === user.id
+            ? {
+                ...item,
+                userStatus: newStatus,
+              }
+            : item
+        )
+      );
 
       if (newStatus === 1) {
         toast.success(
@@ -363,6 +559,10 @@ export default function UsersTable({
     }
   };
 
+  // =========================================================
+  // PAGINATION
+  // =========================================================
+
   const handlePreviousPage = () => {
     if (page > 1) {
       setPage(page - 1);
@@ -378,6 +578,144 @@ export default function UsersTable({
     }
   };
 
+  // =========================================================
+  // TABLE SOURCE
+  // =========================================================
+
+  const tableUsers = searchApplied
+    ? searchResults
+    : users;
+
+  // =========================================================
+  // TOP SEARCH + FILTER
+  // =========================================================
+
+  const filteredUsers = tableUsers.filter(
+    (user) => {
+      // =====================================================
+      // TOP SEARCH ONLY
+      // =====================================================
+
+      const searchValue = search
+        .trim()
+        .toLowerCase();
+
+      const userName = String(
+        user?.name || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const organizationName = String(
+        user?.organization_name || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const userPhone = String(
+        user?.phone || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const userCity = String(
+        user?.city || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const userState = String(
+        user?.state || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const userCountry = String(
+        user?.country || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const matchesSearch =
+        !searchValue ||
+        userName.includes(searchValue) ||
+        organizationName.includes(searchValue) ||
+        userPhone.includes(searchValue) ||
+        userCity.includes(searchValue) ||
+        userState.includes(searchValue) ||
+        userCountry.includes(searchValue);
+
+      // =====================================================
+      // COUNTRY
+      // =====================================================
+
+      const selectedCountryName = String(
+        selectedCountry?.name || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const matchesCountry =
+        !filters.country ||
+        userCountry === selectedCountryName;
+
+      // =====================================================
+      // STATE
+      // =====================================================
+
+      const selectedStateName = String(
+        selectedState?.name || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const matchesState =
+        !filters.state ||
+        userState === selectedStateName;
+
+      // =====================================================
+      // CITY
+      // =====================================================
+
+      const selectedCityName = String(
+        filters.city || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const matchesCity =
+        !filters.city ||
+        userCity === selectedCityName;
+
+      // =====================================================
+      // STATUS
+      // =====================================================
+
+      const userStatus = Number(
+        user?.userStatus ?? 1
+      );
+
+      const matchesStatus =
+        !filters.status ||
+        (filters.status === "active" &&
+          userStatus === 1) ||
+        (filters.status === "inactive" &&
+          userStatus === 0);
+
+      return (
+        matchesSearch &&
+        matchesCountry &&
+        matchesState &&
+        matchesCity &&
+        matchesStatus
+      );
+    }
+  );
+
+  // =========================================================
+  // JSX
+  // =========================================================
+
   return (
     <div
       className="
@@ -391,6 +729,10 @@ export default function UsersTable({
         overflow-hidden
       "
     >
+      {/* =====================================================
+          TOP ROLE BUTTONS
+      ====================================================== */}
+
       <div
         className="
           flex
@@ -455,6 +797,10 @@ export default function UsersTable({
         </div>
       </div>
 
+      {/* =====================================================
+          SEARCH + FILTER BUTTON
+      ====================================================== */}
+
       <div
         className="
           flex
@@ -482,8 +828,12 @@ export default function UsersTable({
             items-center
             gap-2
             max-lg:w-full
+            max-sm:flex-col
+            max-sm:items-stretch
           "
         >
+          {/* FILTER BUTTON */}
+
           <button
             type="button"
             onClick={() =>
@@ -494,6 +844,7 @@ export default function UsersTable({
             className={`
               flex
               items-center
+              justify-center
               text-white
               cursor-pointer
               gap-2
@@ -515,30 +866,68 @@ export default function UsersTable({
             Filter
           </button>
 
-          <input
-            type="text"
-            placeholder="Search by name..."
-            value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
+          {/* =================================================
+              TOP SEARCH
+          ================================================== */}
+
+          <div
             className="
-              border
-              border-gray-300
-              rounded-md
-              px-4
-              py-2
-              w-64
-              max-lg:flex-1
-              max-lg:w-auto
-              max-lg:px-2
-              focus:outline-none
-              focus:ring-2
-              focus:ring-blue-400
+              flex
+              items-center
+              gap-2
+              max-sm:w-full
             "
-          />
+          >
+            <input
+              type="text"
+              placeholder="Search by name, city, state, phone..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+              }}
+              onKeyDown={
+                handleSearchKeyDown
+              }
+              className="
+                border
+                border-gray-300
+                rounded-md
+                px-4
+                py-2
+                w-72
+                max-lg:w-64
+                max-sm:w-full
+                focus:outline-none
+                focus:ring-2
+                focus:ring-blue-400
+              "
+            />
+
+            {search.trim() && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="
+                  px-3
+                  py-2
+                  rounded-md
+                  bg-gray-200
+                  text-gray-700
+                  hover:bg-gray-300
+                  cursor-pointer
+                "
+                title="Clear Search"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* =====================================================
+          FILTER PANEL
+      ====================================================== */}
 
       {filterOpen && (
         <div
@@ -551,40 +940,44 @@ export default function UsersTable({
             p-5
           "
         >
-          <div
-            className="
-              grid
-              grid-cols-1
-              md:grid-cols-2
-              lg:grid-cols-5
-              gap-4
-            "
-          >
-            <div>
-              <label
-                className="
-                  block
-                  text-sm
-                  font-semibold
-                  text-gray-700
-                  mb-2
-                "
-              >
-                Role / Organization
-              </label>
+          {/* =================================================
+              FILTER SEARCH
+          ================================================== */}
 
+          <div className="mb-5 relative">
+            <label
+              className="
+                block
+                text-sm
+                font-semibold
+                text-gray-700
+                mb-2
+              "
+            >
+              Search
+            </label>
+
+            <div className="relative">
               <input
                 type="text"
-                value={filters.role}
-                onChange={(e) =>
-                  handleFilterChange(
-                    "role",
+                value={filterSearch}
+                onChange={(e) => {
+                  setFilterSearch(
                     e.target.value
-                  )
-                }
-                placeholder={
-                  roleFilterPlaceholder
-                }
+                  );
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => {
+                  if (filterSearch.trim()) {
+                    setShowSuggestions(true);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                  }
+                }}
+                placeholder="Search "
                 className="
                   w-full
                   border
@@ -592,13 +985,172 @@ export default function UsersTable({
                   rounded-md
                   px-3
                   py-2
+                  pr-10
                   bg-white
                   focus:outline-none
                   focus:ring-2
                   focus:ring-blue-400
                 "
               />
+
+              <RiSearchLine
+                size={20}
+                className="
+                  pointer-events-none
+                  absolute
+                  right-3
+                  top-1/2
+                  -translate-y-1/2
+                  text-gray-500
+                "
+              />
             </div>
+
+            {/* =================================================
+                FILTER SEARCH DROPDOWN ONLY
+            ================================================== */}
+
+            {showSuggestions &&
+              filterSearch.trim() && (
+                <div
+                  className="
+                    absolute
+                    z-50
+                    left-0
+                    right-0
+                    mt-1
+                    bg-white
+                    border
+                    border-gray-200
+                    rounded-md
+                    shadow-lg
+                    max-h-64
+                    overflow-y-auto
+                  "
+                >
+                  {searchLoading ? (
+                    <div
+                      className="
+                        px-4
+                        py-3
+                        text-sm
+                        text-gray-500
+                      "
+                    >
+                      Searching...
+                    </div>
+                  ) : searchSuggestions.length >
+                    0 ? (
+                    searchSuggestions.map(
+                      (user, index) => {
+                        const suggestion =
+                          getSuggestionValue(
+                            user
+                          );
+
+                        return (
+                          <button
+                            type="button"
+                            key={
+                              user?.id ||
+                              `${suggestion?.value}-${index}`
+                            }
+                            onClick={() =>
+                              handleSuggestionClick(
+                                user
+                              )
+                            }
+                            className="
+                              w-full
+                              text-left
+                              px-4
+                              py-3
+                              border-b
+                              border-gray-100
+                              last:border-b-0
+                              hover:bg-gray-50
+                              cursor-pointer
+                            "
+                          >
+                            <div
+                              className="
+                                font-semibold
+                                text-gray-800
+                              "
+                            >
+                              {user?.name ||
+                                "-"}
+                            </div>
+
+                            <div
+                              className="
+                                text-sm
+                                text-gray-500
+                                mt-1
+                              "
+                            >
+                              {user?.organization_name ||
+                                "-"}
+                            </div>
+
+                            <div
+                              className="
+                                flex
+                                gap-3
+                                text-xs
+                                text-gray-400
+                                mt-1
+                              "
+                            >
+                              <span>
+                                {user?.city ||
+                                  "-"}
+                              </span>
+
+                              <span>
+                                {user?.state ||
+                                  "-"}
+                              </span>
+
+                              <span>
+                                {user?.phone ||
+                                  "-"}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      }
+                    )
+                  ) : (
+                    <div
+                      className="
+                        px-4
+                        py-3
+                        text-sm
+                        text-gray-500
+                      "
+                    >
+                      No matching users found
+                    </div>
+                  )}
+                </div>
+              )}
+          </div>
+
+          {/* =================================================
+              EXISTING FILTERS
+          ================================================== */}
+
+          <div
+            className="
+              grid
+              grid-cols-1
+              md:grid-cols-2
+              lg:grid-cols-4
+              gap-4
+            "
+          >
+            {/* COUNTRY */}
 
             <div>
               <label
@@ -667,6 +1219,8 @@ export default function UsersTable({
                 />
               </div>
             </div>
+
+            {/* STATE */}
 
             <div>
               <label
@@ -739,6 +1293,8 @@ export default function UsersTable({
               </div>
             </div>
 
+            {/* CITY */}
+
             <div>
               <label
                 className="
@@ -810,6 +1366,8 @@ export default function UsersTable({
               </div>
             </div>
 
+            {/* STATUS */}
+
             <div>
               <label
                 className="
@@ -876,11 +1434,16 @@ export default function UsersTable({
             </div>
           </div>
 
+          {/* =================================================
+              SEARCH + CLEAR FILTER
+          ================================================== */}
+
           <div
             className="
               flex
               justify-end
               mt-4
+              gap-2
             "
           >
             <button
@@ -901,6 +1464,10 @@ export default function UsersTable({
           </div>
         </div>
       )}
+
+      {/* =====================================================
+          TABLE
+      ====================================================== */}
 
       <div
         className="
@@ -1217,6 +1784,10 @@ export default function UsersTable({
           </table>
         </div>
       </div>
+
+      {/* =====================================================
+          PAGINATION
+      ====================================================== */}
 
       <div
         className="

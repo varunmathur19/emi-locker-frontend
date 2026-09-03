@@ -24,13 +24,14 @@ export const login = async (data) => {
 export const getAllStaffData = async (
   page = 1,
   limit = 10,
-  role_id = ""
+  role_id = "",
+  search = ""
 ) => {
-
-  const response =
-    await api.get(
-      `/getAllStaffData?page=${page}&limit=${limit}&role_id=${role_id}`
-    );
+  const response = await api.get(
+    `/getAllStaffData?page=${page}&limit=${limit}&role_id=${role_id}&search=${encodeURIComponent(
+      search
+    )}`
+  );
 
   return response.data;
 };

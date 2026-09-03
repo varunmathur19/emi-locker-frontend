@@ -386,7 +386,20 @@ export default function Dashboard() {
     },
   ];
 
+  // ======================================================
+  // VISIBLE CARDS
+  // ======================================================
+
   const visibleCards = cards.filter((card) => {
+    // Admin ke liye Staff hamesha visible rahega
+    // chahe Staff module active ho ya na ho.
+    if (
+      Number(roleId) === 1 &&
+      Number(card.roleId) === 9
+    ) {
+      return true;
+    }
+
     if (!isRoleActive(card.roleId)) {
       return false;
     }
