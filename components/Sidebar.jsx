@@ -782,25 +782,12 @@ export default function Sidebar({
           </>
         )}
 
-        {Number(roleId) >= 1 &&
-          Number(roleId) <= 8 && (
-            <>
-              {renderModuleLinks()}
-
-              {Number(roleId) === 1 && (
-                <RoleLink
-                  role={9}
-                  label="Staff"
-                  icon={
-                    <RiShieldUserLine
-                      size={18}
-                      className="text-[1.4rem]"
-                    />
-                  }
-                />
-              )}
-            </>
-          )}
+      {Number(roleId) >= 1 &&
+  Number(roleId) <= 8 && (
+    <>
+      {renderModuleLinks()}
+    </>
+  )}
 
         {Number(roleId) === 9 && (
           <>

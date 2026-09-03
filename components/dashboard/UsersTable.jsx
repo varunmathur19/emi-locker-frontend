@@ -1,21 +1,29 @@
-
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
   RiFilterLine,
   RiEditLine,
   RiLoginBoxLine,
+  RiArrowDownSLine,
+  RiSearchLine,
 } from "react-icons/ri";
 
 import { toast } from "react-toastify";
 
 import {
+  Country,
+  State,
+  City,
+} from "country-state-city";
+
+import {
   loginAsUser,
   updateUserStatus,
+  getAllStaffData,
 } from "@/services/api";
 
 import {
@@ -31,24 +39,45 @@ export default function UsersTable({
   getRoleName,
   selectedRole,
   handleRoleList,
+  onSearch,
 }) {
+  const router = useRouter();
+
   const [search, setSearch] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+
+  const [filterSearchResults, setFilterSearchResults] =
+    useState([]);
+
+  const [filterSearchApplied, setFilterSearchApplied] =
+    useState(false);
+
   const [loginLoading, setLoginLoading] = useState(null);
   const [statusLoading, setStatusLoading] = useState(null);
 
-  const router = useRouter();
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  // =====================================================
-  // ROLE MAP
-  // =====================================================
-  //
-  // IMPORTANT:
-  // User ka actual role hamesha user.role_id se niklega.
-  //
-  // parent_id / parent_name / parent_chain ko kabhi
-  // user ka role determine karne ke liye use nahi karna.
-  //
-  // =====================================================
+  const [searchSuggestions, setSearchSuggestions] =
+    useState([]);
+
+  const [showSuggestions, setShowSuggestions] =
+    useState(false);
+
+  const [searchLoading, setSearchLoading] =
+    useState(false);
+
+  const [searchResults, setSearchResults] =
+    useState([]);
+
+  const [searchApplied, setSearchApplied] =
+    useState(false);
+
+  const [filters, setFilters] = useState({
+    country: "",
+    state: "",
+    city: "",
+    status: "",
+  });
 
   const roleMap = {
     0: "Master Admin",
@@ -63,42 +92,6 @@ export default function UsersTable({
     9: "Staff",
   };
 
-  // =====================================================
-  // SAFE ROLE NAME
-  // =====================================================
-
-  const getUserRoleName = (roleId) => {
-    const numericRoleId = Number(roleId);
-
-    return (
-      roleMap[numericRoleId] ||
-      getRoleName?.(numericRoleId) ||
-      "Unknown"
-    );
-  };
-
-  // =====================================================
-  // SEARCH
-  // =====================================================
-
-  const normalizedSearch = search
-    .trim()
-    .toLowerCase();
-
-  const filteredUsers = users.filter((user) => {
-    const userName = String(
-      user?.name || ""
-    ).toLowerCase();
-
-    return userName.includes(
-      normalizedSearch
-    );
-  });
-
-  // =====================================================
-  // ROLE BUTTONS
-  // =====================================================
-
   const roleButtons = {
     1: "Add Admin",
     2: "Add CNF",
@@ -111,56 +104,407 @@ export default function UsersTable({
     9: "Add Staff",
   };
 
-  // =====================================================
+  const getUserRoleName = (roleId) => {
+    const numericRoleId = Number(roleId);
+
+    return (
+      roleMap[numericRoleId] ||
+      getRoleName?.(numericRoleId) ||
+      "Unknown"
+    );
+  };
+
+  const selectedRoleName = getUserRoleName(selectedRole);
+
+  // --------------------------------------------------
+  // FILTER CHANGE
+  // --------------------------------------------------
+
+  const handleFilterChange = (field, value) => {
+    setFilters((previous) => {
+      const updatedFilters = {
+        ...previous,
+        [field]: value,
+      };
+
+      // Country change => reset state and city
+      if (field === "country") {
+        updatedFilters.state = "";
+        updatedFilters.city = "";
+      }
+
+      // State change => reset city
+      if (field === "state") {
+        updatedFilters.city = "";
+      }
+
+      return updatedFilters;
+    });
+
+    setFilterSearchResults([]);
+    setFilterSearchApplied(false);
+
+    setPage?.(1);
+  };
+
+  // --------------------------------------------------
+  // COUNTRY OPTIONS
+  // --------------------------------------------------
+
+  const countryOptions = Country.getAllCountries();
+
+  // --------------------------------------------------
+  // STATE OPTIONS
+  // --------------------------------------------------
+
+  const stateOptions = filters.country
+    ? State.getStatesOfCountry(filters.country).map(
+        (state) => ({
+          ...state,
+          countryCode: filters.country,
+        })
+      )
+    : [];
+
+  // --------------------------------------------------
+  // CITY OPTIONS
+  // --------------------------------------------------
+
+  const cityOptions = (() => {
+    if (!filters.state) {
+      return [];
+    }
+
+    const stateParts = filters.state.split("-");
+
+    const countryCode = stateParts[0];
+    const stateCode = stateParts[1];
+
+    if (!countryCode || !stateCode) {
+      return [];
+    }
+
+    try {
+      const cities = City.getCitiesOfState(
+        countryCode.toUpperCase(),
+        stateCode.toUpperCase()
+      );
+
+      return Array.isArray(cities) ? cities : [];
+    } catch (error) {
+      console.error("City Load Error:", error);
+      return [];
+    }
+  })();
+
+  // --------------------------------------------------
+  // SELECTED STATE
+  // --------------------------------------------------
+
+  const selectedStateParts = filters.state
+    ? filters.state.split("-")
+    : [];
+
+  const selectedCountryCode =
+    selectedStateParts[0] || "";
+
+  const selectedStateCode =
+    selectedStateParts[1] || "";
+
+  const selectedState =
+    selectedCountryCode && selectedStateCode
+      ? State.getStateByCodeAndCountry(
+          selectedStateCode.toUpperCase(),
+          selectedCountryCode.toUpperCase()
+        )
+      : null;
+
+  const selectedStateName =
+    selectedState?.name
+      ?.trim()
+      .toLowerCase() || "";
+
+  // --------------------------------------------------
+  // FILTER SEARCH
+  // --------------------------------------------------
+
+  useEffect(() => {
+    const searchValue = filterSearch.trim();
+
+    if (!searchValue) {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+      setSearchLoading(false);
+      setFilterSearchResults([]);
+      setFilterSearchApplied(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      try {
+        setSearchLoading(true);
+
+        const response = await getAllStaffData(
+          1,
+          10,
+          selectedRole || "",
+          searchValue
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        const data = Array.isArray(response?.data)
+          ? response.data
+          : [];
+
+        setSearchSuggestions(data);
+        setShowSuggestions(true);
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            "Filter Search Error:",
+            error
+          );
+
+          setSearchSuggestions([]);
+          setShowSuggestions(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setSearchLoading(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [filterSearch, selectedRole]);
+
+  // --------------------------------------------------
+  // SUGGESTION VALUE
+  // --------------------------------------------------
+
+  const getSuggestionValue = (user) => {
+    const query = filterSearch
+      .trim()
+      .toLowerCase();
+
+    const fields = [
+      {
+        value: user?.name,
+        label: "Name",
+      },
+      {
+        value: user?.organization_name,
+        label: "Organization",
+      },
+      {
+        value: user?.city,
+        label: "City",
+      },
+      {
+        value: user?.state,
+        label: "State",
+      },
+      {
+        value: user?.country,
+        label: "Country",
+      },
+      {
+        value: user?.phone,
+        label: "Phone",
+      },
+    ];
+
+    const matchedField = fields.find(
+      (field) =>
+        field.value &&
+        String(field.value)
+          .toLowerCase()
+          .includes(query)
+    );
+
+    if (matchedField) {
+      return matchedField;
+    }
+
+    return {
+      value:
+        user?.name ||
+        user?.organization_name ||
+        user?.city ||
+        user?.state ||
+        user?.phone ||
+        "",
+      label: "User",
+    };
+  };
+
+  // --------------------------------------------------
+  // SUGGESTION CLICK
+  // --------------------------------------------------
+
+  const handleSuggestionClick = (user) => {
+    const suggestion =
+      getSuggestionValue(user);
+
+    const selectedValue = String(
+      suggestion?.value || ""
+    ).trim();
+
+    if (!selectedValue) {
+      return;
+    }
+
+    setFilterSearch(selectedValue);
+    setShowSuggestions(false);
+    setSearchSuggestions([]);
+
+    setFilterSearchResults([user]);
+    setFilterSearchApplied(true);
+
+    setPage?.(1);
+  };
+
+  // --------------------------------------------------
+  // CLEAR FILTERS
+  // --------------------------------------------------
+
+  const clearFilters = () => {
+    setFilters({
+      country: "",
+      state: "",
+      city: "",
+      status: "",
+    });
+
+    setFilterSearch("");
+
+    setFilterSearchResults([]);
+    setFilterSearchApplied(false);
+
+    setSearchSuggestions([]);
+    setShowSuggestions(false);
+
+    setPage?.(1);
+  };
+
+  // --------------------------------------------------
+  // MAIN SEARCH
+  // --------------------------------------------------
+
+  const handleSearch = async () => {
+    const trimmedSearch = search.trim();
+
+    setShowSuggestions(false);
+    setSearchSuggestions([]);
+
+    if (!trimmedSearch) {
+      setSearchResults([]);
+      setSearchApplied(false);
+
+      setPage?.(1);
+
+      if (typeof onSearch === "function") {
+        onSearch("");
+      }
+
+      return;
+    }
+
+    try {
+      setSearchLoading(true);
+
+      setPage?.(1);
+
+      const response = await getAllStaffData(
+        1,
+        10,
+        selectedRole || "",
+        trimmedSearch
+      );
+
+      const data = Array.isArray(response?.data)
+        ? response.data
+        : [];
+
+      setSearchResults(data);
+      setSearchApplied(true);
+
+      if (typeof onSearch === "function") {
+        onSearch(trimmedSearch);
+      }
+    } catch (error) {
+      console.error(
+        "Backend Search Error:",
+        error
+      );
+
+      setSearchResults([]);
+      setSearchApplied(true);
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Search failed"
+      );
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // --------------------------------------------------
+  // SEARCH ENTER
+  // --------------------------------------------------
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleSearch();
+    }
+  };
+
+  // --------------------------------------------------
+  // CLEAR SEARCH
+  // --------------------------------------------------
+
+  const handleClearSearch = () => {
+    setSearch("");
+
+    setSearchSuggestions([]);
+    setShowSuggestions(false);
+
+    setSearchResults([]);
+    setSearchApplied(false);
+
+    setPage?.(1);
+
+    if (typeof onSearch === "function") {
+      onSearch("");
+    }
+  };
+
+  // --------------------------------------------------
   // LOGIN AS USER
-  // =====================================================
+  // --------------------------------------------------
 
   const handleLoginAsUser = async (user) => {
     try {
       setLoginLoading(user.id);
 
-      console.log(
-        "================================="
-      );
-
-      console.log("LOGIN AS USER");
-      console.log("User ID:", user.id);
-      console.log("User Name:", user.name);
-
-      // IMPORTANT:
-      // Actual role always comes from user.role_id
-      console.log(
-        "User Role ID:",
-        user.role_id
-      );
-
-      console.log(
-        "User Role Name:",
-        getUserRoleName(user.role_id)
-      );
-
-      console.log(
-        "================================="
-      );
-
-      const response =
-        await loginAsUser(user.id);
-
-      console.log(
-        "Login As User Response:",
-        response
-      );
-
-      // =================================================
-      // RESPONSE VALIDATION
-      // =================================================
+      const response = await loginAsUser(user.id);
 
       if (!response?.success) {
         toast.error(
           response?.message ||
             "Login failed"
         );
-
         return;
       }
 
@@ -168,12 +512,6 @@ export default function UsersTable({
         toast.error(
           "Login token not received"
         );
-
-        console.error(
-          "Login As User response has no token:",
-          response
-        );
-
         return;
       }
 
@@ -181,75 +519,17 @@ export default function UsersTable({
         toast.error(
           "User data not received"
         );
-
-        console.error(
-          "Login As User response has no user:",
-          response
-        );
-
         return;
       }
 
-      // =================================================
-      // DEBUG NEW LOGIN
-      // =================================================
-
-      console.log(
-        "================================="
-      );
-
-      console.log(
-        "NEW USER:",
-        response.user
-      );
-
-      console.log(
-        "NEW USER ID:",
-        response.user.id
-      );
-
-      console.log(
-        "NEW USER ROLE ID:",
-        response.user.role_id
-      );
-
-      console.log(
-        "NEW USER ROLE:",
-        getUserRoleName(
-          response.user.role_id
-        )
-      );
-
-      console.log(
-        "================================="
-      );
-
-      // =================================================
-      // SAVE NEW TOKEN
-      // =================================================
-
       saveToken(response.token);
-
-      // =================================================
-      // SAVE NEW USER
-      // =================================================
-
       saveUser(response.user);
-
-      // =================================================
-      // SUCCESS MESSAGE
-      // =================================================
 
       toast.success(
         `Logged in as ${response.user.name}`
       );
 
-      // =================================================
-      // GO TO DASHBOARD
-      // =================================================
-
-      window.location.href =
-        "/dashboard";
+      window.location.href = "/dashboard";
     } catch (error) {
       console.error(
         "Login As User Error:",
@@ -266,77 +546,57 @@ export default function UsersTable({
     }
   };
 
-  // =====================================================
-  // UPDATE USER STATUS
-  // =====================================================
+  // --------------------------------------------------
+  // STATUS TOGGLE
+  // --------------------------------------------------
 
   const handleStatusToggle = async (user) => {
     try {
       setStatusLoading(user.id);
 
-      // =================================================
-      // CURRENT STATUS
-      // =================================================
-
-      const currentStatus =
-        Number(
-          user?.userStatus ?? 1
-        );
-
-      // =================================================
-      // NEW STATUS
-      // =================================================
-
-      const newStatus =
-        currentStatus === 1
-          ? 0
-          : 1;
-
-      // =================================================
-      // API CALL
-      // =================================================
-
-      const response =
-        await updateUserStatus(
-          user.id,
-          newStatus
-        );
-
-      console.log(
-        "STATUS RESPONSE:",
-        response
+      const currentStatus = Number(
+        user?.userStatus ?? 1
       );
 
-      // =================================================
-      // API ERROR
-      // =================================================
+      const newStatus =
+        currentStatus === 1 ? 0 : 1;
+
+      const response = await updateUserStatus(
+        user.id,
+        newStatus
+      );
 
       if (!response?.success) {
         toast.error(
           response?.message ||
             "Failed to update user status"
         );
-
         return;
       }
 
-      // =================================================
-      // UPDATE LOCAL DATA
-      // =================================================
-      //
-      // Parent component generally owns users state.
-      // Existing object ko directly mutate nahi karenge.
-      //
-      // Agar parent refresh/re-fetch karta hai to latest
-      // status automatically aa jayega.
-      //
-      // =================================================
-
       user.userStatus = newStatus;
 
-      // =================================================
-      // TOAST
-      // =================================================
+      setSearchResults((previous) =>
+        previous.map((item) =>
+          item.id === user.id
+            ? {
+                ...item,
+                userStatus: newStatus,
+              }
+            : item
+        )
+      );
+
+      setFilterSearchResults((previous) =>
+        previous.map((item) =>
+          item.id === user.id
+            ? {
+                ...item,
+                userStatus: newStatus,
+              }
+            : item
+        )
+      );
 
       if (newStatus === 1) {
         toast.success(
@@ -363,9 +623,9 @@ export default function UsersTable({
     }
   };
 
-  // =====================================================
-  // PAGE CHANGE
-  // =====================================================
+  // --------------------------------------------------
+  // PAGINATION
+  // --------------------------------------------------
 
   const handlePreviousPage = () => {
     if (page > 1) {
@@ -382,16 +642,158 @@ export default function UsersTable({
     }
   };
 
-  // =====================================================
-  // ROLE LIST NAME
-  // =====================================================
+  // --------------------------------------------------
+  // TABLE USERS
+  // --------------------------------------------------
 
-  const selectedRoleName =
-    getUserRoleName(selectedRole);
+  let tableUsers = users;
 
-  // =====================================================
-  // RETURN
-  // =====================================================
+  if (filterSearchApplied) {
+    tableUsers = filterSearchResults;
+  } else if (searchApplied) {
+    tableUsers = searchResults;
+  }
+
+  // --------------------------------------------------
+  // FILTER USERS
+  // --------------------------------------------------
+
+  const filteredUsers = tableUsers.filter(
+    (user) => {
+      const searchValue = search
+        .trim()
+        .toLowerCase();
+
+      const userName = String(
+        user?.name || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const organizationName = String(
+        user?.organization_name || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const userPhone = String(
+        user?.phone || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const userCity = String(
+        user?.city || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const userState = String(
+        user?.state || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const userCountry = String(
+        user?.country || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      // --------------------------------------------------
+      // MAIN SEARCH
+      // --------------------------------------------------
+
+      const matchesSearch =
+        !searchValue ||
+        userName.includes(searchValue) ||
+        organizationName.includes(searchValue) ||
+        userPhone.includes(searchValue) ||
+        userCity.includes(searchValue) ||
+        userState.includes(searchValue) ||
+        userCountry.includes(searchValue);
+
+      // --------------------------------------------------
+      // COUNTRY FILTER
+      // --------------------------------------------------
+
+      const selectedCountry =
+        filters.country
+          .trim()
+          .toLowerCase();
+
+      const selectedCountryName =
+        countryOptions
+          .find(
+            (country) =>
+              country.isoCode
+                .toLowerCase() ===
+              selectedCountry
+          )
+          ?.name
+          ?.trim()
+          .toLowerCase() || "";
+
+      const matchesCountry =
+        !selectedCountry ||
+        userCountry === selectedCountry ||
+        userCountry ===
+          selectedCountryName;
+
+      // --------------------------------------------------
+      // STATE FILTER
+      // --------------------------------------------------
+
+      const matchesState =
+        !selectedStateCode ||
+        userState ===
+          selectedStateCode
+            .trim()
+            .toLowerCase() ||
+        userState === selectedStateName;
+
+      // --------------------------------------------------
+      // CITY FILTER
+      // --------------------------------------------------
+
+      const selectedCity = String(
+        filters.city || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const matchesCity =
+        !selectedCity ||
+        userCity === selectedCity;
+
+      // --------------------------------------------------
+      // STATUS FILTER
+      // --------------------------------------------------
+
+      const userStatus = Number(
+        user?.userStatus ?? 1
+      );
+
+      const matchesStatus =
+        !filters.status ||
+        (filters.status === "active" &&
+          userStatus === 1) ||
+        (filters.status === "inactive" &&
+          userStatus === 0);
+
+      return (
+        matchesSearch &&
+        matchesCountry &&
+        matchesState &&
+        matchesCity &&
+        matchesStatus
+      );
+    }
+  );
+
+  // --------------------------------------------------
+  // JSX
+  // --------------------------------------------------
 
   return (
     <div
@@ -406,9 +808,7 @@ export default function UsersTable({
         overflow-hidden
       "
     >
-      {/* =================================================
-          TOP BUTTONS
-      ================================================= */}
+      {/* ROLE HEADER */}
 
       <div
         className="
@@ -429,16 +829,10 @@ export default function UsersTable({
             [&::-webkit-scrollbar]:hidden
           "
         >
-          {/* ============================================
-              ROLE LIST
-          ============================================ */}
-
           <button
             type="button"
             onClick={() =>
-              handleRoleList(
-                selectedRole
-              )
+              handleRoleList(selectedRole)
             }
             className="
               bg-gray-700
@@ -453,10 +847,6 @@ export default function UsersTable({
           >
             {selectedRoleName} List
           </button>
-
-          {/* ============================================
-              ADD USER
-          ============================================ */}
 
           <Link
             href={`/dashboard/form?role=${Number(
@@ -484,9 +874,7 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* =================================================
-          SEARCH HEADER
-      ================================================= */}
+      {/* SEARCH HEADER */}
 
       <div
         className="
@@ -499,10 +887,6 @@ export default function UsersTable({
           max-lg:gap-3
         "
       >
-        {/* ==============================================
-            TITLE
-        ============================================== */}
-
         <h2
           className="
             lg:text-xl
@@ -513,85 +897,658 @@ export default function UsersTable({
           Recent Users
         </h2>
 
-        {/* ==============================================
-            FILTER + SEARCH
-        ============================================== */}
-
         <div
           className="
             flex
             items-center
             gap-2
             max-lg:w-full
+            max-sm:flex-col
+            max-sm:items-stretch
           "
         >
-          {/* ============================================
-              FILTER
-          ============================================ */}
-
           <button
             type="button"
-            className="
+            onClick={() =>
+              setFilterOpen(
+                (previous) => !previous
+              )
+            }
+            className={`
               flex
               items-center
+              justify-center
               text-white
               cursor-pointer
               gap-2
               border
-              bg-blue-400
-              border-white
               px-4
               py-2
               rounded-md
-              hover:bg-white
-              hover:text-blue-400
-              hover:border-blue-500
               transition-all
               duration-200
               ease-in-out
-            "
+              ${
+                filterOpen
+                  ? "bg-gray-700 border-gray-700"
+                  : "bg-blue-400 border-white hover:bg-white hover:text-blue-400 hover:border-blue-500"
+              }
+            `}
           >
-            <RiFilterLine
-              size={18}
-            />
-
+            <RiFilterLine size={18} />
             Filter
           </button>
 
-          {/* ============================================
-              SEARCH
-          ============================================ */}
-
-          <input
-            type="text"
-            placeholder="Search by name..."
-            value={search}
-            onChange={(e) =>
-              setSearch(
-                e.target.value
-              )
-            }
+          <div
             className="
-              border
-              border-gray-300
-              rounded-md
-              px-4
-              py-2
-              w-64
-              max-lg:flex-1
-              max-lg:w-auto
-              max-lg:px-2
-              focus:outline-none
-              focus:ring-2
-              focus:ring-blue-400
+              flex
+              items-center
+              gap-2
+              max-sm:w-full
             "
-          />
+          >
+            <input
+              type="text"
+              placeholder="Search by name, city, state, phone..."
+              value={search}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
+              onKeyDown={
+                handleSearchKeyDown
+              }
+              className="
+                border
+                border-gray-300
+                rounded-md
+                px-4
+                py-2
+                w-72
+                max-lg:w-64
+                max-sm:w-full
+                focus:outline-none
+                focus:ring-2
+                focus:ring-blue-400
+              "
+            />
+
+            {search.trim() && (
+              <button
+                type="button"
+                onClick={
+                  handleClearSearch
+                }
+                className="
+                  px-3
+                  py-2
+                  rounded-md
+                  bg-gray-200
+                  text-gray-700
+                  hover:bg-gray-300
+                  cursor-pointer
+                "
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* =================================================
-          TABLE WRAPPER
-      ================================================= */}
+      {/* FILTER PANEL */}
+
+      {filterOpen && (
+        <div
+          className="
+            mb-5
+            border
+            border-gray-200
+            rounded-xl
+            bg-gray-50
+            p-5
+          "
+        >
+          {/* FILTER SEARCH */}
+
+          <div className="mb-5 relative">
+            <label
+              className="
+                block
+                text-sm
+                font-semibold
+                text-gray-700
+                mb-2
+              "
+            >
+              Search
+            </label>
+
+            <div className="relative">
+              <input
+                type="text"
+                value={filterSearch}
+                onChange={(e) => {
+                  setFilterSearch(
+                    e.target.value
+                  );
+                  setFilterSearchApplied(
+                    false
+                  );
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => {
+                  if (
+                    filterSearch.trim()
+                  ) {
+                    setShowSuggestions(
+                      true
+                    );
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter"
+                  ) {
+                    event.preventDefault();
+                  }
+                }}
+                placeholder="Search"
+                className="
+                  w-full
+                  border
+                  border-gray-300
+                  rounded-md
+                  px-3
+                  py-2
+                  pr-10
+                  bg-white
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-blue-400
+                "
+              />
+
+              <RiSearchLine
+                size={20}
+                className="
+                  pointer-events-none
+                  absolute
+                  right-3
+                  top-1/2
+                  -translate-y-1/2
+                  text-gray-500
+                "
+              />
+            </div>
+
+            {showSuggestions &&
+              filterSearch.trim() && (
+                <div
+                  className="
+                    absolute
+                    z-50
+                    left-0
+                    right-0
+                    mt-1
+                    bg-white
+                    border
+                    border-gray-200
+                    rounded-md
+                    shadow-lg
+                    max-h-64
+                    overflow-y-auto
+                  "
+                >
+                  {searchLoading ? (
+                    <div
+                      className="
+                        px-4
+                        py-3
+                        text-sm
+                        text-gray-500
+                      "
+                    >
+                      Searching...
+                    </div>
+                  ) : searchSuggestions.length >
+                    0 ? (
+                    searchSuggestions.map(
+                      (
+                        user,
+                        index
+                      ) => {
+                        const suggestion =
+                          getSuggestionValue(
+                            user
+                          );
+
+                        return (
+                          <button
+                            type="button"
+                            key={
+                              user?.id ||
+                              `${suggestion?.value}-${index}`
+                            }
+                            onClick={() =>
+                              handleSuggestionClick(
+                                user
+                              )
+                            }
+                            className="
+                              w-full
+                              text-left
+                              px-4
+                              py-3
+                              border-b
+                              border-gray-100
+                              last:border-b-0
+                              hover:bg-gray-50
+                              cursor-pointer
+                            "
+                          >
+                            <div
+                              className="
+                                font-semibold
+                                text-gray-800
+                              "
+                            >
+                              {user?.name ||
+                                "-"}
+                            </div>
+
+                            <div
+                              className="
+                                text-sm
+                                text-gray-500
+                                mt-1
+                              "
+                            >
+                              {user?.organization_name ||
+                                "-"}
+                            </div>
+
+                            <div
+                              className="
+                                flex
+                                gap-3
+                                text-xs
+                                text-gray-400
+                                mt-1
+                              "
+                            >
+                              <span>
+                                {user?.city ||
+                                  "-"}
+                              </span>
+
+                              <span>
+                                {user?.state ||
+                                  "-"}
+                              </span>
+
+                              <span>
+                                {user?.phone ||
+                                  "-"}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      }
+                    )
+                  ) : (
+                    <div
+                      className="
+                        px-4
+                        py-3
+                        text-sm
+                        text-gray-500
+                      "
+                    >
+                      No matching users found
+                    </div>
+                  )}
+                </div>
+              )}
+          </div>
+
+          {/* FILTER DROPDOWNS */}
+
+          <div
+            className="
+              grid
+              grid-cols-1
+              md:grid-cols-2
+              lg:grid-cols-4
+              gap-4
+            "
+          >
+            {/* COUNTRY */}
+
+            <div>
+              <label
+                className="
+                  block
+                  text-sm
+                  font-semibold
+                  text-gray-700
+                  mb-2
+                "
+              >
+                Country
+              </label>
+
+              <div className="relative">
+                <select
+                  value={filters.country}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "country",
+                      e.target.value
+                    )
+                  }
+                  className="
+                    w-full
+                    appearance-none
+                    border
+                    border-gray-300
+                    rounded-md
+                    px-3
+                    py-2
+                    pr-10
+                    bg-white
+                    cursor-pointer
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-400
+                  "
+                >
+                  <option value="">
+                    Countries
+                  </option>
+
+                  {countryOptions.map(
+                    (country) => (
+                      <option
+                        key={
+                          country.isoCode
+                        }
+                        value={
+                          country.isoCode
+                        }
+                      >
+                        {country.name}
+                      </option>
+                    )
+                  )}
+                </select>
+
+                <RiArrowDownSLine
+                  size={20}
+                  className="
+                    pointer-events-none
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-gray-500
+                  "
+                />
+              </div>
+            </div>
+
+            {/* STATE */}
+
+            <div>
+              <label
+                className="
+                  block
+                  text-sm
+                  font-semibold
+                  text-gray-700
+                  mb-2
+                "
+              >
+                State
+              </label>
+
+              <div className="relative">
+                <select
+                  value={filters.state}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "state",
+                      e.target.value
+                    )
+                  }
+                  disabled={
+                    !filters.country
+                  }
+                  className="
+                    w-full
+                    appearance-none
+                    border
+                    border-gray-300
+                    rounded-md
+                    px-3
+                    py-2
+                    pr-10
+                    bg-white
+                    cursor-pointer
+                    disabled:bg-gray-100
+                    disabled:cursor-not-allowed
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-400
+                  "
+                >
+                  <option value="">
+                    {!filters.country
+                      ? "Select States "
+                      : "All States"}
+                  </option>
+
+                  {stateOptions.map(
+                    (state, index) => (
+                      <option
+                        key={`${state.countryCode}-${state.isoCode}-${index}`}
+                        value={`${state.countryCode}-${state.isoCode}`}
+                      >
+                        {state.name}
+                      </option>
+                    )
+                  )}
+                </select>
+
+                <RiArrowDownSLine
+                  size={20}
+                  className="
+                    pointer-events-none
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-gray-500
+                  "
+                />
+              </div>
+            </div>
+
+            {/* CITY */}
+
+            <div>
+              <label
+                className="
+                  block
+                  text-sm
+                  font-semibold
+                  text-gray-700
+                  mb-2
+                "
+              >
+                City
+              </label>
+
+              <div className="relative">
+                <select
+                  value={filters.city}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "city",
+                      e.target.value
+                    )
+                  }
+                  disabled={
+                    !filters.state
+                  }
+                  className="
+                    w-full
+                    appearance-none
+                    border
+                    border-gray-300
+                    rounded-md
+                    px-3
+                    py-2
+                    pr-10
+                    bg-white
+                    cursor-pointer
+                    disabled:bg-gray-100
+                    disabled:cursor-not-allowed
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-400
+                  "
+                >
+                  <option value="">
+                    {!filters.state
+                      ? "Select city"
+                      : cityOptions.length === 0
+                      ? "No Cities Found"
+                      : "All Cities"}
+                  </option>
+
+                  {cityOptions.map(
+                    (city, index) => (
+                      <option
+                        key={`${city.countryCode || selectedCountryCode}-${city.stateCode || selectedStateCode}-${city.name}-${index}`}
+                        value={city.name}
+                      >
+                        {city.name}
+                      </option>
+                    )
+                  )}
+                </select>
+
+                <RiArrowDownSLine
+                  size={20}
+                  className="
+                    pointer-events-none
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-gray-500
+                  "
+                />
+              </div>
+            </div>
+
+            {/* STATUS */}
+
+            <div>
+              <label
+                className="
+                  block
+                  text-sm
+                  font-semibold
+                  text-gray-700
+                  mb-2
+                "
+              >
+                Status
+              </label>
+
+              <div className="relative">
+                <select
+                  value={filters.status}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "status",
+                      e.target.value
+                    )
+                  }
+                  className="
+                    w-full
+                    appearance-none
+                    border
+                    border-gray-300
+                    rounded-md
+                    px-3
+                    py-2
+                    pr-10
+                    bg-white
+                    cursor-pointer
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-400
+                  "
+                >
+                  <option value="">
+                    All Status
+                  </option>
+
+                  <option value="active">
+                    Active
+                  </option>
+
+                  <option value="inactive">
+                    Inactive
+                  </option>
+                </select>
+
+                <RiArrowDownSLine
+                  size={20}
+                  className="
+                    pointer-events-none
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-gray-500
+                  "
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* CLEAR FILTER */}
+
+          <div
+            className="
+              flex
+              justify-end
+              mt-4
+            "
+          >
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="
+                bg-gray-700
+                text-white
+                px-5
+                py-2
+                rounded-md
+                hover:bg-gray-800
+                cursor-pointer
+              "
+            >
+              Clear Filter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TABLE */}
 
       <div
         className="
@@ -609,10 +1566,6 @@ export default function UsersTable({
           "
         >
           <table className="w-full">
-            {/* ==========================================
-                TABLE HEAD
-            ========================================== */}
-
             <thead>
               <tr className="border-b">
                 <th className="text-left p-3">
@@ -622,13 +1575,7 @@ export default function UsersTable({
                 <th className="text-left p-3">
                   Parent Name
                   <br />
-
-                  <span
-                    className="
-                      text-sm
-                      text-gray-500
-                    "
-                  >
+                  <span className="text-sm text-gray-500">
                     Parent Organization
                   </span>
                 </th>
@@ -636,13 +1583,7 @@ export default function UsersTable({
                 <th className="text-left p-3">
                   Name
                   <br />
-
-                  <span
-                    className="
-                      text-sm
-                      text-gray-500
-                    "
-                  >
+                  <span className="text-sm text-gray-500">
                     Organization Name
                   </span>
                 </th>
@@ -669,30 +1610,10 @@ export default function UsersTable({
               </tr>
             </thead>
 
-            {/* ==========================================
-                TABLE BODY
-            ========================================== */}
-
             <tbody>
               {filteredUsers.length > 0 ? (
                 filteredUsers.map(
                   (user, index) => {
-                    // =================================================
-                    // IMPORTANT ROLE LOGIC
-                    // =================================================
-                    //
-                    // YAHAN ROLE SIRF user.role_id SE AAYEGA.
-                    //
-                    // parent_id
-                    // parent_name
-                    // parent_chain
-                    // parent_hierarchy
-                    //
-                    // inme se kisi ko role display ke liye use
-                    // nahi karna hai.
-                    //
-                    // =================================================
-
                     const actualRoleId =
                       Number(
                         user?.role_id
@@ -713,167 +1634,80 @@ export default function UsersTable({
                         key={user.id}
                         className="border-b"
                       >
-                        {/* ==================================
-                            S.NO
-                        ================================== */}
-
                         <td className="p-3">
-                          {(
-                            (page - 1) *
-                            (
-                              pagination?.limit ||
-                              10
-                            )
-                          ) +
+                          {(page - 1) *
+                            (pagination?.limit ||
+                              10) +
                             index +
                             1}
                         </td>
 
-                        {/* ==================================
-                            PARENT
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
-                          <div
-                            className="
-                              font-semibold
-                            "
-                          >
+                        <td className="p-3 py-1">
+                          <div className="font-semibold">
                             {user.parent_name ||
                               "-"}
                           </div>
 
-                          <div
-                            className="
-                              text-sm
-                              text-gray-500
-                            "
-                          >
+                          <div className="text-sm text-gray-500">
                             {user.parent_organization_name ||
                               "-"}
                           </div>
                         </td>
 
-                        {/* ==================================
-                            USER
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
-                          <div
-                            className="
-                              font-semibold
-                            "
-                          >
+                        <td className="p-3 py-1">
+                          <div className="font-semibold">
                             {user.name ||
                               "-"}
                           </div>
 
-                          <div
-                            className="
-                              text-sm
-                              text-gray-500
-                            "
-                          >
+                          <div className="text-sm text-gray-500">
                             {user.organization_name ||
                               "-"}
                           </div>
                         </td>
 
-                        {/* ==================================
-                            PHONE
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
-                          {user.phone ||
-                            "-"}
+                        <td className="p-3 py-1">
+                          {user.phone || "-"}
                         </td>
 
-                        {/* ==================================
-                            ROLE
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
+                        <td className="p-3 py-1">
                           {actualRoleName}
                         </td>
 
-                        {/* ==================================
-                            CREATED AT
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
+                        <td className="p-3 py-1">
                           {user.created_at ? (
-                            <div
-                              className="
-                                text-sm
-                                leading-5
-                              "
-                            >
-                              {/* DATE */}
-
+                            <div className="text-sm leading-5">
                               <div>
-                                <span
-                                  className="
-                                    font-bold
-                                  "
-                                >
+                                <span className="font-bold">
                                   Date:
                                 </span>{" "}
-
                                 {new Date(
                                   user.created_at
                                 ).toLocaleDateString(
                                   "en-IN",
                                   {
                                     day: "2-digit",
-                                    month: "2-digit",
-                                    year: "numeric",
+                                    month:
+                                      "2-digit",
+                                    year:
+                                      "numeric",
                                   }
                                 )}
                               </div>
 
-                              {/* TIME */}
-
                               <div>
-                                <span
-                                  className="
-                                    font-bold
-                                  "
-                                >
+                                <span className="font-bold">
                                   Time:
                                 </span>{" "}
-
                                 {new Date(
                                   user.created_at
                                 ).toLocaleTimeString(
                                   "en-IN",
                                   {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
+                                    hour:
+                                      "2-digit",
+                                    minute:
+                                      "2-digit",
                                   }
                                 )}
                               </div>
@@ -883,39 +1717,15 @@ export default function UsersTable({
                           )}
                         </td>
 
-                        {/* ==================================
-                            ACTIONS
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                            text-center
-                          "
-                        >
-                          <div
-                            className="
-                              flex
-                              items-center
-                              justify-center
-                              gap-2
-                            "
-                          >
-                            {/* ==============================
-                                EDIT
-                            ============================== */}
-
+                        <td className="p-3 py-1 text-center">
+                          <div className="flex items-center justify-center gap-2">
                             <button
                               type="button"
-                              onClick={() => {
-                                // IMPORTANT:
-                                // Edit page ko bhi actual role_id
-                                // pass karenge.
+                              onClick={() =>
                                 router.push(
                                   `/dashboard/edit-staff/${user.id}?role=${actualRoleId}`
-                                );
-                              }}
+                                )
+                              }
                               className="
                                 inline-flex
                                 items-center
@@ -933,10 +1743,6 @@ export default function UsersTable({
                                 size={20}
                               />
                             </button>
-
-                            {/* ==============================
-                                LOGIN AS USER
-                            ============================== */}
 
                             <button
                               type="button"
@@ -986,27 +1792,8 @@ export default function UsersTable({
                           </div>
                         </td>
 
-                        {/* ==================================
-                            STATUS
-                        ================================== */}
-
-                        <td
-                          className="
-                            p-3
-                            py-1
-                          "
-                        >
-                          <div
-                            className="
-                              flex
-                              items-center
-                              gap-3
-                            "
-                          >
-                            {/* ==============================
-                                TOGGLE
-                            ============================== */}
-
+                        <td className="p-3 py-1">
+                          <div className="flex items-center gap-3">
                             <button
                               type="button"
                               disabled={
@@ -1030,7 +1817,6 @@ export default function UsersTable({
                                 cursor-pointer
                                 disabled:opacity-50
                                 disabled:cursor-not-allowed
-
                                 ${
                                   isActive
                                     ? "bg-green-500"
@@ -1054,7 +1840,6 @@ export default function UsersTable({
                                   shadow
                                   transition
                                   duration-200
-
                                   ${
                                     isActive
                                       ? "translate-x-5"
@@ -1070,10 +1855,6 @@ export default function UsersTable({
                   }
                 )
               ) : (
-                /* ========================================
-                   NO USERS
-                ======================================== */
-
                 <tr>
                   <td
                     colSpan="8"
@@ -1092,9 +1873,7 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* =================================================
-          PAGINATION
-      ================================================= */}
+      {/* PAGINATION */}
 
       <div
         className="
@@ -1105,10 +1884,6 @@ export default function UsersTable({
           mt-5
         "
       >
-        {/* ==============================================
-            PREVIOUS
-        ============================================== */}
-
         <button
           type="button"
           disabled={page <= 1}
@@ -1120,7 +1895,6 @@ export default function UsersTable({
             py-2
             rounded
             cursor-pointer
-
             ${
               page <= 1
                 ? "bg-gray-200 cursor-not-allowed"
@@ -1131,10 +1905,6 @@ export default function UsersTable({
           Previous
         </button>
 
-        {/* ==============================================
-            PAGE NUMBER
-        ============================================== */}
-
         <span
           className="
             px-4
@@ -1143,28 +1913,18 @@ export default function UsersTable({
           "
         >
           Page{" "}
-
           {pagination?.currentPage ||
-            page}
-
-          {" "}/{" "}
-
+            page}{" "}
+          /{" "}
           {pagination?.totalPages ||
             1}
         </span>
-
-        {/* ==============================================
-            NEXT
-        ============================================== */}
 
         <button
           type="button"
           disabled={
             page >=
-            (
-              pagination?.totalPages ||
-              1
-            )
+            (pagination?.totalPages || 1)
           }
           onClick={
             handleNextPage
@@ -1174,13 +1934,9 @@ export default function UsersTable({
             py-2
             rounded
             cursor-pointer
-
             ${
               page >=
-              (
-                pagination?.totalPages ||
-                1
-              )
+              (pagination?.totalPages || 1)
                 ? "bg-gray-200 cursor-not-allowed"
                 : "bg-blue-500 text-white hover:bg-blue-600"
             }
