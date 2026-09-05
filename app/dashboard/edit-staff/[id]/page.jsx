@@ -1672,7 +1672,7 @@ export default function EditStaffPage() {
               href={`/dashboard?role=${Number(
                 formData.role_id
               )}`}
-              className="bg-gray-700 text-white px-4 py-2.5 rounded-lg hover:bg-gray-800 transition"
+              className="bg-gray-700 text-white px-4 py-2.5 rounded-md hover:bg-gray-800 transition"
             >
               {getRoleName(
                 formData.role_id
@@ -2034,21 +2034,15 @@ export default function EditStaffPage() {
               </label>
 
               <div className="relative">
-                <input
-                  type={
-                    showPassword
-                      ? "text"
-                      : "password"
-                  }
-                  name="password"
-                  placeholder="Leave empty to keep old password"
-                  value={
-                    formData.password
-                  }
-                  onChange={handleChange}
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-
+              <input
+  type={showPassword ? "text" : "password"}
+  name="password"
+  placeholder="Leave empty to keep old password"
+  value={formData.password}
+  onChange={handleChange}
+  autoComplete="new-password"
+  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+/>
                 <button
                   type="button"
                   onClick={() =>
@@ -2079,19 +2073,14 @@ export default function EditStaffPage() {
 
               <div className="relative">
                 <input
-                  type={
-                    showConfirmPassword
-                      ? "text"
-                      : "password"
-                  }
-                  name="confirm_password"
-                  placeholder="Confirm password"
-                  value={
-                    formData.confirm_password
-                  }
-                  onChange={handleChange}
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+  type={showConfirmPassword ? "text" : "password"}
+  name="confirm_password"
+  placeholder="Confirm password"
+  value={formData.confirm_password}
+  onChange={handleChange}
+  autoComplete="new-password"
+  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+/>
 
                 <button
                   type="button"
