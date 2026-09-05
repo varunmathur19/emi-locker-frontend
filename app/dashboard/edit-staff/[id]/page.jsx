@@ -1665,6 +1665,23 @@ export default function EditStaffPage() {
     <div className="max-w-5xl mx-auto">
       <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden p-6">
 
+        {/* Top Right List Button */}
+        <div className="flex justify-start mb-6">
+          {formData.role_id && (
+            <Link
+              href={`/dashboard?role=${Number(
+                formData.role_id
+              )}`}
+              className="bg-gray-700 text-white px-4 py-2.5 rounded-lg hover:bg-gray-800 transition"
+            >
+              {getRoleName(
+                formData.role_id
+              )}{" "}
+              List
+            </Link>
+          )}
+        </div>
+
         {visibleParentRoles.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             {visibleParentRoles.map(
@@ -1882,22 +1899,6 @@ export default function EditStaffPage() {
                                         user.name
                                       }
                                     </div>
-
-                                    {/* {user.email && (
-                                      <div className="text-xs text-slate-400 mt-0.5">
-                                        {
-                                          user.email
-                                        }
-                                      </div>
-                                    )}
-
-                                    {user.phone && (
-                                      <div className="text-xs text-slate-400 mt-0.5">
-                                        {
-                                          user.phone
-                                        }
-                                      </div>
-                                    )} */}
                                   </button>
                                 )
                               )}
@@ -2316,20 +2317,6 @@ export default function EditStaffPage() {
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            {formData.role_id && (
-              <Link
-                href={`/dashboard?role=${Number(
-                  formData.role_id
-                )}`}
-                className="bg-gray-700 text-white px-4 py-2.5 rounded-lg hover:bg-gray-800 transition"
-              >
-                {getRoleName(
-                  formData.role_id
-                )}{" "}
-                List
-              </Link>
-            )}
-
             <button
               type="submit"
               className="bg-blue-500 text-white font-medium px-8 py-2.5 rounded-lg shadow-md hover:bg-blue-600 hover:shadow-lg transition cursor-pointer"

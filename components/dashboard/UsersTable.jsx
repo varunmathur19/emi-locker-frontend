@@ -135,30 +135,67 @@ export default function UsersTable({
   // FILTER CHANGE
   // --------------------------------------------------
 
-  const handleFilterChange = (field, value) => {
-    setFilters((previous) => {
-      const updatedFilters = {
-        ...previous,
-        [field]: value,
-      };
+const handleFilterChange = async (field, value) => {
+  setFilters((previous) => {
+    const updatedFilters = {
+      ...previous,
+      [field]: value,
+    };
 
-      if (field === "country") {
-        updatedFilters.state = "";
-        updatedFilters.city = "";
-      }
+    if (field === "country") {
+      updatedFilters.state = "";
+      updatedFilters.city = "";
+    }
 
-      if (field === "state") {
-        updatedFilters.city = "";
-      }
+    if (field === "state") {
+      updatedFilters.city = "";
+    }
 
-      return updatedFilters;
-    });
+    return updatedFilters;
+  });
 
-    setFilterSearchResults([]);
-    setFilterSearchApplied(false);
+  setFilterSearchResults([]);
+  setFilterSearchApplied(false);
 
-    setPage?.(1);
-  };
+  setPage?.(1);
+
+  if (field === "status") {
+    try {
+      setSearchLoading(true);
+
+      const response = await getAllStaffData(
+        1,
+        getSearchLimit(),
+        selectedRole || "",
+        "",
+        value
+      );
+
+      const data = Array.isArray(response?.data)
+        ? response.data
+        : [];
+
+      setSearchResults(data);
+      setSearchApplied(Boolean(value));
+    } catch (error) {
+      console.error(
+        "Status Search Error:",
+        error
+      );
+
+      setSearchResults([]);
+      setSearchApplied(true);
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Status search failed"
+      );
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+};
 
   // --------------------------------------------------
   // COUNTRY OPTIONS
@@ -446,7 +483,8 @@ export default function UsersTable({
         1,
         getSearchLimit(),
         selectedRole || "",
-        trimmedSearch
+        trimmedSearch,
+         filters.status
       );
 
       const data = Array.isArray(response?.data)
@@ -646,20 +684,98 @@ export default function UsersTable({
   // PAGINATION
   // --------------------------------------------------
 
-  const handlePreviousPage = () => {
-    if (page > 1) {
-      setPage(page - 1);
-    }
-  };
+  const handlePreviousPage = async () => {
+  if (page > 1) {
+    const previousPage = page - 1;
 
-  const handleNextPage = () => {
-    const totalPages =
-      pagination?.totalPages || 1;
+    if (filters.status) {
+      try {
+        setSearchLoading(true);
 
-    if (page < totalPages) {
-      setPage(page + 1);
+        const response = await getAllStaffData(
+          previousPage,
+          getSearchLimit(),
+          selectedRole || "",
+          "",
+          filters.status
+        );
+
+        const data = Array.isArray(response?.data)
+          ? response.data
+          : [];
+
+        setSearchResults(data);
+        setSearchApplied(true);
+        setPage(previousPage);
+      } catch (error) {
+        console.error(
+          "Status Pagination Error:",
+          error
+        );
+
+        toast.error(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Failed to load users"
+        );
+      } finally {
+        setSearchLoading(false);
+      }
+
+      return;
     }
-  };
+
+    setPage(previousPage);
+  }
+};
+
+  const handleNextPage = async () => {
+  const totalPages =
+    pagination?.totalPages || 1;
+
+  if (page < totalPages) {
+    const nextPage = page + 1;
+
+    if (filters.status) {
+      try {
+        setSearchLoading(true);
+
+        const response = await getAllStaffData(
+          nextPage,
+          getSearchLimit(),
+          selectedRole || "",
+          "",
+          filters.status
+        );
+
+        const data = Array.isArray(response?.data)
+          ? response.data
+          : [];
+
+        setSearchResults(data);
+        setSearchApplied(true);
+        setPage(nextPage);
+      } catch (error) {
+        console.error(
+          "Status Pagination Error:",
+          error
+        );
+
+        toast.error(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Failed to load users"
+        );
+      } finally {
+        setSearchLoading(false);
+      }
+
+      return;
+    }
+
+    setPage(nextPage);
+  }
+};
 
   // --------------------------------------------------
   // TABLE USERS
@@ -1154,221 +1270,289 @@ export default function UsersTable({
         )}
       </div>
 
+     {/* =====================================================
+    COUNTRY
+===================================================== */}
+<div>
+  <label
+    className="
+      block
+      text-sm
+      font-medium
+      text-gray-700
+      mb-2
+    "
+  >
+    Country
+  </label>
+
+  <div className="relative">
+    <select
+      value={filters.country}
+      onChange={(e) =>
+        handleFilterChange(
+          "country",
+          e.target.value
+        )
+      }
+      className="
+        w-full
+        appearance-none
+        border
+        border-gray-300
+        rounded-md
+        px-3
+        py-2
+        pr-10
+        bg-white
+        cursor-pointer
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-400
+      "
+    >
+      <option value="">
+        All Countries
+      </option>
+
+      {countryOptions.map((country) => (
+        <option
+          key={country.isoCode}
+          value={country.isoCode}
+        >
+          {country.name}
+        </option>
+      ))}
+    </select>
+
+    <RiArrowDownSLine
+      size={20}
+      className="
+        pointer-events-none
+        absolute
+        right-3
+        top-1/2
+        -translate-y-1/2
+        text-gray-500
+      "
+    />
+  </div>
+</div>
+
+{/* =====================================================
+    STATE
+===================================================== */}
+<div>
+  <label
+    className="
+      block
+      text-sm
+      font-medium
+      text-gray-700
+      mb-2
+    "
+  >
+    State
+  </label>
+
+  <div className="relative">
+    <select
+      value={filters.state}
+      onChange={(e) =>
+        handleFilterChange(
+          "state",
+          e.target.value
+        )
+      }
+      disabled={!filters.country}
+      className="
+        w-full
+        appearance-none
+        border
+        border-gray-300
+        rounded-md
+        px-3
+        py-2
+        pr-10
+        bg-white
+        disabled:bg-gray-100
+        disabled:cursor-not-allowed
+        cursor-pointer
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-400
+      "
+    >
+      <option value="">
+        All States
+      </option>
+
+      {stateOptions.map((state) => (
+        <option
+          key={`${state.countryCode}-${state.isoCode}`}
+          value={`${state.countryCode}-${state.isoCode}`}
+        >
+          {state.name}
+        </option>
+      ))}
+    </select>
+
+    <RiArrowDownSLine
+      size={20}
+      className="
+        pointer-events-none
+        absolute
+        right-3
+        top-1/2
+        -translate-y-1/2
+        text-gray-500
+      "
+    />
+  </div>
+</div>
+
+{/* =====================================================
+    CITY
+===================================================== */}
+<div>
+  <label
+    className="
+      block
+      text-sm
+      font-medium
+      text-gray-700
+      mb-2
+    "
+  >
+    City
+  </label>
+
+  <div className="relative">
+    <select
+      value={filters.city}
+      onChange={(e) =>
+        handleFilterChange(
+          "city",
+          e.target.value
+        )
+      }
+      disabled={
+        !filters.country ||
+        !filters.state
+      }
+      className="
+        w-full
+        appearance-none
+        border
+        border-gray-300
+        rounded-md
+        px-3
+        py-2
+        pr-10
+        bg-white
+        disabled:bg-gray-100
+        disabled:cursor-not-allowed
+        cursor-pointer
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-400
+      "
+    >
+      <option value="">
+        All Cities
+      </option>
+
+      {cityOptions.map((city) => (
+        <option
+          key={city.name}
+          value={city.name}
+        >
+          {city.name}
+        </option>
+      ))}
+    </select>
+
+    <RiArrowDownSLine
+      size={20}
+      className="
+        pointer-events-none
+        absolute
+        right-3
+        top-1/2
+        -translate-y-1/2
+        text-gray-500
+      "
+    />
+  </div>
+</div>
+
       {/* =====================================================
-          COUNTRY
-      ===================================================== */}
-      <div>
-        <label
-          className="
-            block
-            text-sm
-            font-medium
-            text-gray-700
-            mb-2
-          "
-        >
-          Country
-        </label>
+    STATUS
+===================================================== */}
+<div>
+  <label
+    className="
+      block
+      text-sm
+      font-medium
+      text-gray-700
+      mb-2
+    "
+  >
+    Status
+  </label>
 
-        <select
-          value={filters.country}
-          onChange={(e) =>
-            handleFilterChange(
-              "country",
-              e.target.value
-            )
-          }
-          className="
-            w-full
-            border
-            border-gray-300
-            rounded-md
-            px-3
-            py-2
-            bg-white
-            focus:outline-none
-            focus:ring-2
-            focus:ring-blue-400
-          "
-        >
-          <option value="">
-            All Countries
-          </option>
+  <div className="relative">
+    <select
+      value={filters.status}
+      onChange={(e) =>
+        handleFilterChange(
+          "status",
+          e.target.value
+        )
+      }
+      className="
+        w-full
+        appearance-none
+        border
+        border-gray-300
+        rounded-md
+        px-3
+        py-2
+        pr-10
+        bg-white
+        cursor-pointer
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-400
+      "
+    >
+      <option value="">
+        All Status
+      </option>
 
-          {countryOptions.map((country) => (
-            <option
-              key={country.isoCode}
-              value={country.isoCode}
-            >
-              {country.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <option value="active">
+        Active
+      </option>
 
-      {/* =====================================================
-          STATE
-      ===================================================== */}
-      <div>
-        <label
-          className="
-            block
-            text-sm
-            font-medium
-            text-gray-700
-            mb-2
-          "
-        >
-          State
-        </label>
+      <option value="inactive">
+        Inactive
+      </option>
+    </select>
 
-        <select
-          value={filters.state}
-          onChange={(e) =>
-            handleFilterChange(
-              "state",
-              e.target.value
-            )
-          }
-          disabled={!filters.country}
-          className="
-            w-full
-            border
-            border-gray-300
-            rounded-md
-            px-3
-            py-2
-            bg-white
-            disabled:bg-gray-100
-            disabled:cursor-not-allowed
-            focus:outline-none
-            focus:ring-2
-            focus:ring-blue-400
-          "
-        >
-          <option value="">
-            All States
-          </option>
-
-          {stateOptions.map((state) => (
-            <option
-              key={`${state.countryCode}-${state.isoCode}`}
-              value={`${state.countryCode}-${state.isoCode}`}
-            >
-              {state.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* =====================================================
-          CITY
-      ===================================================== */}
-      <div>
-        <label
-          className="
-            block
-            text-sm
-            font-medium
-            text-gray-700
-            mb-2
-          "
-        >
-          City
-        </label>
-
-        <select
-          value={filters.city}
-          onChange={(e) =>
-            handleFilterChange(
-              "city",
-              e.target.value
-            )
-          }
-          disabled={
-            !filters.country ||
-            !filters.state
-          }
-          className="
-            w-full
-            border
-            border-gray-300
-            rounded-md
-            px-3
-            py-2
-            bg-white
-            disabled:bg-gray-100
-            disabled:cursor-not-allowed
-            focus:outline-none
-            focus:ring-2
-            focus:ring-blue-400
-          "
-        >
-          <option value="">
-            All Cities
-          </option>
-
-          {cityOptions.map((city) => (
-            <option
-              key={city.name}
-              value={city.name}
-            >
-              {city.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* =====================================================
-          STATUS
-      ===================================================== */}
-      <div>
-        <label
-          className="
-            block
-            text-sm
-            font-medium
-            text-gray-700
-            mb-2
-          "
-        >
-          Status
-        </label>
-
-        <select
-          value={filters.status}
-          onChange={(e) =>
-            handleFilterChange(
-              "status",
-              e.target.value
-            )
-          }
-          className="
-            w-full
-            border
-            border-gray-300
-            rounded-md
-            px-3
-            py-2
-            bg-white
-            focus:outline-none
-            focus:ring-2
-            focus:ring-blue-400
-          "
-        >
-          <option value="">
-            All Status
-          </option>
-
-          <option value="active">
-            Active
-          </option>
-
-          <option value="inactive">
-            Inactive
-          </option>
-        </select>
-      </div>
+    <RiArrowDownSLine
+      size={20}
+      className="
+        pointer-events-none
+        absolute
+        right-3
+        top-1/2
+        -translate-y-1/2
+        text-gray-500
+      "
+    />
+  </div>
+</div>
 
     </div>
   </div>

@@ -25,12 +25,13 @@ export const getAllStaffData = async (
   page = 1,
   limit = 10,
   role_id = "",
-  search = ""
+  search = "",
+  status = ""
 ) => {
   const response = await api.get(
     `/getAllStaffData?page=${page}&limit=${limit}&role_id=${role_id}&search=${encodeURIComponent(
       search
-    )}`
+    )}&status=${encodeURIComponent(status)}`
   );
 
   return response.data;
