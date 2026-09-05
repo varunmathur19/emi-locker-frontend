@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -117,6 +118,20 @@ export default function UsersTable({
   const selectedRoleName = getUserRoleName(selectedRole);
 
   // --------------------------------------------------
+  // SEARCH LIMIT
+  // --------------------------------------------------
+
+  const getSearchLimit = () => {
+    const total =
+      Number(pagination?.total) ||
+      Number(pagination?.totalRecords) ||
+      Number(pagination?.count) ||
+      0;
+
+    return total > 0 ? total : 10000;
+  };
+
+  // --------------------------------------------------
   // FILTER CHANGE
   // --------------------------------------------------
 
@@ -127,13 +142,11 @@ export default function UsersTable({
         [field]: value,
       };
 
-      // Country change => reset state and city
       if (field === "country") {
         updatedFilters.state = "";
         updatedFilters.city = "";
       }
 
-      // State change => reset city
       if (field === "state") {
         updatedFilters.city = "";
       }
@@ -248,7 +261,7 @@ export default function UsersTable({
 
         const response = await getAllStaffData(
           1,
-          10,
+          getSearchLimit(),
           selectedRole || "",
           searchValue
         );
@@ -284,7 +297,13 @@ export default function UsersTable({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [filterSearch, selectedRole]);
+  }, [
+    filterSearch,
+    selectedRole,
+    pagination?.total,
+    pagination?.totalRecords,
+    pagination?.count,
+  ]);
 
   // --------------------------------------------------
   // SUGGESTION VALUE
@@ -425,7 +444,7 @@ export default function UsersTable({
 
       const response = await getAllStaffData(
         1,
-        10,
+        getSearchLimit(),
         selectedRole || "",
         trimmedSearch
       );
@@ -700,10 +719,6 @@ export default function UsersTable({
         .trim()
         .toLowerCase();
 
-      // --------------------------------------------------
-      // MAIN SEARCH
-      // --------------------------------------------------
-
       const matchesSearch =
         !searchValue ||
         userName.includes(searchValue) ||
@@ -712,10 +727,6 @@ export default function UsersTable({
         userCity.includes(searchValue) ||
         userState.includes(searchValue) ||
         userCountry.includes(searchValue);
-
-      // --------------------------------------------------
-      // COUNTRY FILTER
-      // --------------------------------------------------
 
       const selectedCountry =
         filters.country
@@ -740,10 +751,6 @@ export default function UsersTable({
         userCountry ===
           selectedCountryName;
 
-      // --------------------------------------------------
-      // STATE FILTER
-      // --------------------------------------------------
-
       const matchesState =
         !selectedStateCode ||
         userState ===
@@ -751,10 +758,6 @@ export default function UsersTable({
             .trim()
             .toLowerCase() ||
         userState === selectedStateName;
-
-      // --------------------------------------------------
-      // CITY FILTER
-      // --------------------------------------------------
 
       const selectedCity = String(
         filters.city || ""
@@ -765,10 +768,6 @@ export default function UsersTable({
       const matchesCity =
         !selectedCity ||
         userCity === selectedCity;
-
-      // --------------------------------------------------
-      // STATUS FILTER
-      // --------------------------------------------------
 
       const userStatus = Number(
         user?.userStatus ?? 1
@@ -997,557 +996,383 @@ export default function UsersTable({
 
       {/* FILTER PANEL */}
 
-      {filterOpen && (
-        <div
+      
+{filterOpen && (
+  <div
+    className="
+      mb-5
+      border
+      border-gray-200
+      rounded-xl
+      bg-gray-50
+      p-5
+    "
+  >
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+
+      {/* =====================================================
+          SEARCH
+      ===================================================== */}
+      <div className="relative">
+        <label
           className="
-            mb-5
-            border
-            border-gray-200
-            rounded-xl
-            bg-gray-50
-            p-5
+            block
+            text-sm
+            font-medium
+            text-gray-700
+            mb-2
           "
         >
-          {/* FILTER SEARCH */}
+          Search
+        </label>
 
-          <div className="mb-5 relative">
-            <label
-              className="
-                block
-                text-sm
-                font-semibold
-                text-gray-700
-                mb-2
-              "
-            >
-              Search
-            </label>
-
-            <div className="relative">
-              <input
-                type="text"
-                value={filterSearch}
-                onChange={(e) => {
-                  setFilterSearch(
-                    e.target.value
-                  );
-                  setFilterSearchApplied(
-                    false
-                  );
-                  setShowSuggestions(true);
-                }}
-                onFocus={() => {
-                  if (
-                    filterSearch.trim()
-                  ) {
-                    setShowSuggestions(
-                      true
-                    );
-                  }
-                }}
-                onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter"
-                  ) {
-                    event.preventDefault();
-                  }
-                }}
-                placeholder="Search"
-                className="
-                  w-full
-                  border
-                  border-gray-300
-                  rounded-md
-                  px-3
-                  py-2
-                  pr-10
-                  bg-white
-                  focus:outline-none
-                  focus:ring-2
-                  focus:ring-blue-400
-                "
-              />
-
-              <RiSearchLine
-                size={20}
-                className="
-                  pointer-events-none
-                  absolute
-                  right-3
-                  top-1/2
-                  -translate-y-1/2
-                  text-gray-500
-                "
-              />
-            </div>
-
-            {showSuggestions &&
-              filterSearch.trim() && (
-                <div
-                  className="
-                    absolute
-                    z-50
-                    left-0
-                    right-0
-                    mt-1
-                    bg-white
-                    border
-                    border-gray-200
-                    rounded-md
-                    shadow-lg
-                    max-h-64
-                    overflow-y-auto
-                  "
-                >
-                  {searchLoading ? (
-                    <div
-                      className="
-                        px-4
-                        py-3
-                        text-sm
-                        text-gray-500
-                      "
-                    >
-                      Searching...
-                    </div>
-                  ) : searchSuggestions.length >
-                    0 ? (
-                    searchSuggestions.map(
-                      (
-                        user,
-                        index
-                      ) => {
-                        const suggestion =
-                          getSuggestionValue(
-                            user
-                          );
-
-                        return (
-                          <button
-                            type="button"
-                            key={
-                              user?.id ||
-                              `${suggestion?.value}-${index}`
-                            }
-                            onClick={() =>
-                              handleSuggestionClick(
-                                user
-                              )
-                            }
-                            className="
-                              w-full
-                              text-left
-                              px-4
-                              py-3
-                              border-b
-                              border-gray-100
-                              last:border-b-0
-                              hover:bg-gray-50
-                              cursor-pointer
-                            "
-                          >
-                            <div
-                              className="
-                                font-semibold
-                                text-gray-800
-                              "
-                            >
-                              {user?.name ||
-                                "-"}
-                            </div>
-
-                            <div
-                              className="
-                                text-sm
-                                text-gray-500
-                                mt-1
-                              "
-                            >
-                              {user?.organization_name ||
-                                "-"}
-                            </div>
-
-                            <div
-                              className="
-                                flex
-                                gap-3
-                                text-xs
-                                text-gray-400
-                                mt-1
-                              "
-                            >
-                              <span>
-                                {user?.city ||
-                                  "-"}
-                              </span>
-
-                              <span>
-                                {user?.state ||
-                                  "-"}
-                              </span>
-
-                              <span>
-                                {user?.phone ||
-                                  "-"}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      }
-                    )
-                  ) : (
-                    <div
-                      className="
-                        px-4
-                        py-3
-                        text-sm
-                        text-gray-500
-                      "
-                    >
-                      No matching users found
-                    </div>
-                  )}
-                </div>
-              )}
-          </div>
-
-          {/* FILTER DROPDOWNS */}
-
-          <div
+        <div className="relative">
+          <input
+            type="text"
+            value={filterSearch}
+            onChange={(e) => {
+              setFilterSearch(e.target.value);
+              setFilterSearchApplied(false);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => {
+              if (filterSearch.trim()) {
+                setShowSuggestions(true);
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+              }
+            }}
+            placeholder="Search"
             className="
-              grid
-              grid-cols-1
-              md:grid-cols-2
-              lg:grid-cols-4
-              gap-4
+              w-full
+              border
+              border-gray-300
+              rounded-md
+              px-3
+              py-2
+              pr-10
+              bg-white
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-400
             "
-          >
-            {/* COUNTRY */}
+          />
 
-            <div>
-              <label
-                className="
-                  block
-                  text-sm
-                  font-semibold
-                  text-gray-700
-                  mb-2
-                "
-              >
-                Country
-              </label>
-
-              <div className="relative">
-                <select
-                  value={filters.country}
-                  onChange={(e) =>
-                    handleFilterChange(
-                      "country",
-                      e.target.value
-                    )
-                  }
-                  className="
-                    w-full
-                    appearance-none
-                    border
-                    border-gray-300
-                    rounded-md
-                    px-3
-                    py-2
-                    pr-10
-                    bg-white
-                    cursor-pointer
-                    focus:outline-none
-                    focus:ring-2
-                    focus:ring-blue-400
-                  "
-                >
-                  <option value="">
-                    Countries
-                  </option>
-
-                  {countryOptions.map(
-                    (country) => (
-                      <option
-                        key={
-                          country.isoCode
-                        }
-                        value={
-                          country.isoCode
-                        }
-                      >
-                        {country.name}
-                      </option>
-                    )
-                  )}
-                </select>
-
-                <RiArrowDownSLine
-                  size={20}
-                  className="
-                    pointer-events-none
-                    absolute
-                    right-3
-                    top-1/2
-                    -translate-y-1/2
-                    text-gray-500
-                  "
-                />
-              </div>
-            </div>
-
-            {/* STATE */}
-
-            <div>
-              <label
-                className="
-                  block
-                  text-sm
-                  font-semibold
-                  text-gray-700
-                  mb-2
-                "
-              >
-                State
-              </label>
-
-              <div className="relative">
-                <select
-                  value={filters.state}
-                  onChange={(e) =>
-                    handleFilterChange(
-                      "state",
-                      e.target.value
-                    )
-                  }
-                  disabled={
-                    !filters.country
-                  }
-                  className="
-                    w-full
-                    appearance-none
-                    border
-                    border-gray-300
-                    rounded-md
-                    px-3
-                    py-2
-                    pr-10
-                    bg-white
-                    cursor-pointer
-                    disabled:bg-gray-100
-                    disabled:cursor-not-allowed
-                    focus:outline-none
-                    focus:ring-2
-                    focus:ring-blue-400
-                  "
-                >
-                  <option value="">
-                    {!filters.country
-                      ? "Select States "
-                      : "All States"}
-                  </option>
-
-                  {stateOptions.map(
-                    (state, index) => (
-                      <option
-                        key={`${state.countryCode}-${state.isoCode}-${index}`}
-                        value={`${state.countryCode}-${state.isoCode}`}
-                      >
-                        {state.name}
-                      </option>
-                    )
-                  )}
-                </select>
-
-                <RiArrowDownSLine
-                  size={20}
-                  className="
-                    pointer-events-none
-                    absolute
-                    right-3
-                    top-1/2
-                    -translate-y-1/2
-                    text-gray-500
-                  "
-                />
-              </div>
-            </div>
-
-            {/* CITY */}
-
-            <div>
-              <label
-                className="
-                  block
-                  text-sm
-                  font-semibold
-                  text-gray-700
-                  mb-2
-                "
-              >
-                City
-              </label>
-
-              <div className="relative">
-                <select
-                  value={filters.city}
-                  onChange={(e) =>
-                    handleFilterChange(
-                      "city",
-                      e.target.value
-                    )
-                  }
-                  disabled={
-                    !filters.state
-                  }
-                  className="
-                    w-full
-                    appearance-none
-                    border
-                    border-gray-300
-                    rounded-md
-                    px-3
-                    py-2
-                    pr-10
-                    bg-white
-                    cursor-pointer
-                    disabled:bg-gray-100
-                    disabled:cursor-not-allowed
-                    focus:outline-none
-                    focus:ring-2
-                    focus:ring-blue-400
-                  "
-                >
-                  <option value="">
-                    {!filters.state
-                      ? "Select city"
-                      : cityOptions.length === 0
-                      ? "No Cities Found"
-                      : "All Cities"}
-                  </option>
-
-                  {cityOptions.map(
-                    (city, index) => (
-                      <option
-                        key={`${city.countryCode || selectedCountryCode}-${city.stateCode || selectedStateCode}-${city.name}-${index}`}
-                        value={city.name}
-                      >
-                        {city.name}
-                      </option>
-                    )
-                  )}
-                </select>
-
-                <RiArrowDownSLine
-                  size={20}
-                  className="
-                    pointer-events-none
-                    absolute
-                    right-3
-                    top-1/2
-                    -translate-y-1/2
-                    text-gray-500
-                  "
-                />
-              </div>
-            </div>
-
-            {/* STATUS */}
-
-            <div>
-              <label
-                className="
-                  block
-                  text-sm
-                  font-semibold
-                  text-gray-700
-                  mb-2
-                "
-              >
-                Status
-              </label>
-
-              <div className="relative">
-                <select
-                  value={filters.status}
-                  onChange={(e) =>
-                    handleFilterChange(
-                      "status",
-                      e.target.value
-                    )
-                  }
-                  className="
-                    w-full
-                    appearance-none
-                    border
-                    border-gray-300
-                    rounded-md
-                    px-3
-                    py-2
-                    pr-10
-                    bg-white
-                    cursor-pointer
-                    focus:outline-none
-                    focus:ring-2
-                    focus:ring-blue-400
-                  "
-                >
-                  <option value="">
-                    All Status
-                  </option>
-
-                  <option value="active">
-                    Active
-                  </option>
-
-                  <option value="inactive">
-                    Inactive
-                  </option>
-                </select>
-
-                <RiArrowDownSLine
-                  size={20}
-                  className="
-                    pointer-events-none
-                    absolute
-                    right-3
-                    top-1/2
-                    -translate-y-1/2
-                    text-gray-500
-                  "
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* CLEAR FILTER */}
-
-          <div
+          <RiSearchLine
             className="
-              flex
-              justify-end
-              mt-4
+              absolute
+              right-3
+              top-1/2
+              -translate-y-1/2
+              text-gray-400
+              text-lg
             "
-          >
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="
-                bg-gray-700
-                text-white
-                px-5
-                py-2
-                rounded-md
-                hover:bg-gray-800
-                cursor-pointer
-              "
-            >
-              Clear Filter
-            </button>
-          </div>
+          />
         </div>
-      )}
 
+        {showSuggestions && filterSearch.trim() && (
+          <div
+            className="
+              absolute
+              z-50
+              left-0
+              right-0
+              mt-1
+              bg-white
+              border
+              border-gray-200
+              rounded-md
+              shadow-lg
+              max-h-64
+              overflow-y-auto
+            "
+          >
+            {searchLoading ? (
+              <div className="px-4 py-3 text-sm text-gray-500">
+                Searching...
+              </div>
+            ) : searchSuggestions.length > 0 ? (
+              searchSuggestions.map((user, index) => {
+                const suggestion =
+                  getSuggestionValue(user);
+
+                return (
+                  <button
+                    type="button"
+                    key={
+                      user?.id ||
+                      `${suggestion?.value}-${index}`
+                    }
+                    onClick={() =>
+                      handleSuggestionClick(user)
+                    }
+                    className="
+                      w-full
+                      text-left
+                      px-4
+                      py-3
+                      border-b
+                      border-gray-100
+                      last:border-b-0
+                      hover:bg-gray-50
+                      cursor-pointer
+                    "
+                  >
+                    <div className="font-semibold text-gray-800">
+                      {user?.name || "-"}
+                    </div>
+
+                    <div className="text-sm text-gray-500 mt-1">
+                      {user?.organization_name || "-"}
+                    </div>
+
+                    <div className="flex gap-3 text-xs text-gray-400 mt-1">
+                      <span>
+                        {user?.city || "-"}
+                      </span>
+
+                      <span>
+                        {user?.state || "-"}
+                      </span>
+
+                      <span>
+                        {user?.phone || "-"}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-4 py-3 text-sm text-gray-500">
+                No matching users found
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* =====================================================
+          COUNTRY
+      ===================================================== */}
+      <div>
+        <label
+          className="
+            block
+            text-sm
+            font-medium
+            text-gray-700
+            mb-2
+          "
+        >
+          Country
+        </label>
+
+        <select
+          value={filters.country}
+          onChange={(e) =>
+            handleFilterChange(
+              "country",
+              e.target.value
+            )
+          }
+          className="
+            w-full
+            border
+            border-gray-300
+            rounded-md
+            px-3
+            py-2
+            bg-white
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-400
+          "
+        >
+          <option value="">
+            All Countries
+          </option>
+
+          {countryOptions.map((country) => (
+            <option
+              key={country.isoCode}
+              value={country.isoCode}
+            >
+              {country.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* =====================================================
+          STATE
+      ===================================================== */}
+      <div>
+        <label
+          className="
+            block
+            text-sm
+            font-medium
+            text-gray-700
+            mb-2
+          "
+        >
+          State
+        </label>
+
+        <select
+          value={filters.state}
+          onChange={(e) =>
+            handleFilterChange(
+              "state",
+              e.target.value
+            )
+          }
+          disabled={!filters.country}
+          className="
+            w-full
+            border
+            border-gray-300
+            rounded-md
+            px-3
+            py-2
+            bg-white
+            disabled:bg-gray-100
+            disabled:cursor-not-allowed
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-400
+          "
+        >
+          <option value="">
+            All States
+          </option>
+
+          {stateOptions.map((state) => (
+            <option
+              key={`${state.countryCode}-${state.isoCode}`}
+              value={`${state.countryCode}-${state.isoCode}`}
+            >
+              {state.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* =====================================================
+          CITY
+      ===================================================== */}
+      <div>
+        <label
+          className="
+            block
+            text-sm
+            font-medium
+            text-gray-700
+            mb-2
+          "
+        >
+          City
+        </label>
+
+        <select
+          value={filters.city}
+          onChange={(e) =>
+            handleFilterChange(
+              "city",
+              e.target.value
+            )
+          }
+          disabled={
+            !filters.country ||
+            !filters.state
+          }
+          className="
+            w-full
+            border
+            border-gray-300
+            rounded-md
+            px-3
+            py-2
+            bg-white
+            disabled:bg-gray-100
+            disabled:cursor-not-allowed
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-400
+          "
+        >
+          <option value="">
+            All Cities
+          </option>
+
+          {cityOptions.map((city) => (
+            <option
+              key={city.name}
+              value={city.name}
+            >
+              {city.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* =====================================================
+          STATUS
+      ===================================================== */}
+      <div>
+        <label
+          className="
+            block
+            text-sm
+            font-medium
+            text-gray-700
+            mb-2
+          "
+        >
+          Status
+        </label>
+
+        <select
+          value={filters.status}
+          onChange={(e) =>
+            handleFilterChange(
+              "status",
+              e.target.value
+            )
+          }
+          className="
+            w-full
+            border
+            border-gray-300
+            rounded-md
+            px-3
+            py-2
+            bg-white
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-400
+          "
+        >
+          <option value="">
+            All Status
+          </option>
+
+          <option value="active">
+            Active
+          </option>
+
+          <option value="inactive">
+            Inactive
+          </option>
+        </select>
+      </div>
+
+    </div>
+  </div>
+)}
       {/* TABLE */}
 
       <div
