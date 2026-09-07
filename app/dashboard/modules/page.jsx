@@ -1312,8 +1312,7 @@ setModules(formattedModules);
     <p className="text-xs text-slate-500 mt-1">
       PNG only, maximum 20 KB
     </p>
-
-  </div>
+     </div>
 
 
   {/* =================================================
