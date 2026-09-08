@@ -391,23 +391,27 @@ export default function Dashboard() {
   // ======================================================
 
   const visibleCards = cards.filter((card) => {
-    // Admin ke liye Staff hamesha visible rahega
-    // chahe Staff module active ho ya na ho.
-    if (
-      Number(roleId) === 1 &&
-      Number(card.roleId) === 9
-    ) {
-      return true;
+    // Staff sirf Master Admin aur Admin ko show hoga
+    if (Number(card.roleId) === 9) {
+      if (
+        Number(roleId) !== 0 &&
+        Number(roleId) !== 1
+      ) {
+        return false;
+      }
     }
 
+    // Module inactive hai to card show nahi hoga
     if (!isRoleActive(card.roleId)) {
       return false;
     }
 
-    if (roleId === 0) {
+    // Master Admin ke liye saare active roles
+    if (Number(roleId) === 0) {
       return true;
     }
 
+    // Admin aur baaki roles ke liye hierarchy check
     return allowedRoles[roleId]?.includes(
       card.roleId
     );

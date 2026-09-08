@@ -111,6 +111,12 @@ export default function EditStaffPage() {
   const [formData, setFormData] =
     useState(initialFormData);
 
+    const [originalFormData, setOriginalFormData] = useState(null);
+
+const isDirty =
+  originalFormData !== null &&
+  JSON.stringify(formData) !== JSON.stringify(originalFormData);
+
   const [loggedInRoleId, setLoggedInRoleId] =
     useState(null);
 
@@ -939,78 +945,31 @@ export default function EditStaffPage() {
                 )
               : null;
 
-          setFormData({
-            organization_name:
-              user.organization_name ||
-              "",
+       const loadedFormData = {
+  organization_name: user.organization_name || "",
+  role_id: roleId,
+  name: user.name || "",
+  email: user.email || "",
+  phone: user.phone || "",
+  password: "",
+  confirm_password: "",
+  company_address: user.company_address || "",
+  country: user.country || "",
+  state: user.state || "",
+  city: user.city || "",
+  parent_id: parentId,
+  new_device: Number(user.new_device || 0),
+  old_device: Number(user.old_device || 0),
+  supreme_device: Number(user.supreme_device || 0),
+  pro_star: Number(user.pro_star || 0),
+  lite: Number(user.lite || 0),
+  google_tv: Number(user.google_tv || 0),
+  supreme_lock: Number(user.supreme_lock || 0),
+};
 
-            role_id:
-              roleId,
+setFormData(loadedFormData);
+setOriginalFormData(loadedFormData);
 
-            name:
-              user.name || "",
-
-            email:
-              user.email || "",
-
-            phone:
-              user.phone || "",
-
-            password: "",
-
-            confirm_password: "",
-
-            company_address:
-              user.company_address ||
-              "",
-
-            country:
-              user.country || "",
-
-            state:
-              user.state || "",
-
-            city:
-              user.city || "",
-
-            parent_id:
-              parentId,
-
-            new_device:
-              Number(
-                user.new_device || 0
-              ),
-
-            old_device:
-              Number(
-                user.old_device || 0
-              ),
-
-            supreme_device:
-              Number(
-                user.supreme_device || 0
-              ),
-
-            pro_star:
-              Number(
-                user.pro_star || 0
-              ),
-
-            lite:
-              Number(
-                user.lite || 0
-              ),
-
-            google_tv:
-              Number(
-                user.google_tv || 0
-              ),
-
-            supreme_lock:
-              Number(
-                user.supreme_lock || 0
-              ),
-          });
 
           await loadEditParentHierarchy(
             roleId,
@@ -1672,7 +1631,7 @@ export default function EditStaffPage() {
               href={`/dashboard?role=${Number(
                 formData.role_id
               )}`}
-              className="bg-gray-700 text-white px-4 py-2.5 rounded-lg hover:bg-gray-800 transition"
+              className="bg-gray-700 text-white px-4 py-2.5 rounded-md hover:bg-gray-800 transition"
             >
               {getRoleName(
                 formData.role_id
@@ -2034,21 +1993,15 @@ export default function EditStaffPage() {
               </label>
 
               <div className="relative">
-                <input
-                  type={
-                    showPassword
-                      ? "text"
-                      : "password"
-                  }
-                  name="password"
-                  placeholder="Leave empty to keep old password"
-                  value={
-                    formData.password
-                  }
-                  onChange={handleChange}
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-
+              <input
+  type={showPassword ? "text" : "password"}
+  name="password"
+  placeholder="Leave empty to keep old password"
+  value={formData.password}
+  onChange={handleChange}
+  autoComplete="new-password"
+  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+/>
                 <button
                   type="button"
                   onClick={() =>
@@ -2079,19 +2032,14 @@ export default function EditStaffPage() {
 
               <div className="relative">
                 <input
-                  type={
-                    showConfirmPassword
-                      ? "text"
-                      : "password"
-                  }
-                  name="confirm_password"
-                  placeholder="Confirm password"
-                  value={
-                    formData.confirm_password
-                  }
-                  onChange={handleChange}
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+  type={showConfirmPassword ? "text" : "password"}
+  name="confirm_password"
+  placeholder="Confirm password"
+  value={formData.confirm_password}
+  onChange={handleChange}
+  autoComplete="new-password"
+  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+/>
 
                 <button
                   type="button"
@@ -2317,12 +2265,17 @@ export default function EditStaffPage() {
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="submit"
-              className="bg-blue-500 text-white font-medium px-8 py-2.5 rounded-lg shadow-md hover:bg-blue-600 hover:shadow-lg transition cursor-pointer"
-            >
-              Update
-            </button>
+           <button
+  type="submit"
+  disabled={!isDirty}
+  className={`font-medium px-8 py-2.5 rounded-lg shadow-md transition ${
+    isDirty
+      ? "bg-blue-500 text-white hover:bg-blue-600 hover:shadow-lg cursor-pointer"
+      : "bg-slate-300 text-slate-500 cursor-not-allowed"
+  }`}
+>
+  Update
+</button>
           </div>
         </form>
       </div>

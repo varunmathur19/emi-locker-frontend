@@ -1,25 +1,30 @@
 "use client";
 
 import Link from "next/link";
+
 import {
   getRoleId,
   getOriginalRoleId,
   removeToken,
   restoreOriginalLogin,
 } from "@/utils/token";
+
 import {
   logoutStaff,
   getModules,
 } from "@/services/api";
+
 import {
   usePathname,
   useSearchParams,
 } from "next/navigation";
+
 import {
   useCallback,
   useEffect,
   useState,
 } from "react";
+
 import {
   RiDashboardLine,
   RiShieldUserLine,
@@ -538,6 +543,20 @@ export default function Sidebar({
             roleMap[key];
 
           if (module) {
+
+            /*
+             * STAFF:
+             * Sirf Master Admin (0)
+             * aur Admin (1) ko show hoga.
+             */
+            if (
+              Number(module.role) === 9 &&
+              Number(roleId) !== 0 &&
+              Number(roleId) !== 1
+            ) {
+              return null;
+            }
+
             if (
               !allowedRoles.includes(
                 Number(module.role)
@@ -782,12 +801,12 @@ export default function Sidebar({
           </>
         )}
 
-      {Number(roleId) >= 1 &&
-  Number(roleId) <= 8 && (
-    <>
-      {renderModuleLinks()}
-    </>
-  )}
+        {Number(roleId) >= 1 &&
+          Number(roleId) <= 8 && (
+            <>
+              {renderModuleLinks()}
+            </>
+          )}
 
         {Number(roleId) === 9 && (
           <>
