@@ -2,21 +2,15 @@
 
 import { addStaff, getDropdownUsers, getModules } from "@/services/api";
 import { getUserFromToken } from "@/utils/token";
-
 import {
   RiEyeLine,
   RiEyeOffLine,
   RiArrowDownSLine,
 } from "react-icons/ri";
-
 import Link from "next/link";
-
 import { Country, State, City } from "country-state-city";
-
 import { useEffect, useState } from "react";
-
 import { useSearchParams } from "next/navigation";
-
 import { toast } from "react-toastify";
 
 const initialFormData = {
@@ -31,9 +25,7 @@ const initialFormData = {
   country: "",
   state: "",
   city: "",
-
   parent_id: null,
-
   new_device: 0,
   old_device: 0,
   supreme_device: 0,
@@ -47,29 +39,18 @@ export default function Page() {
   const searchParams = useSearchParams();
 
   const [formData, setFormData] = useState(initialFormData);
-
   const [parentUsers, setParentUsers] = useState({});
-
   const [selectedParents, setSelectedParents] = useState({});
-
   const [openDropdown, setOpenDropdown] = useState(null);
-
   const [parentSearch, setParentSearch] = useState({});
-
   const [searchLoading, setSearchLoading] = useState({});
-
   const [modules, setModules] = useState([]);
-
   const [showPassword, setShowPassword] = useState(false);
-
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const selectedRole = Number(searchParams.get("role_id"));
-
   const loggedInUser = getUserFromToken();
-
   const loggedInRoleId = Number(loggedInUser?.role_id);
-
   const loggedInUserId = Number(loggedInUser?.id);
 
   const getRoleName = (roleId) => {
@@ -109,24 +90,39 @@ export default function Page() {
 
   const isRoleActive = (roleId) => {
     const role = Number(roleId);
-
     const roleName = normalizeRoleName(getRoleName(role));
 
     const module = modules.find((item) => {
       const moduleName =
-        typeof item === "string" ? item : item?.name;
+        typeof item === "string"
+          ? item
+          : item?.name;
 
-      const normalizedModuleName = normalizeRoleName(moduleName);
+      const moduleSlug =
+        typeof item === "object"
+          ? item?.slug
+          : "";
+
+      const normalizedModuleName =
+        normalizeRoleName(moduleName);
+
+      const normalizedModuleSlug =
+        normalizeRoleName(moduleSlug);
 
       if (
         role === 3 &&
         (normalizedModuleName === "superdistributor" ||
-          normalizedModuleName === "superdistributer")
+          normalizedModuleName === "superdistributer" ||
+          normalizedModuleSlug === "superdistributor" ||
+          normalizedModuleSlug === "superdistributer")
       ) {
         return true;
       }
 
-      return normalizedModuleName === roleName;
+      return (
+        normalizedModuleName === roleName ||
+        normalizedModuleSlug === roleName
+      );
     });
 
     if (!module) {
@@ -136,23 +132,23 @@ export default function Page() {
     return Number(module?.status) === 1;
   };
 
-  const visibleParentRoles = (parentRoles[selectedRole] || []).filter(
-    (roleId) => {
-      const role = Number(roleId);
-      const loggedRole = Number(loggedInRoleId);
-      const createRole = Number(selectedRole);
+  const visibleParentRoles = (
+    parentRoles[selectedRole] || []
+  ).filter((roleId) => {
+    const role = Number(roleId);
+    const loggedRole = Number(loggedInRoleId);
+    const createRole = Number(selectedRole);
 
-      if (!isRoleActive(role)) {
-        return false;
-      }
-
-      if (loggedRole === 0) {
-        return role < createRole;
-      }
-
-      return role > loggedRole && role < createRole;
+    if (!isRoleActive(role)) {
+      return false;
     }
-  );
+
+    if (loggedRole === 0) {
+      return role < createRole;
+    }
+
+    return role > loggedRole && role < createRole;
+  });
 
   const getUsersFromResponse = (response) => {
     if (Array.isArray(response?.data)) {
@@ -181,9 +177,9 @@ export default function Page() {
 
         if (
           response?.success &&
-          Array.isArray(response?.modules)
+          Array.isArray(response?.data)
         ) {
-          setModules(response.modules);
+          setModules(response.data);
         } else {
           setModules([]);
         }
@@ -331,13 +327,11 @@ export default function Page() {
     parentId
   ) => {
     const roleId = Number(parentRoleId);
-
     const selectedId = parentId
       ? Number(parentId)
       : null;
 
     const parents = visibleParentRoles;
-
     const currentIndex = parents.indexOf(roleId);
 
     const updatedSelectedParents = {
@@ -397,7 +391,8 @@ export default function Page() {
       return;
     }
 
-    const nextRole = parents[currentIndex + 1];
+    const nextRole =
+      parents[currentIndex + 1];
 
     if (!nextRole) {
       return;
@@ -424,9 +419,11 @@ export default function Page() {
       parentSearch[roleId] || ""
     ).trim();
 
-    const parents = parentRoles[selectedRole] || [];
+    const parents =
+      parentRoles[selectedRole] || [];
 
-    const currentIndex = parents.indexOf(roleId);
+    const currentIndex =
+      parents.indexOf(roleId);
 
     let parentId = null;
 
@@ -622,7 +619,6 @@ export default function Page() {
       setParentUsers({});
       setParentSearch({});
       setOpenDropdown(null);
-
       setShowPassword(false);
       setShowConfirmPassword(false);
     } catch (error) {
@@ -657,7 +653,6 @@ export default function Page() {
               {visibleParentRoles.map(
                 (parentRoleId) => {
                   const role = Number(parentRoleId);
-
                   const users =
                     parentUsers[role] || [];
 
@@ -684,8 +679,7 @@ export default function Page() {
                           type="button"
                           onClick={() =>
                             setOpenDropdown(
-                              openDropdown ===
-                                role
+                              openDropdown === role
                                 ? null
                                 : role
                             )
@@ -702,8 +696,7 @@ export default function Page() {
                           <RiArrowDownSLine
                             size={22}
                             className={`shrink-0 transition-transform text-slate-500 ${
-                              openDropdown ===
-                              role
+                              openDropdown === role
                                 ? "rotate-180"
                                 : ""
                             }`}
@@ -762,16 +755,13 @@ export default function Page() {
                                       role,
                                       null
                                     );
-
                                     setOpenDropdown(
                                       null
                                     );
-
                                     setParentSearch(
                                       (prev) => ({
                                         ...prev,
-                                        [role]:
-                                          "",
+                                        [role]: "",
                                       })
                                     );
                                   }}
@@ -787,7 +777,6 @@ export default function Page() {
                               ] && (
                                 <div className="flex items-center justify-center gap-2 px-4 py-4 text-sm text-blue-600">
                                   <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-
                                   Searching{" "}
                                   {getRoleName(role)}
                                   ...
@@ -806,16 +795,13 @@ export default function Page() {
                                         role,
                                         user.id
                                       );
-
                                       setOpenDropdown(
                                         null
                                       );
-
                                       setParentSearch(
                                         (prev) => ({
                                           ...prev,
-                                          [role]:
-                                            "",
+                                          [role]: "",
                                         })
                                       );
                                     }}
@@ -1225,8 +1211,7 @@ export default function Page() {
                       <input
                         type="checkbox"
                         checked={
-                          formData[item.name] ===
-                          1
+                          formData[item.name] === 1
                         }
                         onChange={(e) =>
                           setFormData((prev) => ({
