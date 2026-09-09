@@ -272,31 +272,6 @@ export const updateUserStatus = async (
 
 };
 
-//add sub module
-export const addSubModule = async ({
-    module_id,
-    name,
-    icon,
-    status
-}) => {
-    try {
-        const response = await api.post("/sub-modules", {
-            module_id: Number(module_id),
-            name,
-            icon,
-            status: Number(status)
-        });
-
-        return response.data;
-    } catch (error) {
-        console.error(
-            "ADD SUB MODULE API ERROR:",
-            error?.response?.data || error.message
-        );
-        throw error;
-    }
-};
-
 //get sub module
 export const getSubModules = async () => {
     try {
@@ -313,18 +288,9 @@ export const getSubModules = async () => {
 };
 
 //edit sub module
-export const updateSubModule = async ({
-    id,
-    module_id,
-    name,
-    icon,
-    status
-}) => {
+export const updateSubModule = async ({ id, status }) => {
     try {
         const response = await api.put(`/sub-modules/${id}`, {
-            module_id: Number(module_id),
-            name,
-            icon,
             status: Number(status)
         });
 
@@ -338,20 +304,7 @@ export const updateSubModule = async ({
     }
 };
 
-//delete submodule
-export const deleteSubModule = async (id) => {
-    try {
-        const response = await api.delete(`/sub-modules/${id}`);
 
-        return response.data;
-    } catch (error) {
-        console.error(
-            "DELETE SUB MODULE API ERROR:",
-            error?.response?.data || error.message
-        );
-        throw error;
-    }
-};
 
 
 
