@@ -1,9 +1,7 @@
 import api from "@/utils/axios";
 
 
-// =====================================================
 // LOGIN
-// =====================================================
 
 export const login = async (data) => {
 
@@ -17,9 +15,7 @@ export const login = async (data) => {
 };
 
 
-// =====================================================
 // GET ALL STAFF DATA
-// =====================================================
 
 export const getAllStaffData = async (
   page = 1,
@@ -38,10 +34,7 @@ export const getAllStaffData = async (
 };
 
 
-// =====================================================
 // ADD STAFF
-// =====================================================
-
 export const addStaff = async (data) => {
 
   const response =
@@ -54,10 +47,7 @@ export const addStaff = async (data) => {
 };
 
 
-// =====================================================
 // GET DROPDOWN USERS
-// =====================================================
-
 export const getDropdownUsers = async (
   role_id,
   parent_id = null,
@@ -115,9 +105,7 @@ export const getDropdownUsers = async (
 };
 
 
-// =====================================================
 // LOGOUT STAFF
-// =====================================================
 
 export const logoutStaff = async () => {
 
@@ -140,9 +128,7 @@ export const logoutStaff = async () => {
 };
 
 
-// =====================================================
 // UPDATE STAFF DATA
-// =====================================================
 
 export const updateStaffData = async (
   id,
@@ -159,9 +145,7 @@ export const updateStaffData = async (
 };
 
 
-// =====================================================
 // GET STAFF DATA BY ID
-// =====================================================
 
 export const getStaffDataById = async (id) => {
   try {
@@ -179,12 +163,9 @@ export const getStaffDataById = async (id) => {
 };
 
 
-// =====================================================
 // LOGIN AS USER
-// =====================================================
 // Master Admin / Admin
 // Login as another user
-// =====================================================
 
 export const loginAsUser = async (
   user_id
@@ -201,11 +182,7 @@ export const loginAsUser = async (
   return response.data;
 };
 
-
-// =====================================================
 // ADD MODULE
-// =====================================================
-
 export const addModule = async ({
   name,
   slug,
@@ -230,10 +207,7 @@ export const addModule = async ({
   }
 };
 
-
-// =====================================================
 // GET MODULES
-// =====================================================
 
 export const getModules = async () => {
 
@@ -265,10 +239,7 @@ export const getModules = async () => {
 
 };
 
-
-// =====================================================
 // DELETE MODULE
-// =====================================================
 
 export const deleteModule = async (
   module
@@ -316,10 +287,7 @@ export const deleteModule = async (
 
 };
 
-// =====================================================
 // UPDATE MODULE
-// =====================================================
-
 export const updateModule = async ({
   id,
   name,
@@ -347,11 +315,7 @@ export const updateModule = async ({
   }
 };
 
-
-// =====================================================
 // UPDATE USER STATUS
-// =====================================================
-
 export const updateUserStatus = async (
   user_id,
   userStatus
@@ -388,4 +352,87 @@ export const updateUserStatus = async (
   }
 
 };
+
+//add sub module
+export const addSubModule = async ({
+    module_id,
+    name,
+    icon,
+    status
+}) => {
+    try {
+        const response = await api.post("/sub-modules", {
+            module_id: Number(module_id),
+            name,
+            icon,
+            status: Number(status)
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error(
+            "ADD SUB MODULE API ERROR:",
+            error?.response?.data || error.message
+        );
+        throw error;
+    }
+};
+
+//get sub module
+export const getSubModules = async () => {
+    try {
+        const response = await api.get("/sub-modules");
+
+        return response.data;
+    } catch (error) {
+        console.error(
+            "GET SUB MODULES API ERROR:",
+            error?.response?.data || error.message
+        );
+        throw error;
+    }
+};
+
+//edit sub module
+export const updateSubModule = async ({
+    id,
+    module_id,
+    name,
+    icon,
+    status
+}) => {
+    try {
+        const response = await api.put(`/sub-modules/${id}`, {
+            module_id: Number(module_id),
+            name,
+            icon,
+            status: Number(status)
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error(
+            "UPDATE SUB MODULE API ERROR:",
+            error?.response?.data || error.message
+        );
+        throw error;
+    }
+};
+
+//delete submodule
+export const deleteSubModule = async (id) => {
+    try {
+        const response = await api.delete(`/sub-modules/${id}`);
+
+        return response.data;
+    } catch (error) {
+        console.error(
+            "DELETE SUB MODULE API ERROR:",
+            error?.response?.data || error.message
+        );
+        throw error;
+    }
+};
+
+
 
