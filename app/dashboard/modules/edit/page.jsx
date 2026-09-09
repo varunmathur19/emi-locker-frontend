@@ -1,6 +1,6 @@
 "use client";
 
-import { updateModule } from "@/services/api";
+import { updateModule, getModules } from "@/services/api";
 import { toast } from "react-toastify";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -9,125 +9,144 @@ export default function EditModulePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const moduleName = searchParams.get("module") || "";
+  const moduleSlug = searchParams.get("module") || "";
 
-  const [module, setModule] = useState("");
+  const [moduleId, setModuleId] = useState(null);
+  const [moduleName, setModuleName] = useState("");
+  const [moduleSlugValue, setModuleSlugValue] = useState("");
+  const [moduleIcon, setModuleIcon] = useState("");
   const [moduleSequence, setModuleSequence] = useState("");
-  const [icon, setIcon] = useState(null);
-  const [preview, setPreview] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [moduleStatus, setModuleStatus] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    setModule(moduleName);
-  }, [moduleName]);
+    const loadModule = async () => {
+      try {
+        setLoading(true);
 
-  const handleIconChange = (e) => {
-    const file = e.target.files?.[0];
+        const response = await getModules();
 
-    if (!file) {
-      setIcon(null);
-      setPreview("");
-      return;
+        if (
+          !response?.success ||
+          !Array.isArray(response?.data)
+        ) {
+          toast.error("Failed to load modules");
+          return;
+        }
+
+        const foundModule = response.data.find(
+          (item) =>
+            String(item?.slug || "").toLowerCase() ===
+            moduleSlug.toLowerCase()
+        );
+
+        if (!foundModule) {
+          toast.error("Module not found");
+          router.push("/dashboard/modules");
+          return;
+        }
+
+        setModuleId(foundModule.id);
+        setModuleName(foundModule.name || "");
+        setModuleSlugValue(foundModule.slug || "");
+        setModuleIcon(foundModule.icon || "");
+        setModuleSequence(
+          String(foundModule.sequence ?? "")
+        );
+        setModuleStatus(
+          Number(foundModule.status ?? 1)
+        );
+      } catch (error) {
+        console.error("GET MODULE ERROR:", error);
+
+        toast.error(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Failed to load module"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (moduleSlug) {
+      loadModule();
     }
+  }, [moduleSlug, router]);
 
-    if (file.type !== "image/png") {
-      toast.error("Only PNG images are allowed");
-      e.target.value = "";
-      setIcon(null);
-      setPreview("");
-      return;
-    }
-
-    if (file.size > 20 * 1024) {
-      toast.error("PNG icon size must not exceed 20 KB");
-      e.target.value = "";
-      setIcon(null);
-      setPreview("");
-      return;
-    }
-
-    setIcon(file);
-    setPreview(URL.createObjectURL(file));
+  const generateSlug = (value) => {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
   };
-
-  const hasNameChange =
-    module.trim() !== "" &&
-    module.trim().toLowerCase() !==
-      moduleName.trim().toLowerCase();
-
-  const hasSequenceChange =
-    moduleSequence !== "" &&
-    Number.isInteger(Number(moduleSequence)) &&
-    Number(moduleSequence) >= 1;
-
-  const hasIconChange = !!icon;
-
-  const hasChanges =
-    hasNameChange ||
-    hasSequenceChange ||
-    hasIconChange;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const oldModule = moduleName.trim();
+    const name = moduleName.trim();
+    const slug = moduleSlugValue.trim();
+    const icon = moduleIcon.trim();
+    const sequence = Number(moduleSequence);
+    const status = Number(moduleStatus);
 
-    if (!oldModule) {
-      toast.error("Old module name not found");
+    if (!moduleId) {
+      toast.error("Module not found");
       return;
     }
 
-    const newModule = module.trim();
-
-    const hasNameChange =
-      newModule !== "" &&
-      newModule.toLowerCase() !==
-        oldModule.toLowerCase();
-
-    const hasSequenceChange =
-      moduleSequence !== "" &&
-      moduleSequence !== null &&
-      moduleSequence !== undefined;
-
-    const hasIconChange = !!icon;
-
-    let sequence = "";
-
-    if (hasSequenceChange) {
-      sequence = Number(moduleSequence);
-
-      if (
-        !Number.isInteger(sequence) ||
-        sequence < 1
-      ) {
-        toast.error("Please enter valid sequence number");
-        return;
-      }
+    if (!name) {
+      toast.error("Please enter module name");
+      return;
     }
 
-    if (hasIconChange) {
-      if (icon.type !== "image/png") {
-        toast.error("Only PNG images are allowed");
-        return;
-      }
+    if (!slug) {
+      toast.error("Please enter module slug");
+      return;
+    }
 
-      if (icon.size > 20 * 1024) {
-        toast.error("PNG icon size must not exceed 20 KB");
-        return;
-      }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      toast.error(
+        "Slug can contain only lowercase letters, numbers and hyphens"
+      );
+      return;
+    }
+
+    if (!icon) {
+      toast.error("Please enter module icon");
+      return;
+    }
+
+    if (
+      !Number.isInteger(sequence) ||
+      sequence < 1
+    ) {
+      toast.error("Please enter valid sequence number");
+      return;
+    }
+
+    if (![0, 1].includes(status)) {
+      toast.error("Invalid module status");
+      return;
     }
 
     try {
-      setLoading(true);
+      setUpdating(true);
 
-      const response = await updateModule(
-        oldModule,
-        hasNameChange ? newModule : "",
-        hasSequenceChange ? sequence : "",
-        hasIconChange ? icon : null
-      );
+      const response = await updateModule({
+        id: moduleId,
+        name,
+        slug,
+        icon,
+        sequence,
+        status,
+      });
 
-      if (response?.success) {
+      if (response?.success === true) {
         toast.success(
           response?.message ||
             "Module updated successfully"
@@ -135,34 +154,14 @@ export default function EditModulePage() {
 
         router.push("/dashboard/modules");
         router.refresh();
-        return;
+      } else {
+        toast.error(
+          response?.message ||
+            "Failed to update module"
+        );
       }
-
-      toast.error(
-        response?.message ||
-          "Failed to update module"
-      );
     } catch (error) {
-      console.error(
-        "UPDATE MODULE ERROR:",
-        error
-      );
-
-      if (error?.response?.status === 409) {
-        toast.error(
-          error?.response?.data?.message ||
-            "Module already exists"
-        );
-        return;
-      }
-
-      if (error?.response?.status === 422) {
-        toast.error(
-          error?.response?.data?.message ||
-            "Sequence is already used"
-        );
-        return;
-      }
+      console.error("UPDATE MODULE ERROR:", error);
 
       toast.error(
         error?.response?.data?.message ||
@@ -170,14 +169,26 @@ export default function EditModulePage() {
           "Failed to update module"
       );
     } finally {
-      setLoading(false);
+      setUpdating(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <div className="rounded-lg bg-white p-6 shadow">
+          <p className="text-center text-gray-500">
+            Loading module...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow p-6">
-        <h1 className="text-2xl font-bold mb-6">
+    <div className="mx-auto max-w-2xl">
+      <div className="rounded-lg bg-white p-6 shadow">
+        <h1 className="mb-6 text-2xl font-bold">
           Edit Module
         </h1>
 
@@ -186,36 +197,61 @@ export default function EditModulePage() {
           className="space-y-5"
         >
           <div>
-            <label className="block mb-2 font-semibold">
-              Old Module Name
+            <label className="mb-2 block font-semibold">
+              Module Name
             </label>
 
             <input
               type="text"
               value={moduleName}
-              readOnly
-              className="w-full border border-gray-300 bg-gray-100 rounded-md px-4 py-3 outline-none cursor-not-allowed"
+              onChange={(e) =>
+                setModuleName(e.target.value)
+              }
+              className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Enter module name"
             />
           </div>
 
           <div>
-            <label className="block mb-2 font-semibold">
-              Edit Module Name
+            <label className="mb-2 block font-semibold">
+              Module Slug
             </label>
 
             <input
               type="text"
-              value={module}
+              value={moduleSlugValue}
               onChange={(e) =>
-                setModule(e.target.value)
+                setModuleSlugValue(
+                  generateSlug(e.target.value)
+                )
               }
-              className="w-full border border-gray-300 rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="Enter new module name"
+              className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Enter module slug"
+            />
+
+            <p className="mt-2 text-sm text-gray-500">
+              Name and slug can be different.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-2 block font-semibold">
+              Module Icon
+            </label>
+
+            <input
+              type="text"
+              value={moduleIcon}
+              onChange={(e) =>
+                setModuleIcon(e.target.value)
+              }
+              className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="e.g. RiUserLine"
             />
           </div>
 
           <div>
-            <label className="block mb-2 font-semibold">
+            <label className="mb-2 block font-semibold">
               Module Sequence
             </label>
 
@@ -226,66 +262,50 @@ export default function EditModulePage() {
               onChange={(e) =>
                 setModuleSequence(e.target.value)
               }
-              className="w-full border border-gray-300 rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full rounded-md border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
               placeholder="Enter sequence number"
             />
 
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="mt-2 text-sm text-gray-500">
               Sequence determines the module display order.
             </p>
           </div>
 
           <div>
-            <label className="block mb-2 font-semibold">
-              New Module Icon
+            <label className="mb-2 block font-semibold">
+              Status
             </label>
 
-            <input
-              type="file"
-              accept="image/png"
-              onChange={handleIconChange}
-              className="w-full border border-gray-300 rounded-md px-4 py-3 cursor-pointer"
-            />
-
-            <p className="text-sm text-gray-500 mt-2">
-              PNG icon is optional. Maximum size: 20 KB.
-            </p>
-
-            {preview && (
-              <div className="mt-4">
-                <p className="font-semibold mb-2">
-                  Icon Preview
-                </p>
-
-                <div className="w-24 h-24 border border-gray-300 rounded-md flex items-center justify-center overflow-hidden bg-gray-50">
-                  <img
-                    src={preview}
-                    alt="Module icon preview"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-              </div>
-            )}
+            <select
+              value={moduleStatus}
+              onChange={(e) =>
+                setModuleStatus(Number(e.target.value))
+              }
+              className="w-full rounded-md border border-gray-300 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              <option value={1}>Active</option>
+              <option value={0}>Inactive</option>
+            </select>
           </div>
 
           <div className="flex gap-3">
             <button
               type="submit"
-              disabled={loading || !hasChanges}
-              className="bg-blue-500 text-white px-5 py-3 rounded-md font-semibold hover:bg-blue-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={updating}
+              className="cursor-pointer rounded-md bg-blue-500 px-5 py-3 font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading
+              {updating
                 ? "Updating..."
                 : "Update Module"}
             </button>
 
             <button
               type="button"
-              disabled={loading}
+              disabled={updating}
               onClick={() =>
                 router.push("/dashboard/modules")
               }
-              className="bg-gray-500 text-white px-5 py-3 rounded-md font-semibold hover:bg-gray-600 cursor-pointer disabled:opacity-50"
+              className="cursor-pointer rounded-md bg-gray-500 px-5 py-3 font-semibold text-white hover:bg-gray-600 disabled:opacity-50"
             >
               Cancel
             </button>

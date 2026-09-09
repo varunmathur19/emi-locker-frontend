@@ -206,272 +206,28 @@ export const loginAsUser = async (
 // ADD MODULE
 // =====================================================
 
-export const addModule = async (
-   name,
-    sequence,
-    moduleIcon
-) => {
-
+export const addModule = async ({
+  name,
+  slug,
+  icon,
+  sequence,
+}) => {
   try {
-
-    // ================================================
-    // MODULE VALIDATION
-    // ================================================
-
-    const moduleName =
-      String(name || "").trim();
-
-    if (!moduleName) {
-
-      throw new Error(
-        "Module name is required"
-      );
-
-    }
-
-
-    // ================================================
-    // SEQUENCE VALIDATION
-    // ================================================
-
-    const moduleSequence =
-      Number(sequence);
-
-    if (
-      sequence === undefined ||
-      sequence === null ||
-      sequence === "" ||
-      !Number.isInteger(moduleSequence) ||
-      moduleSequence < 1
-    ) {
-
-      throw new Error(
-        "Valid sequence number is required"
-      );
-
-    }
-
-
-    // ================================================
-    // ICON VALIDATION
-    // ================================================
-
-    if (
-      typeof File !== "undefined" &&
-      !(moduleIcon instanceof File)
-    ) {
-
-      throw new Error(
-        "Valid PNG icon file is required"
-      );
-
-    }
-
-
-    if (!moduleIcon) {
-
-      throw new Error(
-        "Valid PNG icon file is required"
-      );
-
-    }
-
-
-    // ================================================
-    // PNG ONLY
-    // ================================================
-
-    if (
-      moduleIcon.type !==
-      "image/png"
-    ) {
-
-      throw new Error(
-        "Only PNG images are allowed"
-      );
-
-    }
-
-
-    // ================================================
-    // MAX 20 KB
-    // ================================================
-
-    const maxSize =
-      20 * 1024;
-
-    if (
-      moduleIcon.size >
-      maxSize
-    ) {
-
-      throw new Error(
-        "PNG icon size must not exceed 20 KB"
-      );
-
-    }
-
-
-    // ================================================
-    // FORM DATA
-    // ================================================
-
-    const formData =
-      new FormData();
-
-
-    // ================================================
-    // MODULE NAME
-    // ================================================
-
-    formData.append(
-      "module",
-      moduleName
-    );
-
-
-    // ================================================
-    // SEQUENCE
-    // ================================================
-
-    formData.append(
-      "sequence",
-      String(moduleSequence)
-    );
-
-
-    // ================================================
-    // ICON
-    // ================================================
-
-    formData.append(
-      "icon",
-      moduleIcon,
-      moduleIcon.name
-    );
-
-
-    // ================================================
-    // DEBUG
-    // ================================================
-
-    console.log(
-      "========== ADD MODULE =========="
-    );
-
-    console.log(
-      "MODULE:",
-      moduleName
-    );
-
-    console.log(
-      "SEQUENCE:",
-      moduleSequence
-    );
-
-    console.log(
-      "ICON:",
-      moduleIcon
-    );
-
-    console.log(
-      "ICON NAME:",
-      moduleIcon.name
-    );
-
-    console.log(
-      "ICON TYPE:",
-      moduleIcon.type
-    );
-
-    console.log(
-      "ICON SIZE:",
-      moduleIcon.size,
-      "bytes"
-    );
-
-
-    // ================================================
-    // DEBUG FORM DATA
-    // ================================================
-
-    for (
-      const [
-        key,
-        value
-      ]
-      of formData.entries()
-    ) {
-
-      console.log(
-        "FORM DATA:",
-        key,
-        value
-      );
-
-    }
-
-
-    // ================================================
-    // TOKEN
-    // ================================================
-
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem(
-            "token"
-          )
-        : null;
-
-
-    // ================================================
-    // API CALL
-    // ================================================
-
-    const response =
-      await api.post(
-        "/add-module",
-        formData,
-        {
-          headers: {
-
-            Authorization:
-              `Bearer ${token}`,
-
-            // Content-Type manually mat lagao.
-            // Axios/browser automatically
-            // multipart/form-data boundary set karega.
-
-          },
-        }
-      );
-
-
-    // ================================================
-    // RESPONSE
-    // ================================================
-
-    console.log(
-      "ADD MODULE RESPONSE:",
-      response.data
-    );
-
+    const response = await api.post("/add-module", {
+      name,
+      slug,
+      icon,
+      sequence: Number(sequence),
+    });
 
     return response.data;
-
-
   } catch (error) {
-
     console.error(
-      "ADD MODULE ERROR:",
-      error?.response?.data ||
-      error
+      "ADD MODULE API ERROR:",
+      error?.response?.data || error.message
     );
-
     throw error;
-
   }
-
 };
 
 
@@ -564,159 +320,34 @@ export const deleteModule = async (
 // UPDATE MODULE
 // =====================================================
 
-export const updateModule = async (
-  oldModule,
-  newModule,
-  newSequence,
+export const updateModule = async ({
+  id,
+  name,
+  slug,
   icon,
-  status
-) => {
-
+  sequence,
+  status,
+}) => {
   try {
-
-    const formData = new FormData();
-
-    // ============================================
-    // OLD MODULE
-    // ============================================
-
-    formData.append(
-      "oldModule",
-      String(oldModule)
-    );
-
-    // ============================================
-    // NEW MODULE
-    // ============================================
-
-    if (
-      newModule !== undefined &&
-      newModule !== null &&
-      String(newModule).trim() !== ""
-    ) {
-
-      formData.append(
-        "newModule",
-        String(newModule).trim()
-      );
-
-    }
-
-    // ============================================
-    // NEW SEQUENCE
-    // ============================================
-
-    if (
-      newSequence !== undefined &&
-      newSequence !== null &&
-      String(newSequence).trim() !== ""
-    ) {
-
-      formData.append(
-        "newSequence",
-        String(newSequence)
-      );
-
-    }
-
-    // ============================================
-    // STATUS
-    // ============================================
-
-    if (
-      status !== undefined &&
-      status !== null
-    ) {
-
-      formData.append(
-        "status",
-        String(status)
-      );
-
-    }
-
-    // ============================================
-    // NEW ICON
-    // ============================================
-
-    if (
-      icon instanceof File
-    ) {
-
-      formData.append(
-        "newIcon",
-        icon
-      );
-
-    }
-
-    // ============================================
-    // DEBUG
-    // ============================================
-
-    console.log(
-      "========== UPDATE MODULE API =========="
-    );
-
-    console.log(
-      "OLD MODULE:",
-      oldModule
-    );
-
-    console.log(
-      "NEW MODULE:",
-      newModule
-    );
-
-    console.log(
-      "NEW SEQUENCE:",
-      newSequence
-    );
-
-    console.log(
-      "STATUS:",
-      status
-    );
-
-    console.log(
-      "NEW ICON:",
-      icon
-    );
-
-    // ============================================
-    // API CALL
-    // ============================================
-
-    const response =
-      await api.put(
-        "/update-module",
-        formData
-      );
-
-    console.log(
-      "UPDATE MODULE RESPONSE:",
-      response.data
-    );
+    const response = await api.put(`/update-module/${id}`, {
+      name,
+      slug,
+      icon,
+      sequence: Number(sequence),
+      status: Number(status),
+    });
 
     return response.data;
-
-  }
-  catch (error) {
-
+  } catch (error) {
     console.error(
-      "========== UPDATE MODULE ERROR =========="
+      "UPDATE MODULE API ERROR:",
+      error?.response?.data || error.message
     );
-
-    console.error(
-      error?.response?.data ||
-      error
-    );
-
     throw error;
-
   }
-
 };
+
+
 // =====================================================
 // UPDATE USER STATUS
 // =====================================================

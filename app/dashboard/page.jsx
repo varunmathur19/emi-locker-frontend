@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -20,13 +21,8 @@ import {
   Line,
 } from "recharts";
 
-import {
-  getAllStaffData,
-  getModules,
-} from "@/services/api";
-
+import { getAllStaffData, getModules } from "@/services/api";
 import { getRoleId } from "@/utils/token";
-
 import UsersTable from "../../components/dashboard/UsersTable";
 
 const PIE_COLORS = [
@@ -88,6 +84,21 @@ export default function Dashboard() {
     9: "Staff",
   };
 
+  const roleMap = {
+    admin: 1,
+    cnf: 2,
+    "super distributor": 3,
+    "super distributer": 3,
+    "super-distributor": 3,
+    distributor: 4,
+    fos: 5,
+    retailer: 6,
+    "sub retailer": 7,
+    "sub-retailer": 7,
+    employee: 8,
+    staff: 9,
+  };
+
   useEffect(() => {
     const role = getRoleId();
 
@@ -103,11 +114,13 @@ export default function Dashboard() {
       try {
         const response = await getModules();
 
-        if (
-          response?.success &&
-          Array.isArray(response?.modules)
-        ) {
-          setModules(response.modules);
+        const moduleData =
+          response?.modules ||
+          response?.data ||
+          [];
+
+        if (response?.success && Array.isArray(moduleData)) {
+          setModules(moduleData);
         } else {
           setModules([]);
         }
@@ -121,23 +134,58 @@ export default function Dashboard() {
   }, []);
 
   const urlRoleParam = searchParams.get("role");
+  const moduleParam = searchParams.get("module");
 
-  const urlRole =
-    urlRoleParam !== null
-      ? Number(urlRoleParam)
-      : null;
+  const getRoleIdFromValue = (value) => {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+
+    const numericRole = Number(value);
+
+    if (!Number.isNaN(numericRole)) {
+      return numericRole;
+    }
+
+    const key = String(value)
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/-/g, " ")
+      .replace(/\s+/g, " ");
+
+    return roleMap[key] ?? null;
+  };
+
+  const urlRole = getRoleIdFromValue(urlRoleParam);
+
+  const moduleRole = getRoleIdFromValue(moduleParam);
+
+  const requestedRole =
+    urlRole !== null
+      ? urlRole
+      : moduleRole;
+
+  const isRoleAllowed =
+    roleId !== null &&
+    requestedRole !== null &&
+    (
+      requestedRole === roleId ||
+      allowedRoles[roleId]?.includes(requestedRole)
+    );
+
+  const hasRoleParam = urlRoleParam !== null;
+  const hasModuleParam = moduleParam !== null;
+
+  const isDashboardHome =
+    !hasRoleParam &&
+    !hasModuleParam;
 
   const selectedRole =
-    roleId !== null &&
-    urlRole !== null &&
-    (
-      urlRole === roleId ||
-      allowedRoles[roleId]?.includes(urlRole)
-    )
-      ? urlRole
+    requestedRole !== null &&
+    isRoleAllowed
+      ? requestedRole
       : null;
-
-  const isDashboardHome = selectedRole === null;
 
   const handleRoleList = (role) => {
     router.push(`/dashboard?role=${role}`);
@@ -145,19 +193,6 @@ export default function Dashboard() {
 
   const getRoleName = (id) => {
     return roles[Number(id)] || "Unknown";
-  };
-
-  const roleMap = {
-    admin: 1,
-    cnf: 2,
-    "super distributor": 3,
-    "super distributer": 3,
-    distributor: 4,
-    fos: 5,
-    retailer: 6,
-    "sub retailer": 7,
-    employee: 8,
-    staff: 9,
   };
 
   const activeRoleIds = modules
@@ -181,6 +216,8 @@ export default function Dashboard() {
       const key = String(name)
         .trim()
         .toLowerCase()
+        .replace(/_/g, " ")
+        .replace(/-/g, " ")
         .replace(/\s+/g, " ");
 
       return roleMap[key] ?? null;
@@ -196,29 +233,46 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (roleId === null || !urlRoleParam) {
+    if (roleId === null || !hasRoleParam) {
       return;
     }
 
-    const currentUrlRole = Number(urlRoleParam);
-
-    const isOwnRole = currentUrlRole === roleId;
-
-    const isChildRole =
-      allowedRoles[roleId]?.includes(currentUrlRole);
-
-    if (!isOwnRole && !isChildRole) {
-      toast.error(
-        "You are not allowed to access this role"
-      );
-
+    if (urlRole === null || !isRoleAllowed) {
+      toast.error("You are not allowed to access this role");
       router.replace("/dashboard");
     }
   }, [
     roleId,
-    urlRoleParam,
+    hasRoleParam,
+    urlRole,
+    isRoleAllowed,
     router,
   ]);
+
+  useEffect(() => {
+    if (
+      roleId === null ||
+      !hasModuleParam ||
+      moduleRole === null
+    ) {
+      return;
+    }
+
+    if (!isRoleAllowed) {
+      toast.error("You are not allowed to access this module");
+      router.replace("/dashboard");
+    }
+  }, [
+    roleId,
+    hasModuleParam,
+    moduleRole,
+    isRoleAllowed,
+    router,
+  ]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [urlRoleParam, moduleParam]);
 
   useEffect(() => {
     if (roleId === null) {
@@ -230,6 +284,7 @@ export default function Dashboard() {
     page,
     selectedRole,
     roleId,
+    isDashboardHome,
   ]);
 
   const fetchUsers = async () => {
@@ -240,8 +295,7 @@ export default function Dashboard() {
         ""
       );
 
-      const allData =
-        countRes?.data || [];
+      const allData = countRes?.data || [];
 
       const roleCounts = {
         admin: 0,
@@ -260,39 +314,30 @@ export default function Dashboard() {
           case 1:
             roleCounts.admin++;
             break;
-
           case 2:
             roleCounts.cnf++;
             break;
-
           case 3:
             roleCounts.super++;
             break;
-
           case 4:
             roleCounts.distributor++;
             break;
-
           case 5:
             roleCounts.fos++;
             break;
-
           case 6:
             roleCounts.retailer++;
             break;
-
           case 7:
             roleCounts.subRetailer++;
             break;
-
           case 8:
             roleCounts.employee++;
             break;
-
           case 9:
             roleCounts.staff++;
             break;
-
           default:
             break;
         }
@@ -306,35 +351,27 @@ export default function Dashboard() {
         return;
       }
 
-      let roleFilter = selectedRole;
-
       if (
-        roleFilter === null ||
-        roleFilter === undefined
+        selectedRole === null ||
+        selectedRole === undefined
       ) {
-        roleFilter =
-          Number(roleId) + 1;
+        setUsers([]);
+        setPagination({});
+        return;
       }
 
-      const res =
-        await getAllStaffData(
-          page,
-          10,
-          roleFilter
-        );
-
-      setUsers(
-        res?.data || []
+      const res = await getAllStaffData(
+        page,
+        10,
+        selectedRole
       );
 
-      setPagination(
-        res?.pagination || {}
-      );
+      setUsers(res?.data || []);
+      setPagination(res?.pagination || {});
     } catch (error) {
-      console.error(
-        "Fetch Users Error:",
-        error
-      );
+      console.error("Fetch Users Error:", error);
+      setUsers([]);
+      setPagination({});
     }
   };
 
@@ -386,12 +423,7 @@ export default function Dashboard() {
     },
   ];
 
-  // ======================================================
-  // VISIBLE CARDS
-  // ======================================================
-
   const visibleCards = cards.filter((card) => {
-    // Staff sirf Master Admin aur Admin ko show hoga
     if (Number(card.roleId) === 9) {
       if (
         Number(roleId) !== 0 &&
@@ -401,17 +433,14 @@ export default function Dashboard() {
       }
     }
 
-    // Module inactive hai to card show nahi hoga
     if (!isRoleActive(card.roleId)) {
       return false;
     }
 
-    // Master Admin ke liye saare active roles
     if (Number(roleId) === 0) {
       return true;
     }
 
-    // Admin aur baaki roles ke liye hierarchy check
     return allowedRoles[roleId]?.includes(
       card.roleId
     );
@@ -455,7 +484,6 @@ export default function Dashboard() {
                 >
                   <BarChart data={visibleCards}>
                     <CartesianGrid strokeDasharray="3 3" />
-
                     <XAxis
                       dataKey="title"
                       tick={{ fontSize: 12 }}
@@ -464,11 +492,8 @@ export default function Dashboard() {
                       textAnchor="end"
                       height={60}
                     />
-
                     <YAxis allowDecimals={false} />
-
                     <Tooltip />
-
                     <Bar
                       dataKey="count"
                       fill="#6366f1"
@@ -529,7 +554,6 @@ export default function Dashboard() {
                 >
                   <LineChart data={visibleCards}>
                     <CartesianGrid strokeDasharray="3 3" />
-
                     <XAxis
                       dataKey="title"
                       tick={{ fontSize: 12 }}
@@ -538,11 +562,8 @@ export default function Dashboard() {
                       textAnchor="end"
                       height={60}
                     />
-
                     <YAxis allowDecimals={false} />
-
                     <Tooltip />
-
                     <Line
                       type="monotone"
                       dataKey="count"
@@ -557,18 +578,83 @@ export default function Dashboard() {
           </>
         )}
 
-        {!isDashboardHome && (
-          <UsersTable
-            users={users}
-            page={page}
-            pagination={pagination}
-            setPage={setPage}
-            getRoleName={getRoleName}
-            selectedRole={Number(selectedRole)}
-            handleRoleList={handleRoleList}
-          />
-        )}
+        {!isDashboardHome &&
+          selectedRole !== null && (
+            <UsersTable
+              users={users}
+              page={page}
+              pagination={pagination}
+              setPage={setPage}
+              getRoleName={getRoleName}
+              selectedRole={Number(selectedRole)}
+              handleRoleList={handleRoleList}
+            />
+          )}
       </main>
     </div>
   );
 }
+
+
+// ### Ab flow kya hoga
+
+// Agar Sidebar se **Admin module** click hua:
+
+// ```text
+// /dashboard?module=admin
+// ```
+
+// Dashboard:
+
+// ```text
+// module = admin
+// ↓
+// roleMap["admin"] = 1
+// ↓
+// selectedRole = 1
+// ↓
+// Admin users fetch
+// ↓
+// UsersTable show
+// ```
+
+// Aur agar:
+
+// ```text
+// /dashboard?role=admin
+// ```
+
+// toh bhi:
+
+// ```text
+// admin → role 1
+// ```
+
+// resolve ho jayega.
+
+// ### Sabse important fix
+
+// Pehle aapka ye tha:
+
+// ```js
+// const urlRole = Number(urlRoleParam);
+// ```
+
+// Ab ye hai:
+
+// ```js
+// const urlRole = getRoleIdFromValue(urlRoleParam);
+// ```
+
+// Isliye:
+
+// ```text
+// admin → 1
+// cnf → 2
+// distributor → 4
+// staff → 9
+// ```
+
+// properly resolve hoga.
+
+// **Lekin ek aur important point:** Sidebar me module ko `?module=slug` bhejna hoga. Agar aapke Sidebar me abhi `RoleLink` module ko `?role=slug` bhej raha hai, to usko bhi change karna padega. Aapke Module Master ke according module ko normal module link banana best rahega, role link nahi.
