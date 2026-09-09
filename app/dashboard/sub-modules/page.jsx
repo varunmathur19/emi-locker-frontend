@@ -33,6 +33,7 @@ export default function SubModulePage() {
   const [editStatus, setEditStatus] = useState(1);
   const [deleteModal, setDeleteModal] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(null);
 
   useEffect(() => {
     loadModules();
@@ -206,6 +207,51 @@ export default function SubModulePage() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStatusToggle = async (subModule) => {
+    const newStatus = Number(subModule.status) === 1 ? 0 : 1;
+
+    try {
+      setStatusLoading(subModule.id);
+
+      const response = await updateSubModule({
+        id: subModule.id,
+        module_id: subModule.module_id,
+        name: subModule.name,
+        icon: subModule.icon || "",
+        status: newStatus,
+      });
+
+      if (!response?.success) {
+        toast.error(response?.message || "Failed to update status");
+        return;
+      }
+
+      setSubModules((prev) =>
+        prev.map((item) =>
+          Number(item.id) === Number(subModule.id)
+            ? {
+                ...item,
+                ...response.data,
+              }
+            : item
+        )
+      );
+
+      toast.success(
+        newStatus === 1
+          ? "Sub module activated successfully"
+          : "Sub module deactivated successfully"
+      );
+    } catch (error) {
+      console.error("UPDATE SUB MODULE STATUS ERROR:", error);
+      toast.error(
+        error?.response?.data?.message || "Failed to update status"
+      );
+    } finally {
+      setStatusLoading(null);
     }
   };
 
@@ -560,6 +606,30 @@ export default function SubModulePage() {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleStatusToggle(subModule)}
+                            disabled={statusLoading === subModule.id}
+                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                              Number(subModule.status) === 1
+                                ? "bg-green-500"
+                                : "bg-slate-300"
+                            }`}
+                            aria-label={
+                              Number(subModule.status) === 1
+                                ? "Deactivate sub module"
+                                : "Activate sub module"
+                            }
+                          >
+                            <span
+                              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                                Number(subModule.status) === 1
+                                  ? "translate-x-5"
+                                  : "translate-x-0.5"
+                              }`}
+                            />
+                          </button>
+
                           <span
                             className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                               Number(subModule.status) === 1

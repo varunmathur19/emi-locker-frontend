@@ -39,6 +39,7 @@ export default function ModulePage() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteModal, setDeleteModal] = useState({
     open: false,
     moduleId: null,
@@ -230,8 +231,7 @@ export default function ModulePage() {
         );
       } else {
         toast.error(
-          response?.message ||
-            "Failed to update module status"
+          response?.message || "Failed to update module status"
         );
       }
     } catch (error) {
@@ -254,6 +254,18 @@ export default function ModulePage() {
     });
   };
 
+  const closeDeleteModal = () => {
+    if (deleteLoading) {
+      return;
+    }
+
+    setDeleteModal({
+      open: false,
+      moduleId: null,
+      moduleName: "",
+    });
+  };
+
   const confirmDeleteModule = async () => {
     const { moduleId } = deleteModal;
 
@@ -262,6 +274,8 @@ export default function ModulePage() {
     }
 
     try {
+      setDeleteLoading(true);
+
       const response = await deleteModule(moduleId);
 
       if (response?.success === true) {
@@ -276,13 +290,11 @@ export default function ModulePage() {
         });
 
         toast.success(
-          response?.message ||
-            "Module deleted successfully"
+          response?.message || "Module deleted successfully"
         );
       } else {
         toast.error(
-          response?.message ||
-            "Failed to delete module"
+          response?.message || "Failed to delete module"
         );
       }
     } catch (error) {
@@ -292,6 +304,8 @@ export default function ModulePage() {
           error?.message ||
           "Failed to delete module"
       );
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -315,14 +329,9 @@ export default function ModulePage() {
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() =>
-                  setDeleteModal({
-                    open: false,
-                    moduleId: null,
-                    moduleName: "",
-                  })
-                }
-                className="cursor-pointer rounded-lg border border-slate-300 px-5 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-100"
+                onClick={closeDeleteModal}
+                disabled={deleteLoading}
+                className="cursor-pointer rounded-lg border border-slate-300 px-5 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -330,9 +339,10 @@ export default function ModulePage() {
               <button
                 type="button"
                 onClick={confirmDeleteModule}
-                className="cursor-pointer rounded-lg bg-red-500 px-5 py-2.5 font-semibold text-white transition hover:bg-red-600"
+                disabled={deleteLoading}
+                className="cursor-pointer rounded-lg bg-red-500 px-5 py-2.5 font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Delete
+                {deleteLoading ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>
@@ -353,9 +363,7 @@ export default function ModulePage() {
               <input
                 type="text"
                 value={moduleName}
-                onChange={(e) =>
-                  setModuleName(e.target.value)
-                }
+                onChange={(e) => setModuleName(e.target.value)}
                 placeholder="Enter module name e.g. Customer Finance"
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -364,9 +372,7 @@ export default function ModulePage() {
                 type="text"
                 value={moduleSlug}
                 onChange={(e) =>
-                  setModuleSlug(
-                    generateSlug(e.target.value)
-                  )
+                  setModuleSlug(generateSlug(e.target.value))
                 }
                 placeholder="Enter slug e.g. cnf"
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -375,9 +381,7 @@ export default function ModulePage() {
               <input
                 type="text"
                 value={moduleIcon}
-                onChange={(e) =>
-                  setModuleIcon(e.target.value)
-                }
+                onChange={(e) => setModuleIcon(e.target.value)}
                 placeholder="Enter icon e.g. RiUserLine"
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -386,9 +390,7 @@ export default function ModulePage() {
                 type="number"
                 min="1"
                 value={moduleSequence}
-                onChange={(e) =>
-                  setModuleSequence(e.target.value)
-                }
+                onChange={(e) => setModuleSequence(e.target.value)}
                 placeholder="Sequence"
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -466,35 +468,47 @@ export default function ModulePage() {
                       </div>
 
                       <div className="flex shrink-0 items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleToggleStatus(module)
-                          }
-                          disabled={isUpdating}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            isActive
-                              ? "bg-green-500"
-                              : "bg-gray-300"
-                          } ${
-                            isUpdating
-                              ? "cursor-not-allowed opacity-50"
-                              : "cursor-pointer"
-                          }`}
-                          title={
-                            isActive
-                              ? "Deactivate Module"
-                              : "Activate Module"
-                          }
-                        >
-                          <span
-                            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleToggleStatus(module)
+                            }
+                            disabled={isUpdating}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
                               isActive
-                                ? "translate-x-5"
-                                : "translate-x-0.5"
+                                ? "bg-green-500"
+                                : "bg-slate-300"
+                            } ${
+                              isUpdating
+                                ? "cursor-not-allowed opacity-50"
+                                : "cursor-pointer"
                             }`}
-                          />
-                        </button>
+                            title={
+                              isActive
+                                ? "Deactivate Module"
+                                : "Activate Module"
+                            }
+                          >
+                            <span
+                              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                                isActive
+                                  ? "translate-x-5"
+                                  : "translate-x-0.5"
+                              }`}
+                            />
+                          </button>
+
+                          <span
+                            className={`min-w-[58px] text-xs font-semibold ${
+                              isActive
+                                ? "text-green-600"
+                                : "text-red-500"
+                            }`}
+                          >
+                            {isActive ? "Active" : "Inactive"}
+                          </span>
+                        </div>
 
                         <button
                           type="button"
