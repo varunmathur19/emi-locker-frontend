@@ -7,6 +7,7 @@ import {
   RiEditLine,
   RiCloseLine,
   RiSaveLine,
+  RiArrowDownSLine,
 } from "react-icons/ri";
 import { toast } from "react-toastify";
 import {
@@ -30,6 +31,8 @@ export default function SubModulePage() {
   const [editName, setEditName] = useState("");
   const [editIcon, setEditIcon] = useState("");
   const [editStatus, setEditStatus] = useState(1);
+  const [deleteModal, setDeleteModal] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     loadModules();
@@ -206,15 +209,30 @@ export default function SubModulePage() {
     }
   };
 
-  const handleDeleteSubModule = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this sub module?")) {
+  const openDeleteModal = (subModule) => {
+    setDeleteModal({
+      id: subModule.id,
+      name: subModule.name,
+    });
+  };
+
+  const closeDeleteModal = () => {
+    if (deleteLoading) {
+      return;
+    }
+
+    setDeleteModal(null);
+  };
+
+  const handleDeleteSubModule = async () => {
+    if (!deleteModal?.id) {
       return;
     }
 
     try {
-      setLoading(true);
+      setDeleteLoading(true);
 
-      const response = await deleteSubModule(id);
+      const response = await deleteSubModule(deleteModal.id);
 
       if (!response?.success) {
         toast.error(response?.message || "Failed to delete sub module");
@@ -222,13 +240,16 @@ export default function SubModulePage() {
       }
 
       setSubModules((prev) =>
-        prev.filter((item) => Number(item.id) !== Number(id))
+        prev.filter(
+          (item) => Number(item.id) !== Number(deleteModal.id)
+        )
       );
 
-      if (Number(editId) === Number(id)) {
+      if (Number(editId) === Number(deleteModal.id)) {
         handleCancelEdit();
       }
 
+      setDeleteModal(null);
       toast.success("Sub module deleted successfully");
     } catch (error) {
       console.error("DELETE SUB MODULE ERROR:", error);
@@ -236,7 +257,7 @@ export default function SubModulePage() {
         error?.response?.data?.message || "Failed to delete sub module"
       );
     } finally {
-      setLoading(false);
+      setDeleteLoading(false);
     }
   };
 
@@ -279,19 +300,26 @@ export default function SubModulePage() {
                 Select Module
               </label>
 
-              <select
-                value={selectedModule}
-                onChange={(e) => setSelectedModule(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Module</option>
+              <div className="relative">
+                <select
+                  value={selectedModule}
+                  onChange={(e) => setSelectedModule(e.target.value)}
+                  className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Module</option>
 
-                {modules.map((module) => (
-                  <option key={module.id} value={module.id}>
-                    {module.name}
-                  </option>
-                ))}
-              </select>
+                  {modules.map((module) => (
+                    <option key={module.id} value={module.id}>
+                      {module.name}
+                    </option>
+                  ))}
+                </select>
+
+                <RiArrowDownSLine
+                  size={20}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                />
+              </div>
             </div>
 
             <div>
@@ -351,22 +379,29 @@ export default function SubModulePage() {
               </p>
             </div>
 
-            <select
-              value={filterModule}
-              onChange={(e) => {
-                setFilterModule(e.target.value);
-                handleCancelEdit();
-              }}
-              className="w-full md:w-56 border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Modules</option>
+            <div className="relative w-full md:w-56">
+              <select
+                value={filterModule}
+                onChange={(e) => {
+                  setFilterModule(e.target.value);
+                  handleCancelEdit();
+                }}
+                className="w-full appearance-none border border-slate-300 rounded-lg px-3 py-2 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Modules</option>
 
-              {modules.map((module) => (
-                <option key={module.id} value={module.id}>
-                  {module.name}
-                </option>
-              ))}
-            </select>
+                {modules.map((module) => (
+                  <option key={module.id} value={module.id}>
+                    {module.name}
+                  </option>
+                ))}
+              </select>
+
+              <RiArrowDownSLine
+                size={20}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+              />
+            </div>
           </div>
 
           {loading && subModules.length === 0 ? (
@@ -401,24 +436,31 @@ export default function SubModulePage() {
                               Module
                             </label>
 
-                            <select
-                              value={editModule}
-                              onChange={(e) =>
-                                setEditModule(e.target.value)
-                              }
-                              className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="">Select Module</option>
+                            <div className="relative">
+                              <select
+                                value={editModule}
+                                onChange={(e) =>
+                                  setEditModule(e.target.value)
+                                }
+                                className="w-full appearance-none border border-slate-300 rounded-lg px-3 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">Select Module</option>
 
-                              {modules.map((module) => (
-                                <option
-                                  key={module.id}
-                                  value={module.id}
-                                >
-                                  {module.name}
-                                </option>
-                              ))}
-                            </select>
+                                {modules.map((module) => (
+                                  <option
+                                    key={module.id}
+                                    value={module.id}
+                                  >
+                                    {module.name}
+                                  </option>
+                                ))}
+                              </select>
+
+                              <RiArrowDownSLine
+                                size={20}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                              />
+                            </div>
                           </div>
 
                           <div>
@@ -453,16 +495,23 @@ export default function SubModulePage() {
                               Status
                             </label>
 
-                            <select
-                              value={editStatus}
-                              onChange={(e) =>
-                                setEditStatus(Number(e.target.value))
-                              }
-                              className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value={1}>Active</option>
-                              <option value={0}>Inactive</option>
-                            </select>
+                            <div className="relative">
+                              <select
+                                value={editStatus}
+                                onChange={(e) =>
+                                  setEditStatus(Number(e.target.value))
+                                }
+                                className="w-full appearance-none border border-slate-300 rounded-lg px-3 py-2.5 pr-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value={1}>Active</option>
+                                <option value={0}>Inactive</option>
+                              </select>
+
+                              <RiArrowDownSLine
+                                size={20}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                              />
+                            </div>
                           </div>
                         </div>
 
@@ -535,9 +584,7 @@ export default function SubModulePage() {
 
                           <button
                             type="button"
-                            onClick={() =>
-                              handleDeleteSubModule(subModule.id)
-                            }
+                            onClick={() => openDeleteModal(subModule)}
                             className="p-2 rounded-lg text-red-500 hover:bg-red-50 cursor-pointer"
                           >
                             <RiDeleteBinLine size={20} />
@@ -552,6 +599,66 @@ export default function SubModulePage() {
           )}
         </div>
       </div>
+
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-800">
+                Delete Sub Module
+              </h3>
+
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={deleteLoading}
+                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RiCloseLine size={22} />
+              </button>
+            </div>
+
+            <div className="px-6 py-6">
+              <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4">
+                <RiDeleteBinLine size={24} />
+              </div>
+
+              <h4 className="text-base font-semibold text-slate-800">
+                Are you sure you want to delete this sub module?
+              </h4>
+
+              <p className="text-sm text-slate-500 mt-2">
+                You are about to delete{" "}
+                <span className="font-semibold text-slate-700">
+                  "{deleteModal.name}"
+                </span>
+                . This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={deleteLoading}
+                className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteSubModule}
+                disabled={deleteLoading}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RiDeleteBinLine size={18} />
+                {deleteLoading ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
