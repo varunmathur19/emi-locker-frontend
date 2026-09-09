@@ -182,30 +182,6 @@ export const loginAsUser = async (
   return response.data;
 };
 
-// ADD MODULE
-export const addModule = async ({
-  name,
-  slug,
-  icon,
-  sequence,
-}) => {
-  try {
-    const response = await api.post("/add-module", {
-      name,
-      slug,
-      icon,
-      sequence: Number(sequence),
-    });
-
-    return response.data;
-  } catch (error) {
-    console.error(
-      "ADD MODULE API ERROR:",
-      error?.response?.data || error.message
-    );
-    throw error;
-  }
-};
 
 // GET MODULES
 
@@ -239,81 +215,24 @@ export const getModules = async () => {
 
 };
 
-// DELETE MODULE
-
-export const deleteModule = async (
-  module
-) => {
-
-  try {
-
-    console.log(
-      "DELETE MODULE API:",
-      module
-    );
-
-
-    const response =
-      await api.delete(
-        "/delete-module",
-        {
-          data: {
-            module,
-          },
-        }
-      );
-
-
-    console.log(
-      "DELETE MODULE API RESPONSE:",
-      response.data
-    );
-
-
-    return response.data;
-
-  }
-  catch (error) {
-
-    console.error(
-      "DELETE MODULE API ERROR:",
-      error?.response?.data ||
-      error
-    );
-
-    throw error;
-
-  }
-
-};
 
 // UPDATE MODULE
-export const updateModule = async ({
-  id,
-  name,
-  slug,
-  icon,
-  sequence,
-  status,
-}) => {
-  try {
-    const response = await api.put(`/update-module/${id}`, {
-      name,
-      slug,
-      icon,
-      sequence: Number(sequence),
-      status: Number(status),
-    });
+export const updateModule = async ({ id, status }) => {
+    try {
+        const response = await api.put(`/update-module/${id}`, {
+            status: Number(status)
+        });
 
-    return response.data;
-  } catch (error) {
-    console.error(
-      "UPDATE MODULE API ERROR:",
-      error?.response?.data || error.message
-    );
-    throw error;
-  }
+        return response.data;
+    } catch (error) {
+        console.error(
+            "UPDATE MODULE API ERROR:",
+            error?.response?.data || error.message
+        );
+        throw error;
+    }
 };
+
 
 // UPDATE USER STATUS
 export const updateUserStatus = async (
