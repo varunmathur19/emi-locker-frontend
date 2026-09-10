@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -6,6 +5,8 @@ import {
     getDropdownUsers,
     getModules,
     getSubModules,
+    getStaffDataById,
+    updateStaffData,
 } from "@/services/api";
 import { getUserFromToken } from "@/utils/token";
 import {
@@ -20,7 +21,7 @@ import { SlPeople } from "react-icons/sl";
 import { FaEye } from "react-icons/fa";
 import Link from "next/link";
 import { Country, State, City } from "country-state-city";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 
@@ -118,8 +119,7 @@ const getSubModuleStatus = (item) =>
     );
 
 const getSubModuleIcon = (icon) =>
-    subModuleIcons[String(icon || "").trim()] ||
-    FaEye;
+    subModuleIcons[String(icon || "").trim()] || FaEye;
 
 const getPermissionObject = (subModules = {}) => ({
     manage: Number(subModules?.manage) === 1 ? 1 : 0,
@@ -128,6 +128,78 @@ const getPermissionObject = (subModules = {}) => ({
     add: Number(subModules?.add) === 1 ? 1 : 0,
     delete: Number(subModules?.delete) === 1 ? 1 : 0,
 });
+
+const getPermissionSubModuleIds = (
+    permission,
+    subModules = []
+) => {
+    if (!permission || !Array.isArray(subModules)) {
+        return [];
+    }
+
+    const selectedIds = [];
+
+    subModules.forEach((subModule) => {
+        const id = getSubModuleId(subModule);
+
+        if (id === null) {
+            return;
+        }
+
+        const name = String(
+            getSubModuleNameValue(subModule)
+        )
+            .trim()
+            .toLowerCase()
+            .replace(/[\s_-]+/g, "");
+
+        if (
+            name === "manage" &&
+            Number(permission?.sub_modules?.manage) === 1
+        ) {
+            selectedIds.push(id);
+        }
+
+        if (
+            name === "edit" &&
+            Number(permission?.sub_modules?.edit) === 1
+        ) {
+            selectedIds.push(id);
+        }
+
+        if (
+            name === "view" &&
+            Number(permission?.sub_modules?.view) === 1
+        ) {
+            selectedIds.push(id);
+        }
+
+        if (
+            name === "add" &&
+            Number(permission?.sub_modules?.add) === 1
+        ) {
+            selectedIds.push(id);
+        }
+
+        if (
+            name === "delete" &&
+            Number(permission?.sub_modules?.delete) === 1
+        ) {
+            selectedIds.push(id);
+        }
+    });
+
+    return selectedIds;
+};
+
+// Deep compare helper for change detection
+const isEqual = (a, b) => {
+    try {
+        return JSON.stringify(a) === JSON.stringify(b);
+    } catch {
+        return false;
+    }
+};
 
 export default function Page() {
     const searchParams = useSearchParams();
@@ -146,8 +218,25 @@ export default function Page() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [subModuleLoading, setSubModuleLoading] = useState(false);
+    const [editLoading, setEditLoading] = useState(false);
+    const [editUserLoaded, setEditUserLoaded] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
 
-    const selectedRole = Number(searchParams.get("role_id"));
+    // Original data for dirty checking (edit mode)
+    const [originalFormData, setOriginalFormData] = useState(null);
+    const [originalRolePermissions, setOriginalRolePermissions] = useState([]);
+    const [originalSelectedParents, setOriginalSelectedParents] = useState({});
+
+    const editId = searchParams.get("id");
+    const isEditMode = Boolean(editId);
+
+    const selectedRoleFromUrl = Number(
+        searchParams.get("role_id")
+    );
+
+    const selectedRole =
+        Number(formData.role_id) ||
+        selectedRoleFromUrl;
 
     const loggedInUser = getUserFromToken();
     const loggedInRoleId = Number(loggedInUser?.role_id);
@@ -178,6 +267,34 @@ export default function Page() {
         }
 
         return [];
+    };
+
+    const getSingleUserFromResponse = (response) => {
+        const possibleData = [
+            response?.data?.data,
+            response?.data?.user,
+            response?.data,
+            response?.user,
+            response,
+        ];
+
+        for (const item of possibleData) {
+            if (
+                item &&
+                typeof item === "object" &&
+                !Array.isArray(item) &&
+                (
+                    item.id ||
+                    item.user_id ||
+                    item.name ||
+                    item.email
+                )
+            ) {
+                return item;
+            }
+        }
+
+        return null;
     };
 
     const getModulesFromResponse = (response) => {
@@ -291,6 +408,51 @@ export default function Page() {
         return role > loggedRole && role < createRole;
     });
 
+    // Detect if form has changes (for edit mode)
+    const hasChanges = useMemo(() => {
+        if (!isEditMode || !originalFormData) {
+            return true; // Create mode or not loaded yet → allow submit
+        }
+
+        // Compare form fields (ignore password fields for comparison if empty)
+        const currentComparable = {
+            ...formData,
+            password: formData.password || "",
+            confirm_password: formData.confirm_password || "",
+        };
+
+        const originalComparable = {
+            ...originalFormData,
+            password: "",
+            confirm_password: "",
+        };
+
+        // Password change is also considered a change
+        const passwordChanged =
+            Boolean(formData.password) ||
+            Boolean(formData.confirm_password);
+
+        const formChanged = !isEqual(currentComparable, originalComparable);
+        const permissionsChanged = !isEqual(
+            rolePermissions,
+            originalRolePermissions
+        );
+        const parentsChanged = !isEqual(
+            selectedParents,
+            originalSelectedParents
+        );
+
+        return formChanged || permissionsChanged || parentsChanged || passwordChanged;
+    }, [
+        isEditMode,
+        formData,
+        rolePermissions,
+        selectedParents,
+        originalFormData,
+        originalRolePermissions,
+        originalSelectedParents,
+    ]);
+
     useEffect(() => {
         const loadModules = async () => {
             try {
@@ -322,9 +484,21 @@ export default function Page() {
     }, []);
 
     useEffect(() => {
+        if (!isEditMode || !editId) {
+            setEditUserLoaded(false);
+            setOriginalFormData(null);
+            setOriginalRolePermissions([]);
+            setOriginalSelectedParents({});
+            return;
+        }
+
+        setEditUserLoaded(false);
+    }, [editId, isEditMode]);
+
+    useEffect(() => {
         const roleId = searchParams.get("role_id");
 
-        if (!roleId) {
+        if (!roleId || isEditMode) {
             return;
         }
 
@@ -342,7 +516,7 @@ export default function Page() {
         setSelectedSubModuleIds([]);
         setRolePermissions([]);
         setSubModules([]);
-    }, [searchParams]);
+    }, [searchParams, isEditMode]);
 
     useEffect(() => {
         if (!selectedModuleId) {
@@ -381,7 +555,32 @@ export default function Page() {
                 }
 
                 setSubModules(activeSubModules);
-                setSelectedSubModuleIds([]);
+
+                if (isEditMode) {
+                    const existingPermission =
+                        rolePermissions.find(
+                            (permission) =>
+                                Number(
+                                    permission.module_id
+                                ) ===
+                                Number(
+                                    selectedModuleId
+                                )
+                        );
+
+                    if (existingPermission) {
+                        setSelectedSubModuleIds(
+                            getPermissionSubModuleIds(
+                                existingPermission,
+                                activeSubModules
+                            )
+                        );
+                    } else {
+                        setSelectedSubModuleIds([]);
+                    }
+                } else {
+                    setSelectedSubModuleIds([]);
+                }
             } catch (error) {
                 console.error(
                     "GET SUB MODULES ERROR:",
@@ -408,7 +607,353 @@ export default function Page() {
         return () => {
             cancelled = true;
         };
-    }, [selectedModuleId]);
+    }, [
+        selectedModuleId,
+        isEditMode,
+        rolePermissions,
+    ]);
+
+    const getParentValue = (user, roleId) => {
+        const role = Number(roleId);
+
+        const roleFields = {
+            1: ["parent_admin_id", "admin_id"],
+            2: ["parent_cnf_id", "cnf_id"],
+            3: [
+                "parent_super_distributor_id",
+                "parent_superdistributor_id",
+                "super_distributor_id",
+            ],
+            4: [
+                "parent_distributor_id",
+                "distributor_id",
+            ],
+            5: ["parent_fos_id", "fos_id"],
+            6: [
+                "parent_retailer_id",
+                "retailer_id",
+            ],
+            7: [
+                "parent_sub_retailer_id",
+                "parent_subretailer_id",
+                "sub_retailer_id",
+            ],
+            8: [
+                "parent_employee_id",
+                "employee_id",
+            ],
+            9: [
+                "parent_staff_id",
+                "staff_id",
+            ],
+        };
+
+        const fields = roleFields[role] || [];
+
+        for (const field of fields) {
+            const value = user?.[field];
+
+            if (
+                value !== undefined &&
+                value !== null &&
+                value !== ""
+            ) {
+                return Number(value);
+            }
+        }
+
+        return null;
+    };
+
+    const getParentChainFromUser = (user) => {
+        const result = {};
+
+        const possibleChain =
+            user?.parent_chain ??
+            user?.parentChain ??
+            user?.hierarchy ??
+            user?.parents ??
+            user?.parent_users ??
+            user?.parentUsers;
+
+        if (Array.isArray(possibleChain)) {
+            possibleChain.forEach((item) => {
+                const roleId = Number(
+                    item?.role_id ??
+                        item?.roleId ??
+                        item?.current_role_id
+                );
+
+                const id = Number(
+                    item?.id ??
+                        item?.user_id ??
+                        item?.parent_id
+                );
+
+                if (
+                    Number.isFinite(roleId) &&
+                    roleId > 0 &&
+                    Number.isFinite(id) &&
+                    id > 0
+                ) {
+                    result[roleId] = id;
+                }
+            });
+        }
+
+        if (
+            possibleChain &&
+            typeof possibleChain === "object" &&
+            !Array.isArray(possibleChain)
+        ) {
+            Object.entries(possibleChain).forEach(
+                ([key, value]) => {
+                    const roleId = Number(key);
+
+                    const id = Number(
+                        value?.id ??
+                            value?.user_id ??
+                            value?.parent_id ??
+                            value
+                    );
+
+                    if (
+                        Number.isFinite(roleId) &&
+                        roleId > 0 &&
+                        Number.isFinite(id) &&
+                        id > 0
+                    ) {
+                        result[roleId] = id;
+                    }
+                }
+            );
+        }
+
+        Object.keys(roleNames).forEach((roleId) => {
+            const role = Number(roleId);
+
+            if (!result[role]) {
+                const value = getParentValue(
+                    user,
+                    role
+                );
+
+                if (value) {
+                    result[role] = value;
+                }
+            }
+        });
+
+        return result;
+    };
+
+    const loadEditUser = async () => {
+        if (!isEditMode || !editId) {
+            return;
+        }
+
+        try {
+            setEditLoading(true);
+            setEditUserLoaded(false);
+
+            const response =
+                await getStaffDataById(editId);
+
+            const user =
+                getSingleUserFromResponse(response);
+
+            if (!user) {
+                toast.error("User data not found");
+                return;
+            }
+
+            const roleId = Number(
+                user?.role_id ??
+                    searchParams.get("role_id")
+            );
+
+            const country = user?.country || "";
+            const state = user?.state || "";
+            const city = user?.city || "";
+
+            const editFormData = {
+                ...initialFormData,
+                organization_name:
+                    user?.organization_name || "",
+                role_id: roleId || "",
+                name: user?.name || "",
+                email: user?.email || "",
+                phone: user?.phone || "",
+                password: "",
+                confirm_password: "",
+                company_address:
+                    user?.company_address || "",
+                country,
+                state,
+                city,
+                parent_id:
+                    user?.parent_id
+                        ? Number(user.parent_id)
+                        : null,
+                new_device:
+                    Number(user?.new_device) === 1
+                        ? 1
+                        : 0,
+                old_device:
+                    Number(user?.old_device) === 1
+                        ? 1
+                        : 0,
+                supreme_device:
+                    Number(user?.supreme_device) === 1
+                        ? 1
+                        : 0,
+                pro_star:
+                    Number(user?.pro_star) === 1
+                        ? 1
+                        : 0,
+                lite:
+                    Number(user?.lite) === 1
+                        ? 1
+                        : 0,
+                google_tv:
+                    Number(user?.google_tv) === 1
+                        ? 1
+                        : 0,
+                supreme_lock:
+                    Number(user?.supreme_lock) === 1
+                        ? 1
+                        : 0,
+            };
+
+            setFormData(editFormData);
+
+            const parentChain =
+                getParentChainFromUser(user);
+
+            if (user?.parent_id) {
+                const lastParentRole =
+                    (
+                        parentRoles[roleId] || []
+                    ).slice(-1)[0];
+
+                if (lastParentRole) {
+                    parentChain[
+                        Number(lastParentRole)
+                    ] = Number(user.parent_id);
+                }
+            }
+
+            setSelectedParents(parentChain);
+
+            const permissions =
+                user?.role_permission ??
+                user?.role_permissions ??
+                user?.permissions ??
+                [];
+
+            let normalizedPermissions = [];
+
+            if (Array.isArray(permissions)) {
+                normalizedPermissions =
+                    permissions
+                        .map((permission) => ({
+                            module_id: Number(
+                                permission?.module_id ??
+                                    permission?.moduleId ??
+                                    permission?.id
+                            ),
+                            sub_modules:
+                                getPermissionObject(
+                                    permission?.sub_modules ??
+                                        permission?.subModules ??
+                                        permission?.permissions ??
+                                        {}
+                                ),
+                        }))
+                        .filter(
+                            (permission) =>
+                                Number.isFinite(
+                                    permission.module_id
+                                ) &&
+                                permission.module_id > 0
+                        );
+            } else if (
+                permissions &&
+                typeof permissions === "object"
+            ) {
+                normalizedPermissions =
+                    Object.entries(
+                        permissions
+                    )
+                        .map(
+                            ([moduleId, permission]) => ({
+                                module_id:
+                                    Number(moduleId),
+                                sub_modules:
+                                    getPermissionObject(
+                                        permission?.sub_modules ??
+                                            permission
+                                    ),
+                            })
+                        )
+                        .filter(
+                            (permission) =>
+                                Number.isFinite(
+                                    permission.module_id
+                                ) &&
+                                permission.module_id > 0
+                        );
+            }
+
+            setRolePermissions(
+                normalizedPermissions
+            );
+
+            // Store originals for dirty checking
+            setOriginalFormData({ ...editFormData });
+            setOriginalRolePermissions(
+                JSON.parse(JSON.stringify(normalizedPermissions))
+            );
+            setOriginalSelectedParents({ ...parentChain });
+
+            if (normalizedPermissions.length > 0) {
+                setSelectedModuleId(
+                    String(
+                        normalizedPermissions[0]
+                            .module_id
+                    )
+                );
+            } else {
+                setSelectedModuleId("");
+                setSelectedSubModuleIds([]);
+            }
+
+            setEditUserLoaded(true);
+        } catch (error) {
+            console.error(
+                "GET STAFF DATA ERROR:",
+                error?.response?.data ||
+                    error?.message ||
+                    error
+            );
+
+            toast.error(
+                error?.response?.data?.message ||
+                    error?.message ||
+                    "Failed to load user data"
+            );
+        } finally {
+            setEditLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!isEditMode || !editId) {
+            return;
+        }
+
+        loadEditUser();
+    }, [editId, isEditMode]);
 
     useEffect(() => {
         if (!selectedRole || selectedRole <= 1) {
@@ -419,51 +964,205 @@ export default function Page() {
             return;
         }
 
-        const parents = visibleParentRoles;
-
-        if (!parents.length) {
+        if (isEditMode && !editUserLoaded) {
             return;
         }
 
-        const firstParentRole = Number(parents[0]);
+        const parents = visibleParentRoles;
 
-        const parentId =
-            firstParentRole === loggedInRoleId
-                ? loggedInUserId
-                : null;
+        if (!parents.length) {
+            setParentUsers({});
+            return;
+        }
 
-        const loadFirstParent = async () => {
+        let cancelled = false;
+
+        const loadParents = async () => {
             try {
-                const response = await getDropdownUsers(
-                    firstParentRole,
-                    parentId
+                const updatedParentUsers = {};
+                const updatedSelectedParents = {
+                    ...selectedParents,
+                };
+
+                for (
+                    let index = 0;
+                    index < parents.length;
+                    index++
+                ) {
+                    if (cancelled) {
+                        return;
+                    }
+
+                    const currentRole = Number(
+                        parents[index]
+                    );
+
+                    let parentId = null;
+
+                    if (index === 0) {
+                        if (
+                            currentRole ===
+                            loggedInRoleId
+                        ) {
+                            parentId =
+                                loggedInUserId;
+                        }
+                    } else {
+                        const previousRole =
+                            Number(
+                                parents[index - 1]
+                            );
+
+                        parentId =
+                            updatedSelectedParents[
+                                previousRole
+                            ]
+                                ? Number(
+                                      updatedSelectedParents[
+                                          previousRole
+                                      ]
+                                  )
+                                : null;
+                    }
+
+                    const response =
+                        await getDropdownUsers(
+                            currentRole,
+                            parentId
+                        );
+
+                    let users =
+                        getUsersFromResponse(
+                            response
+                        );
+
+                    if (currentRole === 5) {
+                        users = users.filter(
+                            (user) =>
+                                Number(
+                                    user?.role_id
+                                ) === 5 &&
+                                (
+                                    parentId ===
+                                        null ||
+                                    Number(
+                                        user?.parent_id
+                                    ) ===
+                                        Number(
+                                            parentId
+                                        )
+                                )
+                        );
+                    }
+
+                    const selectedId =
+                        updatedSelectedParents[
+                            currentRole
+                        ];
+
+                    if (
+                        selectedId &&
+                        !users.some(
+                            (user) =>
+                                Number(
+                                    user?.id
+                                ) ===
+                                Number(
+                                    selectedId
+                                )
+                        )
+                    ) {
+                        const responseById =
+                            await getDropdownUsers(
+                                currentRole,
+                                parentId,
+                                ""
+                            );
+
+                        const allUsers =
+                            getUsersFromResponse(
+                                responseById
+                            );
+
+                        const selectedUser =
+                            allUsers.find(
+                                (user) =>
+                                    Number(
+                                        user?.id
+                                    ) ===
+                                    Number(
+                                        selectedId
+                                    )
+                            );
+
+                        if (selectedUser) {
+                            users = [
+                                ...users,
+                                selectedUser,
+                            ];
+                        }
+                    }
+
+                    updatedParentUsers[
+                        currentRole
+                    ] = users;
+                }
+
+                if (cancelled) {
+                    return;
+                }
+
+                setParentUsers(
+                    updatedParentUsers
                 );
 
-                const users = getUsersFromResponse(response);
+                setSelectedParents(
+                    updatedSelectedParents
+                );
 
-                setParentUsers((prev) => ({
-                    ...prev,
-                    [firstParentRole]: users,
-                }));
+                const lastRole =
+                    parents[parents.length - 1];
+
+                const lastParentId =
+                    updatedSelectedParents[
+                        Number(lastRole)
+                    ];
+
+                if (lastParentId) {
+                    setFormData((prev) => ({
+                        ...prev,
+                        parent_id:
+                            Number(
+                                lastParentId
+                            ),
+                    }));
+                }
             } catch (error) {
-                console.error(
-                    "INITIAL PARENT ERROR:",
-                    error?.response?.data || error
-                );
+                if (cancelled) {
+                    return;
+                }
 
-                setParentUsers((prev) => ({
-                    ...prev,
-                    [firstParentRole]: [],
-                }));
+                console.error(
+                    "LOAD PARENTS ERROR:",
+                    error?.response?.data ||
+                        error?.message ||
+                        error
+                );
             }
         };
 
-        loadFirstParent();
+        loadParents();
+
+        return () => {
+            cancelled = true;
+        };
     }, [
         selectedRole,
         loggedInRoleId,
         loggedInUserId,
         modules,
+        isEditMode,
+        editUserLoaded,
     ]);
 
     const loadNextParentUsers = async (
@@ -488,7 +1187,8 @@ export default function Page() {
                 Number(selectedParentId)
             );
 
-            let users = getUsersFromResponse(response);
+            let users =
+                getUsersFromResponse(response);
 
             if (nextRole === 5) {
                 users = users.filter(
@@ -505,7 +1205,9 @@ export default function Page() {
             }));
         } catch (error) {
             console.error(
-                `LOAD ${getRoleName(nextRole)} ERROR:`,
+                `LOAD ${getRoleName(
+                    nextRole
+                )} ERROR:`,
                 error?.response?.data || error
             );
 
@@ -532,14 +1234,16 @@ export default function Page() {
             : null;
 
         const parents = visibleParentRoles;
-        const currentIndex = parents.indexOf(roleId);
+        const currentIndex =
+            parents.indexOf(roleId);
 
         const updatedSelectedParents = {
             ...selectedParents,
         };
 
         if (selectedId) {
-            updatedSelectedParents[roleId] = selectedId;
+            updatedSelectedParents[roleId] =
+                selectedId;
         } else {
             delete updatedSelectedParents[roleId];
         }
@@ -552,7 +1256,9 @@ export default function Page() {
                 ];
             });
 
-        setSelectedParents(updatedSelectedParents);
+        setSelectedParents(
+            updatedSelectedParents
+        );
 
         setFormData((prev) => ({
             ...prev,
@@ -667,7 +1373,9 @@ export default function Page() {
                     );
 
                 let users =
-                    getUsersFromResponse(response);
+                    getUsersFromResponse(
+                        response
+                    );
 
                 if (roleId === 5) {
                     users = users.filter(
@@ -675,13 +1383,13 @@ export default function Page() {
                             Number(
                                 user?.role_id
                             ) === 5 &&
-                            (parentId === null ||
+                            (
+                                parentId === null ||
                                 Number(
                                     user?.parent_id
                                 ) ===
-                                    Number(
-                                        parentId
-                                    ))
+                                    Number(parentId)
+                            )
                     );
                 }
 
@@ -745,7 +1453,9 @@ export default function Page() {
 
         setSelectedSubModuleIds((prev) =>
             prev.includes(id)
-                ? prev.filter((item) => item !== id)
+                ? prev.filter(
+                      (item) => item !== id
+                  )
                 : [...prev, id]
         );
     };
@@ -779,45 +1489,55 @@ export default function Page() {
             delete: 0,
         };
 
-        selectedSubModuleIds.forEach((subModuleId) => {
-            const subModule = subModules.find(
-                (item) =>
-                    getSubModuleId(item) ===
-                    Number(subModuleId)
-            );
+        selectedSubModuleIds.forEach(
+            (subModuleId) => {
+                const subModule =
+                    subModules.find(
+                        (item) =>
+                            getSubModuleId(
+                                item
+                            ) ===
+                            Number(
+                                subModuleId
+                            )
+                    );
 
-            if (!subModule) {
-                return;
+                if (!subModule) {
+                    return;
+                }
+
+                const name = normalizeName(
+                    getSubModuleNameValue(
+                        subModule
+                    )
+                );
+
+                if (name === "manage") {
+                    subModulePermission.manage = 1;
+                }
+
+                if (name === "edit") {
+                    subModulePermission.edit = 1;
+                }
+
+                if (name === "view") {
+                    subModulePermission.view = 1;
+                }
+
+                if (name === "add") {
+                    subModulePermission.add = 1;
+                }
+
+                if (name === "delete") {
+                    subModulePermission.delete = 1;
+                }
             }
-
-            const name = normalizeName(
-                getSubModuleNameValue(subModule)
-            );
-
-            if (name === "manage") {
-                subModulePermission.manage = 1;
-            }
-
-            if (name === "edit") {
-                subModulePermission.edit = 1;
-            }
-
-            if (name === "view") {
-                subModulePermission.view = 1;
-            }
-
-            if (name === "add") {
-                subModulePermission.add = 1;
-            }
-
-            if (name === "delete") {
-                subModulePermission.delete = 1;
-            }
-        });
+        );
 
         return {
             module_id: Number(selectedModuleId),
-            sub_modules: subModulePermission,
+            sub_modules:
+                subModulePermission,
         };
     };
 
@@ -841,24 +1561,42 @@ export default function Page() {
             return;
         }
 
-        setRolePermissions((prev) => {
-            const existingIndex = prev.findIndex(
+        const alreadyExists =
+            rolePermissions.some(
                 (item) =>
                     Number(item.module_id) ===
-                    Number(newPermission.module_id)
+                    Number(
+                        newPermission.module_id
+                    )
             );
 
+        setRolePermissions((prev) => {
+            const existingIndex =
+                prev.findIndex(
+                    (item) =>
+                        Number(
+                            item.module_id
+                        ) ===
+                        Number(
+                            newPermission.module_id
+                        )
+                );
+
             if (existingIndex === -1) {
-                return [...prev, newPermission];
+                return [
+                    ...prev,
+                    newPermission,
+                ];
             }
 
             const updated = [...prev];
 
             updated[existingIndex] = {
                 ...updated[existingIndex],
-                sub_modules: getPermissionObject(
-                    newPermission.sub_modules
-                ),
+                sub_modules:
+                    getPermissionObject(
+                        newPermission.sub_modules
+                    ),
             };
 
             return updated;
@@ -867,20 +1605,34 @@ export default function Page() {
         setSelectedSubModuleIds([]);
 
         toast.success(
-            `${getModuleName(
-                selectedModuleId
-            )} permissions added`
+            alreadyExists
+                ? `${getModuleName(
+                      selectedModuleId
+                  )} permissions updated`
+                : `${getModuleName(
+                      selectedModuleId
+                  )} permissions added`
         );
     };
 
-    const handleRemovePermission = (moduleId) => {
+    const handleRemovePermission = (
+        moduleId
+    ) => {
         setRolePermissions((prev) =>
             prev.filter(
                 (item) =>
-                    Number(item.module_id) !==
-                    Number(moduleId)
+                    Number(
+                        item.module_id
+                    ) !== Number(moduleId)
             )
         );
+
+        if (
+            Number(selectedModuleId) ===
+            Number(moduleId)
+        ) {
+            setSelectedSubModuleIds([]);
+        }
     };
 
     const getModuleName = (moduleId) =>
@@ -897,7 +1649,9 @@ export default function Page() {
             .filter(
                 (key) =>
                     Number(
-                        permission?.sub_modules?.[key]
+                        permission?.sub_modules?.[
+                            key
+                        ]
                     ) === 1
             )
             .map(
@@ -928,7 +1682,15 @@ export default function Page() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const roleId = Number(formData.role_id);
+        // Prevent submit if no changes in edit mode
+        if (isEditMode && !hasChanges) {
+            toast.info("No changes to update");
+            return;
+        }
+
+        const roleId = Number(
+            formData.role_id
+        );
 
         if (!roleId) {
             toast.error(
@@ -937,7 +1699,8 @@ export default function Page() {
             return;
         }
 
-        const tokenUser = getUserFromToken();
+        const tokenUser =
+            getUserFromToken();
 
         if (!tokenUser?.id) {
             toast.error(
@@ -947,8 +1710,24 @@ export default function Page() {
         }
 
         if (
+            !isEditMode &&
             formData.password !==
-            formData.confirm_password
+                formData.confirm_password
+        ) {
+            toast.error(
+                "Password and Confirm Password do not match!"
+            );
+            return;
+        }
+
+        if (
+            isEditMode &&
+            (
+                formData.password ||
+                formData.confirm_password
+            ) &&
+            formData.password !==
+                formData.confirm_password
         ) {
             toast.error(
                 "Password and Confirm Password do not match!"
@@ -963,15 +1742,21 @@ export default function Page() {
 
         const finalRolePermissions =
             rolePermissions.map((item) => ({
-                module_id: Number(item.module_id),
-                sub_modules: getPermissionObject(
-                    item.sub_modules
+                module_id: Number(
+                    item.module_id
                 ),
+                sub_modules:
+                    getPermissionObject(
+                        item.sub_modules
+                    ),
             }));
 
         if (
-            (canAssignPermissions ||
-                roleId === 9) &&
+            !isEditMode &&
+            (
+                canAssignPermissions ||
+                roleId === 9
+            ) &&
             finalRolePermissions.length === 0
         ) {
             toast.error(
@@ -982,7 +1767,9 @@ export default function Page() {
 
         let finalParentId =
             formData.parent_id
-                ? Number(formData.parent_id)
+                ? Number(
+                      formData.parent_id
+                  )
                 : null;
 
         if (
@@ -991,7 +1778,8 @@ export default function Page() {
             loggedInRoleId > 0 &&
             loggedInRoleId < roleId
         ) {
-            finalParentId = loggedInUserId;
+            finalParentId =
+                loggedInUserId;
         }
 
         const payload = {
@@ -1005,33 +1793,78 @@ export default function Page() {
                     : [],
         };
 
+        if (isEditMode) {
+            delete payload.confirm_password;
+
+            if (!payload.password) {
+                delete payload.password;
+            }
+        }
+
         try {
-            const response =
-                await addStaff(payload);
+            setSubmitLoading(true);
+
+            let response;
+
+            if (isEditMode) {
+                response =
+                    await updateStaffData(
+                        editId,
+                        payload
+                    );
+            } else {
+                response =
+                    await addStaff(payload);
+            }
 
             toast.success(
                 response?.message ||
-                    "Registered Successfully"
+                    (
+                        isEditMode
+                            ? "Updated Successfully"
+                            : "Registered Successfully"
+                    )
             );
 
-            setFormData({
-                ...initialFormData,
-                role_id: roleId,
-            });
+            if (!isEditMode) {
+                setFormData({
+                    ...initialFormData,
+                    role_id: roleId,
+                });
 
-            setSelectedParents({});
-            setParentUsers({});
-            setParentSearch({});
-            setOpenDropdown(null);
-            setSelectedModuleId("");
-            setSelectedSubModuleIds([]);
-            setRolePermissions([]);
-            setSubModules([]);
-            setShowPassword(false);
-            setShowConfirmPassword(false);
+                setSelectedParents({});
+                setParentUsers({});
+                setParentSearch({});
+                setOpenDropdown(null);
+                setSelectedModuleId("");
+                setSelectedSubModuleIds([]);
+                setRolePermissions([]);
+                setSubModules([]);
+                setShowPassword(false);
+                setShowConfirmPassword(false);
+            } else {
+                // After successful update, reset original data so button becomes disabled again
+                setOriginalFormData({
+                    ...formData,
+                    password: "",
+                    confirm_password: "",
+                });
+                setOriginalRolePermissions(
+                    JSON.parse(JSON.stringify(rolePermissions))
+                );
+                setOriginalSelectedParents({ ...selectedParents });
+                // Clear password fields
+                setFormData((prev) => ({
+                    ...prev,
+                    password: "",
+                    confirm_password: "",
+                }));
+            }
         } catch (error) {
             console.error(
-                "REGISTER ERROR:",
+                isEditMode
+                    ? "UPDATE USER ERROR:"
+                    : "REGISTER ERROR:",
                 error?.response?.data ||
                     error
             );
@@ -1039,10 +1872,32 @@ export default function Page() {
             toast.error(
                 error?.response?.data?.message ||
                     error?.response?.data?.error ||
-                    "Something went wrong"
+                    (
+                        isEditMode
+                            ? "Failed to update user"
+                            : "Something went wrong"
+                    )
             );
+        } finally {
+            setSubmitLoading(false);
         }
     };
+
+    if (isEditMode && editLoading) {
+        return (
+            <div className="max-w-5xl mx-auto">
+                <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-10">
+                    <div className="flex justify-center items-center py-10">
+                        <div className="h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+
+                    <p className="text-center text-slate-500">
+                        Loading user data...
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-5xl mx-auto">
@@ -1052,24 +1907,36 @@ export default function Page() {
                         href={`/dashboard?role=${selectedRole}`}
                         className="bg-gray-700 text-white px-4 py-2 rounded-sm hover:bg-gray-800 whitespace-nowrap"
                     >
-                        {getRoleName(selectedRole)} List
+                        {getRoleName(
+                            selectedRole
+                        )}{" "}
+                        List
                     </Link>
                 </div>
 
                 {selectedRole > 1 &&
-                    visibleParentRoles.length > 0 && (
+                    visibleParentRoles.length >
+                        0 && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
                             {visibleParentRoles.map(
-                                (parentRoleId) => {
+                                (
+                                    parentRoleId
+                                ) => {
                                     const role =
-                                        Number(parentRoleId);
+                                        Number(
+                                            parentRoleId
+                                        );
 
                                     const users =
-                                        parentUsers[role] || [];
+                                        parentUsers[
+                                            role
+                                        ] || [];
 
                                     const selectedUser =
                                         users.find(
-                                            (user) =>
+                                            (
+                                                user
+                                            ) =>
                                                 Number(
                                                     user?.id
                                                 ) ===
@@ -1082,7 +1949,9 @@ export default function Page() {
 
                                     return (
                                         <div
-                                            key={role}
+                                            key={
+                                                role
+                                            }
                                             className="space-y-1.5"
                                         >
                                             <label className="text-sm font-medium text-slate-700">
@@ -1112,7 +1981,9 @@ export default function Page() {
                                                     </span>
 
                                                     <RiArrowDownSLine
-                                                        size={22}
+                                                        size={
+                                                            22
+                                                        }
                                                         className={`shrink-0 transition-transform text-slate-500 ${
                                                             openDropdown ===
                                                             role
@@ -1247,7 +2118,9 @@ export default function Page() {
                                 value={
                                     formData.organization_name
                                 }
-                                onChange={handleChange}
+                                onChange={
+                                    handleChange
+                                }
                                 required
                                 placeholder="Enter organization name"
                                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1265,8 +2138,12 @@ export default function Page() {
                             <input
                                 type="text"
                                 name="name"
-                                value={formData.name}
-                                onChange={handleChange}
+                                value={
+                                    formData.name
+                                }
+                                onChange={
+                                    handleChange
+                                }
                                 required
                                 placeholder="Enter full name"
                                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1284,8 +2161,12 @@ export default function Page() {
                             <input
                                 type="email"
                                 name="email"
-                                value={formData.email}
-                                onChange={handleChange}
+                                value={
+                                    formData.email
+                                }
+                                onChange={
+                                    handleChange
+                                }
                                 required
                                 placeholder="staff@example.com"
                                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1303,15 +2184,19 @@ export default function Page() {
                             <input
                                 type="tel"
                                 name="phone"
-                                value={formData.phone}
+                                value={
+                                    formData.phone
+                                }
                                 onChange={(e) =>
-                                    setFormData((prev) => ({
-                                        ...prev,
-                                        phone: e.target.value.replace(
-                                            /[^\d+\s]/g,
-                                            ""
-                                        ),
-                                    }))
+                                    setFormData(
+                                        (prev) => ({
+                                            ...prev,
+                                            phone: e.target.value.replace(
+                                                /[^\d+\s]/g,
+                                                ""
+                                            ),
+                                        })
+                                    )
                                 }
                                 required
                                 pattern="^(\+91\s?)?[6-9]\d{9}$"
@@ -1334,7 +2219,9 @@ export default function Page() {
                                 value={
                                     formData.company_address
                                 }
-                                onChange={handleChange}
+                                onChange={
+                                    handleChange
+                                }
                                 required
                                 placeholder="Street, Building, Area"
                                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1344,9 +2231,11 @@ export default function Page() {
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Password{" "}
-                                <span className="text-red-500">
-                                    *
-                                </span>
+                                {!isEditMode && (
+                                    <span className="text-red-500">
+                                        *
+                                    </span>
+                                )}
                             </label>
 
                             <div className="relative">
@@ -1360,9 +2249,17 @@ export default function Page() {
                                     value={
                                         formData.password
                                     }
-                                    onChange={handleChange}
-                                    required
-                                    placeholder="Enter password"
+                                    onChange={
+                                        handleChange
+                                    }
+                                    required={
+                                        !isEditMode
+                                    }
+                                    placeholder={
+                                        isEditMode
+                                            ? "Leave blank to keep current password"
+                                            : "Enter password"
+                                    }
                                     className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
 
@@ -1370,15 +2267,24 @@ export default function Page() {
                                     type="button"
                                     onClick={() =>
                                         setShowPassword(
-                                            (prev) => !prev
+                                            (prev) =>
+                                                !prev
                                         )
                                     }
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer"
                                 >
                                     {showPassword ? (
-                                        <RiEyeOffLine size={20} />
+                                        <RiEyeOffLine
+                                            size={
+                                                20
+                                            }
+                                        />
                                     ) : (
-                                        <RiEyeLine size={20} />
+                                        <RiEyeLine
+                                            size={
+                                                20
+                                            }
+                                        />
                                     )}
                                 </button>
                             </div>
@@ -1387,9 +2293,11 @@ export default function Page() {
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Confirm Password{" "}
-                                <span className="text-red-500">
-                                    *
-                                </span>
+                                {!isEditMode && (
+                                    <span className="text-red-500">
+                                        *
+                                    </span>
+                                )}
                             </label>
 
                             <div className="relative">
@@ -1403,9 +2311,17 @@ export default function Page() {
                                     value={
                                         formData.confirm_password
                                     }
-                                    onChange={handleChange}
-                                    required
-                                    placeholder="Re-enter password"
+                                    onChange={
+                                        handleChange
+                                    }
+                                    required={
+                                        !isEditMode
+                                    }
+                                    placeholder={
+                                        isEditMode
+                                            ? "Leave blank to keep current password"
+                                            : "Re-enter password"
+                                    }
                                     className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
 
@@ -1413,15 +2329,24 @@ export default function Page() {
                                     type="button"
                                     onClick={() =>
                                         setShowConfirmPassword(
-                                            (prev) => !prev
+                                            (prev) =>
+                                                !prev
                                         )
                                     }
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer"
                                 >
                                     {showConfirmPassword ? (
-                                        <RiEyeOffLine size={20} />
+                                        <RiEyeOffLine
+                                            size={
+                                                20
+                                            }
+                                        />
                                     ) : (
-                                        <RiEyeLine size={20} />
+                                        <RiEyeLine
+                                            size={
+                                                20
+                                            }
+                                        />
                                     )}
                                 </button>
                             </div>
@@ -1441,7 +2366,9 @@ export default function Page() {
                                     value={
                                         formData.country
                                     }
-                                    onChange={handleChange}
+                                    onChange={
+                                        handleChange
+                                    }
                                     required
                                     className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer"
                                 >
@@ -1450,7 +2377,9 @@ export default function Page() {
                                     </option>
 
                                     {countries.map(
-                                        (country) => (
+                                        (
+                                            country
+                                        ) => (
                                             <option
                                                 key={
                                                     country.isoCode
@@ -1459,7 +2388,9 @@ export default function Page() {
                                                     country.isoCode
                                                 }
                                             >
-                                                {country.name}
+                                                {
+                                                    country.name
+                                                }
                                             </option>
                                         )
                                     )}
@@ -1486,7 +2417,9 @@ export default function Page() {
                                     value={
                                         formData.state
                                     }
-                                    onChange={handleChange}
+                                    onChange={
+                                        handleChange
+                                    }
                                     required
                                     disabled={
                                         !formData.country
@@ -1498,7 +2431,9 @@ export default function Page() {
                                     </option>
 
                                     {states.map(
-                                        (state) => (
+                                        (
+                                            state
+                                        ) => (
                                             <option
                                                 key={
                                                     state.isoCode
@@ -1507,7 +2442,9 @@ export default function Page() {
                                                     state.isoCode
                                                 }
                                             >
-                                                {state.name}
+                                                {
+                                                    state.name
+                                                }
                                             </option>
                                         )
                                     )}
@@ -1534,7 +2471,9 @@ export default function Page() {
                                     value={
                                         formData.city
                                     }
-                                    onChange={handleChange}
+                                    onChange={
+                                        handleChange
+                                    }
                                     required
                                     disabled={
                                         !formData.state
@@ -1546,7 +2485,9 @@ export default function Page() {
                                     </option>
 
                                     {cities.map(
-                                        (city) => (
+                                        (
+                                            city
+                                        ) => (
                                             <option
                                                 key={
                                                     city.name
@@ -1555,7 +2496,9 @@ export default function Page() {
                                                     city.name
                                                 }
                                             >
-                                                {city.name}
+                                                {
+                                                    city.name
+                                                }
                                             </option>
                                         )
                                     )}
@@ -1568,11 +2511,19 @@ export default function Page() {
                             </div>
                         </div>
 
-                        {(Number(formData.role_id) === 9 ||
-                            ((loggedInRoleId === 0 ||
-                                loggedInRoleId === 1) &&
+                        {(Number(
+                            formData.role_id
+                        ) === 9 ||
+                            (
+                                (
+                                    loggedInRoleId ===
+                                        0 ||
+                                    loggedInRoleId ===
+                                        1
+                                ) &&
                                 selectedRole >
-                                    loggedInRoleId)) && (
+                                    loggedInRoleId
+                            )) && (
                             <div className="md:col-span-3">
                                 <div className="border-t border-slate-200 pt-6 mt-2">
                                     <h3 className="text-lg font-semibold text-slate-800">
@@ -1598,11 +2549,55 @@ export default function Page() {
                                                 value={
                                                     selectedModuleId
                                                 }
-                                                onChange={(e) =>
+                                                onChange={(
+                                                    e
+                                                ) => {
+                                                    const moduleId =
+                                                        e
+                                                            .target
+                                                            .value;
+
                                                     setSelectedModuleId(
-                                                        e.target.value
-                                                    )
-                                                }
+                                                        moduleId
+                                                    );
+
+                                                    if (
+                                                        !moduleId
+                                                    ) {
+                                                        setSelectedSubModuleIds(
+                                                            []
+                                                        );
+                                                        return;
+                                                    }
+
+                                                    const existingPermission =
+                                                        rolePermissions.find(
+                                                            (
+                                                                permission
+                                                            ) =>
+                                                                Number(
+                                                                    permission.module_id
+                                                                ) ===
+                                                                Number(
+                                                                    moduleId
+                                                                )
+                                                        );
+
+                                                    if (
+                                                        existingPermission
+                                                    ) {
+                                                        setSelectedSubModuleIds(
+                                                            getPermissionSubModuleIds(
+                                                                existingPermission,
+                                                                subModules
+                                                            )
+                                                        );
+                                                    } else {
+                                                        setSelectedSubModuleIds(
+                                                            []
+                                                        );
+                                                    }
+                                                }}
                                                 className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             >
                                                 <option value="">
@@ -1610,7 +2605,9 @@ export default function Page() {
                                                 </option>
 
                                                 {modules.map(
-                                                    (module) => (
+                                                    (
+                                                        module
+                                                    ) => (
                                                         <option
                                                             key={
                                                                 module.id
@@ -1628,7 +2625,9 @@ export default function Page() {
                                             </select>
 
                                             <RiArrowDownSLine
-                                                size={22}
+                                                size={
+                                                    22
+                                                }
                                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                             />
                                         </div>
@@ -1770,7 +2769,19 @@ export default function Page() {
                                                         }
                                                         className="bg-blue-500 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-600 transition cursor-pointer"
                                                     >
-                                                        Add Sub Modules
+                                                        {rolePermissions.some(
+                                                            (
+                                                                item
+                                                            ) =>
+                                                                Number(
+                                                                    item.module_id
+                                                                ) ===
+                                                                Number(
+                                                                    selectedModuleId
+                                                                )
+                                                        )
+                                                            ? "Update Sub Modules"
+                                                            : "Add Sub Modules"}
                                                     </button>
                                                 </div>
                                             )}
@@ -1878,7 +2889,9 @@ export default function Page() {
                             </div>
                         )}
 
-                        {Number(formData.role_id) === 6 && (
+                        {Number(
+                            formData.role_id
+                        ) === 6 && (
                             <div className="md:col-span-3 space-y-4">
                                 <h3 className="text-lg font-semibold text-slate-700">
                                     Device Permissions
@@ -1914,46 +2927,59 @@ export default function Page() {
                                             label: "Supreme Lock",
                                             name: "supreme_lock",
                                         },
-                                    ].map((item) => (
-                                        <label
-                                            key={item.name}
-                                            className={`flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer ${
-                                                formData[
+                                    ].map(
+                                        (
+                                            item
+                                        ) => (
+                                            <label
+                                                key={
                                                     item.name
-                                                ] === 1
-                                                    ? "border-blue-500 bg-blue-50"
-                                                    : "border-slate-300 bg-white"
-                                            }`}
-                                        >
-                                            <span className="text-sm font-medium text-slate-700">
-                                                {item.label}
-                                            </span>
-
-                                            <input
-                                                type="checkbox"
-                                                checked={
+                                                }
+                                                className={`flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer ${
                                                     formData[
                                                         item.name
-                                                    ] === 1
-                                                }
-                                                onChange={(e) =>
-                                                    setFormData(
-                                                        (
-                                                            prev
-                                                        ) => ({
-                                                            ...prev,
-                                                            [item.name]:
-                                                                e.target
-                                                                    .checked
-                                                                    ? 1
-                                                                    : 0,
-                                                        })
-                                                    )
-                                                }
-                                                className="h-5 w-5 accent-blue-600 cursor-pointer"
-                                            />
-                                        </label>
-                                    ))}
+                                                    ] ===
+                                                    1
+                                                        ? "border-blue-500 bg-blue-50"
+                                                        : "border-slate-300 bg-white"
+                                                }`}
+                                            >
+                                                <span className="text-sm font-medium text-slate-700">
+                                                    {
+                                                        item.label
+                                                    }
+                                                </span>
+
+                                                <input
+                                                    type="checkbox"
+                                                    checked={
+                                                        formData[
+                                                            item.name
+                                                        ] ===
+                                                        1
+                                                    }
+                                                    onChange={(
+                                                        e
+                                                    ) =>
+                                                        setFormData(
+                                                            (
+                                                                prev
+                                                            ) => ({
+                                                                ...prev,
+                                                                [item.name]:
+                                                                    e
+                                                                        .target
+                                                                        .checked
+                                                                        ? 1
+                                                                        : 0,
+                                                            })
+                                                        )
+                                                    }
+                                                    className="h-5 w-5 accent-blue-600 cursor-pointer"
+                                                />
+                                            </label>
+                                        )
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -1962,9 +2988,19 @@ export default function Page() {
                     <div className="mt-8 flex justify-end">
                         <button
                             type="submit"
-                            className="bg-blue-500 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:bg-blue-600 transition cursor-pointer"
+                            disabled={
+                                submitLoading ||
+                                (isEditMode && !hasChanges)
+                            }
+                            className="bg-blue-500 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:bg-blue-600 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-500"
                         >
-                            Create
+                            {submitLoading
+                                ? isEditMode
+                                    ? "Updating..."
+                                    : "Creating..."
+                                : isEditMode
+                                ? "Update"
+                                : "Create"}
                         </button>
                     </div>
                 </form>
