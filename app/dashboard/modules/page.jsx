@@ -14,7 +14,7 @@ const formatModules = (modules = []) => {
       id: item?.id ?? index + 1,
       name: item?.name || "",
       slug: item?.slug || "",
-      icon: item?.icon || "",
+      // icon: item?.icon || "",
       sequence: Number(item?.sequence ?? index + 1),
       status: Number(item?.status ?? 1),
     }))
@@ -156,11 +156,11 @@ export default function ModulePage() {
                         </span>
                       </div>
 
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-blue-50">
+                      {/* <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-blue-50">
                         <span className="text-sm font-bold text-blue-600">
                           {module.icon || "M"}
                         </span>
-                      </div>
+                      </div> */}
 
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-slate-800">

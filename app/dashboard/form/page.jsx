@@ -253,7 +253,9 @@ export default function Page() {
     const loggedInUserId = Number(loggedInUser?.id);
 
     // Module Access is visible for everyone except Employee.
-    const canShowModuleAccess = loggedInRoleId !== 8;
+   const canShowModuleAccess =
+    loggedInRoleId !== 8 &&          // Employee ko bilkul mat dikhao
+    selectedRole > 1;                // Admin & Master Admin banate time mat dikhao
 
     const getRoleName = (roleId) =>
         roleNames[Number(roleId)] || "User";
