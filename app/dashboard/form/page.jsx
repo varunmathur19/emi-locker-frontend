@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -142,9 +143,7 @@ const getPermissionSubModuleIds = (
     subModules.forEach((subModule) => {
         const id = getSubModuleId(subModule);
 
-        if (id === null) {
-            return;
-        }
+        if (id === null) return;
 
         const name = String(
             getSubModuleNameValue(subModule)
@@ -192,7 +191,6 @@ const getPermissionSubModuleIds = (
     return selectedIds;
 };
 
-// Deep compare helper for change detection
 const isEqual = (a, b) => {
     try {
         return JSON.stringify(a) === JSON.stringify(b);
@@ -205,27 +203,40 @@ export default function Page() {
     const searchParams = useSearchParams();
 
     const [formData, setFormData] = useState(initialFormData);
+
     const [parentUsers, setParentUsers] = useState({});
     const [selectedParents, setSelectedParents] = useState({});
     const [openDropdown, setOpenDropdown] = useState(null);
     const [parentSearch, setParentSearch] = useState({});
     const [searchLoading, setSearchLoading] = useState({});
+
     const [modules, setModules] = useState([]);
     const [subModules, setSubModules] = useState([]);
+
     const [selectedModuleId, setSelectedModuleId] = useState("");
     const [selectedSubModuleIds, setSelectedSubModuleIds] = useState([]);
+
     const [rolePermissions, setRolePermissions] = useState([]);
+
     const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [subModuleLoading, setSubModuleLoading] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] =
+        useState(false);
+
+    const [subModuleLoading, setSubModuleLoading] =
+        useState(false);
+
     const [editLoading, setEditLoading] = useState(false);
     const [editUserLoaded, setEditUserLoaded] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
 
-    // Original data for dirty checking (edit mode)
-    const [originalFormData, setOriginalFormData] = useState(null);
-    const [originalRolePermissions, setOriginalRolePermissions] = useState([]);
-    const [originalSelectedParents, setOriginalSelectedParents] = useState({});
+    const [originalFormData, setOriginalFormData] =
+        useState(null);
+
+    const [originalRolePermissions, setOriginalRolePermissions] =
+        useState([]);
+
+    const [originalSelectedParents, setOriginalSelectedParents] =
+        useState({});
 
     const editId = searchParams.get("id");
     const isEditMode = Boolean(editId);
@@ -235,12 +246,14 @@ export default function Page() {
     );
 
     const selectedRole =
-        Number(formData.role_id) ||
-        selectedRoleFromUrl;
+        Number(formData.role_id) || selectedRoleFromUrl;
 
     const loggedInUser = getUserFromToken();
     const loggedInRoleId = Number(loggedInUser?.role_id);
     const loggedInUserId = Number(loggedInUser?.id);
+
+    // Module Access is visible for everyone except Employee.
+    const canShowModuleAccess = loggedInRoleId !== 8;
 
     const getRoleName = (roleId) =>
         roleNames[Number(roleId)] || "User";
@@ -283,12 +296,10 @@ export default function Page() {
                 item &&
                 typeof item === "object" &&
                 !Array.isArray(item) &&
-                (
-                    item.id ||
+                (item.id ||
                     item.user_id ||
                     item.name ||
-                    item.email
-                )
+                    item.email)
             ) {
                 return item;
             }
@@ -353,14 +364,10 @@ export default function Page() {
 
         const module = modules.find((item) => {
             const moduleName =
-                typeof item === "string"
-                    ? item
-                    : item?.name;
+                typeof item === "string" ? item : item?.name;
 
             const moduleSlug =
-                typeof item === "object"
-                    ? item?.slug
-                    : "";
+                typeof item === "object" ? item?.slug : "";
 
             const normalizedModuleName =
                 normalizeName(moduleName);
@@ -370,14 +377,10 @@ export default function Page() {
 
             if (role === 3) {
                 return (
-                    normalizedModuleName ===
-                        "superdistributor" ||
-                    normalizedModuleName ===
-                        "superdistributer" ||
-                    normalizedModuleSlug ===
-                        "superdistributor" ||
-                    normalizedModuleSlug ===
-                        "superdistributer"
+                    normalizedModuleName === "superdistributor" ||
+                    normalizedModuleName === "superdistributer" ||
+                    normalizedModuleSlug === "superdistributor" ||
+                    normalizedModuleSlug === "superdistributer"
                 );
             }
 
@@ -405,20 +408,96 @@ export default function Page() {
             return role < createRole;
         }
 
-        return role > loggedRole && role < createRole;
+        return (
+            role > loggedRole &&
+            role < createRole
+        );
     });
 
-    // Detect if form has changes (for edit mode)
-    const hasChanges = useMemo(() => {
-        if (!isEditMode || !originalFormData) {
-            return true; // Create mode or not loaded yet → allow submit
+    /*
+     * =========================================================
+     * MODULE / SUB MODULE CHANGE DETECTION
+     * =========================================================
+     */
+
+    const selectedModulePermission = useMemo(() => {
+        if (!selectedModuleId) {
+            return null;
         }
 
-        // Compare form fields (ignore password fields for comparison if empty)
+        return (
+            rolePermissions.find(
+                (permission) =>
+                    Number(permission.module_id) ===
+                    Number(selectedModuleId)
+            ) || null
+        );
+    }, [selectedModuleId, rolePermissions]);
+
+    const existingSubModuleIds = useMemo(() => {
+        if (!selectedModulePermission) {
+            return [];
+        }
+
+        return getPermissionSubModuleIds(
+            selectedModulePermission,
+            subModules
+        ).sort((a, b) => a - b);
+    }, [selectedModulePermission, subModules]);
+
+    const currentSubModuleIds = useMemo(() => {
+        return [...selectedSubModuleIds].sort(
+            (a, b) => a - b
+        );
+    }, [selectedSubModuleIds]);
+
+    /*
+     * Edit mode:
+     *
+     * Existing permission:
+     *   Same sub modules   => disabled
+     *   Changed sub module => enabled
+     *
+     * New module:
+     *   No selection       => disabled
+     *   Selection exists    => enabled
+     *
+     * Add mode:
+     *   At least one sub module => enabled
+     */
+    const isSubModuleChanged = useMemo(() => {
+        if (!selectedModuleId) {
+            return false;
+        }
+
+        // New module permission
+        if (!selectedModulePermission) {
+            return selectedSubModuleIds.length > 0;
+        }
+
+        // Existing module permission
+        return !isEqual(
+            currentSubModuleIds,
+            existingSubModuleIds
+        );
+    }, [
+        selectedModuleId,
+        selectedModulePermission,
+        selectedSubModuleIds,
+        currentSubModuleIds,
+        existingSubModuleIds,
+    ]);
+
+    const hasChanges = useMemo(() => {
+        if (!isEditMode || !originalFormData) {
+            return true;
+        }
+
         const currentComparable = {
             ...formData,
             password: formData.password || "",
-            confirm_password: formData.confirm_password || "",
+            confirm_password:
+                formData.confirm_password || "",
         };
 
         const originalComparable = {
@@ -427,22 +506,31 @@ export default function Page() {
             confirm_password: "",
         };
 
-        // Password change is also considered a change
         const passwordChanged =
             Boolean(formData.password) ||
             Boolean(formData.confirm_password);
 
-        const formChanged = !isEqual(currentComparable, originalComparable);
+        const formChanged = !isEqual(
+            currentComparable,
+            originalComparable
+        );
+
         const permissionsChanged = !isEqual(
             rolePermissions,
             originalRolePermissions
         );
+
         const parentsChanged = !isEqual(
             selectedParents,
             originalSelectedParents
         );
 
-        return formChanged || permissionsChanged || parentsChanged || passwordChanged;
+        return (
+            formChanged ||
+            permissionsChanged ||
+            parentsChanged ||
+            passwordChanged
+        );
     }, [
         isEditMode,
         formData,
@@ -452,6 +540,12 @@ export default function Page() {
         originalRolePermissions,
         originalSelectedParents,
     ]);
+
+    /*
+     * =========================================================
+     * LOAD MODULES
+     * =========================================================
+     */
 
     useEffect(() => {
         const loadModules = async () => {
@@ -476,12 +570,19 @@ export default function Page() {
                     "GET MODULES ERROR:",
                     error?.response?.data || error
                 );
+
                 setModules([]);
             }
         };
 
         loadModules();
     }, []);
+
+    /*
+     * =========================================================
+     * EDIT MODE RESET
+     * =========================================================
+     */
 
     useEffect(() => {
         if (!isEditMode || !editId) {
@@ -494,6 +595,12 @@ export default function Page() {
 
         setEditUserLoaded(false);
     }, [editId, isEditMode]);
+
+    /*
+     * =========================================================
+     * ROLE FROM URL
+     * =========================================================
+     */
 
     useEffect(() => {
         const roleId = searchParams.get("role_id");
@@ -512,11 +619,18 @@ export default function Page() {
         setParentUsers({});
         setParentSearch({});
         setOpenDropdown(null);
+
         setSelectedModuleId("");
         setSelectedSubModuleIds([]);
         setRolePermissions([]);
         setSubModules([]);
     }, [searchParams, isEditMode]);
+
+    /*
+     * =========================================================
+     * LOAD SUB MODULES
+     * =========================================================
+     */
 
     useEffect(() => {
         if (!selectedModuleId) {
@@ -556,28 +670,25 @@ export default function Page() {
 
                 setSubModules(activeSubModules);
 
-                if (isEditMode) {
-                    const existingPermission =
-                        rolePermissions.find(
-                            (permission) =>
-                                Number(
-                                    permission.module_id
-                                ) ===
-                                Number(
-                                    selectedModuleId
-                                )
-                        );
+                /*
+                 * IMPORTANT:
+                 * When module changes, load its existing
+                 * permission into checkbox state.
+                 */
+                const existingPermission =
+                    rolePermissions.find(
+                        (permission) =>
+                            Number(permission.module_id) ===
+                            Number(selectedModuleId)
+                    );
 
-                    if (existingPermission) {
-                        setSelectedSubModuleIds(
-                            getPermissionSubModuleIds(
-                                existingPermission,
-                                activeSubModules
-                            )
-                        );
-                    } else {
-                        setSelectedSubModuleIds([]);
-                    }
+                if (existingPermission) {
+                    setSelectedSubModuleIds(
+                        getPermissionSubModuleIds(
+                            existingPermission,
+                            activeSubModules
+                        )
+                    );
                 } else {
                     setSelectedSubModuleIds([]);
                 }
@@ -613,6 +724,12 @@ export default function Page() {
         rolePermissions,
     ]);
 
+    /*
+     * =========================================================
+     * PARENT HELPERS
+     * =========================================================
+     */
+
     const getParentValue = (user, roleId) => {
         const role = Number(roleId);
 
@@ -629,10 +746,7 @@ export default function Page() {
                 "distributor_id",
             ],
             5: ["parent_fos_id", "fos_id"],
-            6: [
-                "parent_retailer_id",
-                "retailer_id",
-            ],
+            6: ["parent_retailer_id", "retailer_id"],
             7: [
                 "parent_sub_retailer_id",
                 "parent_subretailer_id",
@@ -747,6 +861,12 @@ export default function Page() {
         return result;
     };
 
+    /*
+     * =========================================================
+     * LOAD EDIT USER
+     * =========================================================
+     */
+
     const loadEditUser = async () => {
         if (!isEditMode || !editId) {
             return;
@@ -791,34 +911,40 @@ export default function Page() {
                 country,
                 state,
                 city,
-                parent_id:
-                    user?.parent_id
-                        ? Number(user.parent_id)
-                        : null,
+                parent_id: user?.parent_id
+                    ? Number(user.parent_id)
+                    : null,
+
                 new_device:
                     Number(user?.new_device) === 1
                         ? 1
                         : 0,
+
                 old_device:
                     Number(user?.old_device) === 1
                         ? 1
                         : 0,
+
                 supreme_device:
                     Number(user?.supreme_device) === 1
                         ? 1
                         : 0,
+
                 pro_star:
                     Number(user?.pro_star) === 1
                         ? 1
                         : 0,
+
                 lite:
                     Number(user?.lite) === 1
                         ? 1
                         : 0,
+
                 google_tv:
                     Number(user?.google_tv) === 1
                         ? 1
                         : 0,
+
                 supreme_lock:
                     Number(user?.supreme_lock) === 1
                         ? 1
@@ -862,6 +988,7 @@ export default function Page() {
                                     permission?.moduleId ??
                                     permission?.id
                             ),
+
                             sub_modules:
                                 getPermissionObject(
                                     permission?.sub_modules ??
@@ -882,13 +1009,15 @@ export default function Page() {
                 typeof permissions === "object"
             ) {
                 normalizedPermissions =
-                    Object.entries(
-                        permissions
-                    )
+                    Object.entries(permissions)
                         .map(
-                            ([moduleId, permission]) => ({
+                            ([
+                                moduleId,
+                                permission,
+                            ]) => ({
                                 module_id:
                                     Number(moduleId),
+
                                 sub_modules:
                                     getPermissionObject(
                                         permission?.sub_modules ??
@@ -909,12 +1038,21 @@ export default function Page() {
                 normalizedPermissions
             );
 
-            // Store originals for dirty checking
-            setOriginalFormData({ ...editFormData });
+            setOriginalFormData({
+                ...editFormData,
+            });
+
             setOriginalRolePermissions(
-                JSON.parse(JSON.stringify(normalizedPermissions))
+                JSON.parse(
+                    JSON.stringify(
+                        normalizedPermissions
+                    )
+                )
             );
-            setOriginalSelectedParents({ ...parentChain });
+
+            setOriginalSelectedParents({
+                ...parentChain,
+            });
 
             if (normalizedPermissions.length > 0) {
                 setSelectedModuleId(
@@ -955,6 +1093,12 @@ export default function Page() {
         loadEditUser();
     }, [editId, isEditMode]);
 
+    /*
+     * =========================================================
+     * LOAD PARENTS
+     * =========================================================
+     */
+
     useEffect(() => {
         if (!selectedRole || selectedRole <= 1) {
             return;
@@ -964,7 +1108,10 @@ export default function Page() {
             return;
         }
 
-        if (isEditMode && !editUserLoaded) {
+        if (
+            isEditMode &&
+            !editUserLoaded
+        ) {
             return;
         }
 
@@ -993,9 +1140,8 @@ export default function Page() {
                         return;
                     }
 
-                    const currentRole = Number(
-                        parents[index]
-                    );
+                    const currentRole =
+                        Number(parents[index]);
 
                     let parentId = null;
 
@@ -1042,16 +1188,14 @@ export default function Page() {
                                 Number(
                                     user?.role_id
                                 ) === 5 &&
-                                (
-                                    parentId ===
-                                        null ||
+                                (parentId ===
+                                    null ||
                                     Number(
                                         user?.parent_id
                                     ) ===
                                         Number(
                                             parentId
-                                        )
-                                )
+                                        ))
                         );
                     }
 
@@ -1067,9 +1211,7 @@ export default function Page() {
                                 Number(
                                     user?.id
                                 ) ===
-                                Number(
-                                    selectedId
-                                )
+                                Number(selectedId)
                         )
                     ) {
                         const responseById =
@@ -1132,9 +1274,7 @@ export default function Page() {
                     setFormData((prev) => ({
                         ...prev,
                         parent_id:
-                            Number(
-                                lastParentId
-                            ),
+                            Number(lastParentId),
                     }));
                 }
             } catch (error) {
@@ -1170,7 +1310,10 @@ export default function Page() {
         selectedParentId,
         nextRoleId
     ) => {
-        if (!selectedParentId || !nextRoleId) {
+        if (
+            !selectedParentId ||
+            !nextRoleId
+        ) {
             return;
         }
 
@@ -1182,10 +1325,11 @@ export default function Page() {
                 [nextRole]: true,
             }));
 
-            const response = await getDropdownUsers(
-                nextRole,
-                Number(selectedParentId)
-            );
+            const response =
+                await getDropdownUsers(
+                    nextRole,
+                    Number(selectedParentId)
+                );
 
             let users =
                 getUsersFromResponse(response);
@@ -1193,7 +1337,8 @@ export default function Page() {
             if (nextRole === 5) {
                 users = users.filter(
                     (user) =>
-                        Number(user?.role_id) === 5 &&
+                        Number(user?.role_id) ===
+                            5 &&
                         Number(user?.parent_id) ===
                             Number(selectedParentId)
                 );
@@ -1208,7 +1353,8 @@ export default function Page() {
                 `LOAD ${getRoleName(
                     nextRole
                 )} ERROR:`,
-                error?.response?.data || error
+                error?.response?.data ||
+                    error
             );
 
             setParentUsers((prev) => ({
@@ -1234,6 +1380,7 @@ export default function Page() {
             : null;
 
         const parents = visibleParentRoles;
+
         const currentIndex =
             parents.indexOf(roleId);
 
@@ -1245,7 +1392,9 @@ export default function Page() {
             updatedSelectedParents[roleId] =
                 selectedId;
         } else {
-            delete updatedSelectedParents[roleId];
+            delete updatedSelectedParents[
+                roleId
+            ];
         }
 
         parents
@@ -1277,7 +1426,9 @@ export default function Page() {
                 ] = [];
             });
 
-        setParentUsers(updatedParentUsers);
+        setParentUsers(
+            updatedParentUsers
+        );
 
         const updatedSearch = {
             ...parentSearch,
@@ -1311,6 +1462,12 @@ export default function Page() {
         );
     };
 
+    /*
+     * =========================================================
+     * PARENT SEARCH
+     * =========================================================
+     */
+
     useEffect(() => {
         if (
             openDropdown === null ||
@@ -1334,9 +1491,10 @@ export default function Page() {
         let parentId = null;
 
         if (currentIndex > 0) {
-            const previousRole = Number(
-                parents[currentIndex - 1]
-            );
+            const previousRole =
+                Number(
+                    parents[currentIndex - 1]
+                );
 
             parentId = selectedParents[
                 previousRole
@@ -1358,65 +1516,79 @@ export default function Page() {
             }
         }
 
-        const timer = setTimeout(async () => {
-            try {
-                setSearchLoading((prev) => ({
-                    ...prev,
-                    [roleId]: true,
-                }));
-
-                const response =
-                    await getDropdownUsers(
-                        roleId,
-                        parentId,
-                        search
+        const timer = setTimeout(
+            async () => {
+                try {
+                    setSearchLoading(
+                        (prev) => ({
+                            ...prev,
+                            [roleId]: true,
+                        })
                     );
 
-                let users =
-                    getUsersFromResponse(
-                        response
-                    );
+                    const response =
+                        await getDropdownUsers(
+                            roleId,
+                            parentId,
+                            search
+                        );
 
-                if (roleId === 5) {
-                    users = users.filter(
-                        (user) =>
-                            Number(
-                                user?.role_id
-                            ) === 5 &&
-                            (
-                                parentId === null ||
+                    let users =
+                        getUsersFromResponse(
+                            response
+                        );
+
+                    if (roleId === 5) {
+                        users = users.filter(
+                            (user) =>
                                 Number(
-                                    user?.parent_id
-                                ) ===
-                                    Number(parentId)
-                            )
+                                    user?.role_id
+                                ) === 5 &&
+                                (parentId ===
+                                    null ||
+                                    Number(
+                                        user?.parent_id
+                                    ) ===
+                                        Number(
+                                            parentId
+                                        ))
+                        );
+                    }
+
+                    setParentUsers(
+                        (prev) => ({
+                            ...prev,
+                            [roleId]: users,
+                        })
+                    );
+                } catch (error) {
+                    console.error(
+                        "DROPDOWN SEARCH ERROR:",
+                        error?.response
+                            ?.data ||
+                            error
+                    );
+
+                    setParentUsers(
+                        (prev) => ({
+                            ...prev,
+                            [roleId]: [],
+                        })
+                    );
+                } finally {
+                    setSearchLoading(
+                        (prev) => ({
+                            ...prev,
+                            [roleId]: false,
+                        })
                     );
                 }
+            },
+            400
+        );
 
-                setParentUsers((prev) => ({
-                    ...prev,
-                    [roleId]: users,
-                }));
-            } catch (error) {
-                console.error(
-                    "DROPDOWN SEARCH ERROR:",
-                    error?.response?.data ||
-                        error
-                );
-
-                setParentUsers((prev) => ({
-                    ...prev,
-                    [roleId]: [],
-                }));
-            } finally {
-                setSearchLoading((prev) => ({
-                    ...prev,
-                    [roleId]: false,
-                }));
-            }
-        }, 400);
-
-        return () => clearTimeout(timer);
+        return () =>
+            clearTimeout(timer);
     }, [
         openDropdown,
         parentSearch,
@@ -1425,6 +1597,12 @@ export default function Page() {
         loggedInRoleId,
         loggedInUserId,
     ]);
+
+    /*
+     * =========================================================
+     * FORM HANDLERS
+     * =========================================================
+     */
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -1448,7 +1626,15 @@ export default function Page() {
         });
     };
 
-    const handleSubModuleToggle = (subModuleId) => {
+    /*
+     * =========================================================
+     * SUB MODULE HANDLERS
+     * =========================================================
+     */
+
+    const handleSubModuleToggle = (
+        subModuleId
+    ) => {
         const id = Number(subModuleId);
 
         setSelectedSubModuleIds((prev) =>
@@ -1466,8 +1652,12 @@ export default function Page() {
         }
 
         const allIds = subModules
-            .map((item) => getSubModuleId(item))
-            .filter((id) => id !== null);
+            .map((item) =>
+                getSubModuleId(item)
+            )
+            .filter(
+                (id) => id !== null
+            );
 
         setSelectedSubModuleIds((prev) =>
             prev.length === allIds.length
@@ -1506,11 +1696,12 @@ export default function Page() {
                     return;
                 }
 
-                const name = normalizeName(
-                    getSubModuleNameValue(
-                        subModule
-                    )
-                );
+                const name =
+                    normalizeName(
+                        getSubModuleNameValue(
+                            subModule
+                        )
+                    );
 
                 if (name === "manage") {
                     subModulePermission.manage = 1;
@@ -1535,7 +1726,8 @@ export default function Page() {
         );
 
         return {
-            module_id: Number(selectedModuleId),
+            module_id:
+                Number(selectedModuleId),
             sub_modules:
                 subModulePermission,
         };
@@ -1564,7 +1756,9 @@ export default function Page() {
         const alreadyExists =
             rolePermissions.some(
                 (item) =>
-                    Number(item.module_id) ===
+                    Number(
+                        item.module_id
+                    ) ===
                     Number(
                         newPermission.module_id
                     )
@@ -1602,8 +1796,6 @@ export default function Page() {
             return updated;
         });
 
-        setSelectedSubModuleIds([]);
-
         toast.success(
             alreadyExists
                 ? `${getModuleName(
@@ -1623,7 +1815,8 @@ export default function Page() {
                 (item) =>
                     Number(
                         item.module_id
-                    ) !== Number(moduleId)
+                    ) !==
+                    Number(moduleId)
             )
         );
 
@@ -1649,17 +1842,24 @@ export default function Page() {
             .filter(
                 (key) =>
                     Number(
-                        permission?.sub_modules?.[
-                            key
-                        ]
+                        permission
+                            ?.sub_modules?.[key]
                     ) === 1
             )
             .map(
                 (key) =>
-                    key.charAt(0).toUpperCase() +
+                    key
+                        .charAt(0)
+                        .toUpperCase() +
                     key.slice(1)
             );
     };
+
+    /*
+     * =========================================================
+     * LOCATION DATA
+     * =========================================================
+     */
 
     const countries =
         Country.getAllCountries();
@@ -1679,12 +1879,22 @@ export default function Page() {
               )
             : [];
 
+    /*
+     * =========================================================
+     * SUBMIT
+     * =========================================================
+     */
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Prevent submit if no changes in edit mode
-        if (isEditMode && !hasChanges) {
-            toast.info("No changes to update");
+        if (
+            isEditMode &&
+            !hasChanges
+        ) {
+            toast.info(
+                "No changes to update"
+            );
             return;
         }
 
@@ -1722,10 +1932,8 @@ export default function Page() {
 
         if (
             isEditMode &&
-            (
-                formData.password ||
-                formData.confirm_password
-            ) &&
+            (formData.password ||
+                formData.confirm_password) &&
             formData.password !==
                 formData.confirm_password
         ) {
@@ -1736,27 +1944,24 @@ export default function Page() {
         }
 
         const canAssignPermissions =
-            (loggedInRoleId === 0 ||
-                loggedInRoleId === 1) &&
-            roleId > loggedInRoleId;
+            canShowModuleAccess;
 
         const finalRolePermissions =
-            rolePermissions.map((item) => ({
-                module_id: Number(
-                    item.module_id
-                ),
-                sub_modules:
-                    getPermissionObject(
-                        item.sub_modules
+            rolePermissions.map(
+                (item) => ({
+                    module_id: Number(
+                        item.module_id
                     ),
-            }));
+                    sub_modules:
+                        getPermissionObject(
+                            item.sub_modules
+                        ),
+                })
+            );
 
         if (
             !isEditMode &&
-            (
-                canAssignPermissions ||
-                roleId === 9
-            ) &&
+            canAssignPermissions &&
             finalRolePermissions.length === 0
         ) {
             toast.error(
@@ -1787,8 +1992,7 @@ export default function Page() {
             role_id: roleId,
             parent_id: finalParentId,
             role_permission:
-                canAssignPermissions ||
-                roleId === 9
+                canAssignPermissions
                     ? finalRolePermissions
                     : [],
         };
@@ -1819,11 +2023,9 @@ export default function Page() {
 
             toast.success(
                 response?.message ||
-                    (
-                        isEditMode
-                            ? "Updated Successfully"
-                            : "Registered Successfully"
-                    )
+                    (isEditMode
+                        ? "Updated Successfully"
+                        : "Registered Successfully")
             );
 
             if (!isEditMode) {
@@ -1836,24 +2038,33 @@ export default function Page() {
                 setParentUsers({});
                 setParentSearch({});
                 setOpenDropdown(null);
+
                 setSelectedModuleId("");
                 setSelectedSubModuleIds([]);
                 setRolePermissions([]);
                 setSubModules([]);
+
                 setShowPassword(false);
                 setShowConfirmPassword(false);
             } else {
-                // After successful update, reset original data so button becomes disabled again
                 setOriginalFormData({
                     ...formData,
                     password: "",
                     confirm_password: "",
                 });
+
                 setOriginalRolePermissions(
-                    JSON.parse(JSON.stringify(rolePermissions))
+                    JSON.parse(
+                        JSON.stringify(
+                            rolePermissions
+                        )
+                    )
                 );
-                setOriginalSelectedParents({ ...selectedParents });
-                // Clear password fields
+
+                setOriginalSelectedParents({
+                    ...selectedParents,
+                });
+
                 setFormData((prev) => ({
                     ...prev,
                     password: "",
@@ -1870,20 +2081,29 @@ export default function Page() {
             );
 
             toast.error(
-                error?.response?.data?.message ||
-                    error?.response?.data?.error ||
-                    (
-                        isEditMode
-                            ? "Failed to update user"
-                            : "Something went wrong"
-                    )
+                error?.response?.data
+                    ?.message ||
+                    error?.response?.data
+                        ?.error ||
+                    (isEditMode
+                        ? "Failed to update user"
+                        : "Something went wrong")
             );
         } finally {
             setSubmitLoading(false);
         }
     };
 
-    if (isEditMode && editLoading) {
+    /*
+     * =========================================================
+     * LOADING
+     * =========================================================
+     */
+
+    if (
+        isEditMode &&
+        editLoading
+    ) {
         return (
             <div className="max-w-5xl mx-auto">
                 <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-10">
@@ -1899,9 +2119,16 @@ export default function Page() {
         );
     }
 
+    /*
+     * =========================================================
+     * UI
+     * =========================================================
+     */
+
     return (
         <div className="max-w-5xl mx-auto">
             <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden p-6">
+
                 <div className="flex justify-between items-center">
                     <Link
                         href={`/dashboard?role=${selectedRole}`}
@@ -2013,7 +2240,10 @@ export default function Page() {
                                                                             prev
                                                                         ) => ({
                                                                             ...prev,
-                                                                            [role]: e.target.value,
+                                                                            [role]:
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
                                                                         })
                                                                     )
                                                                 }
@@ -2048,15 +2278,18 @@ export default function Page() {
                                                                                     role,
                                                                                     user.id
                                                                                 );
+
                                                                                 setOpenDropdown(
                                                                                     null
                                                                                 );
+
                                                                                 setParentSearch(
                                                                                     (
                                                                                         prev
                                                                                     ) => ({
                                                                                         ...prev,
-                                                                                        [role]: "",
+                                                                                        [role]:
+                                                                                            "",
                                                                                     })
                                                                                 );
                                                                             }}
@@ -2104,6 +2337,8 @@ export default function Page() {
                     className="pt-6"
                 >
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                        {/* ORGANIZATION */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Organization Name{" "}
@@ -2127,6 +2362,7 @@ export default function Page() {
                             />
                         </div>
 
+                        {/* NAME */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Full Name{" "}
@@ -2150,6 +2386,7 @@ export default function Page() {
                             />
                         </div>
 
+                        {/* EMAIL */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Email Address{" "}
@@ -2173,6 +2410,7 @@ export default function Page() {
                             />
                         </div>
 
+                        {/* PHONE */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Phone Number{" "}
@@ -2205,6 +2443,7 @@ export default function Page() {
                             />
                         </div>
 
+                        {/* ADDRESS */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Company Address{" "}
@@ -2228,6 +2467,7 @@ export default function Page() {
                             />
                         </div>
 
+                        {/* PASSWORD */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Password{" "}
@@ -2290,6 +2530,7 @@ export default function Page() {
                             </div>
                         </div>
 
+                        {/* CONFIRM PASSWORD */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Confirm Password{" "}
@@ -2352,6 +2593,7 @@ export default function Page() {
                             </div>
                         </div>
 
+                        {/* COUNTRY */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Country{" "}
@@ -2397,12 +2639,15 @@ export default function Page() {
                                 </select>
 
                                 <RiArrowDownSLine
-                                    size={22}
+                                    size={
+                                        22
+                                    }
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                 />
                             </div>
                         </div>
 
+                        {/* STATE */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 State{" "}
@@ -2451,12 +2696,15 @@ export default function Page() {
                                 </select>
 
                                 <RiArrowDownSLine
-                                    size={22}
+                                    size={
+                                        22
+                                    }
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                 />
                             </div>
                         </div>
 
+                        {/* CITY */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 City{" "}
@@ -2505,25 +2753,19 @@ export default function Page() {
                                 </select>
 
                                 <RiArrowDownSLine
-                                    size={22}
+                                    size={
+                                        22
+                                    }
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                 />
                             </div>
                         </div>
 
-                        {(Number(
-                            formData.role_id
-                        ) === 9 ||
-                            (
-                                (
-                                    loggedInRoleId ===
-                                        0 ||
-                                    loggedInRoleId ===
-                                        1
-                                ) &&
-                                selectedRole >
-                                    loggedInRoleId
-                            )) && (
+                        {/* =================================================
+                            MODULE ACCESS
+                           ================================================= */}
+
+                        {canShowModuleAccess && (
                             <div className="md:col-span-3">
                                 <div className="border-t border-slate-200 pt-6 mt-2">
                                     <h3 className="text-lg font-semibold text-slate-800">
@@ -2536,6 +2778,8 @@ export default function Page() {
                                 </div>
 
                                 <div className="mt-5 border border-slate-200 rounded-xl p-5 bg-slate-50">
+
+                                    {/* MODULE SELECT */}
                                     <div className="space-y-1.5">
                                         <label className="text-sm font-medium text-slate-700">
                                             Module{" "}
@@ -2570,6 +2814,10 @@ export default function Page() {
                                                         return;
                                                     }
 
+                                                    /*
+                                                     * Load existing permission
+                                                     * for selected module.
+                                                     */
                                                     const existingPermission =
                                                         rolePermissions.find(
                                                             (
@@ -2586,11 +2834,14 @@ export default function Page() {
                                                     if (
                                                         existingPermission
                                                     ) {
+                                                        /*
+                                                         * subModules may belong
+                                                         * to previous module.
+                                                         * useEffect will reload
+                                                         * active sub modules.
+                                                         */
                                                         setSelectedSubModuleIds(
-                                                            getPermissionSubModuleIds(
-                                                                existingPermission,
-                                                                subModules
-                                                            )
+                                                            []
                                                         );
                                                     } else {
                                                         setSelectedSubModuleIds(
@@ -2633,8 +2884,10 @@ export default function Page() {
                                         </div>
                                     </div>
 
+                                    {/* SUB MODULES */}
                                     {selectedModuleId && (
                                         <div className="mt-5">
+
                                             <div className="flex items-center justify-between mb-3">
                                                 <label className="text-sm font-medium text-slate-700">
                                                     Sub Modules{" "}
@@ -2662,6 +2915,7 @@ export default function Page() {
                                             </div>
 
                                             <div className="border border-slate-300 rounded-lg bg-white overflow-hidden">
+
                                                 {subModuleLoading ? (
                                                     <div className="px-4 py-6 text-center text-sm text-slate-500">
                                                         Loading Sub Modules...
@@ -2747,50 +3001,58 @@ export default function Page() {
                                                 )}
                                             </div>
 
-                                            {selectedSubModuleIds.length >
-                                                0 && (
-                                                <div className="mt-5 flex items-center justify-between gap-3">
-                                                    <span className="text-sm text-slate-500">
-                                                        {
-                                                            selectedSubModuleIds.length
-                                                        }{" "}
-                                                        sub module
-                                                        {selectedSubModuleIds.length >
-                                                        1
-                                                            ? "s"
-                                                            : ""}{" "}
-                                                        selected
-                                                    </span>
+                                            {/* =================================================
+                                                ADD / UPDATE SUB MODULE BUTTON
+                                               ================================================= */}
 
-                                                    <button
-                                                        type="button"
-                                                        onClick={
-                                                            handleAddPermission
-                                                        }
-                                                        className="bg-blue-500 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-600 transition cursor-pointer"
-                                                    >
-                                                        {rolePermissions.some(
-                                                            (
-                                                                item
-                                                            ) =>
-                                                                Number(
-                                                                    item.module_id
-                                                                ) ===
-                                                                Number(
-                                                                    selectedModuleId
-                                                                )
-                                                        )
-                                                            ? "Update Sub Modules"
-                                                            : "Add Sub Modules"}
-                                                    </button>
-                                                </div>
-                                            )}
+                                            <div className="mt-5 flex items-center justify-between gap-3">
+
+                                                <span className="text-sm text-slate-500">
+                                                    {
+                                                        selectedSubModuleIds.length
+                                                    }{" "}
+                                                    sub module
+                                                    {selectedSubModuleIds.length >
+                                                    1
+                                                        ? "s"
+                                                        : ""}{" "}
+                                                    selected
+                                                </span>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={
+                                                        handleAddPermission
+                                                    }
+                                                    disabled={
+                                                        !isSubModuleChanged ||
+                                                        subModuleLoading
+                                                    }
+                                                    className="bg-blue-500 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-600 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-500"
+                                                >
+                                                    {rolePermissions.some(
+                                                        (
+                                                            item
+                                                        ) =>
+                                                            Number(
+                                                                item.module_id
+                                                            ) ===
+                                                            Number(
+                                                                selectedModuleId
+                                                            )
+                                                    )
+                                                        ? "Update Sub Modules"
+                                                        : "Add Sub Modules"}
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
 
+                                    {/* SELECTED MODULES */}
                                     {rolePermissions.length >
                                         0 && (
                                         <div className="mt-5 border border-slate-200 rounded-xl overflow-hidden">
+
                                             <div className="bg-slate-50 px-5 py-4 border-b border-slate-200">
                                                 <h4 className="font-semibold text-slate-700">
                                                     Selected Modules
@@ -2889,10 +3151,12 @@ export default function Page() {
                             </div>
                         )}
 
+                        {/* DEVICE PERMISSIONS */}
                         {Number(
                             formData.role_id
                         ) === 6 && (
                             <div className="md:col-span-3 space-y-4">
+
                                 <h3 className="text-lg font-semibold text-slate-700">
                                     Device Permissions
                                 </h3>
@@ -2937,7 +3201,8 @@ export default function Page() {
                                                 }
                                                 className={`flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer ${
                                                     formData[
-                                                        item.name
+                                                        item
+                                                            .name
                                                     ] ===
                                                     1
                                                         ? "border-blue-500 bg-blue-50"
@@ -2954,7 +3219,8 @@ export default function Page() {
                                                     type="checkbox"
                                                     checked={
                                                         formData[
-                                                            item.name
+                                                            item
+                                                                .name
                                                         ] ===
                                                         1
                                                     }
@@ -2985,12 +3251,14 @@ export default function Page() {
                         )}
                     </div>
 
+                    {/* MAIN UPDATE / CREATE BUTTON */}
                     <div className="mt-8 flex justify-end">
                         <button
                             type="submit"
                             disabled={
                                 submitLoading ||
-                                (isEditMode && !hasChanges)
+                                (isEditMode &&
+                                    !hasChanges)
                             }
                             className="bg-blue-500 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:bg-blue-600 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-500"
                         >
