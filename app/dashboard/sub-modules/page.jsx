@@ -136,14 +136,14 @@ export default function SubModulePage() {
                   : "Sub Module List"}
               </h2>
 
-              <p className="mt-1 text-xs text-slate-400">
+              {/* <p className="mt-1 text-xs text-slate-400">
                 {filterModule
                   ? `Showing sub modules of ${selectedModuleName}`
                   : "Showing all sub modules"}
-              </p>
+              </p> */}
             </div>
 
-            <div className="relative w-full md:w-56">
+            {/* <div className="relative w-full md:w-56">
               <select
                 value={filterModule}
                 onChange={(e) => setFilterModule(e.target.value)}
@@ -162,7 +162,7 @@ export default function SubModulePage() {
                 size={20}
                 className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
               />
-            </div>
+            </div> */}
           </div>
 
           {loading && subModules.length === 0 ? (
@@ -202,15 +202,15 @@ export default function SubModulePage() {
                           {subModule.name}
                         </p>
 
-                        <p className="mt-1 text-xs text-slate-500">
+                        {/* <p className="mt-1 text-xs text-slate-500">
                           Module: {moduleName}
-                        </p>
+                        </p> */}
 
-                        {subModule.icon && (
+                        {/* {subModule.icon && (
                           <p className="mt-0.5 text-xs text-slate-400">
                             Icon: {subModule.icon}
                           </p>
-                        )}
+                        )} */}
                       </div>
                     </div>
 

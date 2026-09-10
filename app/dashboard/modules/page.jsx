@@ -149,8 +149,8 @@ export default function ModulePage() {
                     className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:shadow-sm"
                   >
                     <div className="flex min-w-0 items-center gap-4">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                        <span className="text-sm font-semibold text-slate-600">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 font-bold text-blue-600">
+                        <span className="">
                           {module.sequence ||
                             index + 1}
                         </span>
@@ -167,7 +167,7 @@ export default function ModulePage() {
                           {module.name}
                         </p>
 
-                        <p className="mt-0.5 text-xs text-slate-500">
+                        {/* <p className="mt-0.5 text-xs text-slate-500">
                           Slug: {module.slug}
                         </p>
 
@@ -177,7 +177,7 @@ export default function ModulePage() {
 
                         <p className="text-xs text-slate-500">
                           Sequence: {module.sequence}
-                        </p>
+                        </p> */}
                       </div>
                     </div>
 
