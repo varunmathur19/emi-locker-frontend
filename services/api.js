@@ -1,9 +1,7 @@
 import api from "@/utils/axios";
 
 
-// =====================================================
 // LOGIN
-// =====================================================
 
 export const login = async (data) => {
 
@@ -17,9 +15,7 @@ export const login = async (data) => {
 };
 
 
-// =====================================================
 // GET ALL STAFF DATA
-// =====================================================
 
 export const getAllStaffData = async (
   page = 1,
@@ -38,26 +34,23 @@ export const getAllStaffData = async (
 };
 
 
-// =====================================================
 // ADD STAFF
-// =====================================================
-
 export const addStaff = async (data) => {
+  try {
+    const response = await api.post("/add-staff", data);
 
-  const response =
-    await api.post(
-      "/add-staff",
-      data
+    return response.data;
+  } catch (error) {
+    console.error(
+      "ADD STAFF API ERROR:",
+      error?.response?.data || error.message
     );
 
-  return response.data;
+    throw error;
+  }
 };
 
-
-// =====================================================
 // GET DROPDOWN USERS
-// =====================================================
-
 export const getDropdownUsers = async (
   role_id,
   parent_id = null,
@@ -115,9 +108,7 @@ export const getDropdownUsers = async (
 };
 
 
-// =====================================================
 // LOGOUT STAFF
-// =====================================================
 
 export const logoutStaff = async () => {
 
@@ -140,9 +131,7 @@ export const logoutStaff = async () => {
 };
 
 
-// =====================================================
 // UPDATE STAFF DATA
-// =====================================================
 
 export const updateStaffData = async (
   id,
@@ -159,9 +148,7 @@ export const updateStaffData = async (
 };
 
 
-// =====================================================
 // GET STAFF DATA BY ID
-// =====================================================
 
 export const getStaffDataById = async (id) => {
   try {
@@ -179,12 +166,9 @@ export const getStaffDataById = async (id) => {
 };
 
 
-// =====================================================
 // LOGIN AS USER
-// =====================================================
 // Master Admin / Admin
 // Login as another user
-// =====================================================
 
 export const loginAsUser = async (
   user_id
@@ -202,38 +186,7 @@ export const loginAsUser = async (
 };
 
 
-// =====================================================
-// ADD MODULE
-// =====================================================
-
-export const addModule = async ({
-  name,
-  slug,
-  icon,
-  sequence,
-}) => {
-  try {
-    const response = await api.post("/add-module", {
-      name,
-      slug,
-      icon,
-      sequence: Number(sequence),
-    });
-
-    return response.data;
-  } catch (error) {
-    console.error(
-      "ADD MODULE API ERROR:",
-      error?.response?.data || error.message
-    );
-    throw error;
-  }
-};
-
-
-// =====================================================
 // GET MODULES
-// =====================================================
 
 export const getModules = async () => {
 
@@ -266,92 +219,25 @@ export const getModules = async () => {
 };
 
 
-// =====================================================
-// DELETE MODULE
-// =====================================================
-
-export const deleteModule = async (
-  module
-) => {
-
-  try {
-
-    console.log(
-      "DELETE MODULE API:",
-      module
-    );
-
-
-    const response =
-      await api.delete(
-        "/delete-module",
-        {
-          data: {
-            module,
-          },
-        }
-      );
-
-
-    console.log(
-      "DELETE MODULE API RESPONSE:",
-      response.data
-    );
-
-
-    return response.data;
-
-  }
-  catch (error) {
-
-    console.error(
-      "DELETE MODULE API ERROR:",
-      error?.response?.data ||
-      error
-    );
-
-    throw error;
-
-  }
-
-};
-
-// =====================================================
 // UPDATE MODULE
-// =====================================================
+export const updateModule = async ({ id, status }) => {
+    try {
+        const response = await api.put(`/update-module/${id}`, {
+            status: Number(status)
+        });
 
-export const updateModule = async ({
-  id,
-  name,
-  slug,
-  icon,
-  sequence,
-  status,
-}) => {
-  try {
-    const response = await api.put(`/update-module/${id}`, {
-      name,
-      slug,
-      icon,
-      sequence: Number(sequence),
-      status: Number(status),
-    });
-
-    return response.data;
-  } catch (error) {
-    console.error(
-      "UPDATE MODULE API ERROR:",
-      error?.response?.data || error.message
-    );
-    throw error;
-  }
+        return response.data;
+    } catch (error) {
+        console.error(
+            "UPDATE MODULE API ERROR:",
+            error?.response?.data || error.message
+        );
+        throw error;
+    }
 };
 
 
-// =====================================================
 // UPDATE USER STATUS
-// =====================================================
-
 export const updateUserStatus = async (
   user_id,
   userStatus
@@ -388,4 +274,43 @@ export const updateUserStatus = async (
   }
 
 };
+
+//get sub module
+export const getSubModules = async () => {
+    try {
+        const response = await api.get("/sub-modules");
+
+        if (!response?.data) {
+            throw new Error("Invalid sub modules API response");
+        }
+
+        return response.data;
+    } catch (error) {
+        console.error(
+            "GET SUB MODULES API ERROR:",
+            error?.response?.data || error?.message || error
+        );
+        throw error;
+    }
+};
+//edit sub module
+export const updateSubModule = async ({ id, status }) => {
+    try {
+        const response = await api.put(`/sub-modules/${id}`, {
+            status: Number(status)
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error(
+            "UPDATE SUB MODULE API ERROR:",
+            error?.response?.data || error.message
+        );
+        throw error;
+    }
+};
+
+
+
+
 

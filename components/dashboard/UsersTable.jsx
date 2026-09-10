@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -746,6 +747,18 @@ export default function UsersTable({
     `&role_id=${selectedRoleId}` +
     `&module=${encodeURIComponent(selectedRoleSlug)}`;
 
+  const getEditFormUrl = (user) => {
+    const actualRoleId = Number(user?.role_id);
+    const actualRoleSlug = getRoleSlug(actualRoleId);
+
+    return (
+      `/dashboard/form?id=${encodeURIComponent(user.id)}` +
+      `&role=${actualRoleId}` +
+      `&role_id=${actualRoleId}` +
+      `&module=${encodeURIComponent(actualRoleSlug)}`
+    );
+  };
+
   return (
     <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6 max-w-full overflow-hidden">
       <div className="flex justify-between items-center mb-4">
@@ -1210,38 +1223,40 @@ export default function UsersTable({
 
                       <td className="p-3 py-1 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              router.push(
-                                `/dashboard/edit-staff/${user.id}?role=${actualRoleId}&module=${encodeURIComponent(
-                                  actualRoleSlug
-                                )}`
-                              )
-                            }
-                            className="inline-flex items-center justify-center p-2 rounded-md text-blue-600 hover:bg-blue-50 transition cursor-pointer"
-                            title={`Edit ${actualRoleName}`}
-                          >
-                            <RiEditLine size={20} />
-                          </button>
+                          {isActive && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  router.push(
+                                    getEditFormUrl(user)
+                                  )
+                                }
+                                className="inline-flex items-center justify-center p-2 rounded-md text-blue-600 hover:bg-blue-50 transition cursor-pointer"
+                                title={`Edit ${actualRoleName}`}
+                              >
+                                <RiEditLine size={20} />
+                              </button>
 
-                          <button
-                            type="button"
-                            disabled={
-                              loginLoading === user.id
-                            }
-                            onClick={() =>
-                              handleLoginAsUser(user)
-                            }
-                            className="inline-flex items-center justify-center p-2 rounded-md text-green-600 hover:bg-green-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={`Login as ${actualRoleName}`}
-                          >
-                            {loginLoading === user.id ? (
-                              <span className="h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <RiLoginBoxLine size={20} />
-                            )}
-                          </button>
+                              <button
+                                type="button"
+                                disabled={
+                                  loginLoading === user.id
+                                }
+                                onClick={() =>
+                                  handleLoginAsUser(user)
+                                }
+                                className="inline-flex items-center justify-center p-2 rounded-md text-green-600 hover:bg-green-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={`Login as ${actualRoleName}`}
+                              >
+                                {loginLoading === user.id ? (
+                                  <span className="h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <RiLoginBoxLine size={20} />
+                                )}
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
 

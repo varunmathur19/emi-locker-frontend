@@ -9,10 +9,7 @@ import {
   removeToken,
   restoreOriginalLogin,
 } from "@/utils/token";
-import {
-  logoutStaff,
-  getModules,
-} from "@/services/api";
+import { logoutStaff, getModules } from "@/services/api";
 
 const roleIdBySlug = {
   "master-admin": 0,
@@ -28,7 +25,7 @@ const roleIdBySlug = {
 };
 
 const allowedRolesByRole = {
-  0: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  0: [1],
   1: [2, 3, 4, 5, 6, 7, 8, 9],
   2: [3, 4, 5, 6, 7, 8, 9],
   3: [4, 5, 6, 7, 8, 9],
@@ -41,17 +38,11 @@ const allowedRolesByRole = {
 };
 
 const getModuleIcon = (iconName, size = 20) => {
-  if (!iconName) {
-    return <RiIcons.RiBuilding2Line size={size} />;
-  }
+  const IconComponent = iconName
+    ? RiIcons[String(iconName).trim()]
+    : null;
 
-  const iconKey = String(iconName).trim();
-  const IconComponent = RiIcons[iconKey];
-
-  if (
-    !IconComponent ||
-    typeof IconComponent !== "function"
-  ) {
+  if (!IconComponent || typeof IconComponent !== "function") {
     return <RiIcons.RiBuilding2Line size={size} />;
   }
 
@@ -66,32 +57,23 @@ export default function Sidebar({ sidebarOpen }) {
   const searchParams = useSearchParams();
 
   const activeRoleParam = searchParams.get("role");
-  const activeModuleParam = searchParams.get("module");
-
-  const activeRole =
-    activeRoleParam !== null &&
-    activeRoleParam !== ""
-      ? Number(activeRoleParam)
-      : null;
-
-  const activeModule = String(
-    activeModuleParam || ""
-  )
+  const activeModule = String(searchParams.get("module") || "")
     .trim()
     .toLowerCase();
+
+  const activeRole =
+    activeRoleParam !== null && activeRoleParam !== ""
+      ? Number(activeRoleParam)
+      : null;
 
   const loadModules = useCallback(async () => {
     try {
       const response = await getModules();
 
-      if (
-        response?.success &&
-        Array.isArray(response?.data)
-      ) {
+      if (response?.success && Array.isArray(response?.data)) {
         const activeModules = response.data
           .filter(
-            (moduleItem) =>
-              Number(moduleItem?.status ?? 1) === 1
+            (moduleItem) => Number(moduleItem?.status ?? 1) === 1
           )
           .sort(
             (a, b) =>
@@ -124,9 +106,7 @@ export default function Sidebar({ sidebarOpen }) {
   useEffect(() => {
     loadModules();
 
-    const handleFocus = () => {
-      loadModules();
-    };
+    const handleFocus = () => loadModules();
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -141,10 +121,7 @@ export default function Sidebar({ sidebarOpen }) {
     );
 
     return () => {
-      window.removeEventListener(
-        "focus",
-        handleFocus
-      );
+      window.removeEventListener("focus", handleFocus);
       document.removeEventListener(
         "visibilitychange",
         handleVisibilityChange
@@ -159,16 +136,10 @@ export default function Sidebar({ sidebarOpen }) {
       }
     };
 
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
+    window.addEventListener("storage", handleStorage);
 
     return () => {
-      window.removeEventListener(
-        "storage",
-        handleStorage
-      );
+      window.removeEventListener("storage", handleStorage);
     };
   }, [loadModules]);
 
@@ -202,18 +173,14 @@ export default function Sidebar({ sidebarOpen }) {
       moduleItem?.role_id !== null &&
       moduleItem?.role_id !== ""
     ) {
-      const numericRole = Number(
-        moduleItem.role_id
-      );
+      const numericRole = Number(moduleItem.role_id);
 
       if (Number.isFinite(numericRole)) {
         return numericRole;
       }
     }
 
-    const slug = String(
-      moduleItem?.slug || ""
-    )
+    const slug = String(moduleItem?.slug || "")
       .trim()
       .toLowerCase();
 
@@ -221,9 +188,7 @@ export default function Sidebar({ sidebarOpen }) {
   };
 
   const isRoleLinkActive = (moduleItem) => {
-    const slug = String(
-      moduleItem?.slug || ""
-    )
+    const slug = String(moduleItem?.slug || "")
       .trim()
       .toLowerCase();
 
@@ -237,11 +202,7 @@ export default function Sidebar({ sidebarOpen }) {
       return true;
     }
 
-    if (
-      activeModule &&
-      slug &&
-      activeModule === slug
-    ) {
+    if (activeModule && slug && activeModule === slug) {
       return true;
     }
 
@@ -253,9 +214,7 @@ export default function Sidebar({ sidebarOpen }) {
 
     return (
       pathname === `/dashboard${slugPath}` ||
-      pathname.startsWith(
-        `/dashboard${slugPath}/`
-      )
+      pathname.startsWith(`/dashboard${slugPath}/`)
     );
   };
 
@@ -280,61 +239,41 @@ export default function Sidebar({ sidebarOpen }) {
 
     return (
       pathname === `/dashboard${slugPath}` ||
-      pathname.startsWith(
-        `/dashboard${slugPath}/`
-      )
+      pathname.startsWith(`/dashboard${slugPath}/`)
     );
   };
 
   const RoleLink = ({ moduleItem }) => {
-    const slug = String(
-      moduleItem?.slug || ""
-    )
+    const slug = String(moduleItem?.slug || "")
       .trim()
       .toLowerCase();
 
-    const label =
-      moduleItem?.name || slug || "Module";
-
+    const label = moduleItem?.name || slug || "Module";
     const moduleRole = getModuleRole(moduleItem);
-    const isActive =
-      isRoleLinkActive(moduleItem);
-
-    const role =
-      moduleRole !== null
-        ? moduleRole
-        : roleIdBySlug[slug];
+    const isActive = isRoleLinkActive(moduleItem);
 
     const href =
-      role !== undefined &&
-      role !== null
+      moduleRole !== null
         ? `/dashboard?role=${encodeURIComponent(
-            role
+            moduleRole
           )}&module=${encodeURIComponent(slug)}`
-        : `/dashboard?module=${encodeURIComponent(
-            slug
-          )}`;
+        : `/dashboard?module=${encodeURIComponent(slug)}`;
 
     return (
       <Link
         href={href}
-        className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
+        className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
           isActive
             ? "bg-blue-400 text-black"
             : "hover:bg-gray-700"
         }`}
       >
         <span
-          className={`flex items-center justify-center w-5 h-5 flex-shrink-0 ${
-            isActive
-              ? "text-black"
-              : "text-white"
+          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
+            isActive ? "text-black" : "text-white"
           }`}
         >
-          {getModuleIcon(
-            moduleItem?.icon,
-            20
-          )}
+          {getModuleIcon(moduleItem?.icon)}
         </span>
 
         <span>{label}</span>
@@ -343,40 +282,28 @@ export default function Sidebar({ sidebarOpen }) {
   };
 
   const ModuleLink = ({ moduleItem }) => {
-    const slug = String(
-      moduleItem?.slug || ""
-    )
+    const slug = String(moduleItem?.slug || "")
       .trim()
       .toLowerCase();
 
-    const label =
-      moduleItem?.name || slug || "Module";
-
-    const isActive =
-      isModuleLinkActive(slug);
+    const label = moduleItem?.name || slug || "Module";
+    const isActive = isModuleLinkActive(slug);
 
     return (
       <Link
-        href={`/dashboard?module=${encodeURIComponent(
-          slug
-        )}`}
-        className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
+        href={`/dashboard?module=${encodeURIComponent(slug)}`}
+        className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
           isActive
             ? "bg-blue-400 text-black"
             : "hover:bg-gray-700"
         }`}
       >
         <span
-          className={`flex items-center justify-center w-5 h-5 flex-shrink-0 ${
-            isActive
-              ? "text-black"
-              : "text-white"
+          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
+            isActive ? "text-black" : "text-white"
           }`}
         >
-          {getModuleIcon(
-            moduleItem?.icon,
-            20
-          )}
+          {getModuleIcon(moduleItem?.icon)}
         </span>
 
         <span>{label}</span>
@@ -386,36 +313,22 @@ export default function Sidebar({ sidebarOpen }) {
 
   const renderModuleLinks = () => {
     const currentRole = Number(roleId);
-
-    const allowedRoles =
-      allowedRolesByRole[currentRole] || [];
+    const allowedRoles = allowedRolesByRole[currentRole] || [];
 
     return modules
       .map((moduleItem, index) => {
-        const moduleRole =
-          getModuleRole(moduleItem);
+        const moduleRole = getModuleRole(moduleItem);
+        const key =
+          moduleItem?.id || `${moduleItem?.slug}-${index}`;
 
         if (moduleRole !== null) {
-          if (
-            moduleRole === 9 &&
-            currentRole !== 0 &&
-            currentRole !== 1
-          ) {
-            return null;
-          }
-
-          if (
-            !allowedRoles.includes(moduleRole)
-          ) {
+          if (!allowedRoles.includes(moduleRole)) {
             return null;
           }
 
           return (
             <RoleLink
-              key={
-                moduleItem?.id ||
-                `${moduleItem?.slug}-${index}`
-              }
+              key={key}
               moduleItem={moduleItem}
             />
           );
@@ -423,10 +336,7 @@ export default function Sidebar({ sidebarOpen }) {
 
         return (
           <ModuleLink
-            key={
-              moduleItem?.id ||
-              `${moduleItem?.slug}-${index}`
-            }
+            key={key}
             moduleItem={moduleItem}
           />
         );
@@ -437,13 +347,11 @@ export default function Sidebar({ sidebarOpen }) {
   if (roleId === null) {
     return (
       <aside
-        className={`fixed top-0 left-0 h-screen bg-gray-900 text-white flex flex-col overflow-hidden transition-all duration-300 ease-in-out z-40 ${
-          sidebarOpen
-            ? "w-64 p-5"
-            : "w-0 p-0"
+        className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
+          sidebarOpen ? "w-64 p-5" : "w-0 p-0"
         }`}
       >
-        <h2 className="relative text-2xl font-bold mb-6 after:content-[''] after:absolute after:left-0 after:-bottom-3 after:w-full after:h-[1px] after:bg-gray-300">
+        <h2 className="relative mb-6 text-2xl font-bold after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
           Dashboard
         </h2>
       </aside>
@@ -452,20 +360,18 @@ export default function Sidebar({ sidebarOpen }) {
 
   return (
     <aside
-      className={`fixed top-0 left-0 h-screen bg-gray-900 text-white flex flex-col overflow-hidden transition-all duration-300 ease-in-out z-40 ${
-        sidebarOpen
-          ? "w-64 p-5"
-          : "w-0 p-0"
+      className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
+        sidebarOpen ? "w-64 p-5" : "w-0 p-0"
       }`}
     >
-      <h2 className="relative text-2xl font-bold mb-6 flex-shrink-0 after:content-[''] after:absolute after:left-0 after:-bottom-3 after:w-full after:h-[1px] after:bg-gray-300">
+      <h2 className="relative mb-6 flex-shrink-0 text-2xl font-bold after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
         Dashboard
       </h2>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-2 pb-5 scrollbar-hide">
+      <div className="scrollbar-hide flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-5">
         <Link
           href="/dashboard"
-          className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
+          className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
             pathname === "/dashboard" &&
             activeRole === null &&
             !activeModule
@@ -473,9 +379,7 @@ export default function Sidebar({ sidebarOpen }) {
               : "hover:bg-gray-700"
           }`}
         >
-          <RiIcons.RiDashboardLine
-            size={20}
-          />
+          <RiIcons.RiDashboardLine size={20} />
           <span>Dashboard</span>
         </Link>
 
@@ -492,65 +396,51 @@ export default function Sidebar({ sidebarOpen }) {
 
             <Link
               href="/dashboard/modules"
-              className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
-                pathname ===
-                  "/dashboard/modules" ||
-                pathname.startsWith(
-                  "/dashboard/modules/"
-                )
+              className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
+                pathname === "/dashboard/modules" ||
+                pathname.startsWith("/dashboard/modules/")
                   ? "bg-blue-400 text-black"
                   : "hover:bg-gray-700"
               }`}
             >
-              <RiIcons.RiSettings3Line
-                size={20}
-              />
+              <RiIcons.RiSettings3Line size={20} />
               <span>Master Settings</span>
             </Link>
 
             <Link
               href="/dashboard/sub-modules"
-              className={`flex items-center gap-3 p-3 rounded transition-all font-semibold ${
-                pathname ===
-                  "/dashboard/sub-modules" ||
-                pathname.startsWith(
-                  "/dashboard/sub-modules/"
-                )
+              className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
+                pathname === "/dashboard/sub-modules" ||
+                pathname.startsWith("/dashboard/sub-modules/")
                   ? "bg-blue-400 text-black"
                   : "hover:bg-gray-700"
               }`}
             >
-              <RiIcons.RiStore2Line
-                size={20}
-              />
+              <RiIcons.RiStore2Line size={20} />
               <span>Sub Module</span>
             </Link>
           </>
         )}
 
-        {Number(roleId) >= 1 &&
-          Number(roleId) <= 9 &&
-          renderModuleLinks()}
+        <div className="space-y-2">
+          {renderModuleLinks()}
+        </div>
 
         <button
           type="button"
           onClick={myLogin}
-          className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-3 rounded-md hover:bg-blue-600 transition-all cursor-pointer font-semibold mt-4"
+          className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-blue-500 px-4 py-3 font-semibold text-white transition-all hover:bg-blue-600"
         >
-          <RiIcons.RiLoginBoxLine
-            size={20}
-          />
+          <RiIcons.RiLoginBoxLine size={20} />
           My Login
         </button>
 
         <button
           type="button"
           onClick={logout}
-          className="w-full flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-3 rounded-md hover:bg-red-600 transition-all cursor-pointer font-semibold"
+          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-red-500 px-4 py-3 font-semibold text-white transition-all hover:bg-red-600"
         >
-          <RiIcons.RiLogoutBoxLine
-            size={20}
-          />
+          <RiIcons.RiLogoutBoxLine size={20} />
           Logout
         </button>
       </div>

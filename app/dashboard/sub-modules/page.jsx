@@ -1,437 +1,270 @@
+
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import {
-  RiAddLine,
-  RiDeleteBinLine,
-  RiEditLine,
-} from "react-icons/ri";
+import { useEffect, useState } from "react";
+import { RiArrowDownSLine } from "react-icons/ri";
 import { toast } from "react-toastify";
+import {
+  getModules,
+  getSubModules,
+  updateSubModule,
+} from "@/services/api";
 
 export default function SubModulePage() {
+  const [modules, setModules] = useState([]);
+  const [subModules, setSubModules] = useState([]);
+  const [filterModule, setFilterModule] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(null);
 
-  const [selectedModule, setSelectedModule] =
-    useState("");
+  useEffect(() => {
+    loadModules();
+    loadSubModules();
+  }, []);
 
-  const [subModuleName, setSubModuleName] =
-    useState("");
+  const loadModules = async () => {
+    try {
+      const response = await getModules();
 
-  const [modules] = useState([
-    {
-      id: 1,
-      name: "Devices",
-    },
-  ]);
-
-  const [subModules, setSubModules] = useState([
-    {
-      id: 1,
-      module_id: 1,
-      name: "New Device",
-    },
-    {
-      id: 2,
-      module_id: 1,
-      name: "Old Device",
-    },
-  ]);
-
-
-  const handleAddSubModule = (e) => {
-
-    e.preventDefault();
-
-    if (!selectedModule) {
-      toast.error("Please select module");
-      return;
-    }
-
-    const name = subModuleName.trim();
-
-    if (!name) {
-      toast.error("Please enter sub module name");
-      return;
-    }
-
-    const alreadyExists = subModules.some(
-      (item) =>
-        Number(item.module_id) ===
-          Number(selectedModule) &&
-        item.name.toLowerCase() ===
-          name.toLowerCase()
-    );
-
-    if (alreadyExists) {
+      if (response?.success) {
+        setModules(response.data || []);
+      } else {
+        setModules([]);
+      }
+    } catch (error) {
+      console.error("GET MODULES ERROR:", error);
       toast.error(
-        "This sub module already exists"
+        error?.response?.data?.message || "Failed to load modules"
+      );
+      setModules([]);
+    }
+  };
+
+  const loadSubModules = async () => {
+    try {
+      setLoading(true);
+
+      const response = await getSubModules();
+
+      if (response?.success) {
+        setSubModules(response.data || []);
+      } else {
+        setSubModules([]);
+      }
+    } catch (error) {
+      console.error("GET SUB MODULES ERROR:", error);
+      toast.error(
+        error?.response?.data?.message || "Failed to load sub modules"
+      );
+      setSubModules([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusToggle = async (subModule) => {
+    if (statusLoading !== null) {
+      return;
+    }
+
+    const currentStatus = Number(subModule.status ?? 1);
+    const newStatus = currentStatus === 1 ? 0 : 1;
+
+    try {
+      setStatusLoading(subModule.id);
+
+      const response = await updateSubModule({
+        id: subModule.id,
+        status: newStatus,
+      });
+
+      if (!response?.success) {
+        toast.error(
+          response?.message || "Failed to update sub module status"
+        );
+        return;
+      }
+
+      setSubModules((prev) =>
+        prev.map((item) =>
+          Number(item.id) === Number(subModule.id)
+            ? {
+                ...item,
+                status: newStatus,
+              }
+            : item
+        )
       );
 
-      return;
+      toast.success(
+        newStatus === 1
+          ? "Sub module activated successfully"
+          : "Sub module deactivated successfully"
+      );
+    } catch (error) {
+      console.error("UPDATE SUB MODULE STATUS ERROR:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update sub module status"
+      );
+    } finally {
+      setStatusLoading(null);
     }
-
-    const newSubModule = {
-      id: Date.now(),
-      module_id: Number(selectedModule),
-      name,
-    };
-
-    setSubModules((prev) => [
-      ...prev,
-      newSubModule,
-    ]);
-
-    setSubModuleName("");
-
-    toast.success(
-      "Sub module added successfully"
-    );
   };
-
-
-  const handleDeleteSubModule = (id) => {
-
-    setSubModules((prev) =>
-      prev.filter(
-        (item) => item.id !== id
-      )
-    );
-
-    toast.success(
-      "Sub module deleted"
-    );
-  };
-
 
   const selectedModuleName =
     modules.find(
-      (module) =>
-        Number(module.id) ===
-        Number(selectedModule)
+      (module) => Number(module.id) === Number(filterModule)
     )?.name || "";
 
-
-  const filteredSubModules =
-    selectedModule
-      ? subModules.filter(
-          (item) =>
-            Number(item.module_id) ===
-            Number(selectedModule)
-        )
-      : [];
-
+  const filteredSubModules = filterModule
+    ? subModules.filter(
+        (item) => Number(item.module_id) === Number(filterModule)
+      )
+    : subModules;
 
   return (
-
-    <div className="max-w-5xl mx-auto">
-
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-6">
-
-        {/* HEADER */}
-
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-
-          <div>
-
-            <h1 className="text-2xl font-bold text-slate-800">
-              Sub Modules
-            </h1>
-
-            <p className="text-sm text-slate-500 mt-1">
-              Create sub modules inside modules
-            </p>
-
-          </div>
-  
-
-        </div>
-
-
-        {/* ADD SUB MODULE */}
-
-        <form
-          onSubmit={handleAddSubModule}
-          className="
-            border
-            border-slate-200
-            rounded-xl
-            p-5
-            bg-slate-50
-            mb-6
-          "
-        >
-
-          <h2 className="text-lg font-semibold text-slate-700 mb-4">
-            Add Sub Module
-          </h2>
-
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-            {/* MODULE */}
-
+    <div className="mx-auto max-w-5xl">
+      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xl">
+        <div>
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
+              <h2 className="text-lg font-semibold text-slate-700">
+                {selectedModuleName
+                  ? `${selectedModuleName} Sub Modules`
+                  : "Sub Module List"}
+              </h2>
 
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Select Module
-              </label>
+              {/* <p className="mt-1 text-xs text-slate-400">
+                {filterModule
+                  ? `Showing sub modules of ${selectedModuleName}`
+                  : "Showing all sub modules"}
+              </p> */}
+            </div>
 
+            {/* <div className="relative w-full md:w-56">
               <select
-                value={selectedModule}
-                onChange={(e) =>
-                  setSelectedModule(
-                    e.target.value
-                  )
-                }
-                className="
-                  w-full
-                  border
-                  border-slate-300
-                  rounded-lg
-                  px-4
-                  py-2.5
-                  text-sm
-                  bg-white
-                  focus:outline-none
-                  focus:ring-2
-                  focus:ring-blue-500
-                "
+                value={filterModule}
+                onChange={(e) => setFilterModule(e.target.value)}
+                className="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-
-                <option value="">
-                  Select Module
-                </option>
+                <option value="">All Modules</option>
 
                 {modules.map((module) => (
-
-                  <option
-                    key={module.id}
-                    value={module.id}
-                  >
+                  <option key={module.id} value={module.id}>
                     {module.name}
                   </option>
-
                 ))}
-
               </select>
 
-            </div>
-
-
-            {/* SUB MODULE NAME */}
-
-            <div>
-
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Sub Module Name
-              </label>
-
-              <input
-                type="text"
-                value={subModuleName}
-                onChange={(e) =>
-                  setSubModuleName(
-                    e.target.value
-                  )
-                }
-                placeholder="e.g. New Device"
-                className="
-                  w-full
-                  border
-                  border-slate-300
-                  rounded-lg
-                  px-4
-                  py-2.5
-                  text-sm
-                  bg-white
-                  focus:outline-none
-                  focus:ring-2
-                  focus:ring-blue-500
-                "
+              <RiArrowDownSLine
+                size={20}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
               />
-
-            </div>
-
+            </div> */}
           </div>
 
-
-          <div className="mt-4 flex justify-end">
-
-            <button
-              type="submit"
-              className="
-                flex
-                items-center
-                justify-center
-                gap-2
-                bg-blue-500
-                text-white
-                px-5
-                py-2.5
-                rounded-lg
-                hover:bg-blue-600
-                transition
-                font-semibold
-                cursor-pointer
-              "
-            >
-
-              <RiAddLine size={20} />
-
-              Add Sub Module
-
-            </button>
-
-          </div>
-
-        </form>
-
-
-        {/* LIST */}
-
-        <div>
-
-          <h2 className="text-lg font-semibold text-slate-700 mb-4">
-
-            {selectedModuleName
-              ? `${selectedModuleName} Sub Modules`
-              : "Sub Module List"}
-
-          </h2>
-
-
-          {!selectedModule ? (
-
-            <div className="border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500">
-
-              Select a module to see sub modules
-
+          {loading && subModules.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
+              Loading sub modules...
             </div>
-
           ) : filteredSubModules.length === 0 ? (
-
-            <div className="border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500">
-
-              No sub modules found
-
+            <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
+              {filterModule
+                ? `No sub modules found for ${selectedModuleName}`
+                : "No sub modules found"}
             </div>
-
           ) : (
-
             <div className="space-y-3">
+              {filteredSubModules.map((subModule, index) => {
+                const moduleName =
+                  modules.find(
+                    (module) =>
+                      Number(module.id) === Number(subModule.module_id)
+                  )?.name || "Unknown Module";
 
-              {filteredSubModules.map(
-                (subModule, index) => (
+                const isActive =
+                  Number(subModule.status ?? 1) === 1;
 
+                return (
                   <div
                     key={subModule.id}
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                      border
-                      border-slate-200
-                      rounded-xl
-                      px-4
-                      py-4
-                      bg-white
-                      hover:shadow-sm
-                      transition
-                    "
+                    className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:shadow-sm"
                   >
-
-                    <div className="flex items-center gap-4">
-
-                      <div
-                        className="
-                          w-10
-                          h-10
-                          rounded-lg
-                          bg-blue-50
-                          text-blue-600
-                          flex
-                          items-center
-                          justify-center
-                          font-bold
-                        "
-                      >
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 font-bold text-blue-600">
                         {index + 1}
                       </div>
 
-
-                      <div>
-
-                        <p className="font-semibold text-slate-800">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-800">
                           {subModule.name}
                         </p>
 
-                        <p className="text-xs text-slate-500">
-                          {selectedModuleName}
-                        </p>
+                        {/* <p className="mt-1 text-xs text-slate-500">
+                          Module: {moduleName}
+                        </p> */}
 
+                        {/* {subModule.icon && (
+                          <p className="mt-0.5 text-xs text-slate-400">
+                            Icon: {subModule.icon}
+                          </p>
+                        )} */}
                       </div>
-
                     </div>
 
-
-                    <div className="flex items-center gap-2">
-
+                    <div className="flex shrink-0 items-center gap-2">
                       <button
                         type="button"
-                        className="
-                          p-2
-                          rounded-lg
-                          text-blue-600
-                          hover:bg-blue-50
-                          cursor-pointer
-                        "
-                      >
-
-                        <RiEditLine
-                          size={20}
-                        />
-
-                      </button>
-
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleDeleteSubModule(
-                            subModule.id
-                          )
+                        onClick={() => handleStatusToggle(subModule)}
+                        disabled={statusLoading !== null}
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ${
+                          isActive
+                            ? "bg-green-500"
+                            : "bg-slate-300"
+                        } ${
+                          statusLoading !== null
+                            ? "cursor-not-allowed opacity-50"
+                            : "cursor-pointer"
+                        }`}
+                        aria-label={
+                          isActive
+                            ? "Deactivate sub module"
+                            : "Activate sub module"
                         }
-                        className="
-                          p-2
-                          rounded-lg
-                          text-red-500
-                          hover:bg-red-50
-                          cursor-pointer
-                        "
+                        title={
+                          isActive
+                            ? "Deactivate Sub Module"
+                            : "Activate Sub Module"
+                        }
                       >
-
-                        <RiDeleteBinLine
-                          size={20}
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                            isActive
+                              ? "translate-x-5"
+                              : "translate-x-0.5"
+                          }`}
                         />
-
                       </button>
 
+                      <span
+                        className={`min-w-[58px] rounded-full px-2.5 py-1 text-center text-xs font-semibold ${
+                          isActive
+                            ? "bg-green-50 text-green-600"
+                            : "bg-red-50 text-red-500"
+                        }`}
+                      >
+                        {isActive ? "Active" : "Inactive"}
+                      </span>
                     </div>
-
                   </div>
-
-                )
-              )}
-
+                );
+              })}
             </div>
-
           )}
-
         </div>
-
       </div>
-
     </div>
-
   );
 }
