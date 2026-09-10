@@ -36,16 +36,19 @@ export const getAllStaffData = async (
 
 // ADD STAFF
 export const addStaff = async (data) => {
+  try {
+    const response = await api.post("/add-staff", data);
 
-  const response =
-    await api.post(
-      "/add-staff",
-      data
+    return response.data;
+  } catch (error) {
+    console.error(
+      "ADD STAFF API ERROR:",
+      error?.response?.data || error.message
     );
 
-  return response.data;
+    throw error;
+  }
 };
-
 
 // GET DROPDOWN USERS
 export const getDropdownUsers = async (
@@ -277,16 +280,19 @@ export const getSubModules = async () => {
     try {
         const response = await api.get("/sub-modules");
 
+        if (!response?.data) {
+            throw new Error("Invalid sub modules API response");
+        }
+
         return response.data;
     } catch (error) {
         console.error(
             "GET SUB MODULES API ERROR:",
-            error?.response?.data || error.message
+            error?.response?.data || error?.message || error
         );
         throw error;
     }
 };
-
 //edit sub module
 export const updateSubModule = async ({ id, status }) => {
     try {

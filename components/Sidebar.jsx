@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -290,9 +289,7 @@ export default function Sidebar({ sidebarOpen }) {
       moduleItem?.name || slug || "Module";
 
     const moduleRole = getModuleRole(moduleItem);
-
-    const isActive =
-      isRoleLinkActive(moduleItem);
+    const isActive = isRoleLinkActive(moduleItem);
 
     const role =
       moduleRole !== null
@@ -380,7 +377,7 @@ export default function Sidebar({ sidebarOpen }) {
 
   const renderModuleLinks = () => {
     const currentRole = Number(roleId);
-
+    const isMasterAdmin = currentRole === 0;
     const allowedRoles =
       allowedRolesByRole[currentRole] || [];
 
@@ -398,12 +395,24 @@ export default function Sidebar({ sidebarOpen }) {
             return null;
           }
 
-          if (currentRole === 0) {
+          if (isMasterAdmin) {
             if (
               activeRole === null ||
               activeRole === undefined
             ) {
               return null;
+            }
+
+            if (moduleRole === 1) {
+              return (
+                <RoleLink
+                  key={
+                    moduleItem?.id ||
+                    `${moduleItem?.slug}-${index}`
+                  }
+                  moduleItem={moduleItem}
+                />
+              );
             }
 
             const activeAllowedRoles =
@@ -417,27 +426,20 @@ export default function Sidebar({ sidebarOpen }) {
             ) {
               return null;
             }
-          } else {
-            if (
-              activeRole !== null &&
-              activeRole !== undefined
-            ) {
-              const activeAllowedRoles =
-                allowedRolesByRole[activeRole] || [];
 
-              if (
-                moduleRole !== activeRole &&
-                !activeAllowedRoles.includes(
-                  moduleRole
-                )
-              ) {
-                return null;
-              }
-            } else if (
-              !allowedRoles.includes(moduleRole)
-            ) {
-              return null;
-            }
+            return (
+              <RoleLink
+                key={
+                  moduleItem?.id ||
+                  `${moduleItem?.slug}-${index}`
+                }
+                moduleItem={moduleItem}
+              />
+            );
+          }
+
+          if (!allowedRoles.includes(moduleRole)) {
+            return null;
           }
 
           return (
