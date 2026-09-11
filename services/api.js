@@ -311,6 +311,23 @@ export const updateSubModule = async ({ id, status }) => {
 };
 
 
+//get role data
+export const getRoles = async () => {
+  try {
+    const response = await api.get("/roles");
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "GET ROLES API ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+
+
 
 
 

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 
@@ -21,7 +21,7 @@ import {
   Line,
 } from "recharts";
 
-import { getAllStaffData, getModules } from "@/services/api";
+import { getAllStaffData, getRoles } from "@/services/api";
 import { getRoleId } from "@/utils/token";
 import UsersTable from "../../components/dashboard/UsersTable";
 
@@ -36,209 +36,249 @@ const PIE_COLORS = [
   "#14b8a6",
 ];
 
+const allowedRoles = {
+  0: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  1: [2, 3, 4, 5, 6, 7, 8, 9],
+  2: [3, 4, 5, 6, 7, 8, 9],
+  3: [4, 5, 6, 7, 8, 9],
+  4: [5, 6, 7, 8, 9],
+  5: [6, 7, 8, 9],
+  6: [7, 8, 9],
+  7: [8, 9],
+  8: [9],
+  9: [],
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // --------------------------------------------------
+  // STATE
+  // --------------------------------------------------
+
   const [roleId, setRoleId] = useState(null);
-  const [modules, setModules] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({});
   const [users, setUsers] = useState([]);
+  const [counts, setCounts] = useState({});
 
-  const [counts, setCounts] = useState({
-    admin: 0,
-    cnf: 0,
-    super: 0,
-    distributor: 0,
-    fos: 0,
-    retailer: 0,
-    subRetailer: 0,
-    employee: 0,
-    staff: 0,
-  });
-
-  const allowedRoles = {
-    0: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-    1: [2, 3, 4, 5, 6, 7, 8, 9],
-    2: [3, 4, 5, 6, 7, 8],
-    3: [4, 5, 6, 7, 8],
-    4: [5, 6, 7, 8],
-    5: [6, 7, 8],
-    6: [7, 8],
-    7: [8],
-    8: [],
-    9: [],
-  };
-
-  const roles = {
-    0: "Master Admin",
-    1: "Admin",
-    2: "CNF",
-    3: "Super Distributor",
-    4: "Distributor",
-    5: "FOS",
-    6: "Retailer",
-    7: "Sub Retailer",
-    8: "Employee",
-    9: "Staff",
-  };
-
-  const roleMap = {
-    admin: 1,
-    cnf: 2,
-    "super distributor": 3,
-    "super distributer": 3,
-    "super-distributor": 3,
-    distributor: 4,
-    fos: 5,
-    retailer: 6,
-    "sub retailer": 7,
-    "sub-retailer": 7,
-    employee: 8,
-    staff: 9,
-  };
-
-  useEffect(() => {
-    const role = getRoleId();
-
-    if (role === null || role === undefined) {
-      return;
-    }
-
-    setRoleId(Number(role));
-  }, []);
-
-  useEffect(() => {
-    const loadModules = async () => {
-      try {
-        const response = await getModules();
-
-        const moduleData =
-          response?.modules ||
-          response?.data ||
-          [];
-
-        if (response?.success && Array.isArray(moduleData)) {
-          setModules(moduleData);
-        } else {
-          setModules([]);
-        }
-      } catch (error) {
-        console.error("GET MODULES ERROR:", error);
-        setModules([]);
-      }
-    };
-
-    loadModules();
-  }, []);
+  // --------------------------------------------------
+  // URL PARAMS
+  // --------------------------------------------------
 
   const urlRoleParam = searchParams.get("role");
   const moduleParam = searchParams.get("module");
 
-  const getRoleIdFromValue = (value) => {
-    if (value === null || value === undefined || value === "") {
-      return null;
+  const hasRoleParam = urlRoleParam !== null;
+  const hasModuleParam = moduleParam !== null;
+
+  const isDashboardHome =
+    !hasRoleParam && !hasModuleParam;
+
+  // --------------------------------------------------
+  // CURRENT LOGGED-IN ROLE
+  // --------------------------------------------------
+
+  useEffect(() => {
+    const currentRoleId = getRoleId();
+
+    if (
+      currentRoleId === null ||
+      currentRoleId === undefined
+    ) {
+      return;
     }
 
-    const numericRole = Number(value);
+    setRoleId(Number(currentRoleId));
+  }, []);
 
-    if (!Number.isNaN(numericRole)) {
-      return numericRole;
-    }
+  // --------------------------------------------------
+  // GET ROLES
+  // --------------------------------------------------
 
-    const key = String(value)
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const response = await getRoles();
+
+        const roleData = Array.isArray(response?.data)
+          ? response.data
+          : [];
+
+        const activeRoles = roleData
+          .filter(
+            (role) => Number(role?.status ?? 1) === 1
+          )
+          .sort(
+            (a, b) =>
+              Number(a?.sequence ?? 0) -
+              Number(b?.sequence ?? 0)
+          );
+
+        setRoles(activeRoles);
+      } catch (error) {
+        console.error("GET ROLES ERROR:", error);
+        setRoles([]);
+      }
+    };
+
+    loadRoles();
+  }, []);
+
+  // --------------------------------------------------
+  // ROLE HELPERS
+  // --------------------------------------------------
+
+  const normalizeRoleValue = useCallback((value) => {
+    return String(value || "")
       .trim()
       .toLowerCase()
       .replace(/_/g, " ")
       .replace(/-/g, " ")
       .replace(/\s+/g, " ");
+  }, []);
 
-    return roleMap[key] ?? null;
-  };
+  const getRoleIdFromValue = useCallback(
+    (value) => {
+      if (
+        value === null ||
+        value === undefined ||
+        value === ""
+      ) {
+        return null;
+      }
 
-  const urlRole = getRoleIdFromValue(urlRoleParam);
+      const valueString = String(value).trim();
 
-  const moduleRole = getRoleIdFromValue(moduleParam);
+      // Numeric role ID
+      if (/^\d+$/.test(valueString)) {
+        return Number(valueString);
+      }
+
+      const normalizedValue =
+        normalizeRoleValue(valueString);
+
+      const foundRole = roles.find((role) => {
+        const roleName = normalizeRoleValue(role?.name);
+        const roleSlug = normalizeRoleValue(role?.slug);
+
+        return (
+          roleName === normalizedValue ||
+          roleSlug === normalizedValue
+        );
+      });
+
+      return foundRole
+        ? Number(foundRole.role_id)
+        : null;
+    },
+    [roles, normalizeRoleValue]
+  );
+
+  // --------------------------------------------------
+  // REQUESTED ROLE
+  // --------------------------------------------------
+
+  const urlRole = useMemo(
+    () => getRoleIdFromValue(urlRoleParam),
+    [urlRoleParam, getRoleIdFromValue]
+  );
+
+  const moduleRole = useMemo(
+    () => getRoleIdFromValue(moduleParam),
+    [moduleParam, getRoleIdFromValue]
+  );
 
   const requestedRole =
     urlRole !== null
       ? urlRole
       : moduleRole;
 
-  const isRoleAllowed =
-    roleId !== null &&
-    requestedRole !== null &&
-    (
-      requestedRole === roleId ||
-      allowedRoles[roleId]?.includes(requestedRole)
+  // --------------------------------------------------
+  // ROLE ACCESS
+  // --------------------------------------------------
+
+  const isRoleAllowed = useMemo(() => {
+    if (
+      roleId === null ||
+      requestedRole === null
+    ) {
+      return false;
+    }
+
+    // User can access own role
+    if (requestedRole === roleId) {
+      return true;
+    }
+
+    return (
+      allowedRoles[roleId]?.includes(requestedRole) ||
+      false
     );
-
-  const hasRoleParam = urlRoleParam !== null;
-  const hasModuleParam = moduleParam !== null;
-
-  const isDashboardHome =
-    !hasRoleParam &&
-    !hasModuleParam;
+  }, [roleId, requestedRole]);
 
   const selectedRole =
-    requestedRole !== null &&
-    isRoleAllowed
+    requestedRole !== null && isRoleAllowed
       ? requestedRole
       : null;
 
-  const handleRoleList = (role) => {
-    router.push(`/dashboard?role=${role}`);
-  };
+  // --------------------------------------------------
+  // ROLE LIST NAVIGATION
+  // --------------------------------------------------
 
-  const getRoleName = (id) => {
-    return roles[Number(id)] || "Unknown";
-  };
+  const handleRoleList = useCallback(
+    (role) => {
+      router.push(
+        `/dashboard?role=${encodeURIComponent(role)}`
+      );
+    },
+    [router]
+  );
 
-  const activeRoleIds = modules
-    .filter((module) => {
-      if (typeof module === "string") {
-        return true;
+  // --------------------------------------------------
+  // ROLE NAME
+  // --------------------------------------------------
+
+  const getRoleName = useCallback(
+    (id) => {
+      const numericRoleId = Number(id);
+
+      if (numericRoleId === 0) {
+        return "Master Admin";
       }
 
-      return Number(module?.status) === 1;
-    })
-    .map((module) => {
-      const name =
-        typeof module === "string"
-          ? module
-          : module?.name;
+      const role = roles.find(
+        (item) =>
+          Number(item?.role_id) === numericRoleId
+      );
 
-      if (!name) {
-        return null;
-      }
+      return role?.name || "Unknown";
+    },
+    [roles]
+  );
 
-      const key = String(name)
-        .trim()
-        .toLowerCase()
-        .replace(/_/g, " ")
-        .replace(/-/g, " ")
-        .replace(/\s+/g, " ");
-
-      return roleMap[key] ?? null;
-    })
-    .filter(
-      (role, index, array) =>
-        role !== null &&
-        array.indexOf(role) === index
-    );
-
-  const isRoleActive = (role) => {
-    return activeRoleIds.includes(Number(role));
-  };
+  // --------------------------------------------------
+  // ROLE PARAM VALIDATION
+  // --------------------------------------------------
 
   useEffect(() => {
-    if (roleId === null || !hasRoleParam) {
+    if (
+      roleId === null ||
+      !hasRoleParam
+    ) {
       return;
     }
 
-    if (urlRole === null || !isRoleAllowed) {
-      toast.error("You are not allowed to access this role");
+    if (
+      urlRole === null ||
+      !isRoleAllowed
+    ) {
+      toast.error(
+        "You are not allowed to access this role"
+      );
+
       router.replace("/dashboard");
     }
   }, [
@@ -248,6 +288,10 @@ export default function Dashboard() {
     isRoleAllowed,
     router,
   ]);
+
+  // --------------------------------------------------
+  // MODULE PARAM VALIDATION
+  // --------------------------------------------------
 
   useEffect(() => {
     if (
@@ -259,7 +303,10 @@ export default function Dashboard() {
     }
 
     if (!isRoleAllowed) {
-      toast.error("You are not allowed to access this module");
+      toast.error(
+        "You are not allowed to access this module"
+      );
+
       router.replace("/dashboard");
     }
   }, [
@@ -270,195 +317,204 @@ export default function Dashboard() {
     router,
   ]);
 
+  // --------------------------------------------------
+  // RESET PAGE WHEN ROLE / MODULE CHANGES
+  // --------------------------------------------------
+
   useEffect(() => {
     setPage(1);
   }, [urlRoleParam, moduleParam]);
 
-  useEffect(() => {
-    if (roleId === null) {
-      return;
+  // --------------------------------------------------
+  // ROLE CARDS
+  // IMPORTANT: cards is declared BEFORE visibleCards
+  // --------------------------------------------------
+
+  const cards = useMemo(() => {
+    return roles.map((role) => {
+      const numericRoleId = Number(role?.role_id);
+
+      return {
+        id: role?.id,
+        roleId: numericRoleId,
+        title:
+          role?.name ||
+          role?.slug ||
+          "Unknown Role",
+        count: counts[numericRoleId] || 0,
+        icon: role?.icon || null,
+        sequence: Number(role?.sequence) || 0,
+        status: Number(role?.status ?? 1),
+      };
+    });
+  }, [roles, counts]);
+
+  // --------------------------------------------------
+  // VISIBLE ROLE CARDS
+  // --------------------------------------------------
+
+  const visibleCards = useMemo(() => {
+    const currentRole = Number(roleId);
+
+    // Master Admin can see all roles
+    if (currentRole === 0) {
+      return cards;
     }
 
-    fetchUsers();
-  }, [
-    page,
-    selectedRole,
-    roleId,
-    isDashboardHome,
-  ]);
+    const roleIds =
+      allowedRoles[currentRole] || [];
 
-  const fetchUsers = async () => {
+    return cards.filter((card) =>
+      roleIds.includes(Number(card.roleId))
+    );
+  }, [cards, roleId]);
+
+  // --------------------------------------------------
+  // FETCH USERS
+  // --------------------------------------------------
+
+  const fetchUsers = useCallback(async () => {
     try {
-      const countRes = await getAllStaffData(
-        1,
-        10000,
-        ""
-      );
+      // Get all users for dashboard counts
+      const countResponse =
+        await getAllStaffData(
+          1,
+          10000,
+          ""
+        );
 
-      const allData = countRes?.data || [];
+      const allUsers = Array.isArray(
+        countResponse?.data
+      )
+        ? countResponse.data
+        : [];
 
-      const roleCounts = {
-        admin: 0,
-        cnf: 0,
-        super: 0,
-        distributor: 0,
-        fos: 0,
-        retailer: 0,
-        subRetailer: 0,
-        employee: 0,
-        staff: 0,
-      };
+      // Build role counts
+      const roleCounts = {};
 
-      allData.forEach((user) => {
-        switch (Number(user.role_id)) {
-          case 1:
-            roleCounts.admin++;
-            break;
-          case 2:
-            roleCounts.cnf++;
-            break;
-          case 3:
-            roleCounts.super++;
-            break;
-          case 4:
-            roleCounts.distributor++;
-            break;
-          case 5:
-            roleCounts.fos++;
-            break;
-          case 6:
-            roleCounts.retailer++;
-            break;
-          case 7:
-            roleCounts.subRetailer++;
-            break;
-          case 8:
-            roleCounts.employee++;
-            break;
-          case 9:
-            roleCounts.staff++;
-            break;
-          default:
-            break;
+      roles.forEach((role) => {
+        const numericRoleId = Number(
+          role?.role_id
+        );
+
+        if (Number.isFinite(numericRoleId)) {
+          roleCounts[numericRoleId] = 0;
+        }
+      });
+
+      allUsers.forEach((user) => {
+        const userRoleId = Number(
+          user?.role_id
+        );
+
+        if (
+          Object.prototype.hasOwnProperty.call(
+            roleCounts,
+            userRoleId
+          )
+        ) {
+          roleCounts[userRoleId] += 1;
         }
       });
 
       setCounts(roleCounts);
 
+      // Dashboard home does not need table data
       if (isDashboardHome) {
         setUsers([]);
         setPagination({});
         return;
       }
 
-      if (
-        selectedRole === null ||
-        selectedRole === undefined
-      ) {
+      // Invalid / unauthorized role
+      if (selectedRole === null) {
         setUsers([]);
         setPagination({});
         return;
       }
 
-      const res = await getAllStaffData(
-        page,
-        10,
-        selectedRole
+      // Get selected role users
+      const response =
+        await getAllStaffData(
+          page,
+          10,
+          selectedRole
+        );
+
+      setUsers(
+        Array.isArray(response?.data)
+          ? response.data
+          : []
       );
 
-      setUsers(res?.data || []);
-      setPagination(res?.pagination || {});
+      setPagination(
+        response?.pagination || {}
+      );
     } catch (error) {
-      console.error("Fetch Users Error:", error);
+      console.error(
+        "FETCH USERS ERROR:",
+        error
+      );
+
       setUsers([]);
       setPagination({});
     }
-  };
+  }, [
+    roles,
+    page,
+    selectedRole,
+    isDashboardHome,
+  ]);
 
-  const cards = [
-    {
-      title: "Admin",
-      count: counts.admin,
-      roleId: 1,
-    },
-    {
-      title: "CNF",
-      count: counts.cnf,
-      roleId: 2,
-    },
-    {
-      title: "Super Distributor",
-      count: counts.super,
-      roleId: 3,
-    },
-    {
-      title: "Distributor",
-      count: counts.distributor,
-      roleId: 4,
-    },
-    {
-      title: "FOS",
-      count: counts.fos,
-      roleId: 5,
-    },
-    {
-      title: "Retailer",
-      count: counts.retailer,
-      roleId: 6,
-    },
-    {
-      title: "Sub Retailer",
-      count: counts.subRetailer,
-      roleId: 7,
-    },
-    {
-      title: "Employee",
-      count: counts.employee,
-      roleId: 8,
-    },
-    {
-      title: "Staff",
-      count: counts.staff,
-      roleId: 9,
-    },
-  ];
+  // --------------------------------------------------
+  // FETCH USERS EFFECT
+  // --------------------------------------------------
 
-  const visibleCards = cards.filter((card) => {
-    if (Number(card.roleId) === 9) {
-      if (
-        Number(roleId) !== 0 &&
-        Number(roleId) !== 1
-      ) {
-        return false;
-      }
+  useEffect(() => {
+    if (
+      roleId === null ||
+      roles.length === 0
+    ) {
+      return;
     }
 
-    if (!isRoleActive(card.roleId)) {
-      return false;
-    }
+    fetchUsers();
+  }, [
+    roleId,
+    roles.length,
+    page,
+    selectedRole,
+    isDashboardHome,
+    fetchUsers,
+  ]);
 
-    if (Number(roleId) === 0) {
-      return true;
-    }
-
-    return allowedRoles[roleId]?.includes(
-      card.roleId
-    );
-  });
+  // --------------------------------------------------
+  // RENDER
+  // --------------------------------------------------
 
   return (
     <div className="bg-gray-100">
       <main className="pt-0 p-0">
+
         <h1 className="md:text-3xl font-bold md:mb-6 mb-0 text-[20px]">
           Welcome Dashboard
         </h1>
 
+        {/* ==========================================
+            DASHBOARD HOME
+        ========================================== */}
+
         {isDashboardHome && (
           <>
+            {/* ROLE CARDS */}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
               {visibleCards.map((card) => (
                 <div
-                  key={card.roleId}
+                  key={
+                    card.id ||
+                    card.roleId
+                  }
                   className="bg-white p-5 rounded-xl shadow"
                 >
                   <h3 className="text-gray-500">
@@ -472,7 +528,12 @@ export default function Dashboard() {
               ))}
             </div>
 
+            {/* CHARTS */}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
+
+              {/* BAR CHART */}
+
               <div className="bg-white p-5 rounded-xl shadow">
                 <h3 className="text-gray-700 font-semibold mb-4">
                   Role-wise Users (Bar Chart)
@@ -483,25 +544,42 @@ export default function Dashboard() {
                   height={300}
                 >
                   <BarChart data={visibleCards}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                    />
+
                     <XAxis
                       dataKey="title"
-                      tick={{ fontSize: 12 }}
+                      tick={{
+                        fontSize: 12,
+                      }}
                       interval={0}
                       angle={-20}
                       textAnchor="end"
                       height={60}
                     />
-                    <YAxis allowDecimals={false} />
+
+                    <YAxis
+                      allowDecimals={false}
+                    />
+
                     <Tooltip />
+
                     <Bar
                       dataKey="count"
                       fill="#6366f1"
-                      radius={[4, 4, 0, 0]}
+                      radius={[
+                        4,
+                        4,
+                        0,
+                        0,
+                      ]}
                     />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+
+              {/* PIE CHART */}
 
               <div className="bg-white p-5 rounded-xl shadow">
                 <h3 className="text-gray-700 font-semibold mb-4">
@@ -543,6 +621,8 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
+              {/* LINE CHART */}
+
               <div className="bg-white p-5 rounded-xl shadow md:col-span-2">
                 <h3 className="text-gray-700 font-semibold mb-4">
                   Role-wise Users (Line Chart)
@@ -553,23 +633,35 @@ export default function Dashboard() {
                   height={300}
                 >
                   <LineChart data={visibleCards}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                    />
+
                     <XAxis
                       dataKey="title"
-                      tick={{ fontSize: 12 }}
+                      tick={{
+                        fontSize: 12,
+                      }}
                       interval={0}
                       angle={-20}
                       textAnchor="end"
                       height={60}
                     />
-                    <YAxis allowDecimals={false} />
+
+                    <YAxis
+                      allowDecimals={false}
+                    />
+
                     <Tooltip />
+
                     <Line
                       type="monotone"
                       dataKey="count"
                       stroke="#22c55e"
                       strokeWidth={2}
-                      dot={{ r: 4 }}
+                      dot={{
+                        r: 4,
+                      }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -577,6 +669,10 @@ export default function Dashboard() {
             </div>
           </>
         )}
+
+        {/* ==========================================
+            ROLE USERS TABLE
+        ========================================== */}
 
         {!isDashboardHome &&
           selectedRole !== null && (
@@ -595,66 +691,3 @@ export default function Dashboard() {
   );
 }
 
-
-// ### Ab flow kya hoga
-
-// Agar Sidebar se **Admin module** click hua:
-
-// ```text
-// /dashboard?module=admin
-// ```
-
-// Dashboard:
-
-// ```text
-// module = admin
-// ↓
-// roleMap["admin"] = 1
-// ↓
-// selectedRole = 1
-// ↓
-// Admin users fetch
-// ↓
-// UsersTable show
-// ```
-
-// Aur agar:
-
-// ```text
-// /dashboard?role=admin
-// ```
-
-// toh bhi:
-
-// ```text
-// admin → role 1
-// ```
-
-// resolve ho jayega.
-
-// ### Sabse important fix
-
-// Pehle aapka ye tha:
-
-// ```js
-// const urlRole = Number(urlRoleParam);
-// ```
-
-// Ab ye hai:
-
-// ```js
-// const urlRole = getRoleIdFromValue(urlRoleParam);
-// ```
-
-// Isliye:
-
-// ```text
-// admin → 1
-// cnf → 2
-// distributor → 4
-// staff → 9
-// ```
-
-// properly resolve hoga.
-
-// **Lekin ek aur important point:** Sidebar me module ko `?module=slug` bhejna hoga. Agar aapke Sidebar me abhi `RoleLink` module ko `?role=slug` bhej raha hai, to usko bhi change karna padega. Aapke Module Master ke according module ko normal module link banana best rahega, role link nahi.
