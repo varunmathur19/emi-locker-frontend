@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -90,13 +91,10 @@ export default function Page() {
 
       const res = await login(formData);
 
-      console.log(
-        "Login Response:",
-        res
-      );
+      console.log("Login Response:", res);
 
       // ==========================================
-      // LOGIN SUCCESS
+      // LOGIN VALIDATION
       // ==========================================
 
       if (!res?.success || !res?.token) {
@@ -109,113 +107,121 @@ export default function Page() {
       }
 
       // ==========================================
-      // IMPORTANT
-      // ORIGINAL LOGIN SAVE
-      // ==========================================
-      //
-      // Jo user login page se login karega,
-      // wahi ORIGINAL USER hoga.
-      //
-      // Example:
-      //
-      // Master Admin login
-      //
-      // original_token = Master Admin token
-      // original_user  = Master Admin
-      //
-      // Baad mein agar Admin / Distributor /
-      // Retailer ko login karenge to
-      // original_token change nahi hoga.
-      //
+      // CURRENT USER
       // ==========================================
 
-      if (res?.token) {
+      const loggedInUser = res?.user;
 
-  saveOriginalLogin(
-    res.token,
-    res.user
-  );
+      if (!loggedInUser) {
+        toast.error(
+          "User data not received from server"
+        );
 
-  saveToken(
-    res.token
-  );
-
-  saveUser(
-    res.user
-  );
-
-  // ...
-}
+        return;
+      }
 
       // ==========================================
-      // CURRENT TOKEN
+      // DEBUG
       // ==========================================
 
-      saveToken(
-        res.token
+      console.log(
+        "Logged In User:",
+        loggedInUser
+      );
+
+      console.log(
+        "Role Permission:",
+        loggedInUser?.role_permission
+      );
+
+      console.log(
+        "Permission:",
+        loggedInUser?.role_permission?.permission
       );
 
       // ==========================================
-      // SAVE CURRENT USER
+      // ORIGINAL LOGIN
+      // ==========================================
+      //
+      // Login page se jo user login karega,
+      // wahi original user rahega.
+      //
+      // Complete user object save hoga,
+      // including role_permission.
+      //
       // ==========================================
 
-      if (res.user) {
-        saveUser({
-          id: res.user.id,
+      saveOriginalLogin(
+        res.token,
+        loggedInUser
+      );
 
-          name: res.user.name,
+      // ==========================================
+      // SAVE CURRENT TOKEN
+      // ==========================================
 
-          email: res.user.email,
+      saveToken(res.token);
 
-          role_id: res.user.role_id,
+      // ==========================================
+      // SAVE COMPLETE CURRENT USER
+      // ==========================================
+      //
+      // IMPORTANT:
+      //
+      // Yahan manually object create nahi karna.
+      //
+      // Direct complete backend user save karna hai
+      // taaki role_permission missing na ho.
+      //
+      // ==========================================
 
-          // ======================================
-          // COMMON PARENT
-          // ======================================
+      saveUser(loggedInUser);
 
-          parent_id:
-            res.user.parent_id ??
-            null,
+      // ==========================================
+      // STAFF PERMISSIONS
+      // ==========================================
 
-          // ======================================
-          // FULL HIERARCHY
-          // ======================================
+      if (
+        Number(loggedInUser?.role_id) === 9 &&
+        loggedInUser?.role_permission?.permission
+      ) {
+        const staffPermissions =
+          loggedInUser.role_permission.permission;
 
-          parent_admin_id:
-            res.user.parent_admin_id ??
-            null,
+        localStorage.setItem(
+          "staff_permissions",
+          JSON.stringify(
+            staffPermissions
+          )
+        );
 
-          parent_cnf_id:
-            res.user.parent_cnf_id ??
-            null,
-
-          parent_super_distributor_id:
-            res.user
-              .parent_super_distributor_id ??
-            null,
-
-          parent_distributor_id:
-            res.user
-              .parent_distributor_id ??
-            null,
-
-          parent_fos_id:
-            res.user.parent_fos_id ??
-            null,
-
-          parent_retailer_id:
-            res.user.parent_retailer_id ??
-            null,
-
-          parent_employee_id:
-            res.user.parent_employee_id ??
-            null,
-
-          parent_staff_id:
-            res.user.parent_staff_id ??
-            null,
-        });
+        console.log(
+          "Staff Permissions Saved:",
+          staffPermissions
+        );
+      } else {
+        // Non-staff ke liye old permission
+        // remove kar do.
+        localStorage.removeItem(
+          "staff_permissions"
+        );
       }
+
+      // ==========================================
+      // FINAL LOCAL STORAGE DEBUG
+      // ==========================================
+
+      console.log(
+        "Saved User:",
+        localStorage.getItem("user")
+      );
+
+      console.log(
+        "Saved Staff Permissions:",
+        localStorage.getItem(
+          "staff_permissions"
+        )
+      );
 
       // ==========================================
       // SUCCESS MESSAGE
@@ -230,9 +236,7 @@ export default function Page() {
       // GO TO DASHBOARD
       // ==========================================
 
-      router.replace(
-        "/dashboard"
-      );
+      router.replace("/dashboard");
 
     } catch (error: any) {
       console.error(

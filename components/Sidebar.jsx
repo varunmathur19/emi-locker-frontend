@@ -17,39 +17,22 @@ import {
   getRoles,
 } from "@/services/api";
 
-// --------------------------------------------------
-// ROLE HIERARCHY
-// --------------------------------------------------
+/* =========================================================
+   ROLE ACCESS
+========================================================= */
 
 const allowedRolesByRole = {
   0: [1], // Master Admin -> Admin
-
   1: [2, 3, 4, 5, 6, 7, 8, 9], // Admin
-
   2: [3, 4, 5, 6, 7, 8, 9], // CNF
-
   3: [4, 5, 6, 7, 8, 9], // Super Distributor
-
   4: [5, 6, 7, 8, 9], // Distributor
-
   5: [6, 7, 8, 9], // FOS
-
   6: [7, 8, 9], // Retailer
-
   7: [8, 9], // Sub Retailer
-
   8: [9], // Employee
-
-  9: [], // Staff
+  9: [], // Staff -> permission based
 };
-
-// --------------------------------------------------
-// DEFAULT ADMIN
-// --------------------------------------------------
-// Master Admin ke liye Admin hamesha available rahega.
-// API se Admin milega to API ka data use hoga.
-// API se Admin na mile to ye default data use hoga.
-// --------------------------------------------------
 
 const defaultAdminRole = {
   id: "default-admin",
@@ -61,9 +44,9 @@ const defaultAdminRole = {
   status: 1,
 };
 
-// --------------------------------------------------
-// ROLE ICON
-// --------------------------------------------------
+/* =========================================================
+   ICON HELPERS
+========================================================= */
 
 const getRoleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
@@ -76,17 +59,11 @@ const getRoleIcon = (iconName, size = 20) => {
     !IconComponent ||
     typeof IconComponent !== "function"
   ) {
-    return (
-      <RiIcons.RiUserLine size={size} />
-    );
+    return <RiIcons.RiUserLine size={size} />;
   }
 
   return <IconComponent size={size} />;
 };
-
-// --------------------------------------------------
-// MODULE ICON
-// --------------------------------------------------
 
 const getModuleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
@@ -99,33 +76,30 @@ const getModuleIcon = (iconName, size = 20) => {
     !IconComponent ||
     typeof IconComponent !== "function"
   ) {
-    return (
-      <RiIcons.RiBuilding2Line size={size} />
-    );
+    return <RiIcons.RiBuilding2Line size={size} />;
   }
 
   return <IconComponent size={size} />;
 };
 
-// --------------------------------------------------
-// SIDEBAR
-// --------------------------------------------------
+/* =========================================================
+   SIDEBAR
+========================================================= */
 
 export default function Sidebar({ sidebarOpen }) {
-  const [roleId, setRoleId] = useState(null);
-
-  const [roles, setRoles] = useState([]);
-  const [modules, setModules] = useState([]);
-
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // --------------------------------------------------
-  // URL PARAMS
-  // --------------------------------------------------
+  const [roleId, setRoleId] = useState(null);
+  const [roles, setRoles] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [permissions, setPermissions] = useState(null);
 
-  const activeRoleParam =
-    searchParams.get("role");
+  /* =======================================================
+     URL STATE
+  ======================================================= */
+
+  const activeRoleParam = searchParams.get("role");
 
   const activeModule = String(
     searchParams.get("module") || ""
@@ -139,34 +113,170 @@ export default function Sidebar({ sidebarOpen }) {
       ? Number(activeRoleParam)
       : null;
 
-  // --------------------------------------------------
-  // GET LOGGED-IN ROLE
-  // --------------------------------------------------
+  /* =======================================================
+     STAFF PERMISSION
+  ======================================================= */
 
-  useEffect(() => {
-    const currentRole = getRoleId();
+  const loadStaffPermissions = useCallback(() => {
+    try {
+      /*
+       * First priority:
+       * staff_permissions localStorage
+       */
+      const savedPermissions =
+        localStorage.getItem("staff_permissions");
 
-    if (
-      currentRole !== null &&
-      currentRole !== undefined &&
-      currentRole !== ""
-    ) {
-      setRoleId(Number(currentRole));
+      if (savedPermissions) {
+        const parsedPermissions =
+          JSON.parse(savedPermissions);
+
+        if (
+          parsedPermissions &&
+          typeof parsedPermissions === "object"
+        ) {
+          setPermissions(parsedPermissions);
+          return parsedPermissions;
+        }
+      }
+
+      /*
+       * Fallback:
+       * user.role_permission.permission
+       */
+      const savedUser =
+        localStorage.getItem("user");
+
+      if (!savedUser) {
+        setPermissions(null);
+        return null;
+      }
+
+      const user = JSON.parse(savedUser);
+
+      const staffPermission =
+        user?.role_permission?.permission || null;
+
+      if (
+        staffPermission &&
+        typeof staffPermission === "object"
+      ) {
+        setPermissions(staffPermission);
+
+        localStorage.setItem(
+          "staff_permissions",
+          JSON.stringify(staffPermission)
+        );
+
+        return staffPermission;
+      }
+
+      /*
+       * IMPORTANT:
+       * Yaha staff_permissions remove nahi karna.
+       *
+       * Agar pehle se permission saved hai aur
+       * user object me permission nahi hai,
+       * to permission ko remove nahi karna.
+       */
+      setPermissions(null);
+
+      return null;
+    } catch (error) {
+      console.error(
+        "LOAD STAFF PERMISSION ERROR:",
+        error
+      );
+
+      /*
+       * Last fallback
+       */
+      try {
+        const savedPermissions =
+          localStorage.getItem(
+            "staff_permissions"
+          );
+
+        if (savedPermissions) {
+          const parsedPermissions =
+            JSON.parse(savedPermissions);
+
+          if (
+            parsedPermissions &&
+            typeof parsedPermissions === "object"
+          ) {
+            setPermissions(parsedPermissions);
+            return parsedPermissions;
+          }
+        }
+      } catch (parseError) {
+        console.error(
+          "PARSE STAFF PERMISSION ERROR:",
+          parseError
+        );
+      }
+
+      setPermissions(null);
+      return null;
     }
   }, []);
 
-  // --------------------------------------------------
-  // LOAD ROLES
-  // --------------------------------------------------
+  /* =======================================================
+     CURRENT USER
+  ======================================================= */
+
+  const loadCurrentUser = useCallback(() => {
+    try {
+      const currentRole = getRoleId();
+
+      if (
+        currentRole !== null &&
+        currentRole !== undefined &&
+        currentRole !== ""
+      ) {
+        const numericRole = Number(currentRole);
+
+        setRoleId(numericRole);
+
+        /*
+         * Staff
+         */
+        if (numericRole === 9) {
+          loadStaffPermissions();
+          return;
+        }
+
+        /*
+         * Non Staff
+         */
+        setPermissions(null);
+
+        localStorage.removeItem(
+          "staff_permissions"
+        );
+
+        return;
+      }
+
+      setRoleId(null);
+      setPermissions(null);
+    } catch (error) {
+      console.error(
+        "LOAD CURRENT USER ERROR:",
+        error
+      );
+
+      setRoleId(null);
+      setPermissions(null);
+    }
+  }, [loadStaffPermissions]);
+
+  /* =======================================================
+     LOAD ROLES
+  ======================================================= */
 
   const loadRoles = useCallback(async () => {
     try {
       const response = await getRoles();
-
-      console.log(
-        "GET ROLES RESPONSE:",
-        response
-      );
 
       if (
         response?.success &&
@@ -197,18 +307,13 @@ export default function Sidebar({ sidebarOpen }) {
     }
   }, []);
 
-  // --------------------------------------------------
-  // LOAD MODULES
-  // --------------------------------------------------
+  /* =======================================================
+     LOAD MODULES
+  ======================================================= */
 
   const loadModules = useCallback(async () => {
     try {
       const response = await getModules();
-
-      console.log(
-        "GET MODULES RESPONSE:",
-        response
-      );
 
       if (
         response?.success &&
@@ -217,9 +322,7 @@ export default function Sidebar({ sidebarOpen }) {
         const activeModules = response.data
           .filter(
             (moduleItem) =>
-              Number(
-                moduleItem?.status ?? 1
-              ) === 1
+              Number(moduleItem?.status ?? 1) === 1
           )
           .sort(
             (a, b) =>
@@ -241,17 +344,29 @@ export default function Sidebar({ sidebarOpen }) {
     }
   }, []);
 
-  // --------------------------------------------------
-  // INITIAL LOAD
-  // --------------------------------------------------
+  /* =======================================================
+     INITIAL LOAD
+  ======================================================= */
 
   useEffect(() => {
     loadRoles();
     loadModules();
+    loadCurrentUser();
+  }, [
+    loadRoles,
+    loadModules,
+    loadCurrentUser,
+  ]);
 
+  /* =======================================================
+     FOCUS + VISIBILITY
+  ======================================================= */
+
+  useEffect(() => {
     const handleFocus = () => {
       loadRoles();
       loadModules();
+      loadCurrentUser();
     };
 
     const handleVisibilityChange = () => {
@@ -260,6 +375,7 @@ export default function Sidebar({ sidebarOpen }) {
       ) {
         loadRoles();
         loadModules();
+        loadCurrentUser();
       }
     };
 
@@ -284,24 +400,40 @@ export default function Sidebar({ sidebarOpen }) {
         handleVisibilityChange
       );
     };
-  }, [loadRoles, loadModules]);
+  }, [
+    loadRoles,
+    loadModules,
+    loadCurrentUser,
+  ]);
 
-  // --------------------------------------------------
-  // STORAGE UPDATE
-  // --------------------------------------------------
+  /* =======================================================
+     STORAGE CHANGE
+  ======================================================= */
 
   useEffect(() => {
     const handleStorage = (event) => {
-      if (
-        event.key === "modules_updated"
-      ) {
+      /*
+       * Modules updated
+       */
+      if (event.key === "modules_updated") {
         loadModules();
       }
 
-      if (
-        event.key === "roles_updated"
-      ) {
+      /*
+       * Roles updated
+       */
+      if (event.key === "roles_updated") {
         loadRoles();
+      }
+
+      /*
+       * User / Staff permission updated
+       */
+      if (
+        event.key === "user" ||
+        event.key === "staff_permissions"
+      ) {
+        loadCurrentUser();
       }
     };
 
@@ -316,11 +448,267 @@ export default function Sidebar({ sidebarOpen }) {
         handleStorage
       );
     };
-  }, [loadRoles, loadModules]);
+  }, [
+    loadRoles,
+    loadModules,
+    loadCurrentUser,
+  ]);
 
-  // --------------------------------------------------
-  // MY LOGIN
-  // --------------------------------------------------
+  /* =======================================================
+     PERMISSION VALUE CHECK
+  ======================================================= */
+
+  const isPermissionEnabled = useCallback(
+    (value) => {
+      if (
+        value === undefined ||
+        value === null
+      ) {
+        return false;
+      }
+
+      if (typeof value === "boolean") {
+        return value;
+      }
+
+      if (typeof value === "number") {
+        return value === 1;
+      }
+
+      if (typeof value === "string") {
+        return (
+          value === "1" ||
+          value.toLowerCase() === "true"
+        );
+      }
+
+      if (
+        typeof value === "object"
+      ) {
+        if (
+          value.status !== undefined
+        ) {
+          return (
+            Number(value.status) === 1
+          );
+        }
+
+        if (
+          value.view !== undefined
+        ) {
+          return (
+            Number(value.view) === 1
+          );
+        }
+
+        if (
+          value.access !== undefined
+        ) {
+          return (
+            Number(value.access) === 1
+          );
+        }
+
+        return true;
+      }
+
+      return false;
+    },
+    []
+  );
+
+  /* =======================================================
+     PERMISSION BY SLUG
+  ======================================================= */
+
+  const hasPermissionForSlug = useCallback(
+    (slug) => {
+      if (!permissions) {
+        return false;
+      }
+
+      const cleanSlug = String(
+        slug || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (!cleanSlug) {
+        return false;
+      }
+
+      const permissionKeys =
+        Object.keys(permissions);
+
+      /*
+       * Exact permission
+       *
+       * Example:
+       * {
+       *   "cnf": 1
+       * }
+       */
+      if (
+        permissions[cleanSlug] !==
+        undefined
+      ) {
+        return isPermissionEnabled(
+          permissions[cleanSlug]
+        );
+      }
+
+      /*
+       * Action permission
+       *
+       * Example:
+       * cnf.add
+       * cnf.edit
+       * cnf.delete
+       * cnf.view
+       */
+      const matchingKeys =
+        permissionKeys.filter(
+          (key) => {
+            const cleanKey = String(key)
+              .trim()
+              .toLowerCase();
+
+            return (
+              cleanKey === cleanSlug ||
+              cleanKey.startsWith(
+                `${cleanSlug}.`
+              )
+            );
+          }
+        );
+
+      return matchingKeys.some(
+        (key) =>
+          isPermissionEnabled(
+            permissions[key]
+          )
+      );
+    },
+    [
+      permissions,
+      isPermissionEnabled,
+    ]
+  );
+
+  /* =======================================================
+     MODULE PERMISSION
+  ======================================================= */
+
+  const hasModulePermission = useCallback(
+    (moduleItem) => {
+      /*
+       * Non Staff:
+       * modules normally visible
+       */
+      if (Number(roleId) !== 9) {
+        return true;
+      }
+
+      const slug = String(
+        moduleItem?.slug || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const name = String(
+        moduleItem?.name || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      /*
+       * Check slug
+       */
+      if (
+        slug &&
+        hasPermissionForSlug(slug)
+      ) {
+        return true;
+      }
+
+      /*
+       * Check name
+       */
+      if (
+        name &&
+        hasPermissionForSlug(name)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [
+      roleId,
+      hasPermissionForSlug,
+    ]
+  );
+
+  /* =======================================================
+     ROLE PERMISSION
+  ======================================================= */
+
+  const hasRolePermission = useCallback(
+    (roleItem) => {
+      /*
+       * Non Staff:
+       * role access comes from hierarchy
+       */
+      if (Number(roleId) !== 9) {
+        return true;
+      }
+
+      const roleSlug = String(
+        roleItem?.slug || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const roleName = String(
+        roleItem?.name || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      /*
+       * Example:
+       *
+       * {
+       *   "cnf.add": 1
+       * }
+       *
+       * CNF will be visible.
+       */
+      if (
+        roleSlug &&
+        hasPermissionForSlug(roleSlug)
+      ) {
+        return true;
+      }
+
+      if (
+        roleName &&
+        hasPermissionForSlug(roleName)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [
+      roleId,
+      hasPermissionForSlug,
+    ]
+  );
+
+  /* =======================================================
+     MY LOGIN
+  ======================================================= */
 
   const myLogin = () => {
     const restored =
@@ -333,20 +721,28 @@ export default function Sidebar({ sidebarOpen }) {
       return;
     }
 
+    /*
+     * Staff permission belongs to
+     * impersonated Staff session.
+     */
+    localStorage.removeItem(
+      "staff_permissions"
+    );
+
     window.location.href =
       "/dashboard";
   };
 
-  // --------------------------------------------------
-  // LOGOUT
-  // --------------------------------------------------
+  /* =======================================================
+     LOGOUT
+  ======================================================= */
 
   const logout = async () => {
     try {
       await logoutStaff();
     } catch (error) {
       console.error(
-        "Logout API error:",
+        "LOGOUT API ERROR:",
         error
       );
     } finally {
@@ -360,92 +756,121 @@ export default function Sidebar({ sidebarOpen }) {
         "original_token"
       );
 
+      localStorage.removeItem(
+        "original_user"
+      );
+
+      localStorage.removeItem(
+        "staff_permissions"
+      );
+
       window.location.href = "/";
     }
   };
 
-  // --------------------------------------------------
-  // ROLE LINK ACTIVE
-  // --------------------------------------------------
+  /* =======================================================
+     ACTIVE ROLE
+  ======================================================= */
 
-  const isRoleLinkActive = (
-    roleItem
-  ) => {
-    const currentRoleId = Number(
-      roleItem?.role_id
-    );
+  const isRoleLinkActive = useCallback(
+    (roleItem) => {
+      const currentRoleId =
+        Number(roleItem?.role_id);
 
-    // Active by role query
-    if (
-      activeRole !== null &&
-      Number.isFinite(currentRoleId) &&
-      activeRole === currentRoleId
-    ) {
-      return true;
-    }
+      if (
+        activeRole !== null &&
+        Number.isFinite(
+          currentRoleId
+        ) &&
+        activeRole ===
+          currentRoleId
+      ) {
+        return true;
+      }
 
-    // Active by module slug
-    const slug = String(
-      roleItem?.slug || ""
-    )
-      .trim()
-      .toLowerCase();
-
-    if (
-      activeModule &&
-      slug &&
-      activeModule === slug
-    ) {
-      return true;
-    }
-
-    return false;
-  };
-
-  // --------------------------------------------------
-  // MODULE LINK ACTIVE
-  // --------------------------------------------------
-
-  const isModuleLinkActive = (
-    slug
-  ) => {
-    const normalizedSlug = String(
-      slug || ""
-    )
-      .trim()
-      .toLowerCase();
-
-    // Query parameter
-    if (
-      activeModule &&
-      normalizedSlug &&
-      activeModule === normalizedSlug
-    ) {
-      return true;
-    }
-
-    if (
-      !pathname ||
-      !normalizedSlug
-    ) {
-      return false;
-    }
-
-    const slugPath =
-      `/${normalizedSlug}`;
-
-    return (
-      pathname ===
-        `/dashboard${slugPath}` ||
-      pathname.startsWith(
-        `/dashboard${slugPath}/`
+      const slug = String(
+        roleItem?.slug || ""
       )
-    );
-  };
+        .trim()
+        .toLowerCase();
 
-  // --------------------------------------------------
-  // ROLE LINK
-  // --------------------------------------------------
+      return (
+        activeModule &&
+        slug &&
+        activeModule === slug
+      );
+    },
+    [
+      activeRole,
+      activeModule,
+    ]
+  );
+
+  /* =======================================================
+     ACTIVE MODULE
+  ======================================================= */
+
+  const isModuleLinkActive =
+    useCallback(
+      (moduleItem) => {
+        const slug = String(
+          moduleItem?.slug || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        if (!slug) {
+          return false;
+        }
+
+        /*
+         * URL module param
+         */
+        if (
+          activeModule &&
+          activeModule === slug
+        ) {
+          return true;
+        }
+
+        /*
+         * Role Permission
+         */
+        if (
+          slug === "role-permission"
+        ) {
+          return (
+            pathname ===
+              "/dashboard/role-permission" ||
+            pathname.startsWith(
+              "/dashboard/role-permission/"
+            )
+          );
+        }
+
+        /*
+         * Normal module
+         */
+        const slugPath =
+          `/${slug}`;
+
+        return (
+          pathname ===
+            `/dashboard${slugPath}` ||
+          pathname.startsWith(
+            `/dashboard${slugPath}/`
+          )
+        );
+      },
+      [
+        pathname,
+        activeModule,
+      ]
+    );
+
+  /* =======================================================
+     ROLE LINK
+  ======================================================= */
 
   const RoleLink = ({
     roleItem,
@@ -461,12 +886,13 @@ export default function Sidebar({ sidebarOpen }) {
       roleSlug ||
       "Role";
 
-    const roleValue = Number(
-      roleItem?.role_id
-    );
+    const roleValue =
+      Number(roleItem?.role_id);
 
     const isActive =
-      isRoleLinkActive(roleItem);
+      isRoleLinkActive(
+        roleItem
+      );
 
     return (
       <Link
@@ -493,16 +919,14 @@ export default function Sidebar({ sidebarOpen }) {
           )}
         </span>
 
-        <span>
-          {label}
-        </span>
+        <span>{label}</span>
       </Link>
     );
   };
 
-  // --------------------------------------------------
-  // MODULE LINK
-  // --------------------------------------------------
+  /* =======================================================
+     MODULE LINK
+  ======================================================= */
 
   const ModuleLink = ({
     moduleItem,
@@ -518,14 +942,24 @@ export default function Sidebar({ sidebarOpen }) {
       slug ||
       "Module";
 
+    const isRolePermission =
+      slug === "role-permission";
+
+    const href =
+      isRolePermission
+        ? "/dashboard/role-permission"
+        : `/dashboard?module=${encodeURIComponent(
+            slug
+          )}`;
+
     const isActive =
-      isModuleLinkActive(slug);
+      isModuleLinkActive(
+        moduleItem
+      );
 
     return (
       <Link
-        href={`/dashboard?module=${encodeURIComponent(
-          slug
-        )}`}
+        href={href}
         className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
           isActive
             ? "bg-blue-400 text-black"
@@ -544,59 +978,124 @@ export default function Sidebar({ sidebarOpen }) {
           )}
         </span>
 
-        <span>
-          {label}
-        </span>
+        <span>{label}</span>
       </Link>
     );
   };
 
-  // --------------------------------------------------
-  // RENDER ROLE LINKS
-  // --------------------------------------------------
+  /* =======================================================
+     PROFILE LINK
+  ======================================================= */
+
+  const ProfileLink = () => {
+    const isActive =
+      pathname ===
+        "/dashboard/profile" ||
+      pathname.startsWith(
+        "/dashboard/profile/"
+      );
+
+    return (
+      <Link
+        href="/dashboard/profile"
+        className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
+          isActive
+            ? "bg-blue-400 text-black"
+            : "hover:bg-gray-700"
+        }`}
+      >
+        <span
+          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
+            isActive
+              ? "text-black"
+              : "text-white"
+          }`}
+        >
+          <RiIcons.RiUserSettingsLine
+            size={20}
+          />
+        </span>
+
+        <span>Profile</span>
+      </Link>
+    );
+  };
+
+  /* =======================================================
+     RENDER ROLE LINKS
+  ======================================================= */
 
   const renderRoleLinks = () => {
     const currentRole =
       Number(roleId);
 
-    // ------------------------------------------------
-    // MASTER ADMIN
-    // ------------------------------------------------
-    // Master Admin ko Admin ALWAYS show hoga.
-    // API mein Admin available hai to API data use hoga.
-    // API mein Admin nahi hai to defaultAdminRole use hoga.
-    // ------------------------------------------------
-
+    /*
+     * Master Admin
+     * Only Admin
+     */
     if (currentRole === 0) {
-      const adminFromApi = roles.find(
-        (roleItem) =>
-          Number(roleItem?.role_id) === 1
-      );
-
-      const adminRole =
-        adminFromApi || defaultAdminRole;
+      const adminFromApi =
+        roles.find(
+          (roleItem) =>
+            Number(
+              roleItem?.role_id
+            ) === 1
+        );
 
       return (
         <RoleLink
           key="master-admin-admin"
-          roleItem={adminRole}
+          roleItem={
+            adminFromApi ||
+            defaultAdminRole
+          }
         />
       );
     }
 
-    // ------------------------------------------------
-    // OTHER ROLES
-    // ------------------------------------------------
+    /*
+     * Staff
+     *
+     * Staff hierarchy restriction
+     * does not apply.
+     *
+     * Permissions decide visibility.
+     */
+    if (currentRole === 9) {
+      return roles
+        .filter(
+          (roleItem) =>
+            hasRolePermission(
+              roleItem
+            )
+        )
+        .map(
+          (roleItem) => (
+            <RoleLink
+              key={
+                roleItem?.id ??
+                roleItem?.role_id
+              }
+              roleItem={roleItem}
+            />
+          )
+        );
+    }
 
+    /*
+     * Normal roles
+     */
     const allowedRoles =
-      allowedRolesByRole[currentRole] ||
-      [];
+      allowedRolesByRole[
+        currentRole
+      ] || [];
 
     return roles
       .filter((roleItem) => {
-        const targetRole = Number(
-          roleItem?.role_id
-        );
+        const targetRole =
+          Number(
+            roleItem?.role_id
+          );
 
         return allowedRoles.includes(
           targetRole
@@ -613,27 +1112,40 @@ export default function Sidebar({ sidebarOpen }) {
       ));
   };
 
-  // --------------------------------------------------
-  // RENDER MODULE LINKS
-  // --------------------------------------------------
+  /* =======================================================
+     RENDER MODULE LINKS
+  ======================================================= */
 
-  const renderModuleLinks = () => {
-    return modules.map(
-      (moduleItem, index) => (
-        <ModuleLink
-          key={
-            moduleItem?.id ||
-            `${moduleItem?.slug}-${index}`
-          }
-          moduleItem={moduleItem}
-        />
-      )
-    );
-  };
+  const renderModuleLinks =
+    () => {
+      return modules
+        .filter(
+          (moduleItem) =>
+            hasModulePermission(
+              moduleItem
+            )
+        )
+        .map(
+          (
+            moduleItem,
+            index
+          ) => (
+            <ModuleLink
+              key={
+                moduleItem?.id ||
+                `${moduleItem?.slug}-${index}`
+              }
+              moduleItem={
+                moduleItem
+              }
+            />
+          )
+        );
+    };
 
-  // --------------------------------------------------
-  // ROLE LOADING
-  // --------------------------------------------------
+  /* =======================================================
+     LOADING STATE
+  ======================================================= */
 
   if (roleId === null) {
     return (
@@ -651,9 +1163,9 @@ export default function Sidebar({ sidebarOpen }) {
     );
   }
 
-  // --------------------------------------------------
-  // SIDEBAR
-  // --------------------------------------------------
+  /* =======================================================
+     MAIN SIDEBAR
+  ======================================================= */
 
   return (
     <aside
@@ -663,24 +1175,20 @@ export default function Sidebar({ sidebarOpen }) {
           : "w-0 p-0"
       }`}
     >
-      {/* ------------------------------------------------
-          TITLE
-      ------------------------------------------------ */}
-
+      {/* HEADER */}
       <h2 className="relative mb-6 flex-shrink-0 text-2xl font-bold after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
         Dashboard
       </h2>
 
+      {/* MENU */}
       <div className="scrollbar-hide flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-5">
 
-        {/* ------------------------------------------------
-            DASHBOARD
-        ------------------------------------------------ */}
-
+        {/* DASHBOARD */}
         <Link
           href="/dashboard"
           className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
-            pathname === "/dashboard" &&
+            pathname ===
+              "/dashboard" &&
             activeRole === null &&
             !activeModule
               ? "bg-blue-400 text-black"
@@ -696,20 +1204,15 @@ export default function Sidebar({ sidebarOpen }) {
           </span>
         </Link>
 
-        {/* ------------------------------------------------
-            ROLES
-        ------------------------------------------------ */}
-
+        {/* ROLES */}
         <div className="space-y-2">
           {renderRoleLinks()}
         </div>
 
-        {/* ------------------------------------------------
-            MASTER SETTINGS
-        ------------------------------------------------ */}
-
+        {/* MASTER ADMIN SETTINGS */}
         {Number(roleId) === 0 && (
           <>
+            {/* MASTER SETTINGS */}
             <Link
               href="/dashboard/modules"
               className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -731,6 +1234,7 @@ export default function Sidebar({ sidebarOpen }) {
               </span>
             </Link>
 
+            {/* SUB MODULE */}
             <Link
               href="/dashboard/sub-modules"
               className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -751,21 +1255,18 @@ export default function Sidebar({ sidebarOpen }) {
                 Sub Module
               </span>
             </Link>
+
+            {/* PROFILE */}
+            <ProfileLink />
           </>
         )}
 
-        {/* ------------------------------------------------
-            MODULES
-        ------------------------------------------------ */}
-
+        {/* MODULES */}
         <div className="space-y-2">
           {renderModuleLinks()}
         </div>
 
-        {/* ------------------------------------------------
-            MY LOGIN
-        ------------------------------------------------ */}
-
+        {/* MY LOGIN */}
         <button
           type="button"
           onClick={myLogin}
@@ -775,13 +1276,12 @@ export default function Sidebar({ sidebarOpen }) {
             size={20}
           />
 
-          My Login
+          <span>
+            My Login
+          </span>
         </button>
 
-        {/* ------------------------------------------------
-            LOGOUT
-        ------------------------------------------------ */}
-
+        {/* LOGOUT */}
         <button
           type="button"
           onClick={logout}
@@ -791,7 +1291,9 @@ export default function Sidebar({ sidebarOpen }) {
             size={20}
           />
 
-          Logout
+          <span>
+            Logout
+          </span>
         </button>
       </div>
     </aside>

@@ -188,14 +188,10 @@ export const loginAsUser = async (
 
 // GET MODULES
 
+
 export const getModules = async () => {
-
   try {
-
-    const response =
-      await api.get(
-        "/modules"
-      );
+    const response = await api.get("/modules");
 
     console.log(
       "GET MODULES RESPONSE:",
@@ -203,20 +199,16 @@ export const getModules = async () => {
     );
 
     return response.data;
-
   } catch (error) {
-
     console.error(
       "GET MODULES ERROR:",
-      error?.response?.data ||
-      error
+      error?.response?.data || error
     );
 
     throw error;
-
   }
-
 };
+
 
 
 // UPDATE MODULE
@@ -326,6 +318,85 @@ export const getRoles = async () => {
     throw error;
   }
 };
+
+
+//   GET PROFILES
+
+export const getProfiles = async () => {
+  try {
+    const response = await api.get("/profiles");
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "GET PROFILES API ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+
+//post rolePremission
+
+
+export const saveRolePermissions = async (payload) => {
+  try {
+    const response = await api.post(
+      "/role-permissions",
+      payload
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "SAVE ROLE PERMISSIONS API ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+
+//get role and permission
+export const getRolePermissions = async (profileId) => {
+  try {
+    const response = await api.get(
+      `/role-permissions/${profileId}`
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "GET ROLE PERMISSIONS API ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+
+
+//   UPDATE PROFILE
+
+export const updateProfile = async (id, profileData) => {
+  try {
+    const response = await api.put(
+      `/profiles/${id}`,
+      profileData
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "UPDATE PROFILE API ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+
 
 
 

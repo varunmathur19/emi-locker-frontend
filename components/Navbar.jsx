@@ -87,7 +87,7 @@ export default function Navbar({
         {/* Logo */}
         <div>
           <h1 className="md:text-2xl font-bold text-blue-500 text-[20px]">
-            RechargeKit
+            EMI LOCKER
           </h1>
         </div>
       </div>
