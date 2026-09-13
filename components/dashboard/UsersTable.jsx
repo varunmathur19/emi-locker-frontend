@@ -357,35 +357,58 @@ export default function UsersTable({
     }
 
     /*
-     * Exact action:
-     *
-     * cnf.add
-     * cnf.edit
-     * cnf.login
-     * cnf.status
+     * Actions are deliberately checked independently. For example,
+     * `cnf.view` must not make the Add or Edit controls available.
+     * `manage` is the one exception: it grants every action for that role.
      */
     if (action) {
       const actionKey =
         `${cleanSlug}.${action}`;
+      const manageKey =
+        `${cleanSlug}.manage`;
 
       if (
         staffPermissions[
           actionKey
         ] !== undefined
+        && isPermissionEnabled(
+          staffPermissions[actionKey]
+        )
+      ) {
+        return true;
+      }
+
+      if (
+        staffPermissions[
+          manageKey
+        ] !== undefined
+        && isPermissionEnabled(
+          staffPermissions[manageKey]
+        )
+      ) {
+        return true;
+      }
+
+      /*
+       * Legacy role-level permission, e.g. { cnf: 1 }, means full
+       * access. New profiles should use explicit action keys above.
+       */
+      if (
+        staffPermissions[
+          cleanSlug
+        ] !== undefined
       ) {
         return isPermissionEnabled(
           staffPermissions[
-            actionKey
+            cleanSlug
           ]
         );
       }
+
+      return false;
     }
 
-    /*
-     * Direct module/role permission:
-     *
-     * cnf: 1
-     */
+    /* Direct role permission, e.g. { cnf: 1 }. */
     if (
       staffPermissions[
         cleanSlug
