@@ -49,6 +49,36 @@ const allowedRoles = {
   9: [],
 };
 
+const isPermissionEnabled = (value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    return value === "1" || value.toLowerCase() === "true";
+  }
+  if (value && typeof value === "object") {
+    if (value.status !== undefined) return Number(value.status) === 1;
+    if (value.view !== undefined) return Number(value.view) === 1;
+    if (value.access !== undefined) return Number(value.access) === 1;
+    return true;
+  }
+  return false;
+};
+
+const hasRolePermission = (permissions, role) => {
+  if (!permissions || !role) return false;
+
+  return [role.slug, role.name]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase())
+    .some((key) =>
+      Object.keys(permissions).some((permissionKey) => {
+        const normalizedKey = String(permissionKey).trim().toLowerCase();
+        return (normalizedKey === key || normalizedKey.startsWith(`${key}.`)) &&
+          isPermissionEnabled(permissions[permissionKey]);
+      })
+    );
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -63,6 +93,7 @@ export default function Dashboard() {
   const [pagination, setPagination] = useState({});
   const [users, setUsers] = useState([]);
   const [counts, setCounts] = useState({});
+  const [staffPermissions, setStaffPermissions] = useState(null);
 
   // --------------------------------------------------
   // URL PARAMS
@@ -93,6 +124,25 @@ export default function Dashboard() {
 
     setRoleId(Number(currentRoleId));
   }, []);
+
+  // The sidebar already uses this stored profile permission. Load the same
+  // value here so a visible staff role link is also usable on the dashboard.
+  useEffect(() => {
+    if (roleId !== 9) {
+      setStaffPermissions(null);
+      return;
+    }
+
+    try {
+      const saved = localStorage.getItem("staff_permissions");
+      const permissions = saved ? JSON.parse(saved) : null;
+      setStaffPermissions(
+        permissions && typeof permissions === "object" ? permissions : null
+      );
+    } catch {
+      setStaffPermissions(null);
+    }
+  }, [roleId]);
 
   // --------------------------------------------------
   // GET ROLES
@@ -208,6 +258,14 @@ export default function Dashboard() {
       return false;
     }
 
+    // Staff access comes from the assigned profile, not role hierarchy.
+    if (roleId === 9) {
+      const role = roles.find(
+        (item) => Number(item?.role_id) === requestedRole
+      );
+      return hasRolePermission(staffPermissions, role);
+    }
+
     // User can access own role
     if (requestedRole === roleId) {
       return true;
@@ -217,7 +275,7 @@ export default function Dashboard() {
       allowedRoles[roleId]?.includes(requestedRole) ||
       false
     );
-  }, [roleId, requestedRole]);
+  }, [roleId, requestedRole, roles, staffPermissions]);
 
   const selectedRole =
     requestedRole !== null && isRoleAllowed
@@ -275,6 +333,8 @@ export default function Dashboard() {
       urlRole === null ||
       !isRoleAllowed
     ) {
+      console.log("role bwcbwb",isRoleAllowed)
+      console.log("ebwubyg",urlRole)
       toast.error(
         "You are not allowed to access this role"
       );
@@ -361,13 +421,22 @@ export default function Dashboard() {
       return cards;
     }
 
+    if (currentRole === 9) {
+      return cards.filter((card) => {
+        const role = roles.find(
+          (item) => Number(item?.role_id) === Number(card.roleId)
+        );
+        return hasRolePermission(staffPermissions, role);
+      });
+    }
+
     const roleIds =
       allowedRoles[currentRole] || [];
 
     return cards.filter((card) =>
       roleIds.includes(Number(card.roleId))
     );
-  }, [cards, roleId]);
+  }, [cards, roleId, roles, staffPermissions]);
 
   // --------------------------------------------------
   // FETCH USERS
@@ -375,21 +444,6 @@ export default function Dashboard() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      // Get all users for dashboard counts
-      const countResponse =
-        await getAllStaffData(
-          1,
-          10000,
-          ""
-        );
-
-      const allUsers = Array.isArray(
-        countResponse?.data
-      )
-        ? countResponse.data
-        : [];
-
-      // Build role counts
       const roleCounts = {};
 
       roles.forEach((role) => {
@@ -402,20 +456,33 @@ export default function Dashboard() {
         }
       });
 
-      allUsers.forEach((user) => {
-        const userRoleId = Number(
-          user?.role_id
+      if (roleId === 9) {
+        const permittedRoles = roles.filter((role) =>
+          hasRolePermission(staffPermissions, role)
+        );
+        const responses = await Promise.all(
+          permittedRoles.map((role) =>
+            getAllStaffData(1, 1, Number(role.role_id))
+          )
         );
 
-        if (
-          Object.prototype.hasOwnProperty.call(
-            roleCounts,
-            userRoleId
-          )
-        ) {
-          roleCounts[userRoleId] += 1;
-        }
-      });
+        responses.forEach((response, index) => {
+          roleCounts[Number(permittedRoles[index].role_id)] =
+            Number(response?.pagination?.totalUsers || 0);
+        });
+      } else {
+        const countResponse = await getAllStaffData(1, 10000, "");
+        const allUsers = Array.isArray(countResponse?.data)
+          ? countResponse.data
+          : [];
+
+        allUsers.forEach((user) => {
+          const userRoleId = Number(user?.role_id);
+          if (Object.prototype.hasOwnProperty.call(roleCounts, userRoleId)) {
+            roleCounts[userRoleId] += 1;
+          }
+        });
+      }
 
       setCounts(roleCounts);
 
@@ -461,6 +528,8 @@ export default function Dashboard() {
     }
   }, [
     roles,
+    roleId,
+    staffPermissions,
     page,
     selectedRole,
     isDashboardHome,
