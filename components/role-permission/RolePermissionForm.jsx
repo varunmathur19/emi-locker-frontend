@@ -941,8 +941,8 @@ export default function RolePermissionForm() {
                         />
                       </div>
                     ) : (
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                        <RiLayoutGridLine
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-blue-600">
+                        <RiShieldUserLine
                           size={18}
                         />
                       </div>
@@ -953,12 +953,12 @@ export default function RolePermissionForm() {
                         {item.name}
                       </div>
 
-                      {type === "module" &&
+                      {/* {type === "module" &&
                         item.slug && (
                           <div className="truncate text-xs text-slate-400">
                             {item.slug}
                           </div>
-                        )}
+                        )} */}
                     </div>
                   </div>
 
