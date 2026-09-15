@@ -398,7 +398,59 @@ export const getRolePermissions = async (profileId) => {
 };
 
 
+//country ,state, city
 
+const MASTER_DATA_URL =
+    "https://untracked-denyse-riftless.ngrok-free.dev";
 
+const masterDataRequest = async (url) => {
+    const response = await fetch(url, {
+        method: "GET",
+        headers: {
+            Accept: "application/json",
+            "ngrok-skip-browser-warning": "true",
+        },
+        cache: "no-store",
+    });
 
+    const text = await response.text();
 
+    let data = {};
+
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch {
+        throw new Error(
+            "Invalid response from master data API"
+        );
+    }
+
+    if (!response.ok) {
+        throw new Error(
+            data?.message ||
+                data?.error ||
+                `Request failed with status ${response.status}`
+        );
+    }
+
+    return data;
+};
+
+export const getCountries = () =>
+    masterDataRequest(
+        `${MASTER_DATA_URL}/master-data/countries`
+    );
+
+export const getStates = (countryId) =>
+    masterDataRequest(
+        `${MASTER_DATA_URL}/master-data/states?countryId=${encodeURIComponent(
+            countryId
+        )}`
+    );
+
+export const getCities = (stateId) =>
+    masterDataRequest(
+        `${MASTER_DATA_URL}/master-data/cities?stateId=${encodeURIComponent(
+            stateId
+        )}`
+    );

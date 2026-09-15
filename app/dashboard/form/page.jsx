@@ -1,31 +1,28 @@
+
 "use client";
 
 import {
     addStaff,
+    getCities,
+    getCountries,
     getDropdownUsers,
     getProfiles,
     getStaffDataById,
+    getStates,
     updateStaffData,
 } from "@/services/api";
 
 import { getUserFromToken } from "@/utils/token";
 
 import {
+    RiArrowDownSLine,
     RiEyeLine,
     RiEyeOffLine,
-    RiArrowDownSLine,
 } from "react-icons/ri";
 
 import Link from "next/link";
-import { Country, State, City } from "country-state-city";
-import {
-    parsePhoneNumberFromString,
-} from "libphonenumber-js";
-import {
-    useEffect,
-    useMemo,
-    useState,
-} from "react";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 
@@ -36,6 +33,7 @@ const initialFormData = {
     name: "",
     email: "",
     phone: "",
+    phone_country: "",
     password: "",
     confirm_password: "",
     company_address: "",
@@ -76,6 +74,16 @@ const parentRoles = {
     9: [1],
 };
 
+const devicePermissions = [
+    { label: "New Device", name: "new_device" },
+    { label: "Old Device", name: "old_device" },
+    { label: "Supreme Device", name: "supreme_device" },
+    { label: "Pro Star", name: "pro_star" },
+    { label: "Lite", name: "lite" },
+    { label: "Google TV", name: "google_tv" },
+    { label: "Supreme Lock", name: "supreme_lock" },
+];
+
 const isEqual = (a, b) => {
     try {
         return JSON.stringify(a) === JSON.stringify(b);
@@ -84,20 +92,185 @@ const isEqual = (a, b) => {
     }
 };
 
+const getArrayFromResponse = (response, key) => {
+    if (Array.isArray(response)) {
+        return response;
+    }
+
+    const values = [
+        response?.data,
+        response?.data?.data,
+        response?.data?.[key],
+        response?.[key],
+        response?.data?.result,
+        response?.result,
+    ];
+
+    return values.find(Array.isArray) || [];
+};
+
+const getProfilesFromResponse = (response) =>
+    getArrayFromResponse(response, "profiles");
+
+const getUsersFromResponse = (response) =>
+    getArrayFromResponse(response, "users");
+
+const getSingleUserFromResponse = (response) => {
+    const values = [
+        response?.data?.data,
+        response?.data?.user,
+        response?.data,
+        response?.user,
+        response,
+    ];
+
+    return (
+        values.find(
+            (item) =>
+                item &&
+                typeof item === "object" &&
+                !Array.isArray(item) &&
+                (item.id ||
+                    item.user_id ||
+                    item.name ||
+                    item.email)
+        ) || null
+    );
+};
+
+const normalizeCountries = (response) =>
+    getArrayFromResponse(response, "countries")
+        .filter(
+            (item) =>
+                Number(item?.is_active ?? 1) === 1
+        )
+        .map((item) => ({
+            id: Number(
+                item?.country_id ??
+                    item?.countryId ??
+                    item?.id
+            ),
+            name:
+                item?.country_name ??
+                item?.countryName ??
+                item?.name ??
+                "",
+            mobileCode: String(
+                item?.mobile_code ??
+                    item?.mobileCode ??
+                    item?.phone_code ??
+                    item?.phoneCode ??
+                    ""
+            ).replace("+", ""),
+            countryCode:
+                item?.countryCode ??
+                item?.country_code ??
+                item?.isoCode ??
+                item?.iso_code ??
+                "",
+        }))
+        .filter(
+            (item) =>
+                item.id &&
+                item.name
+        );
+
+const normalizeStates = (response) =>
+    getArrayFromResponse(response, "states")
+        .map((item) => ({
+            id: Number(
+                item?.stateId ??
+                    item?.state_id ??
+                    item?.id
+            ),
+            name:
+                item?.stateName ??
+                item?.state_name ??
+                item?.name ??
+                "",
+            countryId: Number(
+                item?.countryId ??
+                    item?.country_id
+            ),
+        }))
+        .filter(
+            (item) =>
+                item.id &&
+                item.name
+        );
+
+const normalizeCities = (response) =>
+    getArrayFromResponse(response, "cities")
+        .map((item) => ({
+            id: Number(
+                item?.cityId ??
+                    item?.city_id ??
+                    item?.id
+            ),
+            name:
+                item?.cityName ??
+                item?.city_name ??
+                item?.name ??
+                "",
+            stateId: Number(
+                item?.stateId ??
+                    item?.state_id
+            ),
+        }))
+        .filter(
+            (item) =>
+                item.id &&
+                item.name
+        );
+
 export default function Page() {
     const searchParams = useSearchParams();
+
+    const editId = searchParams.get("id");
+    const isEditMode = Boolean(editId);
+
+    const selectedRoleFromUrl = Number(
+        searchParams.get("role_id")
+    );
+
+    const loggedInUser = getUserFromToken();
+    const loggedInRoleId = Number(
+        loggedInUser?.role_id
+    );
+    const loggedInUserId = Number(
+        loggedInUser?.id
+    );
 
     const [formData, setFormData] = useState(
         initialFormData
     );
 
+    const [originalFormData, setOriginalFormData] =
+        useState(null);
+
     const [profiles, setProfiles] = useState([]);
     const [profileLoading, setProfileLoading] =
+        useState(false);
+
+    const [countries, setCountries] = useState([]);
+    const [states, setStates] = useState([]);
+    const [cities, setCities] = useState([]);
+
+    const [countryLoading, setCountryLoading] =
+        useState(false);
+    const [stateLoading, setStateLoading] =
+        useState(false);
+    const [cityLoading, setCityLoading] =
         useState(false);
 
     const [parentUsers, setParentUsers] = useState({});
     const [selectedParents, setSelectedParents] =
         useState({});
+    const [
+        originalSelectedParents,
+        setOriginalSelectedParents,
+    ] = useState({});
+
     const [openDropdown, setOpenDropdown] =
         useState(null);
     const [parentSearch, setParentSearch] =
@@ -112,8 +285,10 @@ export default function Page() {
 
     const [showPassword, setShowPassword] =
         useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] =
-        useState(false);
+    const [
+        showConfirmPassword,
+        setShowConfirmPassword,
+    ] = useState(false);
 
     const [editLoading, setEditLoading] =
         useState(false);
@@ -122,225 +297,45 @@ export default function Page() {
     const [submitLoading, setSubmitLoading] =
         useState(false);
 
-    const [originalFormData, setOriginalFormData] =
-        useState(null);
-    const [
-        originalSelectedParents,
-        setOriginalSelectedParents,
-    ] = useState({});
-
-    const editId = searchParams.get("id");
-    const isEditMode = Boolean(editId);
-
-    const selectedRoleFromUrl = Number(
-        searchParams.get("role_id")
-    );
-
     const selectedRole =
         Number(formData.role_id) ||
         selectedRoleFromUrl;
 
-    const loggedInUser = getUserFromToken();
-
-    const loggedInRoleId = Number(
-        loggedInUser?.role_id
-    );
-
-    const loggedInUserId = Number(
-        loggedInUser?.id
-    );
-
     const getRoleName = (roleId) =>
         roleNames[Number(roleId)] || "User";
 
-    const countries = useMemo(
-        () => Country.getAllCountries(),
-        []
+   
+
+ const selectedPhoneCountry = useMemo(() => {
+    return countries.find(
+        (country) =>
+            country.countryCode === formData.phone_country
     );
-
-    const selectedCountry = useMemo(() => {
-        if (!formData.country) {
-            return null;
-        }
-
-        return Country.getCountryByCode(
-            formData.country
-        );
-    }, [formData.country]);
-
-    const phoneCountries = useMemo(() => {
-        const search = phoneCountrySearch
-            .trim()
-            .toLowerCase()
-            .replace("+", "");
-
-        if (!search) {
-            return countries;
-        }
-
-        return countries.filter((country) => {
-            return (
-                country.name
-                    .toLowerCase()
-                    .includes(search) ||
-                country.isoCode
-                    .toLowerCase()
-                    .includes(search) ||
-                String(country.phonecode || "")
-                    .includes(search)
-            );
-        });
-    }, [countries, phoneCountrySearch]);
-
-    const states = useMemo(() => {
-        if (!formData.country) {
-            return [];
-        }
-
-        return State.getStatesOfCountry(
-            formData.country
-        );
-    }, [formData.country]);
-
-    const cities = useMemo(() => {
-        if (
-            !formData.country ||
-            !formData.state
-        ) {
-            return [];
-        }
-
-        return City.getCitiesOfState(
-            formData.country,
-            formData.state
-        );
-    }, [
-        formData.country,
-        formData.state,
-    ]);
-
-    const countryPhoneCode =
-        selectedCountry?.phonecode
-            ? `+${selectedCountry.phonecode}`
-            : "";
-
-    const getProfilesFromResponse = (response) => {
-        const possibleData = [
-            response,
-            response?.data,
-            response?.data?.data,
-            response?.data?.profiles,
-            response?.profiles,
-        ];
-
-        for (const item of possibleData) {
-            if (Array.isArray(item)) {
-                return item;
-            }
-        }
-
-        return [];
-    };
-
-    const getUsersFromResponse = (response) => {
-        const possibleData = [
-            response,
-            response?.data,
-            response?.data?.data,
-            response?.data?.users,
-            response?.users,
-        ];
-
-        for (const item of possibleData) {
-            if (Array.isArray(item)) {
-                return item;
-            }
-        }
-
-        return [];
-    };
-
-    const getSingleUserFromResponse = (response) => {
-        const possibleData = [
-            response?.data?.data,
-            response?.data?.user,
-            response?.data,
-            response?.user,
-            response,
-        ];
-
-        for (const item of possibleData) {
-            if (
-                item &&
-                typeof item === "object" &&
-                !Array.isArray(item) &&
-                (
-                    item.id ||
-                    item.user_id ||
-                    item.name ||
-                    item.email
-                )
-            ) {
-                return item;
-            }
-        }
-
-        return null;
-    };
-
-    const loadProfiles = async () => {
-        try {
-            setProfileLoading(true);
-
-            const response = await getProfiles();
-
-            setProfiles(
-                getProfilesFromResponse(response)
-            );
-        } catch (error) {
-            console.error(
-                "GET PROFILES ERROR:",
-                error?.response?.data ||
-                    error?.message ||
-                    error
-            );
-
-            setProfiles([]);
-
-            toast.error(
-                error?.response?.data?.message ||
-                    "Failed to load profiles"
-            );
-        } finally {
-            setProfileLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        loadProfiles();
-    }, []);
+}, [countries, formData.phone_country]);
+   const countryPhoneCode =
+    selectedPhoneCountry?.mobileCode
+        ? `+${selectedPhoneCountry.mobileCode}`
+        : "";
 
     const visibleParentRoles = useMemo(() => {
         return (
             parentRoles[selectedRole] || []
         ).filter((roleId) => {
             const role = Number(roleId);
-            const loggedRole =
-                Number(loggedInRoleId);
-            const createRole =
-                Number(selectedRole);
 
-            if (role >= createRole) {
+            if (
+                role >= Number(selectedRole)
+            ) {
                 return false;
             }
 
-            if (loggedRole === 0) {
-                return role < createRole;
+            if (loggedInRoleId === 0) {
+                return true;
             }
 
             return (
-                role > loggedRole &&
-                role < createRole
+                role > loggedInRoleId &&
+                role < Number(selectedRole)
             );
         });
     }, [
@@ -356,70 +351,178 @@ export default function Page() {
             return true;
         }
 
-        const currentComparable = {
+        const currentForm = {
             ...formData,
             password: formData.password || "",
             confirm_password:
                 formData.confirm_password || "",
         };
 
-        const originalComparable = {
+        const originalForm = {
             ...originalFormData,
             password: "",
             confirm_password: "",
         };
 
-        const passwordChanged =
+        return (
+            !isEqual(
+                currentForm,
+                originalForm
+            ) ||
+            !isEqual(
+                selectedParents,
+                originalSelectedParents
+            ) ||
             Boolean(formData.password) ||
             Boolean(
                 formData.confirm_password
-            );
-
-        const formChanged = !isEqual(
-            currentComparable,
-            originalComparable
-        );
-
-        const parentsChanged = !isEqual(
-            selectedParents,
-            originalSelectedParents
-        );
-
-        return (
-            formChanged ||
-            parentsChanged ||
-            passwordChanged
+            )
         );
     }, [
         isEditMode,
         formData,
-        selectedParents,
         originalFormData,
+        selectedParents,
         originalSelectedParents,
     ]);
 
-    useEffect(() => {
-        if (!isEditMode || !editId) {
-            setEditUserLoaded(false);
-            setOriginalFormData(null);
-            setOriginalSelectedParents({});
-            return;
+    const loadProfiles = async () => {
+        try {
+            setProfileLoading(true);
+
+            const response = await getProfiles();
+
+            setProfiles(
+                getProfilesFromResponse(response)
+            );
+        } catch (error) {
+            console.error(
+                "GET PROFILES ERROR:",
+                error
+            );
+
+            setProfiles([]);
+
+            toast.error(
+                error?.response?.data?.message ||
+                    error?.message ||
+                    "Failed to load profiles"
+            );
+        } finally {
+            setProfileLoading(false);
+        }
+    };
+
+    const loadCountries = async () => {
+        try {
+            setCountryLoading(true);
+
+            const response =
+                await getCountries();
+
+            const data =
+                normalizeCountries(response);
+
+            setCountries(data);
+
+            return data;
+        } catch (error) {
+            console.error(
+                "GET COUNTRIES ERROR:",
+                error
+            );
+
+            setCountries([]);
+
+            toast.error(
+                error?.response?.data?.message ||
+                    error?.message ||
+                    "Failed to load countries"
+            );
+
+            return [];
+        } finally {
+            setCountryLoading(false);
+        }
+    };
+
+    const loadStates = async (countryId) => {
+        if (!countryId) {
+            setStates([]);
+            return [];
         }
 
-        setEditUserLoaded(false);
-    }, [editId, isEditMode]);
+        try {
+            setStateLoading(true);
+
+            const response =
+                await getStates(countryId);
+
+            const data =
+                normalizeStates(response);
+
+            setStates(data);
+
+            return data;
+        } catch (error) {
+            console.error(
+                "GET STATES ERROR:",
+                error
+            );
+
+            setStates([]);
+
+            return [];
+        } finally {
+            setStateLoading(false);
+        }
+    };
+
+    const loadCities = async (stateId) => {
+        if (!stateId) {
+            setCities([]);
+            return [];
+        }
+
+        try {
+            setCityLoading(true);
+
+            const response =
+                await getCities(stateId);
+
+            const data =
+                normalizeCities(response);
+
+            setCities(data);
+
+            return data;
+        } catch (error) {
+            console.error(
+                "GET CITIES ERROR:",
+                error
+            );
+
+            setCities([]);
+
+            return [];
+        } finally {
+            setCityLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const roleId =
-            searchParams.get("role_id");
+        loadProfiles();
+        loadCountries();
+    }, []);
 
-        if (!roleId || isEditMode) {
+    useEffect(() => {
+        if (!selectedRoleFromUrl || isEditMode) {
             return;
         }
 
         setFormData((prev) => ({
             ...prev,
-            role_id: Number(roleId),
+            role_id: selectedRoleFromUrl,
             parent_id: null,
         }));
 
@@ -428,7 +531,7 @@ export default function Page() {
         setParentSearch({});
         setOpenDropdown(null);
     }, [
-        searchParams,
+        selectedRoleFromUrl,
         isEditMode,
     ]);
 
@@ -436,17 +539,9 @@ export default function Page() {
         user,
         roleId
     ) => {
-        const role = Number(roleId);
-
         const roleFields = {
-            1: [
-                "parent_admin_id",
-                "admin_id",
-            ],
-            2: [
-                "parent_cnf_id",
-                "cnf_id",
-            ],
+            1: ["parent_admin_id", "admin_id"],
+            2: ["parent_cnf_id", "cnf_id"],
             3: [
                 "parent_super_distributor_id",
                 "parent_superdistributor_id",
@@ -456,10 +551,7 @@ export default function Page() {
                 "parent_distributor_id",
                 "distributor_id",
             ],
-            5: [
-                "parent_fos_id",
-                "fos_id",
-            ],
+            5: ["parent_fos_id", "fos_id"],
             6: [
                 "parent_retailer_id",
                 "retailer_id",
@@ -480,7 +572,7 @@ export default function Page() {
         };
 
         const fields =
-            roleFields[role] || [];
+            roleFields[Number(roleId)] || [];
 
         for (const field of fields) {
             const value = user?.[field];
@@ -524,12 +616,7 @@ export default function Page() {
                         item?.parent_id
                 );
 
-                if (
-                    Number.isFinite(roleId) &&
-                    roleId > 0 &&
-                    Number.isFinite(id) &&
-                    id > 0
-                ) {
+                if (roleId > 0 && id > 0) {
                     result[roleId] = id;
                 }
             });
@@ -537,7 +624,8 @@ export default function Page() {
 
         if (
             possibleChain &&
-            typeof possibleChain === "object" &&
+            typeof possibleChain ===
+                "object" &&
             !Array.isArray(possibleChain)
         ) {
             Object.entries(
@@ -552,12 +640,7 @@ export default function Page() {
                         value
                 );
 
-                if (
-                    Number.isFinite(roleId) &&
-                    roleId > 0 &&
-                    Number.isFinite(id) &&
-                    id > 0
-                ) {
+                if (roleId > 0 && id > 0) {
                     result[roleId] = id;
                 }
             });
@@ -585,10 +668,7 @@ export default function Page() {
     };
 
     const loadEditUser = async () => {
-        if (
-            !isEditMode ||
-            !editId
-        ) {
+        if (!isEditMode || !editId) {
             return;
         }
 
@@ -597,9 +677,7 @@ export default function Page() {
             setEditUserLoaded(false);
 
             const response =
-                await getStaffDataById(
-                    editId
-                );
+                await getStaffDataById(editId);
 
             const user =
                 getSingleUserFromResponse(
@@ -615,124 +693,168 @@ export default function Page() {
 
             const roleId = Number(
                 user?.role_id ??
-                    searchParams.get(
-                        "role_id"
-                    )
+                    searchParams.get("role_id")
             );
 
-            let country =
-                user?.country || "";
+            const countryId =
+                user?.country_id ??
+                user?.countryId ??
+                user?.country ??
+                "";
 
-            let phone =
-                String(
-                    user?.phone || ""
-                ).trim();
+            const stateId =
+                user?.state_id ??
+                user?.stateId ??
+                user?.state ??
+                "";
+
+            const cityId =
+                user?.city_id ??
+                user?.cityId ??
+                user?.city ??
+                "";
+
+            let phone = String(
+                user?.phone || ""
+            ).trim();
+
+            let phoneCountry =
+                user?.phone_country ||
+                user?.phoneCountry ||
+                "";
 
             const parsedPhone =
                 parsePhoneNumberFromString(
                     phone
                 );
 
-            if (parsedPhone?.country) {
-                country =
-                    parsedPhone.country;
+            if (parsedPhone) {
+                phoneCountry =
+                    parsedPhone.country ||
+                    phoneCountry;
 
                 phone =
                     parsedPhone.nationalNumber ||
                     "";
             }
 
-            const state =
-                user?.state || "";
+            if (!phoneCountry) {
+                phoneCountry =
+                    countries.find(
+                        (country) =>
+                            Number(
+                                country.id
+                            ) ===
+                            Number(
+                                countryId
+                            )
+                    )?.countryCode || "";
+            }
 
-            const city =
-                user?.city || "";
+            let loadedStates = [];
+            let loadedCities = [];
+
+            if (countryId) {
+                loadedStates =
+                    await loadStates(
+                        countryId
+                    );
+            } else {
+                setStates([]);
+            }
+
+            if (stateId) {
+                loadedCities =
+                    await loadCities(
+                        stateId
+                    );
+            } else {
+                setCities([]);
+            }
+
+            const validState = loadedStates.some(
+                (state) =>
+                    Number(state.id) ===
+                    Number(stateId)
+            )
+                ? stateId
+                : "";
+
+            const validCity = loadedCities.some(
+                (city) =>
+                    Number(city.id) ===
+                    Number(cityId)
+            )
+                ? cityId
+                : "";
 
             const editFormData = {
                 ...initialFormData,
-
                 organization_name:
                     user?.organization_name ||
                     "",
-
                 role_id:
                     roleId || "",
-
                 profile_id:
                     user?.profile_id ??
                     user?.profileId ??
                     user?.role_permission
                         ?.profile_id ??
                     "",
-
-                name:
-                    user?.name || "",
-
-                email:
-                    user?.email || "",
-
+                name: user?.name || "",
+                email: user?.email || "",
                 phone,
-
-                password: "",
-                confirm_password: "",
-
+                phone_country:
+                    phoneCountry,
                 company_address:
                     user?.company_address ||
                     "",
-
-                country,
-                state,
-                city,
-
+                country:
+                    countryId || "",
+                state:
+                    validState || "",
+                city:
+                    validCity || "",
                 parent_id:
                     user?.parent_id
                         ? Number(
-                            user.parent_id
-                        )
+                              user.parent_id
+                          )
                         : null,
-
                 new_device:
                     Number(
                         user?.new_device
                     ) === 1
                         ? 1
                         : 0,
-
                 old_device:
                     Number(
                         user?.old_device
                     ) === 1
                         ? 1
                         : 0,
-
                 supreme_device:
                     Number(
                         user?.supreme_device
                     ) === 1
                         ? 1
                         : 0,
-
                 pro_star:
                     Number(
                         user?.pro_star
                     ) === 1
                         ? 1
                         : 0,
-
                 lite:
-                    Number(
-                        user?.lite
-                    ) === 1
+                    Number(user?.lite) === 1
                         ? 1
                         : 0,
-
                 google_tv:
                     Number(
                         user?.google_tv
                     ) === 1
                         ? 1
                         : 0,
-
                 supreme_lock:
                     Number(
                         user?.supreme_lock
@@ -741,9 +863,7 @@ export default function Page() {
                         : 0,
             };
 
-            setFormData(
-                editFormData
-            );
+            setFormData(editFormData);
 
             const parentChain =
                 getParentChainFromUser(
@@ -773,21 +893,19 @@ export default function Page() {
                 parentChain
             );
 
-            setOriginalFormData({
-                ...editFormData,
-            });
+            setOriginalFormData(
+                editFormData
+            );
 
-            setOriginalSelectedParents({
-                ...parentChain,
-            });
+            setOriginalSelectedParents(
+                parentChain
+            );
 
             setEditUserLoaded(true);
         } catch (error) {
             console.error(
                 "GET STAFF DATA ERROR:",
-                error?.response?.data ||
-                    error?.message ||
-                    error
+                error
             );
 
             toast.error(
@@ -801,28 +919,15 @@ export default function Page() {
     };
 
     useEffect(() => {
-        if (
-            !isEditMode ||
-            !editId
-        ) {
-            return;
-        }
-
         loadEditUser();
-    }, [
-        editId,
-        isEditMode,
-    ]);
+    }, [editId, isEditMode]);
 
     useEffect(() => {
         if (
             !selectedRole ||
-            selectedRole <= 1
+            selectedRole <= 1 ||
+            !loggedInUserId
         ) {
-            return;
-        }
-
-        if (!loggedInUserId) {
             return;
         }
 
@@ -843,211 +948,183 @@ export default function Page() {
 
         let cancelled = false;
 
-        const loadParents =
-            async () => {
-                try {
-                    const updatedParentUsers =
-                        {};
+        const loadParents = async () => {
+            try {
+                const updatedUsers = {};
+                const updatedSelected = {
+                    ...selectedParents,
+                };
 
-                    const updatedSelectedParents =
-                        {
-                            ...selectedParents,
-                        };
+                for (
+                    let index = 0;
+                    index < parents.length;
+                    index++
+                ) {
+                    if (cancelled) {
+                        return;
+                    }
 
-                    for (
-                        let index = 0;
-                        index <
-                        parents.length;
-                        index++
-                    ) {
-                        if (cancelled) {
-                            return;
+                    const currentRole =
+                        Number(
+                            parents[index]
+                        );
+
+                    let parentId = null;
+
+                    if (index === 0) {
+                        if (
+                            currentRole ===
+                            loggedInRoleId
+                        ) {
+                            parentId =
+                                loggedInUserId;
                         }
-
-                        const currentRole =
+                    } else {
+                        const previousRole =
                             Number(
                                 parents[
-                                    index
+                                    index - 1
                                 ]
                             );
 
-                        let parentId =
-                            null;
+                        parentId =
+                            updatedSelected[
+                                previousRole
+                            ]
+                                ? Number(
+                                      updatedSelected[
+                                          previousRole
+                                      ]
+                                  )
+                                : null;
+                    }
 
-                        if (
-                            index === 0
-                        ) {
-                            if (
-                                currentRole ===
-                                loggedInRoleId
-                            ) {
-                                parentId =
-                                    loggedInUserId;
-                            }
-                        } else {
-                            const previousRole =
-                                Number(
-                                    parents[
-                                        index - 1
-                                    ]
-                                );
+                    const response =
+                        await getDropdownUsers(
+                            currentRole,
+                            parentId
+                        );
 
-                            parentId =
-                                updatedSelectedParents[
-                                    previousRole
-                                ]
-                                    ? Number(
-                                        updatedSelectedParents[
-                                            previousRole
-                                        ]
+                    let users =
+                        getUsersFromResponse(
+                            response
+                        );
+
+                    if (
+                        currentRole === 5
+                    ) {
+                        users =
+                            users.filter(
+                                (user) =>
+                                    Number(
+                                        user?.role_id
+                                    ) === 5 &&
+                                    (
+                                        parentId ===
+                                            null ||
+                                        Number(
+                                            user?.parent_id
+                                        ) ===
+                                            Number(
+                                                parentId
+                                            )
                                     )
-                                    : null;
-                        }
+                            );
+                    }
 
-                        const response =
+                    const selectedId =
+                        updatedSelected[
+                            currentRole
+                        ];
+
+                    if (
+                        selectedId &&
+                        !users.some(
+                            (user) =>
+                                Number(
+                                    user?.id
+                                ) ===
+                                Number(
+                                    selectedId
+                                )
+                        )
+                    ) {
+                        const responseById =
                             await getDropdownUsers(
                                 currentRole,
-                                parentId
+                                parentId,
+                                ""
                             );
 
-                        let users =
+                        const allUsers =
                             getUsersFromResponse(
-                                response
+                                responseById
                             );
 
-                        if (
-                            currentRole === 5
-                        ) {
-                            users =
-                                users.filter(
-                                    (
-                                        user
-                                    ) =>
-                                        Number(
-                                            user?.role_id
-                                        ) ===
-                                            5 &&
-                                        (
-                                            parentId ===
-                                                null ||
-                                            Number(
-                                                user?.parent_id
-                                            ) ===
-                                                Number(
-                                                    parentId
-                                                )
-                                        )
-                                );
-                        }
-
-                        const selectedId =
-                            updatedSelectedParents[
-                                currentRole
-                            ];
-
-                        if (
-                            selectedId &&
-                            !users.some(
-                                (
-                                    user
-                                ) =>
+                        const selectedUser =
+                            allUsers.find(
+                                (user) =>
                                     Number(
                                         user?.id
                                     ) ===
                                     Number(
                                         selectedId
                                     )
-                            )
-                        ) {
-                            const responseById =
-                                await getDropdownUsers(
-                                    currentRole,
-                                    parentId,
-                                    ""
-                                );
+                            );
 
-                            const allUsers =
-                                getUsersFromResponse(
-                                    responseById
-                                );
-
-                            const selectedUser =
-                                allUsers.find(
-                                    (
-                                        user
-                                    ) =>
-                                        Number(
-                                            user?.id
-                                        ) ===
-                                        Number(
-                                            selectedId
-                                        )
-                                );
-
-                            if (
-                                selectedUser
-                            ) {
-                                users = [
-                                    ...users,
-                                    selectedUser,
-                                ];
-                            }
+                        if (selectedUser) {
+                            users = [
+                                ...users,
+                                selectedUser,
+                            ];
                         }
-
-                        updatedParentUsers[
-                            currentRole
-                        ] = users;
                     }
 
-                    if (cancelled) {
-                        return;
-                    }
+                    updatedUsers[
+                        currentRole
+                    ] = users;
+                }
 
-                    setParentUsers(
-                        updatedParentUsers
-                    );
+                if (cancelled) {
+                    return;
+                }
 
-                    setSelectedParents(
-                        updatedSelectedParents
-                    );
+                setParentUsers(
+                    updatedUsers
+                );
 
-                    const lastRole =
-                        parents[
-                            parents.length -
-                                1
-                        ];
+                setSelectedParents(
+                    updatedSelected
+                );
 
-                    const lastParentId =
-                        updatedSelectedParents[
+                const lastRole =
+                    parents[
+                        parents.length - 1
+                    ];
+
+                const lastParentId =
+                    updatedSelected[
+                        Number(lastRole)
+                    ];
+
+                if (lastParentId) {
+                    setFormData((prev) => ({
+                        ...prev,
+                        parent_id:
                             Number(
-                                lastRole
-                            )
-                        ];
-
-                    if (lastParentId) {
-                        setFormData(
-                            (prev) => ({
-                                ...prev,
-                                parent_id:
-                                    Number(
-                                        lastParentId
-                                    ),
-                            })
-                        );
-                    }
-                } catch (error) {
-                    if (cancelled) {
-                        return;
-                    }
-
+                                lastParentId
+                            ),
+                    }));
+                }
+            } catch (error) {
+                if (!cancelled) {
                     console.error(
                         "LOAD PARENTS ERROR:",
-                        error?.response?.data ||
-                            error?.message ||
-                            error
+                        error
                     );
                 }
-            };
+            }
+        };
 
         loadParents();
 
@@ -1062,214 +1139,167 @@ export default function Page() {
         editUserLoaded,
     ]);
 
-    const loadNextParentUsers =
-        async (
-            currentRoleId,
-            selectedParentId,
-            nextRoleId
-        ) => {
-            if (
-                !selectedParentId ||
-                !nextRoleId
-            ) {
-                return;
-            }
+    const loadNextParentUsers = async (
+        selectedParentId,
+        nextRoleId
+    ) => {
+        if (
+            !selectedParentId ||
+            !nextRoleId
+        ) {
+            return;
+        }
 
-            const nextRole =
-                Number(nextRoleId);
+        const nextRole =
+            Number(nextRoleId);
 
-            try {
-                setSearchLoading(
-                    (prev) => ({
-                        ...prev,
-                        [nextRole]: true,
-                    })
-                );
-
-                const response =
-                    await getDropdownUsers(
-                        nextRole,
-                        Number(
-                            selectedParentId
-                        )
-                    );
-
-                let users =
-                    getUsersFromResponse(
-                        response
-                    );
-
-                if (nextRole === 5) {
-                    users =
-                        users.filter(
-                            (user) =>
-                                Number(
-                                    user?.role_id
-                                ) === 5 &&
-                                Number(
-                                    user?.parent_id
-                                ) ===
-                                    Number(
-                                        selectedParentId
-                                    )
-                        );
-                }
-
-                setParentUsers(
-                    (prev) => ({
-                        ...prev,
-                        [nextRole]:
-                            users,
-                    })
-                );
-            } catch (error) {
-                console.error(
-                    `LOAD ${getRoleName(
-                        nextRole
-                    )} ERROR:`,
-                    error?.response?.data ||
-                        error
-                );
-
-                setParentUsers(
-                    (prev) => ({
-                        ...prev,
-                        [nextRole]: [],
-                    })
-                );
-            } finally {
-                setSearchLoading(
-                    (prev) => ({
-                        ...prev,
-                        [nextRole]: false,
-                    })
-                );
-            }
-        };
-
-    const handleParentChange =
-        async (
-            parentRoleId,
-            parentId
-        ) => {
-            const roleId =
-                Number(parentRoleId);
-
-            const selectedId =
-                parentId
-                    ? Number(parentId)
-                    : null;
-
-            const parents =
-                visibleParentRoles;
-
-            const currentIndex =
-                parents.indexOf(
-                    roleId
-                );
-
-            const updatedSelectedParents =
-                {
-                    ...selectedParents,
-                };
-
-            if (selectedId) {
-                updatedSelectedParents[
-                    roleId
-                ] = selectedId;
-            } else {
-                delete updatedSelectedParents[
-                    roleId
-                ];
-            }
-
-            parents
-                .slice(
-                    currentIndex + 1
-                )
-                .forEach(
-                    (childRoleId) => {
-                        delete updatedSelectedParents[
-                            Number(
-                                childRoleId
-                            )
-                        ];
-                    }
-                );
-
-            setSelectedParents(
-                updatedSelectedParents
-            );
-
-            setFormData((prev) => ({
+        try {
+            setSearchLoading((prev) => ({
                 ...prev,
-                parent_id: selectedId,
+                [nextRole]: true,
             }));
 
-            const updatedParentUsers =
-                {
-                    ...parentUsers,
-                };
-
-            parents
-                .slice(
-                    currentIndex + 1
-                )
-                .forEach(
-                    (childRoleId) => {
-                        updatedParentUsers[
-                            Number(
-                                childRoleId
-                            )
-                        ] = [];
-                    }
+            const response =
+                await getDropdownUsers(
+                    nextRole,
+                    Number(
+                        selectedParentId
+                    )
                 );
 
-            setParentUsers(
-                updatedParentUsers
-            );
-
-            const updatedSearch = {
-                ...parentSearch,
-            };
-
-            parents
-                .slice(
-                    currentIndex + 1
-                )
-                .forEach(
-                    (childRoleId) => {
-                        updatedSearch[
-                            Number(
-                                childRoleId
-                            )
-                        ] = "";
-                    }
+            let users =
+                getUsersFromResponse(
+                    response
                 );
 
-            setParentSearch(
-                updatedSearch
-            );
-
-            if (!selectedId) {
-                return;
+            if (nextRole === 5) {
+                users = users.filter(
+                    (user) =>
+                        Number(
+                            user?.role_id
+                        ) === 5 &&
+                        Number(
+                            user?.parent_id
+                        ) ===
+                            Number(
+                                selectedParentId
+                            )
+                );
             }
 
-            const nextRole =
-                parents[
-                    currentIndex + 1
+            setParentUsers((prev) => ({
+                ...prev,
+                [nextRole]: users,
+            }));
+        } catch (error) {
+            console.error(
+                `LOAD ${getRoleName(
+                    nextRole
+                )} ERROR:`,
+                error
+            );
+
+            setParentUsers((prev) => ({
+                ...prev,
+                [nextRole]: [],
+            }));
+        } finally {
+            setSearchLoading((prev) => ({
+                ...prev,
+                [nextRole]: false,
+            }));
+        }
+    };
+
+    const handleParentChange = async (
+        parentRoleId,
+        parentId
+    ) => {
+        const roleId =
+            Number(parentRoleId);
+
+        const selectedId = parentId
+            ? Number(parentId)
+            : null;
+
+        const parents =
+            visibleParentRoles;
+
+        const currentIndex =
+            parents.indexOf(roleId);
+
+        const updatedSelected = {
+            ...selectedParents,
+        };
+
+        if (selectedId) {
+            updatedSelected[roleId] =
+                selectedId;
+        } else {
+            delete updatedSelected[
+                roleId
+            ];
+        }
+
+        parents
+            .slice(currentIndex + 1)
+            .forEach((childRoleId) => {
+                delete updatedSelected[
+                    Number(childRoleId)
                 ];
+            });
 
-            if (!nextRole) {
-                return;
-            }
+        setSelectedParents(
+            updatedSelected
+        );
 
+        setFormData((prev) => ({
+            ...prev,
+            parent_id: selectedId,
+        }));
+
+        const updatedUsers = {
+            ...parentUsers,
+        };
+
+        parents
+            .slice(currentIndex + 1)
+            .forEach((childRoleId) => {
+                updatedUsers[
+                    Number(childRoleId)
+                ] = [];
+            });
+
+        setParentUsers(updatedUsers);
+
+        const updatedSearch = {
+            ...parentSearch,
+        };
+
+        parents
+            .slice(currentIndex + 1)
+            .forEach((childRoleId) => {
+                updatedSearch[
+                    Number(childRoleId)
+                ] = "";
+            });
+
+        setParentSearch(updatedSearch);
+
+        if (!selectedId) {
+            return;
+        }
+
+        const nextRole =
+            parents[currentIndex + 1];
+
+        if (nextRole) {
             await loadNextParentUsers(
-                roleId,
                 selectedId,
                 Number(nextRole)
             );
-        };
+        }
+    };
 
     useEffect(() => {
         if (
@@ -1287,8 +1317,7 @@ export default function Page() {
         ).trim();
 
         const parents =
-            parentRoles[selectedRole] ||
-            [];
+            parentRoles[selectedRole] || [];
 
         const currentIndex =
             parents.indexOf(roleId);
@@ -1308,106 +1337,92 @@ export default function Page() {
                     previousRole
                 ]
                     ? Number(
-                        selectedParents[
-                            previousRole
-                        ]
-                    )
+                          selectedParents[
+                              previousRole
+                          ]
+                      )
                     : null;
         }
 
         if (
             currentIndex === 0 &&
-            Number(roleId) ===
-                Number(
-                    loggedInRoleId
-                )
+            roleId ===
+                Number(loggedInRoleId)
         ) {
-            parentId =
-                loggedInUserId;
+            parentId = loggedInUserId;
         }
 
-        const timer =
-            setTimeout(
-                async () => {
-                    try {
-                        setSearchLoading(
-                            (prev) => ({
-                                ...prev,
-                                [roleId]:
-                                    true,
-                            })
+        const timer = setTimeout(
+            async () => {
+                try {
+                    setSearchLoading(
+                        (prev) => ({
+                            ...prev,
+                            [roleId]: true,
+                        })
+                    );
+
+                    const response =
+                        await getDropdownUsers(
+                            roleId,
+                            parentId,
+                            search
                         );
 
-                        const response =
-                            await getDropdownUsers(
-                                roleId,
-                                parentId,
-                                search
-                            );
+                    let users =
+                        getUsersFromResponse(
+                            response
+                        );
 
-                        let users =
-                            getUsersFromResponse(
-                                response
-                            );
-
-                        if (
-                            roleId === 5
-                        ) {
-                            users =
-                                users.filter(
+                    if (roleId === 5) {
+                        users =
+                            users.filter(
+                                (user) =>
+                                    Number(
+                                        user?.role_id
+                                    ) === 5 &&
                                     (
-                                        user
-                                    ) =>
+                                        parentId ===
+                                            null ||
                                         Number(
-                                            user?.role_id
+                                            user?.parent_id
                                         ) ===
-                                            5 &&
-                                        (
-                                            parentId ===
-                                                null ||
                                             Number(
-                                                user?.parent_id
-                                            ) ===
-                                                Number(
-                                                    parentId
-                                                )
-                                        )
-                                );
-                        }
-
-                        setParentUsers(
-                            (prev) => ({
-                                ...prev,
-                                [roleId]:
-                                    users,
-                            })
-                        );
-                    } catch (error) {
-                        console.error(
-                            "DROPDOWN SEARCH ERROR:",
-                            error?.response?.data ||
-                                error
-                        );
-
-                        setParentUsers(
-                            (prev) => ({
-                                ...prev,
-                                [roleId]:
-                                    [],
-                            })
-                        );
-                    } finally {
-                        setSearchLoading(
-                            (prev) => ({
-                                ...prev,
-                                [roleId]:
-                                    false,
-                            })
-                        );
+                                                parentId
+                                            )
+                                    )
+                            );
                     }
-                },
-                400
-            );
+
+                    setParentUsers(
+                        (prev) => ({
+                            ...prev,
+                            [roleId]: users,
+                        })
+                    );
+                } catch (error) {
+                    console.error(
+                        "DROPDOWN SEARCH ERROR:",
+                        error
+                    );
+
+                    setParentUsers(
+                        (prev) => ({
+                            ...prev,
+                            [roleId]: [],
+                        })
+                    );
+                } finally {
+                    setSearchLoading(
+                        (prev) => ({
+                            ...prev,
+                            [roleId]: false,
+                        })
+                    );
+                }
+            },
+            400
+        );
 
         return () =>
             clearTimeout(timer);
@@ -1419,36 +1434,80 @@ export default function Page() {
         loggedInRoleId,
         loggedInUserId,
     ]);
+const handleCountryChange = async (countryId) => {
+    const selectedCountry = countries.find(
+        (country) =>
+            Number(country.id) === Number(countryId)
+    );
 
-    const handleCountryChange = (
-        countryCode
+    setFormData((prev) => ({
+        ...prev,
+        country: countryId,
+        state: "",
+        city: "",
+        phone_country:
+            selectedCountry?.countryCode || prev.phone_country,
+    }));
+
+    setStates([]);
+    setCities([]);
+
+    if (countryId) {
+        await loadStates(countryId);
+    }
+};
+
+    const handleStateChange = async (
+        stateId
     ) => {
         setFormData((prev) => ({
             ...prev,
-            country: countryCode,
-            state: "",
+            state: stateId,
             city: "",
-            phone: "",
         }));
 
-        setPhoneCountrySearch("");
-        setPhoneCountryOpen(false);
+        setCities([]);
+
+        if (stateId) {
+            await loadCities(stateId);
+        }
     };
 
-    const handlePhoneCountryChange = (
-        countryCode
-    ) => {
-        setFormData((prev) => ({
-            ...prev,
-            country: countryCode,
-            state: "",
-            city: "",
-            phone: "",
-        }));
+   const handlePhoneCountryChange = (countryCode) => {
+    const selectedCountry = countries.find(
+        (country) =>
+            country.countryCode === countryCode
+    );
 
-        setPhoneCountrySearch("");
-        setPhoneCountryOpen(false);
-    };
+    setFormData((prev) => ({
+        ...prev,
+        phone_country: countryCode,
+
+        // Phone country select karte hi
+        // Location Country bhi same ho jayega
+        country:
+            selectedCountry?.id
+                ? String(selectedCountry.id)
+                : prev.country,
+
+        state: "",
+        city: "",
+
+        // Country change hone par phone clear
+        phone: "",
+    }));
+
+    setStates([]);
+    setCities([]);
+
+    setPhoneCountrySearch("");
+    setPhoneCountryOpen(false);
+
+    // Selected phone country ke states load karo
+    if (selectedCountry?.id) {
+        loadStates(selectedCountry.id);
+    }
+};
 
     const handleChange = (e) => {
         const {
@@ -1461,137 +1520,77 @@ export default function Page() {
             return;
         }
 
-        setFormData((prev) => {
-            const updated = {
-                ...prev,
-                [name]: value,
-            };
-
-            if (name === "state") {
-                updated.city = "";
-            }
-
-            return updated;
-        });
-    };
-
-    const handlePhoneChange = (
-        e
-    ) => {
-        let value =
-            e.target.value;
-
-        value = value.replace(
-            /[^\d+]/g,
-            ""
-        );
-
-        const hasPlus =
-            value.startsWith("+");
-
-        if (hasPlus) {
-            value =
-                "+" +
-                value
-                    .slice(1)
-                    .replace(/\+/g, "");
-
-            const parsed =
-                parsePhoneNumberFromString(
-                    value
-                );
-
-            if (
-                parsed?.country
-            ) {
-                setFormData(
-                    (prev) => ({
-                        ...prev,
-                        country:
-                            parsed.country,
-                        state: "",
-                        city: "",
-                        phone:
-                            parsed.nationalNumber ||
-                            "",
-                    })
-                );
-
-                return;
-            }
-
-            setFormData(
-                (prev) => ({
-                    ...prev,
-                    phone: value,
-                })
-            );
-
+        if (name === "state") {
+            handleStateChange(value);
             return;
         }
 
-        const nationalNumber =
-            value.replace(
-                /\D/g,
-                ""
-            );
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+    };
 
-        if (
-            formData.country &&
-            nationalNumber
-        ) {
-            const parsed =
-                parsePhoneNumberFromString(
-                    nationalNumber,
-                    formData.country
+  const handlePhoneChange = (e) => {
+    let value = e.target.value;
+
+    value = value.replace(/[^\d+]/g, "");
+
+    if (value.startsWith("+")) {
+        value =
+            "+" +
+            value
+                .slice(1)
+                .replace(/\+/g, "");
+
+        const parsed =
+            parsePhoneNumberFromString(value);
+
+        if (parsed?.country) {
+            const selectedCountry =
+                countries.find(
+                    (country) =>
+                        country.countryCode ===
+                        parsed.country
                 );
 
-            if (
-                parsed?.nationalNumber
-            ) {
-                setFormData(
-                    (prev) => ({
-                        ...prev,
-                        phone:
-                            parsed.nationalNumber,
-                    })
-                );
-
-                return;
-            }
-        }
-
-        setFormData(
-            (prev) => ({
+            setFormData((prev) => ({
                 ...prev,
-                phone: nationalNumber,
-            })
-        );
-    };
 
-    const validatePhone = () => {
-        if (
-            !formData.country ||
-            !formData.phone
-        ) {
-            return false;
+                phone_country:
+                    parsed.country,
+
+                // Phone se detected country
+                // location country mein bhi set
+                country:
+                    selectedCountry?.id
+                        ? String(
+                              selectedCountry.id
+                          )
+                        : prev.country,
+
+                phone:
+                    parsed.nationalNumber || "",
+            }));
+
+            // Detected country ke states load karo
+            if (selectedCountry?.id) {
+                loadStates(
+                    selectedCountry.id
+                );
+            }
+
+            return;
         }
+    }
 
-        const phoneNumber =
-            parsePhoneNumberFromString(
-                formData.phone,
-                formData.country
-            );
+    setFormData((prev) => ({
+        ...prev,
+        phone: value.replace(/\D/g, ""),
+    }));
+};
 
-        return Boolean(
-            phoneNumber &&
-            phoneNumber.isValid()
-        );
-    };
-
-    const handleSubmit = async (
-        e
-    ) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (
@@ -1625,10 +1624,7 @@ export default function Page() {
             return;
         }
 
-        const tokenUser =
-            getUserFromToken();
-
-        if (!tokenUser?.id) {
+        if (!loggedInUser?.id) {
             toast.error(
                 "Logged-in user not found"
             );
@@ -1652,7 +1648,7 @@ export default function Page() {
         const phoneNumber =
             parsePhoneNumberFromString(
                 formData.phone,
-                formData.country
+                formData.phone_country
             );
 
         if (
@@ -1660,7 +1656,10 @@ export default function Page() {
             !phoneNumber.isValid()
         ) {
             toast.error(
-                `Please enter a valid ${selectedCountry?.name || ""} phone number`
+                `Please enter a valid ${
+                    selectedPhoneCountry?.name ||
+                    ""
+                } phone number`
             );
             return;
         }
@@ -1706,8 +1705,8 @@ export default function Page() {
         let finalParentId =
             formData.parent_id
                 ? Number(
-                    formData.parent_id
-                )
+                      formData.parent_id
+                  )
                 : null;
 
         if (
@@ -1725,9 +1724,25 @@ export default function Page() {
             role_id: roleId,
             parent_id:
                 finalParentId,
+            country:
+                Number(formData.country),
+            state:
+                formData.state
+                    ? Number(
+                          formData.state
+                      )
+                    : null,
+            city:
+                formData.city
+                    ? Number(
+                          formData.city
+                      )
+                    : null,
             phone:
                 phoneNumber.number,
         };
+
+        delete payload.phone_country;
 
         if (roleId === 9) {
             payload.profile_id =
@@ -1751,23 +1766,18 @@ export default function Page() {
         try {
             setSubmitLoading(true);
 
-            const response =
-                isEditMode
-                    ? await updateStaffData(
-                        editId,
-                        payload
-                    )
-                    : await addStaff(
-                        payload
-                    );
+            const response = isEditMode
+                ? await updateStaffData(
+                      editId,
+                      payload
+                  )
+                : await addStaff(payload);
 
             toast.success(
                 response?.message ||
-                    (
-                        isEditMode
-                            ? "Updated Successfully"
-                            : "Registered Successfully"
-                    )
+                    (isEditMode
+                        ? "Updated Successfully"
+                        : "Registered Successfully")
             );
 
             if (!isEditMode) {
@@ -1780,35 +1790,31 @@ export default function Page() {
                 setParentUsers({});
                 setParentSearch({});
                 setOpenDropdown(null);
-                setPhoneCountryOpen(
-                    false
-                );
-                setPhoneCountrySearch(
-                    ""
-                );
+                setStates([]);
+                setCities([]);
+                setPhoneCountryOpen(false);
+                setPhoneCountrySearch("");
                 setShowPassword(false);
-                setShowConfirmPassword(
-                    false
-                );
+                setShowConfirmPassword(false);
             } else {
-                setOriginalFormData({
+                const updatedOriginal = {
                     ...formData,
                     password: "",
-                    confirm_password:
-                        "",
-                });
+                    confirm_password: "",
+                };
 
-                setOriginalSelectedParents(
-                    {
-                        ...selectedParents,
-                    }
+                setOriginalFormData(
+                    updatedOriginal
                 );
+
+                setOriginalSelectedParents({
+                    ...selectedParents,
+                });
 
                 setFormData((prev) => ({
                     ...prev,
                     password: "",
-                    confirm_password:
-                        "",
+                    confirm_password: "",
                 }));
             }
         } catch (error) {
@@ -1816,25 +1822,19 @@ export default function Page() {
                 isEditMode
                     ? "UPDATE USER ERROR:"
                     : "REGISTER ERROR:",
-                error?.response?.data ||
-                    error
+                error
             );
 
             toast.error(
-                error?.response?.data
-                    ?.message ||
-                    error?.response?.data
-                        ?.error ||
-                    (
-                        isEditMode
-                            ? "Failed to update user"
-                            : "Something went wrong"
-                    )
+                error?.response?.data?.message ||
+                    error?.response?.data?.error ||
+                    error?.message ||
+                    (isEditMode
+                        ? "Failed to update user"
+                        : "Something went wrong")
             );
         } finally {
-            setSubmitLoading(
-                false
-            );
+            setSubmitLoading(false);
         }
     };
 
@@ -1845,7 +1845,7 @@ export default function Page() {
         return (
             <div className="max-w-5xl mx-auto">
                 <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-10">
-                    <div className="flex justify-center items-center py-10">
+                    <div className="flex justify-center py-10">
                         <div className="h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
                     </div>
 
@@ -1877,9 +1877,7 @@ export default function Page() {
                         0 && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
                             {visibleParentRoles.map(
-                                (
-                                    parentRoleId
-                                ) => {
+                                (parentRoleId) => {
                                     const role =
                                         Number(
                                             parentRoleId
@@ -1892,9 +1890,7 @@ export default function Page() {
 
                                     const selectedUser =
                                         users.find(
-                                            (
-                                                user
-                                            ) =>
+                                            (user) =>
                                                 Number(
                                                     user?.id
                                                 ) ===
@@ -1907,9 +1903,7 @@ export default function Page() {
 
                                     return (
                                         <div
-                                            key={
-                                                role
-                                            }
+                                            key={role}
                                             className="space-y-1.5"
                                         >
                                             <label className="text-sm font-medium text-slate-700">
@@ -1929,7 +1923,7 @@ export default function Page() {
                                                                 : role
                                                         )
                                                     }
-                                                    className="w-full flex items-center justify-between border border-slate-300 rounded-lg px-4 py-2.5 text-sm text-left bg-white text-slate-700 cursor-pointer"
+                                                    className="w-full flex items-center justify-between border border-slate-300 rounded-lg px-4 py-2.5 text-sm text-left bg-white text-slate-700"
                                                 >
                                                     <span className="truncate">
                                                         {selectedUser?.name ||
@@ -1939,9 +1933,7 @@ export default function Page() {
                                                     </span>
 
                                                     <RiArrowDownSLine
-                                                        size={
-                                                            22
-                                                        }
+                                                        size={22}
                                                         className={`shrink-0 transition-transform text-slate-500 ${
                                                             openDropdown ===
                                                             role
@@ -2063,12 +2055,8 @@ export default function Page() {
                         </div>
                     )}
 
-               
-
                 <form
-                    onSubmit={
-                        handleSubmit
-                    }
+                    onSubmit={handleSubmit}
                     className="pt-6"
                 >
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2153,183 +2141,164 @@ export default function Page() {
                                 </span>
                             </label>
 
-                            <div className="flex">
-                                <div className="relative shrink-0">
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setPhoneCountryOpen(
-                                                (
-                                                    prev
-                                                ) =>
-                                                    !prev
-                                            )
-                                        }
-                                        className="h-full min-w-[125px] flex items-center justify-between gap-2 border border-r-0 border-slate-300 rounded-l-lg px-3 bg-slate-50 text-sm text-slate-700 cursor-pointer"
-                                    >
-                                        {selectedCountry ? (
-                                            <span className="flex items-center gap-2">
-                                                <span className="text-lg">
-                                                    {
-                                                        selectedCountry.flag
-                                                    }
-                                                </span>
+                           <div className="flex">
+    <div className="relative shrink-0">
+        <button
+            type="button"
+            onClick={() =>
+                setPhoneCountryOpen((prev) => !prev)
+            }
+            className="h-full min-w-[125px] flex items-center justify-between gap-2 border border-r-0 border-slate-300 rounded-l-lg px-3 bg-slate-50 text-sm text-slate-700"
+        >
+            {selectedPhoneCountry ? (
+                <span className="flex items-center gap-2">
+                    <span>
+                        +{selectedPhoneCountry.mobileCode}
+                    </span>
+                </span>
+            ) : (
+                <span className="text-slate-400">
+                    Country
+                </span>
+            )}
 
-                                                <span>
-                                                    +
-                                                    {
-                                                        selectedCountry.phonecode
-                                                    }
-                                                </span>
-                                            </span>
-                                        ) : (
-                                            <span className="text-slate-400">
-                                                Country
-                                            </span>
-                                        )}
+            <RiArrowDownSLine
+                size={18}
+                className={`transition-transform ${
+                    phoneCountryOpen
+                        ? "rotate-180"
+                        : ""
+                }`}
+            />
+        </button>
 
-                                        <RiArrowDownSLine
-                                            size={
-                                                18
-                                            }
-                                            className={`transition-transform ${
-                                                phoneCountryOpen
-                                                    ? "rotate-180"
-                                                    : ""
-                                            }`}
-                                        />
-                                    </button>
+        {phoneCountryOpen && (
+            <div className="absolute z-[100] left-0 top-full mt-1 w-[290px] bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
+                {/* Search */}
+                <div className="p-2 border-b border-slate-200">
+                    <input
+                        type="text"
+                        value={phoneCountrySearch}
+                        onChange={(e) =>
+                            setPhoneCountrySearch(
+                                e.target.value
+                            )
+                        }
+                        placeholder="Search country or code..."
+                        autoFocus
+                        className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
 
-                                    {phoneCountryOpen && (
-                                        <div className="absolute z-[100] left-0 top-full mt-1 w-[290px] bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
-                                            <div className="p-2 border-b border-slate-200">
-                                                <input
-                                                    type="text"
-                                                    value={
-                                                        phoneCountrySearch
-                                                    }
-                                                    onChange={(
-                                                        e
-                                                    ) =>
-                                                        setPhoneCountrySearch(
-                                                            e
-                                                                .target
-                                                                .value
-                                                        )
-                                                    }
-                                                    placeholder="Search country or code..."
-                                                    autoFocus
-                                                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                />
-                                            </div>
+                {/* Country List */}
+                <div className="max-h-64 overflow-y-auto">
+                    {countries.filter((country) => {
+                        const search =
+                            phoneCountrySearch
+                                .trim()
+                                .toLowerCase()
+                                .replace("+", "");
 
-                                            <div className="max-h-64 overflow-y-auto">
-                                                {phoneCountries.length >
-                                                0 ? (
-                                                    phoneCountries.map(
-                                                        (
-                                                            country
-                                                        ) => (
-                                                            <button
-                                                                key={
-                                                                    country.isoCode
-                                                                }
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    handlePhoneCountryChange(
-                                                                        country.isoCode
-                                                                    )
-                                                                }
-                                                                className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm ${
-                                                                    formData.country ===
-                                                                    country.isoCode
-                                                                        ? "bg-blue-50 text-blue-700"
-                                                                        : "text-slate-700 hover:bg-slate-50"
-                                                                }`}
-                                                            >
-                                                                <span className="flex items-center gap-2 min-w-0">
-                                                                    <span className="text-lg">
-                                                                        {
-                                                                            country.flag
-                                                                        }
-                                                                    </span>
+                        if (!search) {
+                            return true;
+                        }
 
-                                                                    <span className="truncate">
-                                                                        {
-                                                                            country.name
-                                                                        }
-                                                                    </span>
-                                                                </span>
+                        return (
+                            country.name
+                                ?.toLowerCase()
+                                .includes(search) ||
+                            country.countryCode
+                                ?.toLowerCase()
+                                .includes(search) ||
+                            String(
+                                country.mobileCode || ""
+                            ).includes(search)
+                        );
+                    }).length > 0 ? (
+                        countries
+                            .filter((country) => {
+                                const search =
+                                    phoneCountrySearch
+                                        .trim()
+                                        .toLowerCase()
+                                        .replace("+", "");
 
-                                                                <span className="shrink-0 font-medium">
-                                                                    +
-                                                                    {
-                                                                        country.phonecode
-                                                                    }
-                                                                </span>
-                                                            </button>
-                                                        )
-                                                    )
-                                                ) : (
-                                                    <div className="px-4 py-5 text-center text-sm text-slate-400">
-                                                        No country found
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                if (!search) {
+                                    return true;
+                                }
 
-                                <input
-                                    type="tel"
-                                    value={
+                                return (
+                                    country.name
+                                        ?.toLowerCase()
+                                        .includes(search) ||
+                                    country.countryCode
+                                        ?.toLowerCase()
+                                        .includes(search) ||
+                                    String(
+                                        country.mobileCode || ""
+                                    ).includes(search)
+                                );
+                            })
+                            .map((country) => (
+                                <button
+                                    key={country.id}
+                                    type="button"
+                                    onClick={() =>
+                                        handlePhoneCountryChange(
+                                            country.countryCode
+                                        )
+                                    }
+                                    className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm ${
+                                        formData.phone_country ===
+                                        country.countryCode
+                                            ? "bg-blue-50 text-blue-700"
+                                            : "text-slate-700 hover:bg-slate-50"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-2 min-w-0">
+                                        <span className="truncate">
+                                            {country.name}
+                                        </span>
+                                    </span>
+
+                                    <span className="shrink-0 font-medium text-slate-500">
+                                        +{country.mobileCode}
+                                    </span>
+                                </button>
+                            ))
+                    ) : (
+                        <div className="px-4 py-5 text-center text-sm text-slate-400">
+                            No country found
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
+    </div>
+
+    {/* Phone Number */}
+    <input
+        type="tel"
+        value={formData.phone}
+        onChange={handlePhoneChange}
+        required
+        placeholder={
+            selectedPhoneCountry
+                ? `Enter ${selectedPhoneCountry.name} number`
+                : "Enter phone number"
+        }
+        className="w-full border border-slate-300 rounded-r-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+    />
+</div>
+
+                            {formData.phone && (
+                                <p className="text-xs text-slate-500">
+                                    {countryPhoneCode}{" "}
+                                    {
                                         formData.phone
                                     }
-                                    onChange={
-                                        handlePhoneChange
-                                    }
-                                    required
-                                    placeholder={
-                                        selectedCountry
-                                            ? `Enter ${selectedCountry.name} number`
-                                            : "Enter phone number"
-                                    }
-                                    className="w-full border border-slate-300 rounded-r-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                            </div>
-
-                            {formData.country &&
-                                formData.phone && (
-                                    <p className="text-xs text-slate-500">
-                                        {countryPhoneCode}{" "}
-                                        {
-                                            formData.phone
-                                        }
-                                    </p>
-                                )}
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-700">
-                                Company Address{" "}
-                                <span className="text-red-500">
-                                    *
-                                </span>
-                            </label>
-
-                            <input
-                                type="text"
-                                name="company_address"
-                                value={
-                                    formData.company_address
-                                }
-                                onChange={
-                                    handleChange
-                                }
-                                required
-                                placeholder="Street, Building, Area"
-                                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-1.5">
@@ -2371,25 +2340,19 @@ export default function Page() {
                                     type="button"
                                     onClick={() =>
                                         setShowPassword(
-                                            (
-                                                prev
-                                            ) =>
+                                            (prev) =>
                                                 !prev
                                         )
                                     }
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                                 >
                                     {showPassword ? (
                                         <RiEyeOffLine
-                                            size={
-                                                20
-                                            }
+                                            size={20}
                                         />
                                     ) : (
                                         <RiEyeLine
-                                            size={
-                                                20
-                                            }
+                                            size={20}
                                         />
                                     )}
                                 </button>
@@ -2435,29 +2398,46 @@ export default function Page() {
                                     type="button"
                                     onClick={() =>
                                         setShowConfirmPassword(
-                                            (
-                                                prev
-                                            ) =>
+                                            (prev) =>
                                                 !prev
                                         )
                                     }
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                                 >
                                     {showConfirmPassword ? (
                                         <RiEyeOffLine
-                                            size={
-                                                20
-                                            }
+                                            size={20}
                                         />
                                     ) : (
                                         <RiEyeLine
-                                            size={
-                                                20
-                                            }
+                                            size={20}
                                         />
                                     )}
                                 </button>
                             </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-slate-700">
+                                Company Address{" "}
+                                <span className="text-red-500">
+                                    *
+                                </span>
+                            </label>
+
+                            <input
+                                type="text"
+                                name="company_address"
+                                value={
+                                    formData.company_address
+                                }
+                                onChange={
+                                    handleChange
+                                }
+                                required
+                                placeholder="Street, Building, Area"
+                                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
                         </div>
 
                         <div className="space-y-1.5">
@@ -2478,32 +2458,32 @@ export default function Page() {
                                         handleChange
                                     }
                                     required
-                                    className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer"
+                                    disabled={
+                                        countryLoading
+                                    }
+                                    className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer disabled:bg-slate-50"
                                 >
                                     <option value="">
-                                        Select Country
+                                        {countryLoading
+                                            ? "Loading countries..."
+                                            : "Select Country"}
                                     </option>
 
                                     {countries.map(
-                                        (
-                                            country
-                                        ) => (
+                                        (country) => (
                                             <option
                                                 key={
-                                                    country.isoCode
+                                                    country.id
                                                 }
                                                 value={
-                                                    country.isoCode
+                                                    country.id
                                                 }
                                             >
                                                 {
-                                                    country.flag
-                                                }{" "}
-                                                {
                                                     country.name
-                                                }{" "}
-                                                {country.phonecode
-                                                    ? `(+${country.phonecode})`
+                                                }
+                                                {country.mobileCode
+                                                    ? ` (+${country.mobileCode})`
                                                     : ""}
                                             </option>
                                         )
@@ -2511,9 +2491,7 @@ export default function Page() {
                                 </select>
 
                                 <RiArrowDownSLine
-                                    size={
-                                        22
-                                    }
+                                    size={22}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                 />
                             </div>
@@ -2521,10 +2499,7 @@ export default function Page() {
 
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
-                                State{" "}
-                                <span className="text-red-500">
-                                    *
-                                </span>
+                                State
                             </label>
 
                             <div className="relative">
@@ -2536,26 +2511,26 @@ export default function Page() {
                                     onChange={
                                         handleChange
                                     }
-                                    required
                                     disabled={
-                                        !formData.country
+                                        !formData.country ||
+                                        stateLoading
                                     }
                                     className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer disabled:bg-slate-50"
                                 >
                                     <option value="">
-                                        Select State
+                                        {stateLoading
+                                            ? "Loading states..."
+                                            : "Select State"}
                                     </option>
 
                                     {states.map(
-                                        (
-                                            state
-                                        ) => (
+                                        (state) => (
                                             <option
                                                 key={
-                                                    state.isoCode
+                                                    state.id
                                                 }
                                                 value={
-                                                    state.isoCode
+                                                    state.id
                                                 }
                                             >
                                                 {
@@ -2567,9 +2542,7 @@ export default function Page() {
                                 </select>
 
                                 <RiArrowDownSLine
-                                    size={
-                                        22
-                                    }
+                                    size={22}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                 />
                             </div>
@@ -2577,10 +2550,7 @@ export default function Page() {
 
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
-                                City{" "}
-                                <span className="text-red-500">
-                                    *
-                                </span>
+                                City
                             </label>
 
                             <div className="relative">
@@ -2592,26 +2562,26 @@ export default function Page() {
                                     onChange={
                                         handleChange
                                     }
-                                    required
                                     disabled={
-                                        !formData.state
+                                        !formData.state ||
+                                        cityLoading
                                     }
                                     className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer disabled:bg-slate-50"
                                 >
                                     <option value="">
-                                        Select City
+                                        {cityLoading
+                                            ? "Loading cities..."
+                                            : "Select City"}
                                     </option>
 
                                     {cities.map(
-                                        (
-                                            city
-                                        ) => (
+                                        (city) => (
                                             <option
                                                 key={
-                                                    city.name
+                                                    city.id
                                                 }
                                                 value={
-                                                    city.name
+                                                    city.id
                                                 }
                                             >
                                                 {
@@ -2623,72 +2593,71 @@ export default function Page() {
                                 </select>
 
                                 <RiArrowDownSLine
-                                    size={
-                                        22
-                                    }
+                                    size={22}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                 />
                             </div>
                         </div>
 
-                         {Number(formData.role_id) ===
-                    9 && (
-                    <div className="mt-0 space-y-1.5 max-w-md">
-                        <label className="text-sm font-medium text-slate-700">
-                           Assigned Role
-                            <span className="text-red-500">
-                                *
-                            </span>
-                        </label>
+                        {Number(
+                            formData.role_id
+                        ) === 9 && (
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-slate-700">
+                                    Assigned Role{" "}
+                                    <span className="text-red-500">
+                                        *
+                                    </span>
+                                </label>
 
-                        <div className="relative">
-                            <select
-                                name="profile_id"
-                                value={
-                                    formData.profile_id
-                                }
-                                onChange={
-                                    handleChange
-                                }
-                                required
-                                disabled={
-                                    profileLoading
-                                }
-                                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer disabled:bg-slate-50 disabled:cursor-not-allowed"
-                            >
-                                <option value="">
-                                    {profileLoading
-                                        ? "Loading profiles..."
-                                        : "Select Role"}
-                                </option>
-
-                                {profiles.map(
-                                    (
-                                        profile
-                                    ) => (
-                                        <option
-                                            key={
-                                                profile.id
-                                            }
-                                            value={
-                                                profile.id
-                                            }
-                                        >
-                                            {
-                                                profile.name
-                                            }
+                                <div className="relative">
+                                    <select
+                                        name="profile_id"
+                                        value={
+                                            formData.profile_id
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        required
+                                        disabled={
+                                            profileLoading
+                                        }
+                                        className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer disabled:bg-slate-50"
+                                    >
+                                        <option value="">
+                                            {profileLoading
+                                                ? "Loading profiles..."
+                                                : "Select Role"}
                                         </option>
-                                    )
-                                )}
-                            </select>
 
-                            <RiArrowDownSLine
-                                size={22}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-                            />
-                        </div>
-                    </div>
-                )}
+                                        {profiles.map(
+                                            (
+                                                profile
+                                            ) => (
+                                                <option
+                                                    key={
+                                                        profile.id
+                                                    }
+                                                    value={
+                                                        profile.id
+                                                    }
+                                                >
+                                                    {
+                                                        profile.name
+                                                    }
+                                                </option>
+                                            )
+                                        )}
+                                    </select>
+
+                                    <RiArrowDownSLine
+                                        size={22}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         {Number(
                             formData.role_id
@@ -2699,39 +2668,8 @@ export default function Page() {
                                 </h3>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                    {[
-                                        {
-                                            label: "New Device",
-                                            name: "new_device",
-                                        },
-                                        {
-                                            label: "Old Device",
-                                            name: "old_device",
-                                        },
-                                        {
-                                            label: "Supreme Device",
-                                            name: "supreme_device",
-                                        },
-                                        {
-                                            label: "Pro Star",
-                                            name: "pro_star",
-                                        },
-                                        {
-                                            label: "Lite",
-                                            name: "lite",
-                                        },
-                                        {
-                                            label: "Google TV",
-                                            name: "google_tv",
-                                        },
-                                        {
-                                            label: "Supreme Lock",
-                                            name: "supreme_lock",
-                                        },
-                                    ].map(
-                                        (
-                                            item
-                                        ) => (
+                                    {devicePermissions.map(
+                                        (item) => (
                                             <label
                                                 key={
                                                     item.name
@@ -2796,7 +2734,7 @@ export default function Page() {
                                     !hasChanges
                                 )
                             }
-                            className="bg-blue-500 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:bg-blue-600 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-500"
+                            className="bg-blue-500 text-white font-medium px-8 py-3 rounded-lg shadow-md hover:bg-blue-600 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {submitLoading
                                 ? isEditMode
@@ -2808,7 +2746,6 @@ export default function Page() {
                         </button>
                     </div>
                 </form>
-                
             </div>
         </div>
     );
