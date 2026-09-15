@@ -188,14 +188,10 @@ export const loginAsUser = async (
 
 // GET MODULES
 
+
 export const getModules = async () => {
-
   try {
-
-    const response =
-      await api.get(
-        "/modules"
-      );
+    const response = await api.get("/modules");
 
     console.log(
       "GET MODULES RESPONSE:",
@@ -203,20 +199,16 @@ export const getModules = async () => {
     );
 
     return response.data;
-
   } catch (error) {
-
     console.error(
       "GET MODULES ERROR:",
-      error?.response?.data ||
-      error
+      error?.response?.data || error
     );
 
     throw error;
-
   }
-
 };
+
 
 
 // UPDATE MODULE
@@ -311,6 +303,136 @@ export const updateSubModule = async ({ id, status }) => {
 };
 
 
+//get role data
+export const getRoles = async () => {
+  try {
+    const response = await api.get("/roles");
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "GET ROLES API ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
 
 
+//   GET PROFILES
+export const getProfiles = async () => {
+  try {
+    const response = await api.get("/profiles");
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "GET PROFILES API ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+
+// POST Profile 
+export const createProfile = async (payload) => {
+  const response = await api.post("/profiles", payload);
+  return response.data;
+};
+
+
+//update profile
+export const updateProfile = async (id, payload) => {
+  const response = await api.put(`/profiles/${id}`, payload);
+  return response.data;
+};
+
+
+export const deleteRole = async (
+  roleId
+) => {
+  const response = await api.delete(
+    `/roles/${roleId}`
+  );
+
+  return response.data;
+};
+
+//post rolePremission
+export const saveRolePermissions = async (payload) => {
+  try {
+    const response = await api.post(
+      "/role-permissions",
+      payload
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "SAVE ROLE PERMISSIONS API ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+
+//get role and permission
+export const getRolePermissions = async (profileId) => {
+  try {
+    const response = await api.get(
+      `/role-permissions/${profileId}`
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "GET ROLE PERMISSIONS API ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+
+
+//country ,state, city
+
+const MASTER_DATA_URL =
+    "https://untracked-denyse-riftless.ngrok-free.dev";
+
+const masterDataRequest = async (url) => {
+    const response = await fetch(url, {
+        method: "GET",
+        headers: {
+            Accept: "application/json",
+            "ngrok-skip-browser-warning": "true",
+        },
+        cache: "no-store",
+    });
+
+    const text = await response.text();
+
+    let data = {};
+
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch {
+        throw new Error(
+            "Invalid response from master data API"
+        );
+    }
+
+    if (!response.ok) {
+        throw new Error(
+            data?.message ||
+                data?.error ||
+                `Request failed with status ${response.status}`
+        );
+    }
+
+    return data;
+};
 
