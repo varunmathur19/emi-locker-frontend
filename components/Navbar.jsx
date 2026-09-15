@@ -3,15 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import {
-  RiUserLine,
-  RiMenuLine,
-} from "react-icons/ri";
+import { RiUserLine, RiMenuLine } from "react-icons/ri";
 
-import {
-  getRoleId,
-  getUserFromToken,
-} from "@/utils/token";
+import { getRoleId } from "@/utils/token";
 
 export default function Navbar({
   sidebarOpen,
@@ -19,21 +13,23 @@ export default function Navbar({
 }) {
   const router = useRouter();
 
-  // IMPORTANT:
-  // Initial render par null rahega.
-  // Isse server aur client ka first HTML same rahega.
   const [user, setUser] = useState(null);
   const [roleId, setRoleId] = useState(null);
 
   useEffect(() => {
-    // Browser me component mount hone ke baad
-    // localStorage/token se user data lena
-    const loggedInUser = getUserFromToken();
+    // localStorage se logged-in user lena
+    const storedUser = localStorage.getItem("user");
 
-    if (loggedInUser) {
-      setUser(loggedInUser);
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error("Invalid user data:", error);
+      }
     }
 
+    // Token se role ID lena
     const currentRoleId = getRoleId();
 
     if (currentRoleId !== null && currentRoleId !== undefined) {
@@ -58,8 +54,9 @@ export default function Navbar({
     4: "Distributor",
     5: "FOS",
     6: "Retailer",
-    7: "Employee",
-    8: "Staff",
+    7: "Sub Retailer",
+    8: "Employee",
+    9: "Staff",
   };
 
   const roleName = roleNames[roleId] || "User";
@@ -70,12 +67,8 @@ export default function Navbar({
         sidebarOpen ? "left-64" : "left-0"
       }`}
     >
-      {/* ================================================= */}
       {/* LEFT SIDE */}
-      {/* ================================================= */}
-
       <div className="flex items-center md:gap-4 gap-1">
-        {/* Sidebar Toggle */}
         <button
           type="button"
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -84,7 +77,6 @@ export default function Navbar({
           <RiMenuLine />
         </button>
 
-        {/* Logo */}
         <div>
           <h1 className="md:text-2xl font-bold text-blue-500 text-[20px]">
             EMI LOCKER
@@ -92,10 +84,7 @@ export default function Navbar({
         </div>
       </div>
 
-      {/* ================================================= */}
       {/* RIGHT SIDE */}
-      {/* ================================================= */}
-
       <div className="flex items-center gap-5">
         <div className="flex items-center md:gap-2 gap-1">
           <RiUserLine size={22} />

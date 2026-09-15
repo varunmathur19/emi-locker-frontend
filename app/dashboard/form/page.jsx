@@ -2063,64 +2063,7 @@ export default function Page() {
                         </div>
                     )}
 
-                {Number(formData.role_id) ===
-                    9 && (
-                    <div className="mt-5 space-y-1.5 max-w-md">
-                        <label className="text-sm font-medium text-slate-700">
-                            Profile{" "}
-                            <span className="text-red-500">
-                                *
-                            </span>
-                        </label>
-
-                        <div className="relative">
-                            <select
-                                name="profile_id"
-                                value={
-                                    formData.profile_id
-                                }
-                                onChange={
-                                    handleChange
-                                }
-                                required
-                                disabled={
-                                    profileLoading
-                                }
-                                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer disabled:bg-slate-50 disabled:cursor-not-allowed"
-                            >
-                                <option value="">
-                                    {profileLoading
-                                        ? "Loading profiles..."
-                                        : "Select Profile"}
-                                </option>
-
-                                {profiles.map(
-                                    (
-                                        profile
-                                    ) => (
-                                        <option
-                                            key={
-                                                profile.id
-                                            }
-                                            value={
-                                                profile.id
-                                            }
-                                        >
-                                            {
-                                                profile.name
-                                            }
-                                        </option>
-                                    )
-                                )}
-                            </select>
-
-                            <RiArrowDownSLine
-                                size={22}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-                            />
-                        </div>
-                    </div>
-                )}
+               
 
                 <form
                     onSubmit={
@@ -2688,6 +2631,65 @@ export default function Page() {
                             </div>
                         </div>
 
+                         {Number(formData.role_id) ===
+                    9 && (
+                    <div className="mt-0 space-y-1.5 max-w-md">
+                        <label className="text-sm font-medium text-slate-700">
+                           Assigned Role
+                            <span className="text-red-500">
+                                *
+                            </span>
+                        </label>
+
+                        <div className="relative">
+                            <select
+                                name="profile_id"
+                                value={
+                                    formData.profile_id
+                                }
+                                onChange={
+                                    handleChange
+                                }
+                                required
+                                disabled={
+                                    profileLoading
+                                }
+                                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer disabled:bg-slate-50 disabled:cursor-not-allowed"
+                            >
+                                <option value="">
+                                    {profileLoading
+                                        ? "Loading profiles..."
+                                        : "Select Role"}
+                                </option>
+
+                                {profiles.map(
+                                    (
+                                        profile
+                                    ) => (
+                                        <option
+                                            key={
+                                                profile.id
+                                            }
+                                            value={
+                                                profile.id
+                                            }
+                                        >
+                                            {
+                                                profile.name
+                                            }
+                                        </option>
+                                    )
+                                )}
+                            </select>
+
+                            <RiArrowDownSLine
+                                size={22}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+                            />
+                        </div>
+                    </div>
+                )}
+
                         {Number(
                             formData.role_id
                         ) === 6 && (
@@ -2806,6 +2808,7 @@ export default function Page() {
                         </button>
                     </div>
                 </form>
+                
             </div>
         </div>
     );

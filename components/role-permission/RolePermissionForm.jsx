@@ -643,7 +643,7 @@ export default function RolePermissionForm() {
               </h1>
 
               <p className="mt-1 text-sm text-slate-500">
-                Manage permissions according to profile
+                Manage permissions according to role
               </p>
             </div>
 
@@ -657,7 +657,7 @@ export default function RolePermissionForm() {
           <div className="mb-6 w-full max-w-sm">
 
             <label className="mb-2 block text-sm font-semibold text-slate-700">
-              Select Profile
+              Select Role
             </label>
 
             <div className="relative">
@@ -782,7 +782,7 @@ export default function RolePermissionForm() {
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Configure role permissions for this profile
+                    Configure role permissions for this role
                   </p>
                 </div>
 
