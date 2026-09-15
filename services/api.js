@@ -436,21 +436,3 @@ const masterDataRequest = async (url) => {
     return data;
 };
 
-export const getCountries = () =>
-    masterDataRequest(
-        `${MASTER_DATA_URL}/master-data/countries`
-    );
-
-export const getStates = (countryId) =>
-    masterDataRequest(
-        `${MASTER_DATA_URL}/master-data/states?countryId=${encodeURIComponent(
-            countryId
-        )}`
-    );
-
-export const getCities = (stateId) =>
-    masterDataRequest(
-        `${MASTER_DATA_URL}/master-data/cities?stateId=${encodeURIComponent(
-            stateId
-        )}`
-    );

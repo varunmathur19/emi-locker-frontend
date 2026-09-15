@@ -1,18 +1,20 @@
-
 "use client";
 
 import {
     addStaff,
-    getCities,
-    getCountries,
     getDropdownUsers,
     getProfiles,
     getStaffDataById,
-    getStates,
     updateStaffData,
 } from "@/services/api";
 
 import { getUserFromToken } from "@/utils/token";
+
+import {
+    Country,
+    State,
+    City,
+} from "country-state-city";
 
 import {
     RiArrowDownSLine,
@@ -21,9 +23,20 @@ import {
 } from "react-icons/ri";
 
 import Link from "next/link";
-import { parsePhoneNumberFromString } from "libphonenumber-js";
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import {
+    parsePhoneNumberFromString,
+} from "libphonenumber-js";
+
+import {
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+
+import {
+    useSearchParams,
+} from "next/navigation";
+
 import { toast } from "react-toastify";
 
 const initialFormData = {
@@ -75,13 +88,34 @@ const parentRoles = {
 };
 
 const devicePermissions = [
-    { label: "New Device", name: "new_device" },
-    { label: "Old Device", name: "old_device" },
-    { label: "Supreme Device", name: "supreme_device" },
-    { label: "Pro Star", name: "pro_star" },
-    { label: "Lite", name: "lite" },
-    { label: "Google TV", name: "google_tv" },
-    { label: "Supreme Lock", name: "supreme_lock" },
+    {
+        label: "New Device",
+        name: "new_device",
+    },
+    {
+        label: "Old Device",
+        name: "old_device",
+    },
+    {
+        label: "Supreme Device",
+        name: "supreme_device",
+    },
+    {
+        label: "Pro Star",
+        name: "pro_star",
+    },
+    {
+        label: "Lite",
+        name: "lite",
+    },
+    {
+        label: "Google TV",
+        name: "google_tv",
+    },
+    {
+        label: "Supreme Lock",
+        name: "supreme_lock",
+    },
 ];
 
 const isEqual = (a, b) => {
@@ -92,7 +126,10 @@ const isEqual = (a, b) => {
     }
 };
 
-const getArrayFromResponse = (response, key) => {
+const getArrayFromResponse = (
+    response,
+    key
+) => {
     if (Array.isArray(response)) {
         return response;
     }
@@ -106,16 +143,30 @@ const getArrayFromResponse = (response, key) => {
         response?.result,
     ];
 
-    return values.find(Array.isArray) || [];
+    return (
+        values.find(Array.isArray) || []
+    );
 };
 
-const getProfilesFromResponse = (response) =>
-    getArrayFromResponse(response, "profiles");
+const getProfilesFromResponse = (
+    response
+) =>
+    getArrayFromResponse(
+        response,
+        "profiles"
+    );
 
-const getUsersFromResponse = (response) =>
-    getArrayFromResponse(response, "users");
+const getUsersFromResponse = (
+    response
+) =>
+    getArrayFromResponse(
+        response,
+        "users"
+    );
 
-const getSingleUserFromResponse = (response) => {
+const getSingleUserFromResponse = (
+    response
+) => {
     const values = [
         response?.data?.data,
         response?.data?.user,
@@ -130,270 +181,290 @@ const getSingleUserFromResponse = (response) => {
                 item &&
                 typeof item === "object" &&
                 !Array.isArray(item) &&
-                (item.id ||
+                (
+                    item.id ||
                     item.user_id ||
                     item.name ||
-                    item.email)
+                    item.email
+                )
         ) || null
     );
 };
 
-const normalizeCountries = (response) =>
-    getArrayFromResponse(response, "countries")
-        .filter(
-            (item) =>
-                Number(item?.is_active ?? 1) === 1
-        )
-        .map((item) => ({
-            id: Number(
-                item?.country_id ??
-                    item?.countryId ??
-                    item?.id
-            ),
-            name:
-                item?.country_name ??
-                item?.countryName ??
-                item?.name ??
-                "",
-            mobileCode: String(
-                item?.mobile_code ??
-                    item?.mobileCode ??
-                    item?.phone_code ??
-                    item?.phoneCode ??
-                    ""
-            ).replace("+", ""),
-            countryCode:
-                item?.countryCode ??
-                item?.country_code ??
-                item?.isoCode ??
-                item?.iso_code ??
-                "",
-        }))
-        .filter(
-            (item) =>
-                item.id &&
-                item.name
-        );
-
-const normalizeStates = (response) =>
-    getArrayFromResponse(response, "states")
-        .map((item) => ({
-            id: Number(
-                item?.stateId ??
-                    item?.state_id ??
-                    item?.id
-            ),
-            name:
-                item?.stateName ??
-                item?.state_name ??
-                item?.name ??
-                "",
-            countryId: Number(
-                item?.countryId ??
-                    item?.country_id
-            ),
-        }))
-        .filter(
-            (item) =>
-                item.id &&
-                item.name
-        );
-
-const normalizeCities = (response) =>
-    getArrayFromResponse(response, "cities")
-        .map((item) => ({
-            id: Number(
-                item?.cityId ??
-                    item?.city_id ??
-                    item?.id
-            ),
-            name:
-                item?.cityName ??
-                item?.city_name ??
-                item?.name ??
-                "",
-            stateId: Number(
-                item?.stateId ??
-                    item?.state_id
-            ),
-        }))
-        .filter(
-            (item) =>
-                item.id &&
-                item.name
-        );
-
 export default function Page() {
-    const searchParams = useSearchParams();
+    const searchParams =
+        useSearchParams();
 
-    const editId = searchParams.get("id");
-    const isEditMode = Boolean(editId);
+    const editId =
+        searchParams.get("id");
 
-    const selectedRoleFromUrl = Number(
-        searchParams.get("role_id")
-    );
+    const isEditMode =
+        Boolean(editId);
 
-    const loggedInUser = getUserFromToken();
-    const loggedInRoleId = Number(
-        loggedInUser?.role_id
-    );
-    const loggedInUserId = Number(
-        loggedInUser?.id
-    );
+    const selectedRoleFromUrl =
+        Number(
+            searchParams.get("role_id")
+        );
 
-    const [formData, setFormData] = useState(
-        initialFormData
-    );
+    const loggedInUser =
+        getUserFromToken();
 
-    const [originalFormData, setOriginalFormData] =
-        useState(null);
+    const loggedInRoleId =
+        Number(
+            loggedInUser?.role_id
+        );
 
-    const [profiles, setProfiles] = useState([]);
-    const [profileLoading, setProfileLoading] =
-        useState(false);
+    const loggedInUserId =
+        Number(
+            loggedInUser?.id
+        );
 
-    const [countries, setCountries] = useState([]);
-    const [states, setStates] = useState([]);
-    const [cities, setCities] = useState([]);
+    const [formData, setFormData] =
+        useState(initialFormData);
 
-    const [countryLoading, setCountryLoading] =
-        useState(false);
-    const [stateLoading, setStateLoading] =
-        useState(false);
-    const [cityLoading, setCityLoading] =
-        useState(false);
+    const [
+        originalFormData,
+        setOriginalFormData,
+    ] = useState(null);
 
-    const [parentUsers, setParentUsers] = useState({});
-    const [selectedParents, setSelectedParents] =
-        useState({});
+    const [
+        profiles,
+        setProfiles,
+    ] = useState([]);
+
+    const [
+        profileLoading,
+        setProfileLoading,
+    ] = useState(false);
+
+    const [
+        countries,
+        setCountries,
+    ] = useState([]);
+
+    const [
+        states,
+        setStates,
+    ] = useState([]);
+
+    const [
+        cities,
+        setCities,
+    ] = useState([]);
+
+    const [
+        countryLoading,
+        setCountryLoading,
+    ] = useState(false);
+
+    const [
+        stateLoading,
+        setStateLoading,
+    ] = useState(false);
+
+    const [
+        cityLoading,
+        setCityLoading,
+    ] = useState(false);
+
+    const [
+        parentUsers,
+        setParentUsers,
+    ] = useState({});
+
+    const [
+        selectedParents,
+        setSelectedParents,
+    ] = useState({});
+
     const [
         originalSelectedParents,
         setOriginalSelectedParents,
     ] = useState({});
 
-    const [openDropdown, setOpenDropdown] =
-        useState(null);
-    const [parentSearch, setParentSearch] =
-        useState({});
-    const [searchLoading, setSearchLoading] =
-        useState({});
+    const [
+        openDropdown,
+        setOpenDropdown,
+    ] = useState(null);
 
-    const [phoneCountryOpen, setPhoneCountryOpen] =
-        useState(false);
-    const [phoneCountrySearch, setPhoneCountrySearch] =
-        useState("");
+    const [
+        parentSearch,
+        setParentSearch,
+    ] = useState({});
 
-    const [showPassword, setShowPassword] =
-        useState(false);
+    const [
+        searchLoading,
+        setSearchLoading,
+    ] = useState({});
+
+    const [
+        phoneCountryOpen,
+        setPhoneCountryOpen,
+    ] = useState(false);
+
+    const [
+        phoneCountrySearch,
+        setPhoneCountrySearch,
+    ] = useState("");
+
+    const [
+        showPassword,
+        setShowPassword,
+    ] = useState(false);
+
     const [
         showConfirmPassword,
         setShowConfirmPassword,
     ] = useState(false);
 
-    const [editLoading, setEditLoading] =
-        useState(false);
-    const [editUserLoaded, setEditUserLoaded] =
-        useState(false);
-    const [submitLoading, setSubmitLoading] =
-        useState(false);
+    const [
+        editLoading,
+        setEditLoading,
+    ] = useState(false);
+
+    const [
+        editUserLoaded,
+        setEditUserLoaded,
+    ] = useState(false);
+
+    const [
+        submitLoading,
+        setSubmitLoading,
+    ] = useState(false);
+
+    // 🔑 FIX: prevent hydration mismatch
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const selectedRole =
         Number(formData.role_id) ||
         selectedRoleFromUrl;
 
     const getRoleName = (roleId) =>
-        roleNames[Number(roleId)] || "User";
+        roleNames[
+            Number(roleId)
+        ] || "User";
 
-   
+    const selectedCountry =
+        useMemo(() => {
+            return countries.find(
+                (country) =>
+                    country.isoCode ===
+                    formData.phone_country
+            );
+        }, [
+            countries,
+            formData.phone_country,
+        ]);
 
- const selectedPhoneCountry = useMemo(() => {
-    return countries.find(
-        (country) =>
-            country.countryCode === formData.phone_country
-    );
-}, [countries, formData.phone_country]);
-   const countryPhoneCode =
-    selectedPhoneCountry?.mobileCode
-        ? `+${selectedPhoneCountry.mobileCode}`
-        : "";
+    const selectedPhoneCountry =
+        selectedCountry;
 
-    const visibleParentRoles = useMemo(() => {
-        return (
-            parentRoles[selectedRole] || []
-        ).filter((roleId) => {
-            const role = Number(roleId);
+    const countryPhoneCode =
+        selectedPhoneCountry?.phonecode
+            ? `+${String(
+                  selectedPhoneCountry.phonecode
+              ).replace("+", "")}`
+            : "";
 
+    const visibleParentRoles =
+        useMemo(() => {
+            return (
+                parentRoles[
+                    selectedRole
+                ] || []
+            ).filter((roleId) => {
+                const role =
+                    Number(roleId);
+
+                if (
+                    role >=
+                    Number(selectedRole)
+                ) {
+                    return false;
+                }
+
+                if (
+                    loggedInRoleId === 0
+                ) {
+                    return true;
+                }
+
+                return (
+                    role >
+                        loggedInRoleId &&
+                    role <
+                        Number(selectedRole)
+                );
+            });
+        }, [
+            selectedRole,
+            loggedInRoleId,
+        ]);
+
+    const hasChanges =
+        useMemo(() => {
             if (
-                role >= Number(selectedRole)
+                !isEditMode ||
+                !originalFormData
             ) {
-                return false;
-            }
-
-            if (loggedInRoleId === 0) {
                 return true;
             }
 
+            const currentForm = {
+                ...formData,
+                password:
+                    formData.password ||
+                    "",
+                confirm_password:
+                    formData.confirm_password ||
+                    "",
+            };
+
+            const originalForm = {
+                ...originalFormData,
+                password: "",
+                confirm_password: "",
+            };
+
             return (
-                role > loggedInRoleId &&
-                role < Number(selectedRole)
+                !isEqual(
+                    currentForm,
+                    originalForm
+                ) ||
+                !isEqual(
+                    selectedParents,
+                    originalSelectedParents
+                ) ||
+                Boolean(
+                    formData.password
+                ) ||
+                Boolean(
+                    formData.confirm_password
+                )
             );
-        });
-    }, [
-        selectedRole,
-        loggedInRoleId,
-    ]);
-
-    const hasChanges = useMemo(() => {
-        if (
-            !isEditMode ||
-            !originalFormData
-        ) {
-            return true;
-        }
-
-        const currentForm = {
-            ...formData,
-            password: formData.password || "",
-            confirm_password:
-                formData.confirm_password || "",
-        };
-
-        const originalForm = {
-            ...originalFormData,
-            password: "",
-            confirm_password: "",
-        };
-
-        return (
-            !isEqual(
-                currentForm,
-                originalForm
-            ) ||
-            !isEqual(
-                selectedParents,
-                originalSelectedParents
-            ) ||
-            Boolean(formData.password) ||
-            Boolean(
-                formData.confirm_password
-            )
-        );
-    }, [
-        isEditMode,
-        formData,
-        originalFormData,
-        selectedParents,
-        originalSelectedParents,
-    ]);
+        }, [
+            isEditMode,
+            formData,
+            originalFormData,
+            selectedParents,
+            originalSelectedParents,
+        ]);
 
     const loadProfiles = async () => {
         try {
             setProfileLoading(true);
 
-            const response = await getProfiles();
+            const response =
+                await getProfiles();
 
             setProfiles(
-                getProfilesFromResponse(response)
+                getProfilesFromResponse(
+                    response
+                )
             );
         } catch (error) {
             console.error(
@@ -404,7 +475,8 @@ export default function Page() {
             setProfiles([]);
 
             toast.error(
-                error?.response?.data?.message ||
+                error?.response?.data
+                    ?.message ||
                     error?.message ||
                     "Failed to load profiles"
             );
@@ -417,13 +489,14 @@ export default function Page() {
         try {
             setCountryLoading(true);
 
-            const response =
-                await getCountries();
-
             const data =
-                normalizeCountries(response);
+                Country.getAllCountries();
 
-            setCountries(data);
+            setCountries(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
 
             return data;
         } catch (error) {
@@ -435,9 +508,7 @@ export default function Page() {
             setCountries([]);
 
             toast.error(
-                error?.response?.data?.message ||
-                    error?.message ||
-                    "Failed to load countries"
+                "Failed to load countries"
             );
 
             return [];
@@ -446,8 +517,10 @@ export default function Page() {
         }
     };
 
-    const loadStates = async (countryId) => {
-        if (!countryId) {
+    const loadStates = async (
+        countryCode
+    ) => {
+        if (!countryCode) {
             setStates([]);
             return [];
         }
@@ -455,13 +528,16 @@ export default function Page() {
         try {
             setStateLoading(true);
 
-            const response =
-                await getStates(countryId);
-
             const data =
-                normalizeStates(response);
+                State.getStatesOfCountry(
+                    countryCode
+                );
 
-            setStates(data);
+            setStates(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
 
             return data;
         } catch (error) {
@@ -478,8 +554,14 @@ export default function Page() {
         }
     };
 
-    const loadCities = async (stateId) => {
-        if (!stateId) {
+    const loadCities = async (
+        countryCode,
+        stateCode
+    ) => {
+        if (
+            !countryCode ||
+            !stateCode
+        ) {
             setCities([]);
             return [];
         }
@@ -487,13 +569,17 @@ export default function Page() {
         try {
             setCityLoading(true);
 
-            const response =
-                await getCities(stateId);
-
             const data =
-                normalizeCities(response);
+                City.getCitiesOfState(
+                    countryCode,
+                    stateCode
+                );
 
-            setCities(data);
+            setCities(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
 
             return data;
         } catch (error) {
@@ -516,13 +602,17 @@ export default function Page() {
     }, []);
 
     useEffect(() => {
-        if (!selectedRoleFromUrl || isEditMode) {
+        if (
+            !selectedRoleFromUrl ||
+            isEditMode
+        ) {
             return;
         }
 
         setFormData((prev) => ({
             ...prev,
-            role_id: selectedRoleFromUrl,
+            role_id:
+                selectedRoleFromUrl,
             parent_id: null,
         }));
 
@@ -540,8 +630,14 @@ export default function Page() {
         roleId
     ) => {
         const roleFields = {
-            1: ["parent_admin_id", "admin_id"],
-            2: ["parent_cnf_id", "cnf_id"],
+            1: [
+                "parent_admin_id",
+                "admin_id",
+            ],
+            2: [
+                "parent_cnf_id",
+                "cnf_id",
+            ],
             3: [
                 "parent_super_distributor_id",
                 "parent_superdistributor_id",
@@ -551,7 +647,10 @@ export default function Page() {
                 "parent_distributor_id",
                 "distributor_id",
             ],
-            5: ["parent_fos_id", "fos_id"],
+            5: [
+                "parent_fos_id",
+                "fos_id",
+            ],
             6: [
                 "parent_retailer_id",
                 "retailer_id",
@@ -572,10 +671,15 @@ export default function Page() {
         };
 
         const fields =
-            roleFields[Number(roleId)] || [];
+            roleFields[
+                Number(roleId)
+            ] || [];
 
-        for (const field of fields) {
-            const value = user?.[field];
+        for (
+            const field of fields
+        ) {
+            const value =
+                user?.[field];
 
             if (
                 value !== undefined &&
@@ -602,73 +706,102 @@ export default function Page() {
             user?.parent_users ??
             user?.parentUsers;
 
-        if (Array.isArray(possibleChain)) {
-            possibleChain.forEach((item) => {
-                const roleId = Number(
-                    item?.role_id ??
-                        item?.roleId ??
-                        item?.current_role_id
-                );
+        if (
+            Array.isArray(
+                possibleChain
+            )
+        ) {
+            possibleChain.forEach(
+                (item) => {
+                    const roleId =
+                        Number(
+                            item?.role_id ??
+                                item?.roleId ??
+                                item?.current_role_id
+                        );
 
-                const id = Number(
-                    item?.id ??
-                        item?.user_id ??
-                        item?.parent_id
-                );
+                    const id =
+                        Number(
+                            item?.id ??
+                                item?.user_id ??
+                                item?.parent_id
+                        );
 
-                if (roleId > 0 && id > 0) {
-                    result[roleId] = id;
+                    if (
+                        roleId > 0 &&
+                        id > 0
+                    ) {
+                        result[
+                            roleId
+                        ] = id;
+                    }
                 }
-            });
+            );
         }
 
         if (
             possibleChain &&
             typeof possibleChain ===
                 "object" &&
-            !Array.isArray(possibleChain)
+            !Array.isArray(
+                possibleChain
+            )
         ) {
             Object.entries(
                 possibleChain
-            ).forEach(([key, value]) => {
-                const roleId = Number(key);
+            ).forEach(
+                ([key, value]) => {
+                    const roleId =
+                        Number(key);
 
-                const id = Number(
-                    value?.id ??
-                        value?.user_id ??
-                        value?.parent_id ??
-                        value
-                );
-
-                if (roleId > 0 && id > 0) {
-                    result[roleId] = id;
-                }
-            });
-        }
-
-        Object.keys(roleNames).forEach(
-            (roleId) => {
-                const role = Number(roleId);
-
-                if (!result[role]) {
-                    const value =
-                        getParentValue(
-                            user,
-                            role
+                    const id =
+                        Number(
+                            value?.id ??
+                                value?.user_id ??
+                                value?.parent_id ??
+                                value
                         );
 
-                    if (value) {
-                        result[role] = value;
+                    if (
+                        roleId > 0 &&
+                        id > 0
+                    ) {
+                        result[
+                            roleId
+                        ] = id;
                     }
                 }
+            );
+        }
+
+        Object.keys(
+            roleNames
+        ).forEach((roleId) => {
+            const role =
+                Number(roleId);
+
+            if (!result[role]) {
+                const value =
+                    getParentValue(
+                        user,
+                        role
+                    );
+
+                if (value) {
+                    result[role] =
+                        value;
+                }
             }
-        );
+        });
 
         return result;
     };
 
     const loadEditUser = async () => {
-        if (!isEditMode || !editId) {
+        if (
+            !isEditMode ||
+            !editId
+        ) {
             return;
         }
 
@@ -677,7 +810,9 @@ export default function Page() {
             setEditUserLoaded(false);
 
             const response =
-                await getStaffDataById(editId);
+                await getStaffDataById(
+                    editId
+                );
 
             const user =
                 getSingleUserFromResponse(
@@ -691,37 +826,45 @@ export default function Page() {
                 return;
             }
 
-            const roleId = Number(
-                user?.role_id ??
-                    searchParams.get("role_id")
-            );
+            const roleId =
+                Number(
+                    user?.role_id ??
+                        searchParams.get(
+                            "role_id"
+                        )
+                );
 
-            const countryId =
-                user?.country_id ??
-                user?.countryId ??
-                user?.country ??
-                "";
+            const countryName =
+                String(
+                    user?.country ||
+                        ""
+                ).trim();
 
-            const stateId =
-                user?.state_id ??
-                user?.stateId ??
-                user?.state ??
-                "";
+            const stateName =
+                String(
+                    user?.state ||
+                        ""
+                ).trim();
 
-            const cityId =
-                user?.city_id ??
-                user?.cityId ??
-                user?.city ??
-                "";
+            const cityName =
+                String(
+                    user?.city ||
+                        ""
+                ).trim();
 
-            let phone = String(
-                user?.phone || ""
-            ).trim();
+            let phone =
+                String(
+                    user?.phone || ""
+                ).trim();
 
             let phoneCountry =
-                user?.phone_country ||
-                user?.phoneCountry ||
-                "";
+                String(
+                    user?.phone_country ||
+                        user?.phoneCountry ||
+                        ""
+                )
+                    .trim()
+                    .toUpperCase();
 
             const parsedPhone =
                 parsePhoneNumberFromString(
@@ -738,55 +881,80 @@ export default function Page() {
                     "";
             }
 
-            if (!phoneCountry) {
-                phoneCountry =
+            let selectedCountryData =
+                countries.find(
+                    (country) =>
+                        String(
+                            country.name
+                        )
+                            .trim()
+                            .toLowerCase() ===
+                        countryName
+                            .toLowerCase()
+                );
+
+            if (
+                !selectedCountryData &&
+                phoneCountry
+            ) {
+                selectedCountryData =
                     countries.find(
                         (country) =>
-                            Number(
-                                country.id
-                            ) ===
-                            Number(
-                                countryId
-                            )
-                    )?.countryCode || "";
+                            country.isoCode ===
+                            phoneCountry
+                    );
             }
 
             let loadedStates = [];
             let loadedCities = [];
 
-            if (countryId) {
+            if (
+                selectedCountryData?.isoCode
+            ) {
                 loadedStates =
                     await loadStates(
-                        countryId
+                        selectedCountryData.isoCode
                     );
             } else {
                 setStates([]);
             }
 
-            if (stateId) {
+            const selectedStateData =
+                loadedStates.find(
+                    (state) =>
+                        String(
+                            state.name
+                        )
+                            .trim()
+                            .toLowerCase() ===
+                        stateName
+                            .toLowerCase()
+                );
+
+            if (
+                selectedCountryData?.isoCode &&
+                selectedStateData?.isoCode
+            ) {
                 loadedCities =
                     await loadCities(
-                        stateId
+                        selectedCountryData.isoCode,
+                        selectedStateData.isoCode
                     );
             } else {
                 setCities([]);
             }
 
-            const validState = loadedStates.some(
-                (state) =>
-                    Number(state.id) ===
-                    Number(stateId)
-            )
-                ? stateId
-                : "";
-
-            const validCity = loadedCities.some(
-                (city) =>
-                    Number(city.id) ===
-                    Number(cityId)
-            )
-                ? cityId
-                : "";
+            const selectedCityData =
+                loadedCities.find(
+                    (city) =>
+                        String(
+                            city.name
+                        )
+                            .trim()
+                            .toLowerCase() ===
+                        cityName
+                            .toLowerCase()
+                );
 
             const editFormData = {
                 ...initialFormData,
@@ -801,20 +969,34 @@ export default function Page() {
                     user?.role_permission
                         ?.profile_id ??
                     "",
-                name: user?.name || "",
-                email: user?.email || "",
+                name:
+                    user?.name || "",
+                email:
+                    user?.email || "",
                 phone,
                 phone_country:
-                    phoneCountry,
+                    phoneCountry ||
+                    selectedCountryData
+                        ?.isoCode ||
+                    "",
                 company_address:
                     user?.company_address ||
                     "",
                 country:
-                    countryId || "",
+                    selectedCountryData
+                        ?.name ||
+                    countryName ||
+                    "",
                 state:
-                    validState || "",
+                    selectedStateData
+                        ?.name ||
+                    stateName ||
+                    "",
                 city:
-                    validCity || "",
+                    selectedCityData
+                        ?.name ||
+                    cityName ||
+                    "",
                 parent_id:
                     user?.parent_id
                         ? Number(
@@ -846,7 +1028,9 @@ export default function Page() {
                         ? 1
                         : 0,
                 lite:
-                    Number(user?.lite) === 1
+                    Number(
+                        user?.lite
+                    ) === 1
                         ? 1
                         : 0,
                 google_tv:
@@ -863,7 +1047,9 @@ export default function Page() {
                         : 0,
             };
 
-            setFormData(editFormData);
+            setFormData(
+                editFormData
+            );
 
             const parentChain =
                 getParentChainFromUser(
@@ -909,7 +1095,8 @@ export default function Page() {
             );
 
             toast.error(
-                error?.response?.data?.message ||
+                error?.response?.data
+                    ?.message ||
                     error?.message ||
                     "Failed to load user data"
             );
@@ -919,8 +1106,17 @@ export default function Page() {
     };
 
     useEffect(() => {
-        loadEditUser();
-    }, [editId, isEditMode]);
+        if (
+            countries.length > 0 &&
+            isEditMode
+        ) {
+            loadEditUser();
+        }
+    }, [
+        countries.length,
+        editId,
+        isEditMode,
+    ]);
 
     useEffect(() => {
         if (
@@ -948,183 +1144,208 @@ export default function Page() {
 
         let cancelled = false;
 
-        const loadParents = async () => {
-            try {
-                const updatedUsers = {};
-                const updatedSelected = {
-                    ...selectedParents,
-                };
+        const loadParents =
+            async () => {
+                try {
+                    const updatedUsers =
+                        {};
 
-                for (
-                    let index = 0;
-                    index < parents.length;
-                    index++
-                ) {
-                    if (cancelled) {
-                        return;
-                    }
+                    const updatedSelected =
+                        {
+                            ...selectedParents,
+                        };
 
-                    const currentRole =
-                        Number(
-                            parents[index]
-                        );
-
-                    let parentId = null;
-
-                    if (index === 0) {
-                        if (
-                            currentRole ===
-                            loggedInRoleId
-                        ) {
-                            parentId =
-                                loggedInUserId;
+                    for (
+                        let index = 0;
+                        index <
+                        parents.length;
+                        index++
+                    ) {
+                        if (cancelled) {
+                            return;
                         }
-                    } else {
-                        const previousRole =
+
+                        const currentRole =
                             Number(
                                 parents[
-                                    index - 1
+                                    index
                                 ]
                             );
 
-                        parentId =
-                            updatedSelected[
-                                previousRole
-                            ]
-                                ? Number(
-                                      updatedSelected[
-                                          previousRole
-                                      ]
-                                  )
-                                : null;
-                    }
+                        let parentId =
+                            null;
 
-                    const response =
-                        await getDropdownUsers(
-                            currentRole,
-                            parentId
-                        );
-
-                    let users =
-                        getUsersFromResponse(
-                            response
-                        );
-
-                    if (
-                        currentRole === 5
-                    ) {
-                        users =
-                            users.filter(
-                                (user) =>
-                                    Number(
-                                        user?.role_id
-                                    ) === 5 &&
-                                    (
-                                        parentId ===
-                                            null ||
-                                        Number(
-                                            user?.parent_id
-                                        ) ===
-                                            Number(
-                                                parentId
-                                            )
-                                    )
-                            );
-                    }
-
-                    const selectedId =
-                        updatedSelected[
-                            currentRole
-                        ];
-
-                    if (
-                        selectedId &&
-                        !users.some(
-                            (user) =>
+                        if (
+                            index === 0
+                        ) {
+                            if (
+                                currentRole ===
+                                loggedInRoleId
+                            ) {
+                                parentId =
+                                    loggedInUserId;
+                            }
+                        } else {
+                            const previousRole =
                                 Number(
-                                    user?.id
-                                ) ===
-                                Number(
-                                    selectedId
-                                )
-                        )
-                    ) {
-                        const responseById =
+                                    parents[
+                                        index -
+                                            1
+                                    ]
+                                );
+
+                            parentId =
+                                updatedSelected[
+                                    previousRole
+                                ]
+                                    ? Number(
+                                          updatedSelected[
+                                              previousRole
+                                          ]
+                                      )
+                                    : null;
+                        }
+
+                        const response =
                             await getDropdownUsers(
                                 currentRole,
-                                parentId,
-                                ""
+                                parentId
                             );
 
-                        const allUsers =
+                        let users =
                             getUsersFromResponse(
-                                responseById
+                                response
                             );
 
-                        const selectedUser =
-                            allUsers.find(
-                                (user) =>
+                        if (
+                            currentRole === 5
+                        ) {
+                            users =
+                                users.filter(
+                                    (
+                                        user
+                                    ) =>
+                                        Number(
+                                            user?.role_id
+                                        ) ===
+                                            5 &&
+                                        (
+                                            parentId ===
+                                                null ||
+                                            Number(
+                                                user?.parent_id
+                                            ) ===
+                                                Number(
+                                                    parentId
+                                                )
+                                        )
+                                );
+                        }
+
+                        const selectedId =
+                            updatedSelected[
+                                currentRole
+                            ];
+
+                        if (
+                            selectedId &&
+                            !users.some(
+                                (
+                                    user
+                                ) =>
                                     Number(
                                         user?.id
                                     ) ===
                                     Number(
                                         selectedId
                                     )
-                            );
+                            )
+                        ) {
+                            const responseById =
+                                await getDropdownUsers(
+                                    currentRole,
+                                    parentId,
+                                    ""
+                                );
 
-                        if (selectedUser) {
-                            users = [
-                                ...users,
-                                selectedUser,
-                            ];
+                            const allUsers =
+                                getUsersFromResponse(
+                                    responseById
+                                );
+
+                            const selectedUser =
+                                allUsers.find(
+                                    (
+                                        user
+                                    ) =>
+                                        Number(
+                                            user?.id
+                                        ) ===
+                                        Number(
+                                            selectedId
+                                        )
+                                );
+
+                            if (
+                                selectedUser
+                            ) {
+                                users = [
+                                    ...users,
+                                    selectedUser,
+                                ];
+                            }
                         }
+
+                        updatedUsers[
+                            currentRole
+                        ] = users;
                     }
 
-                    updatedUsers[
-                        currentRole
-                    ] = users;
-                }
+                    if (cancelled) {
+                        return;
+                    }
 
-                if (cancelled) {
-                    return;
-                }
-
-                setParentUsers(
-                    updatedUsers
-                );
-
-                setSelectedParents(
-                    updatedSelected
-                );
-
-                const lastRole =
-                    parents[
-                        parents.length - 1
-                    ];
-
-                const lastParentId =
-                    updatedSelected[
-                        Number(lastRole)
-                    ];
-
-                if (lastParentId) {
-                    setFormData((prev) => ({
-                        ...prev,
-                        parent_id:
-                            Number(
-                                lastParentId
-                            ),
-                    }));
-                }
-            } catch (error) {
-                if (!cancelled) {
-                    console.error(
-                        "LOAD PARENTS ERROR:",
-                        error
+                    setParentUsers(
+                        updatedUsers
                     );
+
+                    setSelectedParents(
+                        updatedSelected
+                    );
+
+                    const lastRole =
+                        parents[
+                            parents.length -
+                                1
+                        ];
+
+                    const lastParentId =
+                        updatedSelected[
+                            Number(
+                                lastRole
+                            )
+                        ];
+
+                    if (lastParentId) {
+                        setFormData(
+                            (prev) => ({
+                                ...prev,
+                                parent_id:
+                                    Number(
+                                        lastParentId
+                                    ),
+                            })
+                        );
+                    }
+                } catch (error) {
+                    if (!cancelled) {
+                        console.error(
+                            "LOAD PARENTS ERROR:",
+                            error
+                        );
+                    }
                 }
-            }
-        };
+            };
 
         loadParents();
 
@@ -1139,172 +1360,217 @@ export default function Page() {
         editUserLoaded,
     ]);
 
-    const loadNextParentUsers = async (
-        selectedParentId,
-        nextRoleId
-    ) => {
-        if (
-            !selectedParentId ||
-            !nextRoleId
-        ) {
-            return;
-        }
-
-        const nextRole =
-            Number(nextRoleId);
-
-        try {
-            setSearchLoading((prev) => ({
-                ...prev,
-                [nextRole]: true,
-            }));
-
-            const response =
-                await getDropdownUsers(
-                    nextRole,
-                    Number(
-                        selectedParentId
-                    )
-                );
-
-            let users =
-                getUsersFromResponse(
-                    response
-                );
-
-            if (nextRole === 5) {
-                users = users.filter(
-                    (user) =>
-                        Number(
-                            user?.role_id
-                        ) === 5 &&
-                        Number(
-                            user?.parent_id
-                        ) ===
-                            Number(
-                                selectedParentId
-                            )
-                );
+    const loadNextParentUsers =
+        async (
+            selectedParentId,
+            nextRoleId
+        ) => {
+            if (
+                !selectedParentId ||
+                !nextRoleId
+            ) {
+                return;
             }
 
-            setParentUsers((prev) => ({
-                ...prev,
-                [nextRole]: users,
-            }));
-        } catch (error) {
-            console.error(
-                `LOAD ${getRoleName(
-                    nextRole
-                )} ERROR:`,
-                error
-            );
+            const nextRole =
+                Number(nextRoleId);
 
-            setParentUsers((prev) => ({
-                ...prev,
-                [nextRole]: [],
-            }));
-        } finally {
-            setSearchLoading((prev) => ({
-                ...prev,
-                [nextRole]: false,
-            }));
-        }
-    };
+            try {
+                setSearchLoading(
+                    (prev) => ({
+                        ...prev,
+                        [nextRole]: true,
+                    })
+                );
 
-    const handleParentChange = async (
-        parentRoleId,
-        parentId
-    ) => {
-        const roleId =
-            Number(parentRoleId);
+                const response =
+                    await getDropdownUsers(
+                        nextRole,
+                        Number(
+                            selectedParentId
+                        )
+                    );
 
-        const selectedId = parentId
-            ? Number(parentId)
-            : null;
+                let users =
+                    getUsersFromResponse(
+                        response
+                    );
 
-        const parents =
-            visibleParentRoles;
+                if (nextRole === 5) {
+                    users =
+                        users.filter(
+                            (user) =>
+                                Number(
+                                    user?.role_id
+                                ) === 5 &&
+                                Number(
+                                    user?.parent_id
+                                ) ===
+                                    Number(
+                                        selectedParentId
+                                    )
+                        );
+                }
 
-        const currentIndex =
-            parents.indexOf(roleId);
+                setParentUsers(
+                    (prev) => ({
+                        ...prev,
+                        [nextRole]:
+                            users,
+                    })
+                );
+            } catch (error) {
+                console.error(
+                    `LOAD ${getRoleName(
+                        nextRole
+                    )} ERROR:`,
+                    error
+                );
 
-        const updatedSelected = {
-            ...selectedParents,
+                setParentUsers(
+                    (prev) => ({
+                        ...prev,
+                        [nextRole]: [],
+                    })
+                );
+            } finally {
+                setSearchLoading(
+                    (prev) => ({
+                        ...prev,
+                        [nextRole]:
+                            false,
+                    })
+                );
+            }
         };
 
-        if (selectedId) {
-            updatedSelected[roleId] =
-                selectedId;
-        } else {
-            delete updatedSelected[
-                roleId
-            ];
-        }
+    const handleParentChange =
+        async (
+            parentRoleId,
+            parentId
+        ) => {
+            const roleId =
+                Number(parentRoleId);
 
-        parents
-            .slice(currentIndex + 1)
-            .forEach((childRoleId) => {
+            const selectedId =
+                parentId
+                    ? Number(parentId)
+                    : null;
+
+            const parents =
+                visibleParentRoles;
+
+            const currentIndex =
+                parents.indexOf(
+                    roleId
+                );
+
+            const updatedSelected = {
+                ...selectedParents,
+            };
+
+            if (selectedId) {
+                updatedSelected[
+                    roleId
+                ] = selectedId;
+            } else {
                 delete updatedSelected[
-                    Number(childRoleId)
+                    roleId
                 ];
-            });
+            }
 
-        setSelectedParents(
-            updatedSelected
-        );
+            parents
+                .slice(
+                    currentIndex + 1
+                )
+                .forEach(
+                    (childRoleId) => {
+                        delete updatedSelected[
+                            Number(
+                                childRoleId
+                            )
+                        ];
+                    }
+                );
 
-        setFormData((prev) => ({
-            ...prev,
-            parent_id: selectedId,
-        }));
-
-        const updatedUsers = {
-            ...parentUsers,
-        };
-
-        parents
-            .slice(currentIndex + 1)
-            .forEach((childRoleId) => {
-                updatedUsers[
-                    Number(childRoleId)
-                ] = [];
-            });
-
-        setParentUsers(updatedUsers);
-
-        const updatedSearch = {
-            ...parentSearch,
-        };
-
-        parents
-            .slice(currentIndex + 1)
-            .forEach((childRoleId) => {
-                updatedSearch[
-                    Number(childRoleId)
-                ] = "";
-            });
-
-        setParentSearch(updatedSearch);
-
-        if (!selectedId) {
-            return;
-        }
-
-        const nextRole =
-            parents[currentIndex + 1];
-
-        if (nextRole) {
-            await loadNextParentUsers(
-                selectedId,
-                Number(nextRole)
+            setSelectedParents(
+                updatedSelected
             );
-        }
-    };
+
+            setFormData(
+                (prev) => ({
+                    ...prev,
+                    parent_id:
+                        selectedId,
+                })
+            );
+
+            const updatedUsers = {
+                ...parentUsers,
+            };
+
+            parents
+                .slice(
+                    currentIndex + 1
+                )
+                .forEach(
+                    (childRoleId) => {
+                        updatedUsers[
+                            Number(
+                                childRoleId
+                            )
+                        ] = [];
+                    }
+                );
+
+            setParentUsers(
+                updatedUsers
+            );
+
+            const updatedSearch = {
+                ...parentSearch,
+            };
+
+            parents
+                .slice(
+                    currentIndex + 1
+                )
+                .forEach(
+                    (childRoleId) => {
+                        updatedSearch[
+                            Number(
+                                childRoleId
+                            )
+                        ] = "";
+                    }
+                );
+
+            setParentSearch(
+                updatedSearch
+            );
+
+            if (!selectedId) {
+                return;
+            }
+
+            const nextRole =
+                parents[
+                    currentIndex + 1
+                ];
+
+            if (nextRole) {
+                await loadNextParentUsers(
+                    selectedId,
+                    Number(nextRole)
+                );
+            }
+        };
 
     useEffect(() => {
         if (
             openDropdown === null ||
-            openDropdown === undefined
+            openDropdown ===
+                undefined
         ) {
             return;
         }
@@ -1313,22 +1579,30 @@ export default function Page() {
             Number(openDropdown);
 
         const search = (
-            parentSearch[roleId] || ""
+            parentSearch[roleId] ||
+            ""
         ).trim();
 
         const parents =
-            parentRoles[selectedRole] || [];
+            parentRoles[
+                selectedRole
+            ] || [];
 
         const currentIndex =
-            parents.indexOf(roleId);
+            parents.indexOf(
+                roleId
+            );
 
         let parentId = null;
 
-        if (currentIndex > 0) {
+        if (
+            currentIndex > 0
+        ) {
             const previousRole =
                 Number(
                     parents[
-                        currentIndex - 1
+                        currentIndex -
+                            1
                     ]
                 );
 
@@ -1347,82 +1621,102 @@ export default function Page() {
         if (
             currentIndex === 0 &&
             roleId ===
-                Number(loggedInRoleId)
+                Number(
+                    loggedInRoleId
+                )
         ) {
-            parentId = loggedInUserId;
+            parentId =
+                loggedInUserId;
         }
 
-        const timer = setTimeout(
-            async () => {
-                try {
-                    setSearchLoading(
-                        (prev) => ({
-                            ...prev,
-                            [roleId]: true,
-                        })
-                    );
-
-                    const response =
-                        await getDropdownUsers(
-                            roleId,
-                            parentId,
-                            search
+        const timer =
+            setTimeout(
+                async () => {
+                    try {
+                        setSearchLoading(
+                            (prev) => ({
+                                ...prev,
+                                [roleId]:
+                                    true,
+                            })
                         );
 
-                    let users =
-                        getUsersFromResponse(
-                            response
-                        );
-
-                    if (roleId === 5) {
-                        users =
-                            users.filter(
-                                (user) =>
-                                    Number(
-                                        user?.role_id
-                                    ) === 5 &&
-                                    (
-                                        parentId ===
-                                            null ||
-                                        Number(
-                                            user?.parent_id
-                                        ) ===
-                                            Number(
-                                                parentId
-                                            )
-                                    )
+                        const response =
+                            await getDropdownUsers(
+                                roleId,
+                                parentId,
+                                search
                             );
+
+                        let users =
+                            getUsersFromResponse(
+                                response
+                            );
+
+                        if (
+                            roleId ===
+                            5
+                        ) {
+                            users =
+                                users.filter(
+                                    (
+                                        user
+                                    ) =>
+                                        Number(
+                                            user?.role_id
+                                        ) ===
+                                            5 &&
+                                        (
+                                            parentId ===
+                                                null ||
+                                            Number(
+                                                user?.parent_id
+                                            ) ===
+                                                Number(
+                                                    parentId
+                                                )
+                                        )
+                                );
+                        }
+
+                        setParentUsers(
+                            (
+                                prev
+                            ) => ({
+                                ...prev,
+                                [roleId]:
+                                    users,
+                            })
+                        );
+                    } catch (error) {
+                        console.error(
+                            "DROPDOWN SEARCH ERROR:",
+                            error
+                        );
+
+                        setParentUsers(
+                            (
+                                prev
+                            ) => ({
+                                ...prev,
+                                [roleId]:
+                                    [],
+                            })
+                        );
+                    } finally {
+                        setSearchLoading(
+                            (
+                                prev
+                            ) => ({
+                                ...prev,
+                                [roleId]:
+                                    false,
+                            })
+                        );
                     }
-
-                    setParentUsers(
-                        (prev) => ({
-                            ...prev,
-                            [roleId]: users,
-                        })
-                    );
-                } catch (error) {
-                    console.error(
-                        "DROPDOWN SEARCH ERROR:",
-                        error
-                    );
-
-                    setParentUsers(
-                        (prev) => ({
-                            ...prev,
-                            [roleId]: [],
-                        })
-                    );
-                } finally {
-                    setSearchLoading(
-                        (prev) => ({
-                            ...prev,
-                            [roleId]: false,
-                        })
-                    );
-                }
-            },
-            400
-        );
+                },
+                400
+            );
 
         return () =>
             clearTimeout(timer);
@@ -1434,80 +1728,137 @@ export default function Page() {
         loggedInRoleId,
         loggedInUserId,
     ]);
-const handleCountryChange = async (countryId) => {
-    const selectedCountry = countries.find(
-        (country) =>
-            Number(country.id) === Number(countryId)
-    );
 
-    setFormData((prev) => ({
-        ...prev,
-        country: countryId,
-        state: "",
-        city: "",
-        phone_country:
-            selectedCountry?.countryCode || prev.phone_country,
-    }));
+    const handleCountryChange =
+        async (
+            countryCode
+        ) => {
+            const selected =
+                countries.find(
+                    (country) =>
+                        country.isoCode ===
+                        countryCode
+                );
 
-    setStates([]);
-    setCities([]);
+            const countryName =
+                selected?.name || "";
 
-    if (countryId) {
-        await loadStates(countryId);
-    }
-};
+            setFormData(
+                (prev) => ({
+                    ...prev,
+                    country:
+                        countryName,
+                    state: "",
+                    city: "",
+                    phone_country:
+                        selected?.isoCode ||
+                        prev.phone_country,
+                    phone: "",
+                })
+            );
 
-    const handleStateChange = async (
-        stateId
-    ) => {
-        setFormData((prev) => ({
-            ...prev,
-            state: stateId,
-            city: "",
-        }));
+            setStates([]);
+            setCities([]);
 
-        setCities([]);
+            if (
+                selected?.isoCode
+            ) {
+                await loadStates(
+                    selected.isoCode
+                );
+            }
+        };
 
-        if (stateId) {
-            await loadCities(stateId);
-        }
-    };
+    const handleStateChange =
+        async (
+            stateCode
+        ) => {
+            const selectedState =
+                states.find(
+                    (state) =>
+                        state.isoCode ===
+                        stateCode
+                );
 
-   const handlePhoneCountryChange = (countryCode) => {
-    const selectedCountry = countries.find(
-        (country) =>
-            country.countryCode === countryCode
-    );
+            setFormData(
+                (prev) => ({
+                    ...prev,
+                    state:
+                        selectedState?.name ||
+                        "",
+                    city: "",
+                })
+            );
 
-    setFormData((prev) => ({
-        ...prev,
-        phone_country: countryCode,
+            setCities([]);
 
-        // Phone country select karte hi
-        // Location Country bhi same ho jayega
-        country:
-            selectedCountry?.id
-                ? String(selectedCountry.id)
-                : prev.country,
+            const selectedCountry =
+                countries.find(
+                    (country) =>
+                        country.name ===
+                        formData.country
+                );
 
-        state: "",
-        city: "",
+            if (
+                selectedCountry?.isoCode &&
+                selectedState?.isoCode
+            ) {
+                await loadCities(
+                    selectedCountry.isoCode,
+                    selectedState.isoCode
+                );
+            }
+        };
 
-        // Country change hone par phone clear
-        phone: "",
-    }));
+    const handleCityChange =
+        (cityName) => {
+            setFormData(
+                (prev) => ({
+                    ...prev,
+                    city: cityName,
+                })
+            );
+        };
 
-    setStates([]);
-    setCities([]);
+    const handlePhoneCountryChange =
+        (countryCode) => {
+            const selected =
+                countries.find(
+                    (country) =>
+                        country.isoCode ===
+                        countryCode
+                );
 
-    setPhoneCountrySearch("");
-    setPhoneCountryOpen(false);
+            setFormData(
+                (prev) => ({
+                    ...prev,
+                    phone_country:
+                        countryCode,
+                    country:
+                        selected?.name ||
+                        prev.country,
+                    state: "",
+                    city: "",
+                    phone: "",
+                })
+            );
 
-    // Selected phone country ke states load karo
-    if (selectedCountry?.id) {
-        loadStates(selectedCountry.id);
-    }
-};
+            setStates([]);
+            setCities([]);
+
+            setPhoneCountrySearch("");
+            setPhoneCountryOpen(
+                false
+            );
+
+            if (
+                selected?.isoCode
+            ) {
+                loadStates(
+                    selected.isoCode
+                );
+            }
+        };
 
     const handleChange = (e) => {
         const {
@@ -1515,328 +1866,420 @@ const handleCountryChange = async (countryId) => {
             value,
         } = e.target;
 
-        if (name === "country") {
-            handleCountryChange(value);
+        if (
+            name === "country"
+        ) {
+            handleCountryChange(
+                value
+            );
             return;
         }
 
         if (name === "state") {
-            handleStateChange(value);
+            handleStateChange(
+                value
+            );
             return;
         }
 
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
+        if (name === "city") {
+            handleCityChange(
+                value
+            );
+            return;
+        }
+
+        setFormData(
+            (prev) => ({
+                ...prev,
+                [name]: value,
+            })
+        );
     };
 
-  const handlePhoneChange = (e) => {
-    let value = e.target.value;
+    const handlePhoneChange =
+        (e) => {
+            let value =
+                e.target.value;
 
-    value = value.replace(/[^\d+]/g, "");
-
-    if (value.startsWith("+")) {
-        value =
-            "+" +
-            value
-                .slice(1)
-                .replace(/\+/g, "");
-
-        const parsed =
-            parsePhoneNumberFromString(value);
-
-        if (parsed?.country) {
-            const selectedCountry =
-                countries.find(
-                    (country) =>
-                        country.countryCode ===
-                        parsed.country
+            value =
+                value.replace(
+                    /[^\d+]/g,
+                    ""
                 );
 
-            setFormData((prev) => ({
-                ...prev,
+            if (
+                value.startsWith(
+                    "+"
+                )
+            ) {
+                value =
+                    "+" +
+                    value
+                        .slice(1)
+                        .replace(
+                            /\+/g,
+                            ""
+                        );
 
-                phone_country:
-                    parsed.country,
+                const parsed =
+                    parsePhoneNumberFromString(
+                        value
+                    );
 
-                // Phone se detected country
-                // location country mein bhi set
-                country:
-                    selectedCountry?.id
-                        ? String(
-                              selectedCountry.id
-                          )
-                        : prev.country,
+                if (
+                    parsed?.country
+                ) {
+                    const selected =
+                        countries.find(
+                            (
+                                country
+                            ) =>
+                                country.isoCode ===
+                                parsed.country
+                        );
 
-                phone:
-                    parsed.nationalNumber || "",
-            }));
+                    setFormData(
+                        (prev) => ({
+                            ...prev,
+                            phone_country:
+                                parsed.country,
+                            country:
+                                selected?.name ||
+                                prev.country,
+                            phone:
+                                parsed.nationalNumber ||
+                                "",
+                        })
+                    );
 
-            // Detected country ke states load karo
-            if (selectedCountry?.id) {
-                loadStates(
-                    selectedCountry.id
-                );
+                    if (
+                        selected?.isoCode
+                    ) {
+                        loadStates(
+                            selected.isoCode
+                        );
+                    }
+
+                    return;
+                }
             }
 
-            return;
-        }
-    }
-
-    setFormData((prev) => ({
-        ...prev,
-        phone: value.replace(/\D/g, ""),
-    }));
-};
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        if (
-            isEditMode &&
-            !hasChanges
-        ) {
-            toast.info(
-                "No changes to update"
+            setFormData(
+                (prev) => ({
+                    ...prev,
+                    phone:
+                        value.replace(
+                            /\D/g,
+                            ""
+                        ),
+                })
             );
-            return;
-        }
-
-        const roleId = Number(
-            formData.role_id
-        );
-
-        if (!roleId) {
-            toast.error(
-                "Role ID missing. Please select role again"
-            );
-            return;
-        }
-
-        if (
-            roleId === 9 &&
-            !formData.profile_id
-        ) {
-            toast.error(
-                "Please select a profile"
-            );
-            return;
-        }
-
-        if (!loggedInUser?.id) {
-            toast.error(
-                "Logged-in user not found"
-            );
-            return;
-        }
-
-        if (!formData.country) {
-            toast.error(
-                "Please select a country"
-            );
-            return;
-        }
-
-        if (!formData.phone) {
-            toast.error(
-                "Phone number is required"
-            );
-            return;
-        }
-
-        const phoneNumber =
-            parsePhoneNumberFromString(
-                formData.phone,
-                formData.phone_country
-            );
-
-        if (
-            !phoneNumber ||
-            !phoneNumber.isValid()
-        ) {
-            toast.error(
-                `Please enter a valid ${
-                    selectedPhoneCountry?.name ||
-                    ""
-                } phone number`
-            );
-            return;
-        }
-
-        if (
-            !isEditMode &&
-            formData.password !==
-                formData.confirm_password
-        ) {
-            toast.error(
-                "Password and Confirm Password do not match!"
-            );
-            return;
-        }
-
-        if (
-            isEditMode &&
-            (
-                formData.password ||
-                formData.confirm_password
-            ) &&
-            formData.password !==
-                formData.confirm_password
-        ) {
-            toast.error(
-                "Password and Confirm Password do not match!"
-            );
-            return;
-        }
-
-        if (
-            formData.password &&
-            !/^[A-Z]/.test(
-                formData.password
-            )
-        ) {
-            toast.error(
-                "Password must start with a capital letter"
-            );
-            return;
-        }
-
-        let finalParentId =
-            formData.parent_id
-                ? Number(
-                      formData.parent_id
-                  )
-                : null;
-
-        if (
-            !finalParentId &&
-            roleId > 1 &&
-            loggedInRoleId > 0 &&
-            loggedInRoleId < roleId
-        ) {
-            finalParentId =
-                loggedInUserId;
-        }
-
-        const payload = {
-            ...formData,
-            role_id: roleId,
-            parent_id:
-                finalParentId,
-            country:
-                Number(formData.country),
-            state:
-                formData.state
-                    ? Number(
-                          formData.state
-                      )
-                    : null,
-            city:
-                formData.city
-                    ? Number(
-                          formData.city
-                      )
-                    : null,
-            phone:
-                phoneNumber.number,
         };
 
-        delete payload.phone_country;
+    const handleSubmit =
+        async (e) => {
+            e.preventDefault();
 
-        if (roleId === 9) {
-            payload.profile_id =
+            if (
+                isEditMode &&
+                !hasChanges
+            ) {
+                toast.info(
+                    "No changes to update"
+                );
+                return;
+            }
+
+            const roleId =
                 Number(
-                    formData.profile_id
+                    formData.role_id
                 );
 
-            delete payload.organization_name;
-        } else {
-            delete payload.profile_id;
-        }
-
-        if (isEditMode) {
-            delete payload.confirm_password;
-
-            if (!payload.password) {
-                delete payload.password;
+            if (!roleId) {
+                toast.error(
+                    "Role ID missing. Please select role again"
+                );
+                return;
             }
-        }
 
-        try {
-            setSubmitLoading(true);
+            if (
+                roleId === 9 &&
+                !formData.profile_id
+            ) {
+                toast.error(
+                    "Please select a profile"
+                );
+                return;
+            }
 
-            const response = isEditMode
-                ? await updateStaffData(
-                      editId,
-                      payload
-                  )
-                : await addStaff(payload);
+            if (
+                !loggedInUser?.id
+            ) {
+                toast.error(
+                    "Logged-in user not found"
+                );
+                return;
+            }
 
-            toast.success(
-                response?.message ||
-                    (isEditMode
-                        ? "Updated Successfully"
-                        : "Registered Successfully")
-            );
+            if (
+                !formData.country
+            ) {
+                toast.error(
+                    "Please select a country"
+                );
+                return;
+            }
 
-            if (!isEditMode) {
-                setFormData({
-                    ...initialFormData,
-                    role_id: roleId,
-                });
+            if (!formData.phone) {
+                toast.error(
+                    "Phone number is required"
+                );
+                return;
+            }
 
-                setSelectedParents({});
-                setParentUsers({});
-                setParentSearch({});
-                setOpenDropdown(null);
-                setStates([]);
-                setCities([]);
-                setPhoneCountryOpen(false);
-                setPhoneCountrySearch("");
-                setShowPassword(false);
-                setShowConfirmPassword(false);
+            if (
+                !formData.phone_country
+            ) {
+                toast.error(
+                    "Please select phone country"
+                );
+                return;
+            }
+
+            const phoneNumber =
+                parsePhoneNumberFromString(
+                    formData.phone,
+                    formData.phone_country
+                );
+
+            if (
+                !phoneNumber ||
+                !phoneNumber.isValid()
+            ) {
+                toast.error(
+                    `Please enter a valid ${
+                        selectedPhoneCountry?.name ||
+                        ""
+                    } phone number`
+                );
+                return;
+            }
+
+            if (
+                !isEditMode &&
+                formData.password !==
+                    formData.confirm_password
+            ) {
+                toast.error(
+                    "Password and Confirm Password do not match!"
+                );
+                return;
+            }
+
+            if (
+                isEditMode &&
+                (
+                    formData.password ||
+                    formData.confirm_password
+                ) &&
+                formData.password !==
+                    formData.confirm_password
+            ) {
+                toast.error(
+                    "Password and Confirm Password do not match!"
+                );
+                return;
+            }
+
+            if (
+                formData.password &&
+                !/^[A-Z]/.test(
+                    formData.password
+                )
+            ) {
+                toast.error(
+                    "Password must start with a capital letter"
+                );
+                return;
+            }
+
+            let finalParentId =
+                formData.parent_id
+                    ? Number(
+                          formData.parent_id
+                      )
+                    : null;
+
+            if (
+                !finalParentId &&
+                roleId > 1 &&
+                loggedInRoleId > 0 &&
+                loggedInRoleId <
+                    roleId
+            ) {
+                finalParentId =
+                    loggedInUserId;
+            }
+
+            const payload = {
+                ...formData,
+                role_id: roleId,
+                parent_id:
+                    finalParentId,
+                country:
+                    String(
+                        formData.country ||
+                            ""
+                    ).trim(),
+                country_code:
+                    String(
+                        formData.phone_country ||
+                            ""
+                    )
+                        .trim()
+                        .toUpperCase(),
+                state:
+                    formData.state
+                        ? String(
+                              formData.state
+                          ).trim()
+                        : null,
+                city:
+                    formData.city
+                        ? String(
+                              formData.city
+                          ).trim()
+                        : null,
+                phone:
+                    phoneNumber.number,
+            };
+
+            delete payload.phone_country;
+
+            if (roleId === 9) {
+                payload.profile_id =
+                    Number(
+                        formData.profile_id
+                    );
+
+                delete payload.organization_name;
             } else {
-                const updatedOriginal = {
-                    ...formData,
-                    password: "",
-                    confirm_password: "",
-                };
+                delete payload.profile_id;
+            }
 
-                setOriginalFormData(
-                    updatedOriginal
+            if (isEditMode) {
+                delete payload.confirm_password;
+
+                if (!payload.password) {
+                    delete payload.password;
+                }
+            }
+
+            try {
+                setSubmitLoading(
+                    true
                 );
 
-                setOriginalSelectedParents({
-                    ...selectedParents,
-                });
+                const response =
+                    isEditMode
+                        ? await updateStaffData(
+                              editId,
+                              payload
+                          )
+                        : await addStaff(
+                              payload
+                          );
 
-                setFormData((prev) => ({
-                    ...prev,
-                    password: "",
-                    confirm_password: "",
-                }));
+                toast.success(
+                    response?.message ||
+                        (isEditMode
+                            ? "Updated Successfully"
+                            : "Registered Successfully")
+                );
+
+                if (!isEditMode) {
+                    setFormData({
+                        ...initialFormData,
+                        role_id:
+                            roleId,
+                    });
+
+                    setSelectedParents(
+                        {}
+                    );
+                    setParentUsers({});
+                    setParentSearch({});
+                    setOpenDropdown(
+                        null
+                    );
+                    setStates([]);
+                    setCities([]);
+                    setPhoneCountryOpen(
+                        false
+                    );
+                    setPhoneCountrySearch(
+                        ""
+                    );
+                    setShowPassword(
+                        false
+                    );
+                    setShowConfirmPassword(
+                        false
+                    );
+                } else {
+                    const updatedOriginal =
+                        {
+                            ...formData,
+                            password: "",
+                            confirm_password:
+                                "",
+                        };
+
+                    setOriginalFormData(
+                        updatedOriginal
+                    );
+
+                    setOriginalSelectedParents(
+                        {
+                            ...selectedParents,
+                        }
+                    );
+
+                    setFormData(
+                        (prev) => ({
+                            ...prev,
+                            password:
+                                "",
+                            confirm_password:
+                                "",
+                        })
+                    );
+                }
+            } catch (error) {
+                console.error(
+                    isEditMode
+                        ? "UPDATE USER ERROR:"
+                        : "REGISTER ERROR:",
+                    error
+                );
+
+                toast.error(
+                    error?.response
+                        ?.data?.message ||
+                        error?.response
+                            ?.data?.error ||
+                        error?.message ||
+                        (isEditMode
+                            ? "Failed to update user"
+                            : "Something went wrong")
+                );
+            } finally {
+                setSubmitLoading(
+                    false
+                );
             }
-        } catch (error) {
-            console.error(
-                isEditMode
-                    ? "UPDATE USER ERROR:"
-                    : "REGISTER ERROR:",
-                error
-            );
-
-            toast.error(
-                error?.response?.data?.message ||
-                    error?.response?.data?.error ||
-                    error?.message ||
-                    (isEditMode
-                        ? "Failed to update user"
-                        : "Something went wrong")
-            );
-        } finally {
-            setSubmitLoading(false);
-        }
-    };
+        };
 
     if (
         isEditMode &&
@@ -1872,12 +2315,16 @@ const handleCountryChange = async (countryId) => {
                     </Link>
                 </div>
 
-                {selectedRole > 1 &&
+                {/* 🔑 Hydration-safe parent dropdowns */}
+                {isMounted &&
+                    selectedRole > 1 &&
                     visibleParentRoles.length >
                         0 && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
                             {visibleParentRoles.map(
-                                (parentRoleId) => {
+                                (
+                                    parentRoleId
+                                ) => {
                                     const role =
                                         Number(
                                             parentRoleId
@@ -1890,7 +2337,9 @@ const handleCountryChange = async (countryId) => {
 
                                     const selectedUser =
                                         users.find(
-                                            (user) =>
+                                            (
+                                                user
+                                            ) =>
                                                 Number(
                                                     user?.id
                                                 ) ===
@@ -1903,7 +2352,9 @@ const handleCountryChange = async (countryId) => {
 
                                     return (
                                         <div
-                                            key={role}
+                                            key={
+                                                role
+                                            }
                                             className="space-y-1.5"
                                         >
                                             <label className="text-sm font-medium text-slate-700">
@@ -1933,7 +2384,9 @@ const handleCountryChange = async (countryId) => {
                                                     </span>
 
                                                     <RiArrowDownSLine
-                                                        size={22}
+                                                        size={
+                                                            22
+                                                        }
                                                         className={`shrink-0 transition-transform text-slate-500 ${
                                                             openDropdown ===
                                                             role
@@ -2056,7 +2509,9 @@ const handleCountryChange = async (countryId) => {
                     )}
 
                 <form
-                    onSubmit={handleSubmit}
+                    onSubmit={
+                        handleSubmit
+                    }
                     className="pt-6"
                 >
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2141,159 +2596,222 @@ const handleCountryChange = async (countryId) => {
                                 </span>
                             </label>
 
-                           <div className="flex">
-    <div className="relative shrink-0">
-        <button
-            type="button"
-            onClick={() =>
-                setPhoneCountryOpen((prev) => !prev)
-            }
-            className="h-full min-w-[125px] flex items-center justify-between gap-2 border border-r-0 border-slate-300 rounded-l-lg px-3 bg-slate-50 text-sm text-slate-700"
-        >
-            {selectedPhoneCountry ? (
-                <span className="flex items-center gap-2">
-                    <span>
-                        +{selectedPhoneCountry.mobileCode}
-                    </span>
-                </span>
-            ) : (
-                <span className="text-slate-400">
-                    Country
-                </span>
-            )}
+                            <div className="flex">
+                                <div className="relative shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setPhoneCountryOpen(
+                                                (
+                                                    prev
+                                                ) =>
+                                                    !prev
+                                            )
+                                        }
+                                        className="h-full min-w-[125px] flex items-center justify-between gap-2 border border-r-0 border-slate-300 rounded-l-lg px-3 bg-slate-50 text-sm text-slate-700"
+                                    >
+                                        {selectedPhoneCountry ? (
+                                            <span className="flex items-center gap-2">
+                                                <span>
+                                                    +
+                                                    {
+                                                        selectedPhoneCountry.phonecode
+                                                    }
+                                                </span>
+                                            </span>
+                                        ) : (
+                                            <span className="text-slate-400">
+                                                Country
+                                            </span>
+                                        )}
 
-            <RiArrowDownSLine
-                size={18}
-                className={`transition-transform ${
-                    phoneCountryOpen
-                        ? "rotate-180"
-                        : ""
-                }`}
-            />
-        </button>
+                                        <RiArrowDownSLine
+                                            size={
+                                                18
+                                            }
+                                            className={`transition-transform ${
+                                                phoneCountryOpen
+                                                    ? "rotate-180"
+                                                    : ""
+                                            }`}
+                                        />
+                                    </button>
 
-        {phoneCountryOpen && (
-            <div className="absolute z-[100] left-0 top-full mt-1 w-[290px] bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
-                {/* Search */}
-                <div className="p-2 border-b border-slate-200">
-                    <input
-                        type="text"
-                        value={phoneCountrySearch}
-                        onChange={(e) =>
-                            setPhoneCountrySearch(
-                                e.target.value
-                            )
-                        }
-                        placeholder="Search country or code..."
-                        autoFocus
-                        className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
+                                    {phoneCountryOpen && (
+                                        <div className="absolute z-[100] left-0 top-full mt-1 w-[290px] bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
+                                            <div className="p-2 border-b border-slate-200">
+                                                <input
+                                                    type="text"
+                                                    value={
+                                                        phoneCountrySearch
+                                                    }
+                                                    onChange={(
+                                                        e
+                                                    ) =>
+                                                        setPhoneCountrySearch(
+                                                            e
+                                                                .target
+                                                                .value
+                                                        )
+                                                    }
+                                                    placeholder="Search country or code..."
+                                                    autoFocus
+                                                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
 
-                {/* Country List */}
-                <div className="max-h-64 overflow-y-auto">
-                    {countries.filter((country) => {
-                        const search =
-                            phoneCountrySearch
-                                .trim()
-                                .toLowerCase()
-                                .replace("+", "");
+                                            <div className="max-h-64 overflow-y-auto">
+                                                {countries
+                                                    .filter(
+                                                        (
+                                                            country
+                                                        ) => {
+                                                            const search =
+                                                                phoneCountrySearch
+                                                                    .trim()
+                                                                    .toLowerCase()
+                                                                    .replace(
+                                                                        "+",
+                                                                        ""
+                                                                    );
 
-                        if (!search) {
-                            return true;
-                        }
+                                                            if (
+                                                                !search
+                                                            ) {
+                                                                return true;
+                                                            }
 
-                        return (
-                            country.name
-                                ?.toLowerCase()
-                                .includes(search) ||
-                            country.countryCode
-                                ?.toLowerCase()
-                                .includes(search) ||
-                            String(
-                                country.mobileCode || ""
-                            ).includes(search)
-                        );
-                    }).length > 0 ? (
-                        countries
-                            .filter((country) => {
-                                const search =
-                                    phoneCountrySearch
-                                        .trim()
-                                        .toLowerCase()
-                                        .replace("+", "");
+                                                            return (
+                                                                country.name
+                                                                    ?.toLowerCase()
+                                                                    .includes(
+                                                                        search
+                                                                    ) ||
+                                                                country.isoCode
+                                                                    ?.toLowerCase()
+                                                                    .includes(
+                                                                        search
+                                                                    ) ||
+                                                                String(
+                                                                    country.phonecode ||
+                                                                        ""
+                                                                ).includes(
+                                                                    search
+                                                                )
+                                                            );
+                                                        }
+                                                    )
+                                                    .map(
+                                                        (
+                                                            country
+                                                        ) => (
+                                                            <button
+                                                                key={
+                                                                    country.isoCode
+                                                                }
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    handlePhoneCountryChange(
+                                                                        country.isoCode
+                                                                    )
+                                                                }
+                                                                className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm ${
+                                                                    formData.phone_country ===
+                                                                    country.isoCode
+                                                                        ? "bg-blue-50 text-blue-700"
+                                                                        : "text-slate-700 hover:bg-slate-50"
+                                                                }`}
+                                                            >
+                                                                <span className="flex items-center gap-2 min-w-0">
+                                                                    <span className="truncate">
+                                                                        {
+                                                                            country.name
+                                                                        }
+                                                                    </span>
+                                                                </span>
 
-                                if (!search) {
-                                    return true;
-                                }
+                                                                <span className="shrink-0 font-medium text-slate-500">
+                                                                    +
+                                                                    {
+                                                                        country.phonecode
+                                                                    }
+                                                                </span>
+                                                            </button>
+                                                        )
+                                                    )}
 
-                                return (
-                                    country.name
-                                        ?.toLowerCase()
-                                        .includes(search) ||
-                                    country.countryCode
-                                        ?.toLowerCase()
-                                        .includes(search) ||
-                                    String(
-                                        country.mobileCode || ""
-                                    ).includes(search)
-                                );
-                            })
-                            .map((country) => (
-                                <button
-                                    key={country.id}
-                                    type="button"
-                                    onClick={() =>
-                                        handlePhoneCountryChange(
-                                            country.countryCode
-                                        )
+                                                {countries.filter(
+                                                    (
+                                                        country
+                                                    ) => {
+                                                        const search =
+                                                            phoneCountrySearch
+                                                                .trim()
+                                                                .toLowerCase()
+                                                                .replace(
+                                                                    "+",
+                                                                    ""
+                                                                );
+
+                                                        if (
+                                                            !search
+                                                        ) {
+                                                            return true;
+                                                        }
+
+                                                        return (
+                                                            country.name
+                                                                ?.toLowerCase()
+                                                                .includes(
+                                                                    search
+                                                                ) ||
+                                                            country.isoCode
+                                                                ?.toLowerCase()
+                                                                .includes(
+                                                                    search
+                                                                ) ||
+                                                            String(
+                                                                country.phonecode ||
+                                                                    ""
+                                                            ).includes(
+                                                                search
+                                                            )
+                                                        );
+                                                    }
+                                                ).length ===
+                                                    0 && (
+                                                    <div className="px-4 py-5 text-center text-sm text-slate-400">
+                                                        No country found
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <input
+                                    type="tel"
+                                    value={
+                                        formData.phone
                                     }
-                                    className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm ${
-                                        formData.phone_country ===
-                                        country.countryCode
-                                            ? "bg-blue-50 text-blue-700"
-                                            : "text-slate-700 hover:bg-slate-50"
-                                    }`}
-                                >
-                                    <span className="flex items-center gap-2 min-w-0">
-                                        <span className="truncate">
-                                            {country.name}
-                                        </span>
-                                    </span>
-
-                                    <span className="shrink-0 font-medium text-slate-500">
-                                        +{country.mobileCode}
-                                    </span>
-                                </button>
-                            ))
-                    ) : (
-                        <div className="px-4 py-5 text-center text-sm text-slate-400">
-                            No country found
-                        </div>
-                    )}
-                </div>
-            </div>
-        )}
-    </div>
-
-    {/* Phone Number */}
-    <input
-        type="tel"
-        value={formData.phone}
-        onChange={handlePhoneChange}
-        required
-        placeholder={
-            selectedPhoneCountry
-                ? `Enter ${selectedPhoneCountry.name} number`
-                : "Enter phone number"
-        }
-        className="w-full border border-slate-300 rounded-r-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-</div>
+                                    onChange={
+                                        handlePhoneChange
+                                    }
+                                    required
+                                    placeholder={
+                                        selectedPhoneCountry
+                                            ? `Enter ${selectedPhoneCountry.name} number`
+                                            : "Enter phone number"
+                                    }
+                                    className="w-full border border-slate-300 rounded-r-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
 
                             {formData.phone && (
                                 <p className="text-xs text-slate-500">
-                                    {countryPhoneCode}{" "}
+                                    {
+                                        countryPhoneCode
+                                    }{" "}
                                     {
                                         formData.phone
                                     }
@@ -2340,7 +2858,9 @@ const handleCountryChange = async (countryId) => {
                                     type="button"
                                     onClick={() =>
                                         setShowPassword(
-                                            (prev) =>
+                                            (
+                                                prev
+                                            ) =>
                                                 !prev
                                         )
                                     }
@@ -2348,11 +2868,15 @@ const handleCountryChange = async (countryId) => {
                                 >
                                     {showPassword ? (
                                         <RiEyeOffLine
-                                            size={20}
+                                            size={
+                                                20
+                                            }
                                         />
                                     ) : (
                                         <RiEyeLine
-                                            size={20}
+                                            size={
+                                                20
+                                            }
                                         />
                                     )}
                                 </button>
@@ -2398,7 +2922,9 @@ const handleCountryChange = async (countryId) => {
                                     type="button"
                                     onClick={() =>
                                         setShowConfirmPassword(
-                                            (prev) =>
+                                            (
+                                                prev
+                                            ) =>
                                                 !prev
                                         )
                                     }
@@ -2406,11 +2932,15 @@ const handleCountryChange = async (countryId) => {
                                 >
                                     {showConfirmPassword ? (
                                         <RiEyeOffLine
-                                            size={20}
+                                            size={
+                                                20
+                                            }
                                         />
                                     ) : (
                                         <RiEyeLine
-                                            size={20}
+                                            size={
+                                                20
+                                            }
                                         />
                                     )}
                                 </button>
@@ -2452,7 +2982,15 @@ const handleCountryChange = async (countryId) => {
                                 <select
                                     name="country"
                                     value={
-                                        formData.country
+                                        countries.find(
+                                            (
+                                                country
+                                            ) =>
+                                                country.name ===
+                                                formData.country
+                                        )
+                                            ?.isoCode ||
+                                        ""
                                     }
                                     onChange={
                                         handleChange
@@ -2470,20 +3008,22 @@ const handleCountryChange = async (countryId) => {
                                     </option>
 
                                     {countries.map(
-                                        (country) => (
+                                        (
+                                            country
+                                        ) => (
                                             <option
                                                 key={
-                                                    country.id
+                                                    country.isoCode
                                                 }
                                                 value={
-                                                    country.id
+                                                    country.isoCode
                                                 }
                                             >
                                                 {
                                                     country.name
                                                 }
-                                                {country.mobileCode
-                                                    ? ` (+${country.mobileCode})`
+                                                {country.phonecode
+                                                    ? ` (+${country.phonecode})`
                                                     : ""}
                                             </option>
                                         )
@@ -2491,7 +3031,9 @@ const handleCountryChange = async (countryId) => {
                                 </select>
 
                                 <RiArrowDownSLine
-                                    size={22}
+                                    size={
+                                        22
+                                    }
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                 />
                             </div>
@@ -2506,7 +3048,15 @@ const handleCountryChange = async (countryId) => {
                                 <select
                                     name="state"
                                     value={
-                                        formData.state
+                                        states.find(
+                                            (
+                                                state
+                                            ) =>
+                                                state.name ===
+                                                formData.state
+                                        )
+                                            ?.isoCode ||
+                                        ""
                                     }
                                     onChange={
                                         handleChange
@@ -2524,13 +3074,15 @@ const handleCountryChange = async (countryId) => {
                                     </option>
 
                                     {states.map(
-                                        (state) => (
+                                        (
+                                            state
+                                        ) => (
                                             <option
                                                 key={
-                                                    state.id
+                                                    state.isoCode
                                                 }
                                                 value={
-                                                    state.id
+                                                    state.isoCode
                                                 }
                                             >
                                                 {
@@ -2542,7 +3094,9 @@ const handleCountryChange = async (countryId) => {
                                 </select>
 
                                 <RiArrowDownSLine
-                                    size={22}
+                                    size={
+                                        22
+                                    }
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                 />
                             </div>
@@ -2575,13 +3129,15 @@ const handleCountryChange = async (countryId) => {
                                     </option>
 
                                     {cities.map(
-                                        (city) => (
+                                        (
+                                            city
+                                        ) => (
                                             <option
                                                 key={
-                                                    city.id
+                                                    `${city.name}-${city.stateCode}`
                                                 }
                                                 value={
-                                                    city.id
+                                                    city.name
                                                 }
                                             >
                                                 {
@@ -2593,7 +3149,9 @@ const handleCountryChange = async (countryId) => {
                                 </select>
 
                                 <RiArrowDownSLine
-                                    size={22}
+                                    size={
+                                        22
+                                    }
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                 />
                             </div>
@@ -2652,7 +3210,9 @@ const handleCountryChange = async (countryId) => {
                                     </select>
 
                                     <RiArrowDownSLine
-                                        size={22}
+                                        size={
+                                            22
+                                        }
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                     />
                                 </div>
@@ -2669,7 +3229,9 @@ const handleCountryChange = async (countryId) => {
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                     {devicePermissions.map(
-                                        (item) => (
+                                        (
+                                            item
+                                        ) => (
                                             <label
                                                 key={
                                                     item.name
