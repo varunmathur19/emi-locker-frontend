@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -13,7 +14,6 @@ import {
   RiSaveLine,
   RiCloseLine,
   RiUserSettingsLine,
-  RiDeleteBinLine 
 } from "react-icons/ri";
 
 import {
@@ -42,9 +42,9 @@ const permissionTypes = [
     icon: RiEditLine,
   },
   {
-    key: "delete",
-    label: "Delete",
-    icon: RiDeleteBinLine,
+    key: "status",
+    label: "Status",
+    icon: RiCheckboxCircleLine,
   },
   {
     key: "manage",
@@ -99,7 +99,9 @@ export default function RolePermissionForm() {
             (profile) => String(profile.id) === String(current)
           );
 
-          return exists ? current : String(activeProfiles[0].id);
+          return exists
+            ? current
+            : String(activeProfiles[0].id);
         });
       } else {
         setSelectedProfile("");
@@ -152,11 +154,15 @@ export default function RolePermissionForm() {
   }, []);
 
   const selectedProfileData = profiles.find(
-    (profile) => String(profile.id) === String(selectedProfile)
+    (profile) =>
+      String(profile.id) === String(selectedProfile)
   );
 
-  const getPermissionKey = (profileId, roleId, permission) =>
-    `${profileId}_${roleId}_${permission}`;
+  const getPermissionKey = (
+    profileId,
+    roleId,
+    permission
+  ) => `${profileId}_${roleId}_${permission}`;
 
   const isChecked = (roleId, permission) => {
     if (!selectedProfile) {
@@ -172,6 +178,17 @@ export default function RolePermissionForm() {
     return Boolean(permissions[key]);
   };
 
+  const getRoleSlug = (role) =>
+    String(
+      role?.slug ||
+        role?.role_slug ||
+        role?.name ||
+        ""
+    )
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+
   const loadRolePermissions = async (profileId) => {
     if (!profileId || roles.length === 0) {
       setPermissions({});
@@ -183,20 +200,13 @@ export default function RolePermissionForm() {
       setPermissions({});
 
       const response = await getRolePermissions(profileId);
+      const savedPermissions =
+        response?.data?.permission || {};
 
-      const savedPermissions = response?.data?.permission || {};
       const formattedPermissions = {};
 
       roles.forEach((role) => {
-        const roleSlug = String(
-          role?.slug ||
-            role?.role_slug ||
-            role?.name ||
-            ""
-        )
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, "-");
+        const roleSlug = getRoleSlug(role);
 
         permissionTypes.forEach((permissionType) => {
           const permissionName =
@@ -209,7 +219,9 @@ export default function RolePermissionForm() {
           );
 
           formattedPermissions[stateKey] =
-            Number(savedPermissions[permissionName]) === 1;
+            Number(
+              savedPermissions[permissionName]
+            ) === 1;
         });
       });
 
@@ -239,7 +251,10 @@ export default function RolePermissionForm() {
     setPermissions({});
   };
 
-  const handlePermissionChange = (roleId, permission) => {
+  const handlePermissionChange = (
+    roleId,
+    permission
+  ) => {
     if (!selectedProfile) {
       toast.error("Please select a profile");
       return;
@@ -264,7 +279,8 @@ export default function RolePermissionForm() {
     }
 
     const allSelected = permissionTypes.every(
-      (permission) => isChecked(roleId, permission.key)
+      (permission) =>
+        isChecked(roleId, permission.key)
     );
 
     setPermissions((previous) => {
@@ -338,15 +354,7 @@ export default function RolePermissionForm() {
     const permission = {};
 
     roles.forEach((role) => {
-      const roleSlug = String(
-        role?.slug ||
-          role?.role_slug ||
-          role?.name ||
-          ""
-      )
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, "-");
+      const roleSlug = getRoleSlug(role);
 
       permissionTypes.forEach((permissionType) => {
         const key = getPermissionKey(
@@ -385,16 +393,19 @@ export default function RolePermissionForm() {
         permission: getAllPermissions(),
       };
 
-      const response = await saveRolePermissions(payload);
+      const response =
+        await saveRolePermissions(payload);
 
       if (!response?.success) {
         throw new Error(
-          response?.message || "Failed to save permissions"
+          response?.message ||
+            "Failed to save permissions"
         );
       }
 
       toast.success(
-        response?.message || "Permissions saved successfully"
+        response?.message ||
+          "Permissions saved successfully"
       );
 
       await loadRolePermissions(selectedProfile);
@@ -443,12 +454,14 @@ export default function RolePermissionForm() {
 
       if (!response?.success) {
         throw new Error(
-          response?.message || "Failed to create role"
+          response?.message ||
+            "Failed to create role"
         );
       }
 
       toast.success(
-        response?.message || "Role created successfully"
+        response?.message ||
+          "Role created successfully"
       );
 
       closeRoleModal();
@@ -474,7 +487,9 @@ export default function RolePermissionForm() {
     setEditingProfileName("");
   };
 
-  const handleInlineEditRole = async (profile) => {
+  const handleInlineEditRole = async (
+    profile
+  ) => {
     const name = editingProfileName.trim();
 
     if (!name) {
@@ -485,19 +500,24 @@ export default function RolePermissionForm() {
     try {
       setEditingProfileSaving(true);
 
-      const response = await updateProfile(profile.id, {
-        name,
-        status: Number(profile.status),
-      });
+      const response = await updateProfile(
+        profile.id,
+        {
+          name,
+          status: Number(profile.status),
+        }
+      );
 
       if (!response?.success) {
         throw new Error(
-          response?.message || "Failed to update role"
+          response?.message ||
+            "Failed to update role"
         );
       }
 
       toast.success(
-        response?.message || "Role updated successfully"
+        response?.message ||
+          "Role updated successfully"
       );
 
       cancelEditRole();
@@ -513,15 +533,20 @@ export default function RolePermissionForm() {
     }
   };
 
-  const handleToggleProfileStatus = async (profile) => {
+  const handleToggleProfileStatus = async (
+    profile
+  ) => {
     const newStatus =
       Number(profile.status) === 1 ? 0 : 1;
 
     try {
-      const response = await updateProfile(profile.id, {
-        name: profile.name,
-        status: newStatus,
-      });
+      const response = await updateProfile(
+        profile.id,
+        {
+          name: profile.name,
+          status: newStatus,
+        }
+      );
 
       if (!response?.success) {
         throw new Error(
@@ -583,7 +608,9 @@ export default function RolePermissionForm() {
 
               <button
                 type="button"
-                onClick={() => setManageRoleOpen(true)}
+                onClick={() =>
+                  setManageRoleOpen(true)
+                }
                 className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
               >
                 <RiUserSettingsLine size={18} />
@@ -603,7 +630,8 @@ export default function RolePermissionForm() {
               <button
                 type="button"
                 disabled={
-                  loadingProfiles || loadingPermissions
+                  loadingProfiles ||
+                  loadingPermissions
                 }
                 onClick={() =>
                   setProfileDropdownOpen(
@@ -671,7 +699,9 @@ export default function RolePermissionForm() {
                                   : "text-slate-600 hover:bg-slate-50"
                               }`}
                             >
-                              <span>{profile.name}</span>
+                              <span>
+                                {profile.name}
+                              </span>
 
                               {isSelected && (
                                 <RiCheckboxCircleLine
@@ -693,11 +723,13 @@ export default function RolePermissionForm() {
               <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-800">
-                    {selectedProfileData?.name} Permissions
+                    {selectedProfileData?.name}{" "}
+                    Permissions
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Configure role permissions for this profile
+                    Configure role permissions for this
+                    profile
                   </p>
                 </div>
 
@@ -739,6 +771,7 @@ export default function RolePermissionForm() {
                     className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <RiSaveLine size={18} />
+
                     {saving
                       ? "Saving..."
                       : "Save Permissions"}
@@ -760,19 +793,22 @@ export default function RolePermissionForm() {
                         Role
                       </div>
 
-                      {permissionTypes.map((permission) => {
-                        const Icon = permission.icon;
+                      {permissionTypes.map(
+                        (permission) => {
+                          const Icon =
+                            permission.icon;
 
-                        return (
-                          <div
-                            key={permission.key}
-                            className="flex w-[110px] items-center justify-center gap-1 text-xs font-semibold uppercase text-slate-500"
-                          >
-                            <Icon size={15} />
-                            {permission.label}
-                          </div>
-                        );
-                      })}
+                          return (
+                            <div
+                              key={permission.key}
+                              className="flex w-[110px] items-center justify-center gap-1 text-xs font-semibold uppercase text-slate-500"
+                            >
+                              <Icon size={15} />
+                              {permission.label}
+                            </div>
+                          );
+                        }
+                      )}
                     </div>
 
                     {loadingRoles ? (
@@ -798,7 +834,8 @@ export default function RolePermissionForm() {
                           <div
                             key={role.id}
                             className={`grid grid-cols-[minmax(240px,1fr)_repeat(5,110px)] items-center px-4 py-3 ${
-                              index !== roles.length - 1
+                              index !==
+                              roles.length - 1
                                 ? "border-b border-slate-200"
                                 : ""
                             }`}
@@ -811,7 +848,9 @@ export default function RolePermissionForm() {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  handleRoleToggle(role.id)
+                                  handleRoleToggle(
+                                    role.id
+                                  )
                                 }
                                 disabled={
                                   saving ||
@@ -839,7 +878,9 @@ export default function RolePermissionForm() {
 
                                 return (
                                   <label
-                                    key={permission.key}
+                                    key={
+                                      permission.key
+                                    }
                                     className="flex h-8 w-[110px] cursor-pointer items-center justify-center"
                                   >
                                     <input
@@ -910,7 +951,10 @@ export default function RolePermissionForm() {
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Role Name
-                  <span className="text-red-500"> *</span>
+                  <span className="text-red-500">
+                    {" "}
+                    *
+                  </span>
                 </label>
 
                 <input
@@ -918,7 +962,9 @@ export default function RolePermissionForm() {
                   name="name"
                   value={roleName}
                   onChange={(event) =>
-                    setRoleName(event.target.value)
+                    setRoleName(
+                      event.target.value
+                    )
                   }
                   placeholder="Enter role name"
                   disabled={roleSubmitting}
@@ -1008,142 +1054,158 @@ export default function RolePermissionForm() {
                     </div>
                   </div>
 
-                  {profiles.map((profile, index) => {
-                    const isActive =
-                      Number(profile.status) === 1;
+                  {profiles.map(
+                    (profile, index) => {
+                      const isActive =
+                        Number(profile.status) ===
+                        1;
 
-                    const isEditing =
-                      editingProfileId === profile.id;
+                      const isEditing =
+                        editingProfileId ===
+                        profile.id;
 
-                    return (
-                      <div
-                        key={profile.id}
-                        className={`grid grid-cols-[80px_1fr_180px_120px] items-center px-4 py-3 ${
-                          index !== profiles.length - 1
-                            ? "border-b border-slate-200"
-                            : ""
-                        }`}
-                      >
-                        <div className="text-sm font-medium text-slate-600">
-                          {profile.id}
-                        </div>
+                      return (
+                        <div
+                          key={profile.id}
+                          className={`grid grid-cols-[80px_1fr_180px_120px] items-center px-4 py-3 ${
+                            index !==
+                            profiles.length - 1
+                              ? "border-b border-slate-200"
+                              : ""
+                          }`}
+                        >
+                          <div className="text-sm font-medium text-slate-600">
+                            {profile.id}
+                          </div>
 
-                        <div className="pr-4">
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              value={editingProfileName}
-                              onChange={(event) =>
-                                setEditingProfileName(
-                                  event.target.value
-                                )
-                              }
-                              autoFocus
-                              disabled={
-                                editingProfileSaving
-                              }
-                              className="w-full rounded-lg border border-blue-300 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                            />
-                          ) : (
-                            <div className="text-sm font-semibold text-slate-700">
-                              {profile.name}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleToggleProfileStatus(
-                                profile
-                              )
-                            }
-                            disabled={
-                              editingProfileSaving
-                            }
-                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                              isActive
-                                ? "bg-green-500"
-                                : "bg-slate-300"
-                            }`}
-                            title={
-                              isActive
-                                ? "Deactivate"
-                                : "Activate"
-                            }
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                                isActive
-                                  ? "translate-x-6"
-                                  : "translate-x-1"
-                              }`}
-                            />
-                          </button>
-
-                          <span
-                            className={`text-sm font-medium ${
-                              isActive
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {isActive
-                              ? "Active"
-                              : "Inactive"}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-center gap-2">
-                          {isActive && isEditing && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleInlineEditRole(
-                                    profile
+                          <div className="pr-4">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={
+                                  editingProfileName
+                                }
+                                onChange={(event) =>
+                                  setEditingProfileName(
+                                    event.target
+                                      .value
                                   )
                                 }
+                                autoFocus
                                 disabled={
                                   editingProfileSaving
                                 }
-                                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                {editingProfileSaving
-                                  ? "Saving..."
-                                  : "Save"}
-                              </button>
+                                className="w-full rounded-lg border border-blue-300 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                              />
+                            ) : (
+                              <div className="text-sm font-semibold text-slate-700">
+                                {profile.name}
+                              </div>
+                            )}
+                          </div>
 
-                              <button
-                                type="button"
-                                onClick={cancelEditRole}
-                                disabled={
-                                  editingProfileSaving
-                                }
-                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          )}
-
-                          {isActive && !isEditing && (
+                          <div className="flex items-center gap-3">
                             <button
                               type="button"
                               onClick={() =>
-                                openEditRole(profile)
+                                handleToggleProfileStatus(
+                                  profile
+                                )
                               }
-                              className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                              title="Edit"
+                              disabled={
+                                editingProfileSaving
+                              }
+                              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                isActive
+                                  ? "bg-green-500"
+                                  : "bg-slate-300"
+                              }`}
+                              title={
+                                isActive
+                                  ? "Deactivate"
+                                  : "Activate"
+                              }
                             >
-                              <RiEditLine size={18} />
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                                  isActive
+                                    ? "translate-x-6"
+                                    : "translate-x-1"
+                                }`}
+                              />
                             </button>
-                          )}
+
+                            <span
+                              className={`text-sm font-medium ${
+                                isActive
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {isActive
+                                ? "Active"
+                                : "Inactive"}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-center gap-2">
+                            {isActive &&
+                              isEditing && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleInlineEditRole(
+                                        profile
+                                      )
+                                    }
+                                    disabled={
+                                      editingProfileSaving
+                                    }
+                                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {editingProfileSaving
+                                      ? "Saving..."
+                                      : "Save"}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={
+                                      cancelEditRole
+                                    }
+                                    disabled={
+                                      editingProfileSaving
+                                    }
+                                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              )}
+
+                            {isActive &&
+                              !isEditing && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openEditRole(
+                                      profile
+                                    )
+                                  }
+                                  className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                  title="Edit"
+                                >
+                                  <RiEditLine
+                                    size={18}
+                                  />
+                                </button>
+                              )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    }
+                  )}
                 </div>
               )}
             </div>
