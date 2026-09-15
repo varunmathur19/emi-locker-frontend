@@ -321,7 +321,6 @@ export const getRoles = async () => {
 
 
 //   GET PROFILES
-
 export const getProfiles = async () => {
   try {
     const response = await api.get("/profiles");
@@ -337,9 +336,31 @@ export const getProfiles = async () => {
   }
 };
 
+// POST Profile 
+export const createProfile = async (payload) => {
+  const response = await api.post("/profiles", payload);
+  return response.data;
+};
+
+
+//update profile
+export const updateProfile = async (id, payload) => {
+  const response = await api.put(`/profiles/${id}`, payload);
+  return response.data;
+};
+
+
+export const deleteRole = async (
+  roleId
+) => {
+  const response = await api.delete(
+    `/roles/${roleId}`
+  );
+
+  return response.data;
+};
+
 //post rolePremission
-
-
 export const saveRolePermissions = async (payload) => {
   try {
     const response = await api.post(
@@ -369,27 +390,6 @@ export const getRolePermissions = async (profileId) => {
   } catch (error) {
     console.error(
       "GET ROLE PERMISSIONS API ERROR:",
-      error?.response?.data || error.message
-    );
-
-    throw error;
-  }
-};
-
-
-//   UPDATE PROFILE
-
-export const updateProfile = async (id, profileData) => {
-  try {
-    const response = await api.put(
-      `/profiles/${id}`,
-      profileData
-    );
-
-    return response.data;
-  } catch (error) {
-    console.error(
-      "UPDATE PROFILE API ERROR:",
       error?.response?.data || error.message
     );
 
