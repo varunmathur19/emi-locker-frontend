@@ -2807,16 +2807,7 @@ export default function Page() {
                                 />
                             </div>
 
-                            {formData.phone && (
-                                <p className="text-xs text-slate-500">
-                                    {
-                                        countryPhoneCode
-                                    }{" "}
-                                    {
-                                        formData.phone
-                                    }
-                                </p>
-                            )}
+                            
                         </div>
 
                         <div className="space-y-1.5">
