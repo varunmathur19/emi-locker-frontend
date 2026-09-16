@@ -13,7 +13,6 @@ import {
   RiSaveLine,
   RiCloseLine,
   RiUserSettingsLine,
-  RiLayoutGridLine,
 } from "react-icons/ri";
 
 import {
@@ -55,32 +54,38 @@ const permissionTypes = [
 ];
 
 export default function RolePermissionForm() {
-  /* -------------------------------------------------------------------------- */
-  /* STATE                                                                      */
-  /* -------------------------------------------------------------------------- */
-
   const [profiles, setProfiles] = useState([]);
-  const [selectedProfile, setSelectedProfile] = useState("");
+  const [selectedProfile, setSelectedProfile] =
+    useState("");
   const [profileDropdownOpen, setProfileDropdownOpen] =
     useState(false);
 
   const [roles, setRoles] = useState([]);
   const [modules, setModules] = useState([]);
 
-  const [loadingProfiles, setLoadingProfiles] = useState(true);
-  const [loadingRoles, setLoadingRoles] = useState(true);
-  const [loadingModules, setLoadingModules] = useState(true);
+  const [loggedInRoleId, setLoggedInRoleId] =
+    useState(null);
+
+  const [loadingProfiles, setLoadingProfiles] =
+    useState(true);
+  const [loadingRoles, setLoadingRoles] =
+    useState(true);
+  const [loadingModules, setLoadingModules] =
+    useState(true);
   const [loadingPermissions, setLoadingPermissions] =
     useState(false);
 
   const [saving, setSaving] = useState(false);
   const [permissions, setPermissions] = useState({});
 
-  const [roleModalOpen, setRoleModalOpen] = useState(false);
-  const [manageRoleOpen, setManageRoleOpen] = useState(false);
+  const [roleModalOpen, setRoleModalOpen] =
+    useState(false);
+  const [manageRoleOpen, setManageRoleOpen] =
+    useState(false);
 
   const [roleName, setRoleName] = useState("");
-  const [roleSubmitting, setRoleSubmitting] = useState(false);
+  const [roleSubmitting, setRoleSubmitting] =
+    useState(false);
 
   const [editingProfileId, setEditingProfileId] =
     useState(null);
@@ -88,10 +93,6 @@ export default function RolePermissionForm() {
     useState("");
   const [editingProfileSaving, setEditingProfileSaving] =
     useState(false);
-
-  /* -------------------------------------------------------------------------- */
-  /* PROFILE                                                                     */
-  /* -------------------------------------------------------------------------- */
 
   const loadProfiles = async () => {
     try {
@@ -139,55 +140,57 @@ export default function RolePermissionForm() {
     }
   };
 
-  /* -------------------------------------------------------------------------- */
-  /* ROLES                                                                       */
-  /* -------------------------------------------------------------------------- */
+ const loadRoles = async (currentRoleId) => {
+  try {
+    setLoadingRoles(true);
 
-  const loadRoles = async () => {
-    try {
-      setLoadingRoles(true);
+    const response = await getRoles();
 
-      const response = await getRoles();
+    const roleData = Array.isArray(response?.data)
+      ? response.data
+      : [];
 
-      const roleData = Array.isArray(response?.data)
-        ? response.data
-        : [];
+    const loggedRoleId = Number(currentRoleId);
 
-      const activeRoles = roleData.filter((role) => {
-        const isActive = Number(role?.status) === 1;
+    const activeRoles = roleData
+      .filter((role) => {
+        const roleId = Number(role?.role_id);
+        const isActive =
+          Number(role?.status) === 1;
 
-        const roleName = String(
-          role?.name ||
-            role?.slug ||
-            role?.role_slug ||
-            ""
-        )
-          .trim()
-          .toLowerCase()
-          .replace(/[\s_-]+/g, "");
+        if (!isActive) {
+          return false;
+        }
 
-        const isStaff = roleName === "staff";
+        if (roleId === 9) {
+          return false;
+        }
 
-        return isActive && !isStaff;
-      });
+        if (!Number.isFinite(loggedRoleId)) {
+          return false;
+        }
 
-      setRoles(activeRoles);
-    } catch (error) {
-      setRoles([]);
-
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Failed to get roles"
+        return roleId > loggedRoleId;
+      })
+      .sort(
+        (a, b) =>
+          Number(a?.role_id || 0) -
+          Number(b?.role_id || 0)
       );
-    } finally {
-      setLoadingRoles(false);
-    }
-  };
 
-  /* -------------------------------------------------------------------------- */
-  /* MODULES                                                                     */
-  /* -------------------------------------------------------------------------- */
+    setRoles(activeRoles);
+  } catch (error) {
+    setRoles([]);
+
+    toast.error(
+      error?.response?.data?.message ||
+        error?.message ||
+        "Failed to get roles"
+    );
+  } finally {
+    setLoadingRoles(false);
+  }
+};
 
   const loadModules = async () => {
     try {
@@ -223,19 +226,38 @@ export default function RolePermissionForm() {
     }
   };
 
-  /* -------------------------------------------------------------------------- */
-  /* INITIAL LOAD                                                                */
-  /* -------------------------------------------------------------------------- */
-
   useEffect(() => {
+    let currentRoleId = null;
+
+    try {
+      const storedUser =
+        localStorage.getItem("user");
+
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+
+        currentRoleId = Number(
+          user?.role_id ??
+            user?.roleId ??
+            user?.user?.role_id
+        );
+      }
+    } catch (error) {
+      currentRoleId = null;
+    }
+
+    if (Number.isFinite(currentRoleId)) {
+      setLoggedInRoleId(currentRoleId);
+      loadRoles(currentRoleId);
+    } else {
+      setLoggedInRoleId(null);
+      setRoles([]);
+      setLoadingRoles(false);
+    }
+
     loadProfiles();
-    loadRoles();
     loadModules();
   }, []);
-
-  /* -------------------------------------------------------------------------- */
-  /* HELPERS                                                                     */
-  /* -------------------------------------------------------------------------- */
 
   const selectedProfileData = profiles.find(
     (profile) =>
@@ -268,10 +290,6 @@ export default function RolePermissionForm() {
   ) =>
     `${type}_${itemId}_${permission}`;
 
-  /* -------------------------------------------------------------------------- */
-  /* CHECK PERMISSION                                                            */
-  /* -------------------------------------------------------------------------- */
-
   const isChecked = (
     type,
     itemId,
@@ -289,10 +307,6 @@ export default function RolePermissionForm() {
 
     return Boolean(permissions[key]);
   };
-
-  /* -------------------------------------------------------------------------- */
-  /* LOAD SAVED PERMISSIONS                                                     */
-  /* -------------------------------------------------------------------------- */
 
   const loadRolePermissions = async (profileId) => {
     if (
@@ -316,9 +330,13 @@ export default function RolePermissionForm() {
 
       const formattedPermissions = {};
 
-      /* ------------------------------- ROLES ------------------------------- */
-
       roles.forEach((role) => {
+        const roleId = Number(role?.role_id);
+
+        if (roleId === 9) {
+          return;
+        }
+
         const roleSlug = getRoleSlug(role);
 
         permissionTypes.forEach(
@@ -340,8 +358,6 @@ export default function RolePermissionForm() {
           }
         );
       });
-
-      /* ------------------------------ MODULES ------------------------------ */
 
       modules.forEach((module) => {
         const moduleSlug =
@@ -395,19 +411,11 @@ export default function RolePermissionForm() {
     modules,
   ]);
 
-  /* -------------------------------------------------------------------------- */
-  /* PROFILE CHANGE                                                              */
-  /* -------------------------------------------------------------------------- */
-
   const handleProfileChange = (profileId) => {
     setSelectedProfile(String(profileId));
     setProfileDropdownOpen(false);
     setPermissions({});
   };
-
-  /* -------------------------------------------------------------------------- */
-  /* SINGLE PERMISSION CHANGE                                                    */
-  /* -------------------------------------------------------------------------- */
 
   const handlePermissionChange = (
     type,
@@ -430,10 +438,6 @@ export default function RolePermissionForm() {
       [key]: !previous[key],
     }));
   };
-
-  /* -------------------------------------------------------------------------- */
-  /* TOGGLE COMPLETE ROLE/MODULE                                                 */
-  /* -------------------------------------------------------------------------- */
 
   const handleItemToggle = (
     type,
@@ -474,10 +478,6 @@ export default function RolePermissionForm() {
     });
   };
 
-  /* -------------------------------------------------------------------------- */
-  /* SELECT ALL                                                                  */
-  /* -------------------------------------------------------------------------- */
-
   const handleSelectAll = () => {
     if (!selectedProfile) {
       toast.error("Please select a profile");
@@ -490,6 +490,10 @@ export default function RolePermissionForm() {
       };
 
       roles.forEach((role) => {
+        if (Number(role?.role_id) === 9) {
+          return;
+        }
+
         permissionTypes.forEach(
           (permission) => {
             const key = getPermissionKey(
@@ -520,10 +524,6 @@ export default function RolePermissionForm() {
       return updated;
     });
   };
-
-  /* -------------------------------------------------------------------------- */
-  /* CLEAR ALL                                                                   */
-  /* -------------------------------------------------------------------------- */
 
   const handleClearAll = () => {
     if (!selectedProfile) {
@@ -537,6 +537,10 @@ export default function RolePermissionForm() {
       };
 
       roles.forEach((role) => {
+        if (Number(role?.role_id) === 9) {
+          return;
+        }
+
         permissionTypes.forEach(
           (permission) => {
             const key = getPermissionKey(
@@ -568,16 +572,14 @@ export default function RolePermissionForm() {
     });
   };
 
-  /* -------------------------------------------------------------------------- */
-  /* GET ALL PERMISSIONS                                                         */
-  /* -------------------------------------------------------------------------- */
-
   const getAllPermissions = () => {
     const permission = {};
 
-    /* -------------------------------- ROLES -------------------------------- */
-
     roles.forEach((role) => {
+      if (Number(role?.role_id) === 9) {
+        return;
+      }
+
       const roleSlug = getRoleSlug(role);
 
       permissionTypes.forEach(
@@ -588,20 +590,12 @@ export default function RolePermissionForm() {
             permissionType.key
           );
 
-          if (permissions[key]) {
-            permission[
-              `${roleSlug}.${permissionType.key}`
-            ] = 1;
-          } else {
-            permission[
-              `${roleSlug}.${permissionType.key}`
-            ] = 0;
-          }
+          permission[
+            `${roleSlug}.${permissionType.key}`
+          ] = permissions[key] ? 1 : 0;
         }
       );
     });
-
-    /* ------------------------------- MODULES ------------------------------- */
 
     modules.forEach((module) => {
       const moduleSlug =
@@ -615,25 +609,15 @@ export default function RolePermissionForm() {
             permissionType.key
           );
 
-          if (permissions[key]) {
-            permission[
-              `${moduleSlug}.${permissionType.key}`
-            ] = 1;
-          } else {
-            permission[
-              `${moduleSlug}.${permissionType.key}`
-            ] = 0;
-          }
+          permission[
+            `${moduleSlug}.${permissionType.key}`
+          ] = permissions[key] ? 1 : 0;
         }
       );
     });
 
     return permission;
   };
-
-  /* -------------------------------------------------------------------------- */
-  /* SAVE PERMISSIONS                                                            */
-  /* -------------------------------------------------------------------------- */
 
   const handleSavePermissions = async () => {
     if (!selectedProfile) {
@@ -687,10 +671,6 @@ export default function RolePermissionForm() {
       setSaving(false);
     }
   };
-
-  /* -------------------------------------------------------------------------- */
-  /* ADD ROLE                                                                    */
-  /* -------------------------------------------------------------------------- */
 
   const openAddRole = () => {
     setRoleName("");
@@ -749,10 +729,6 @@ export default function RolePermissionForm() {
       setRoleSubmitting(false);
     }
   };
-
-  /* -------------------------------------------------------------------------- */
-  /* EDIT ROLE                                                                   */
-  /* -------------------------------------------------------------------------- */
 
   const openEditRole = (profile) => {
     setEditingProfileId(profile.id);
@@ -814,10 +790,6 @@ export default function RolePermissionForm() {
     }
   };
 
-  /* -------------------------------------------------------------------------- */
-  /* TOGGLE PROFILE STATUS                                                       */
-  /* -------------------------------------------------------------------------- */
-
   const handleToggleProfileStatus = async (
     profile
   ) => {
@@ -864,10 +836,6 @@ export default function RolePermissionForm() {
     }
   };
 
-  /* -------------------------------------------------------------------------- */
-  /* PERMISSION TABLE                                                            */
-  /* -------------------------------------------------------------------------- */
-
   const renderPermissionTable = (
     type,
     items,
@@ -884,7 +852,6 @@ export default function RolePermissionForm() {
     return (
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <div className="min-w-[900px]">
-          {/* TABLE HEADER */}
           <div className="grid grid-cols-[minmax(240px,1fr)_repeat(5,110px)] items-center border-b border-slate-200 bg-slate-50 px-4 py-3">
             <div className="text-sm font-semibold text-slate-600">
               {type === "role"
@@ -910,7 +877,6 @@ export default function RolePermissionForm() {
             )}
           </div>
 
-          {/* TABLE BODY */}
           {items.map((item, index) => {
             const allChecked =
               permissionTypes.every(
@@ -931,7 +897,6 @@ export default function RolePermissionForm() {
                     : ""
                 }`}
               >
-                {/* NAME */}
                 <div className="flex items-center justify-between pr-4">
                   <div className="flex min-w-0 items-center gap-3">
                     {type === "role" ? (
@@ -952,17 +917,9 @@ export default function RolePermissionForm() {
                       <div className="truncate text-sm font-semibold text-slate-700">
                         {item.name}
                       </div>
-
-                      {/* {type === "module" &&
-                        item.slug && (
-                          <div className="truncate text-xs text-slate-400">
-                            {item.slug}
-                          </div>
-                        )} */}
                     </div>
                   </div>
 
-                  {/* SELECT ALL */}
                   <button
                     type="button"
                     onClick={() =>
@@ -987,7 +944,6 @@ export default function RolePermissionForm() {
                   </button>
                 </div>
 
-                {/* PERMISSIONS */}
                 {permissionTypes.map(
                   (permission) => {
                     const checked =
@@ -1032,14 +988,9 @@ export default function RolePermissionForm() {
     );
   };
 
-  /* -------------------------------------------------------------------------- */
-  /* UI                                                                          */
-  /* -------------------------------------------------------------------------- */
-
   return (
     <div className="mx-auto w-full max-w-7xl">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-        {/* HEADER */}
         <div className="border-b border-slate-200 px-6 py-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
@@ -1085,9 +1036,7 @@ export default function RolePermissionForm() {
           </div>
         </div>
 
-        {/* CONTENT */}
         <div className="p-6">
-          {/* PROFILE DROPDOWN */}
           <div className="mb-6 w-full max-w-sm">
             <label className="mb-2 block text-sm font-semibold text-slate-700">
               Select Profile
@@ -1199,10 +1148,8 @@ export default function RolePermissionForm() {
             </div>
           </div>
 
-          {/* PERMISSIONS */}
           {selectedProfile ? (
             <>
-              {/* TITLE + ACTIONS */}
               <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-800">
@@ -1279,7 +1226,6 @@ export default function RolePermissionForm() {
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {/* ROLE PERMISSIONS */}
                   <section>
                     <div className="mb-3 flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
@@ -1305,18 +1251,20 @@ export default function RolePermissionForm() {
                         Loading roles...
                       </div>
                     ) : (
-                      renderPermissionTable(
-                        "role",
-                        roles,
-                        "No active roles found"
-                      )
+                     renderPermissionTable(
+  "role",
+  roles.filter(
+    (role) =>
+      Number(role?.role_id) !== 9 &&
+      Number(role?.role_id) >
+        Number(loggedInRoleId)
+  ),
+  "No active roles found"
+)
                     )}
                   </section>
 
-                  {/* MODULE PERMISSIONS */}
                   <section>
-                    
-
                     {loadingModules ? (
                       <div className="rounded-xl border border-slate-200 px-6 py-10 text-center text-sm text-slate-500">
                         Loading modules...
@@ -1341,10 +1289,6 @@ export default function RolePermissionForm() {
           )}
         </div>
       </div>
-
-      {/* -------------------------------------------------------------------- */}
-      {/* ADD ROLE MODAL                                                        */}
-      {/* -------------------------------------------------------------------- */}
 
       {roleModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4">
@@ -1424,10 +1368,6 @@ export default function RolePermissionForm() {
           </div>
         </div>
       )}
-
-      {/* -------------------------------------------------------------------- */}
-      {/* MANAGE ROLE MODAL                                                    */}
-      {/* -------------------------------------------------------------------- */}
 
       {manageRoleOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4">

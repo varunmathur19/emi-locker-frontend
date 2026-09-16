@@ -20,7 +20,11 @@ import {
   getAllStaffData,
 } from "@/services/api";
 
-import { saveToken, saveUser, getRoleId } from "@/utils/token";
+import {
+  saveToken,
+  saveUser,
+  getRoleId,
+} from "@/utils/token";
 
 import {
   Country,
@@ -40,50 +44,20 @@ export default function UsersTable({
 }) {
   const router = useRouter();
 
-  /* =====================================================
-     STATE
-  ===================================================== */
-
   const [search, setSearch] = useState("");
-
-  const [filterSearch, setFilterSearch] =
-    useState("");
-
-  const [filterSearchResults, setFilterSearchResults] =
-    useState([]);
-
-  const [filterSearchApplied, setFilterSearchApplied] =
-    useState(false);
-
-  const [loginLoading, setLoginLoading] =
-    useState(null);
-
-  const [statusLoading, setStatusLoading] =
-    useState(null);
-
-  const [filterOpen, setFilterOpen] =
-    useState(false);
-
-  const [searchSuggestions, setSearchSuggestions] =
-    useState([]);
-
-  const [showSuggestions, setShowSuggestions] =
-    useState(false);
-
-  const [searchLoading, setSearchLoading] =
-    useState(false);
-
-  const [searchResults, setSearchResults] =
-    useState([]);
-
-  const [searchApplied, setSearchApplied] =
-    useState(false);
-
-  const [staffPermissions, setStaffPermissions] =
-    useState(null);
-
-  const [currentRoleId, setCurrentRoleId] =
-    useState(null);
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterSearchResults, setFilterSearchResults] = useState([]);
+  const [filterSearchApplied, setFilterSearchApplied] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchApplied, setSearchApplied] = useState(false);
+  const [staffPermissions, setStaffPermissions] = useState(null);
+  const [currentRoleId, setCurrentRoleId] = useState(null);
 
   const [filters, setFilters] = useState({
     country: "",
@@ -91,10 +65,6 @@ export default function UsersTable({
     city: "",
     status: "",
   });
-
-  /* =====================================================
-     ROLE MAP
-  ===================================================== */
 
   const roleMap = {
     0: "Master Admin",
@@ -134,90 +104,75 @@ export default function UsersTable({
     9: "Add Staff",
   };
 
-  /* =====================================================
-     CURRENT ROLE + SELECTED ROLE
-  ===================================================== */
-
-  const selectedRoleId = Number(
-    selectedRole
-  );
+  const selectedRoleId = Number(selectedRole);
 
   const selectedRoleName =
     roleMap[selectedRoleId] ||
     getRoleName?.(selectedRoleId) ||
     "Unknown";
 
-  const selectedRoleSlug =
-    roleSlugMap[selectedRoleId] || "";
-
-  /* =====================================================
-     LOAD STAFF PERMISSIONS
-  ===================================================== */
+  const selectedRoleSlug = roleSlugMap[selectedRoleId] || "";
 
   useEffect(() => {
     const loadPermissions = () => {
       try {
-        const roleId = Number(
-          getRoleId()
-        );
+        const roleId = Number(getRoleId());
 
         setCurrentRoleId(roleId);
 
-        /*
-         * Only Staff needs permission based UI.
-         */
         if (roleId !== 9) {
           setStaffPermissions(null);
           return;
         }
 
-        /*
-         * First priority:
-         * staff_permissions
-         */
         const savedPermissions =
-          localStorage.getItem(
-            "staff_permissions"
-          );
+          localStorage.getItem("permissions");
 
         if (savedPermissions) {
-          const parsed =
-            JSON.parse(savedPermissions);
+          const parsed = JSON.parse(savedPermissions);
 
-          if (
-            parsed &&
-            typeof parsed === "object"
-          ) {
+          if (parsed && typeof parsed === "object") {
             setStaffPermissions(parsed);
             return;
           }
         }
 
-        /*
-         * Fallback:
-         * user.role_permission.permission
-         */
-        const savedUser =
-          localStorage.getItem("user");
+        const savedStaffPermissions =
+          localStorage.getItem("staff_permissions");
+
+        if (savedStaffPermissions) {
+          const parsed = JSON.parse(savedStaffPermissions);
+
+          if (parsed && typeof parsed === "object") {
+            setStaffPermissions(parsed);
+
+            localStorage.setItem(
+              "permissions",
+              JSON.stringify(parsed)
+            );
+
+            return;
+          }
+        }
+
+        const savedUser = localStorage.getItem("user");
 
         if (!savedUser) {
           setStaffPermissions(null);
           return;
         }
 
-        const user =
-          JSON.parse(savedUser);
+        const user = JSON.parse(savedUser);
 
         const permission =
-          user?.role_permission
-            ?.permission || null;
+          user?.role_permission?.permission || null;
 
-        if (
-          permission &&
-          typeof permission === "object"
-        ) {
-          setStaffPermissions(
-            permission
+        if (permission && typeof permission === "object") {
+          setStaffPermissions(permission);
+
+          localStorage.setItem(
+            "permissions",
+            JSON.stringify(permission)
           );
 
           localStorage.setItem(
@@ -230,11 +185,7 @@ export default function UsersTable({
 
         setStaffPermissions(null);
       } catch (error) {
-        console.error(
-          "LOAD STAFF PERMISSIONS ERROR:",
-          error
-        );
-
+        console.error("LOAD PERMISSIONS ERROR:", error);
         setStaffPermissions(null);
       }
     };
@@ -243,38 +194,23 @@ export default function UsersTable({
 
     const handleStorage = (event) => {
       if (
-        event.key ===
-          "staff_permissions" ||
+        event.key === "permissions" ||
+        event.key === "staff_permissions" ||
         event.key === "user"
       ) {
         loadPermissions();
       }
     };
 
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
+    window.addEventListener("storage", handleStorage);
 
     return () => {
-      window.removeEventListener(
-        "storage",
-        handleStorage
-      );
+      window.removeEventListener("storage", handleStorage);
     };
   }, []);
 
-  /* =====================================================
-     PERMISSION VALUE
-  ===================================================== */
-
-  const isPermissionEnabled = (
-    value
-  ) => {
-    if (
-      value === undefined ||
-      value === null
-    ) {
+  const isPermissionEnabled = (value) => {
+    if (value === undefined || value === null) {
       return false;
     }
 
@@ -293,31 +229,17 @@ export default function UsersTable({
       );
     }
 
-    if (
-      typeof value === "object"
-    ) {
-      if (
-        value.status !== undefined
-      ) {
-        return (
-          Number(value.status) === 1
-        );
+    if (typeof value === "object") {
+      if (value.status !== undefined) {
+        return Number(value.status) === 1;
       }
 
-      if (
-        value.access !== undefined
-      ) {
-        return (
-          Number(value.access) === 1
-        );
+      if (value.access !== undefined) {
+        return Number(value.access) === 1;
       }
 
-      if (
-        value.view !== undefined
-      ) {
-        return (
-          Number(value.view) === 1
-        );
+      if (value.view !== undefined) {
+        return Number(value.view) === 1;
       }
 
       return true;
@@ -326,18 +248,7 @@ export default function UsersTable({
     return false;
   };
 
-  /* =====================================================
-     CHECK PERMISSION
-  ===================================================== */
-
-  const hasPermission = (
-    slug,
-    action = null
-  ) => {
-    /*
-     * Non Staff:
-     * normal hierarchy access.
-     */
+  const hasPermission = (slug, action = null) => {
     if (Number(currentRoleId) !== 9) {
       return true;
     }
@@ -346,9 +257,7 @@ export default function UsersTable({
       return false;
     }
 
-    const cleanSlug = String(
-      slug || ""
-    )
+    const cleanSlug = String(slug || "")
       .trim()
       .toLowerCase();
 
@@ -356,145 +265,71 @@ export default function UsersTable({
       return false;
     }
 
-    /*
-     * Actions are deliberately checked independently. For example,
-     * `cnf.view` must not make the Add or Edit controls available.
-     * `manage` is the one exception: it grants every action for that role.
-     */
     if (action) {
-      const actionKey =
-        `${cleanSlug}.${action}`;
-      const manageKey =
-        `${cleanSlug}.manage`;
+      const actionKey = `${cleanSlug}.${action}`;
+      const manageKey = `${cleanSlug}.manage`;
 
       if (
-        staffPermissions[
-          actionKey
-        ] !== undefined
-        && isPermissionEnabled(
-          staffPermissions[actionKey]
-        )
+        staffPermissions[actionKey] !== undefined &&
+        isPermissionEnabled(staffPermissions[actionKey])
       ) {
         return true;
       }
 
       if (
-        staffPermissions[
-          manageKey
-        ] !== undefined
-        && isPermissionEnabled(
-          staffPermissions[manageKey]
-        )
+        staffPermissions[manageKey] !== undefined &&
+        isPermissionEnabled(staffPermissions[manageKey])
       ) {
         return true;
       }
 
-      /*
-       * Legacy role-level permission, e.g. { cnf: 1 }, means full
-       * access. New profiles should use explicit action keys above.
-       */
-      if (
-        staffPermissions[
-          cleanSlug
-        ] !== undefined
-      ) {
+      if (staffPermissions[cleanSlug] !== undefined) {
         return isPermissionEnabled(
-          staffPermissions[
-            cleanSlug
-          ]
+          staffPermissions[cleanSlug]
         );
       }
 
       return false;
     }
 
-    /* Direct role permission, e.g. { cnf: 1 }. */
-    if (
-      staffPermissions[
-        cleanSlug
-      ] !== undefined
-    ) {
+    if (staffPermissions[cleanSlug] !== undefined) {
       return isPermissionEnabled(
-        staffPermissions[
-          cleanSlug
-        ]
+        staffPermissions[cleanSlug]
       );
     }
 
-    /*
-     * If any permission exists:
-     *
-     * cnf.add
-     * cnf.edit
-     * cnf.delete
-     *
-     * then role itself is accessible.
-     */
-    const matchingKeys =
-      Object.keys(
-        staffPermissions
-      ).filter((key) => {
-        const cleanKey =
-          String(key)
-            .trim()
-            .toLowerCase();
+    const matchingKeys = Object.keys(
+      staffPermissions
+    ).filter((key) => {
+      const cleanKey = String(key)
+        .trim()
+        .toLowerCase();
 
-        return (
-          cleanKey === cleanSlug ||
-          cleanKey.startsWith(
-            `${cleanSlug}.`
-          )
-        );
-      });
+      return (
+        cleanKey === cleanSlug ||
+        cleanKey.startsWith(`${cleanSlug}.`)
+      );
+    });
 
-    return matchingKeys.some(
-      (key) =>
-        isPermissionEnabled(
-          staffPermissions[key]
-        )
+    return matchingKeys.some((key) =>
+      isPermissionEnabled(
+        staffPermissions[key]
+      )
     );
   };
 
-  /* =====================================================
-     SELECTED ROLE ACCESS
-  ===================================================== */
-
   const canViewSelectedRole =
-    hasPermission(
-      selectedRoleSlug
-    );
+    hasPermission(selectedRoleSlug);
 
   const canAddSelectedRole =
-    hasPermission(
-      selectedRoleSlug,
-      "add"
-    );
-
-  const canEditSelectedRole =
-    hasPermission(
-      selectedRoleSlug,
-      "edit"
-    );
+    hasPermission(selectedRoleSlug, "add");
 
   const canLoginSelectedRole =
-    hasPermission(
-      selectedRoleSlug,
-      "login"
-    );
+    hasPermission(selectedRoleSlug, "login");
 
   const canChangeStatus =
-    hasPermission(
-      selectedRoleSlug,
-      "status"
-    );
+    hasPermission(selectedRoleSlug, "status");
 
-  /*
-   * If explicit view permission exists,
-   * respect it.
-   *
-   * Otherwise role/add/edit/login/status
-   * permission itself gives access.
-   */
   const hasExplicitViewPermission =
     Number(currentRoleId) === 9 &&
     staffPermissions &&
@@ -514,32 +349,17 @@ export default function UsersTable({
         )
       : canViewSelectedRole;
 
-  /* =====================================================
-     SEARCH LIMIT
-  ===================================================== */
-
   const getSearchLimit = () => {
     const total =
       Number(pagination?.total) ||
-      Number(
-        pagination?.totalRecords
-      ) ||
+      Number(pagination?.totalRecords) ||
       Number(pagination?.count) ||
       0;
 
-    return total > 0
-      ? total
-      : 10000;
+    return total > 0 ? total : 10000;
   };
 
-  /* =====================================================
-     FILTER CHANGE
-  ===================================================== */
-
-  const handleFilterChange = async (
-    field,
-    value
-  ) => {
+  const handleFilterChange = async (field, value) => {
     setFilters((previous) => {
       const updatedFilters = {
         ...previous,
@@ -566,38 +386,28 @@ export default function UsersTable({
       try {
         setSearchLoading(true);
 
-        const response =
-          await getAllStaffData(
-            1,
-            getSearchLimit(),
-            selectedRoleId || "",
-            "",
-            value
-          );
+        const response = await getAllStaffData(
+          1,
+          getSearchLimit(),
+          selectedRoleId || "",
+          "",
+          value
+        );
 
-        const data =
-          Array.isArray(
-            response?.data
-          )
-            ? response.data
-            : [];
+        const data = Array.isArray(response?.data)
+          ? response.data
+          : [];
 
         setSearchResults(data);
-        setSearchApplied(
-          Boolean(value)
-        );
+        setSearchApplied(Boolean(value));
       } catch (error) {
-        console.error(
-          "STATUS SEARCH ERROR:",
-          error
-        );
+        console.error("STATUS SEARCH ERROR:", error);
 
         setSearchResults([]);
         setSearchApplied(true);
 
         toast.error(
-          error?.response?.data
-            ?.message ||
+          error?.response?.data?.message ||
             error?.message ||
             "Status search failed"
         );
@@ -607,21 +417,15 @@ export default function UsersTable({
     }
   };
 
-  /* =====================================================
-     COUNTRY / STATE / CITY
-  ===================================================== */
-
-  const countryOptions =
-    Country.getAllCountries();
+  const countryOptions = Country.getAllCountries();
 
   const stateOptions = filters.country
-    ? State.getStatesOfCountry(
-        filters.country
-      ).map((state) => ({
-        ...state,
-        countryCode:
-          filters.country,
-      }))
+    ? State.getStatesOfCountry(filters.country).map(
+        (state) => ({
+          ...state,
+          countryCode: filters.country,
+        })
+      )
     : [];
 
   const cityOptions = (() => {
@@ -629,46 +433,30 @@ export default function UsersTable({
       return [];
     }
 
-    const stateParts =
-      filters.state.split("-");
+    const stateParts = filters.state.split("-");
+    const countryCode = stateParts[0];
+    const stateCode = stateParts[1];
 
-    const countryCode =
-      stateParts[0];
-
-    const stateCode =
-      stateParts[1];
-
-    if (
-      !countryCode ||
-      !stateCode
-    ) {
+    if (!countryCode || !stateCode) {
       return [];
     }
 
     try {
-      const cities =
-        City.getCitiesOfState(
-          countryCode.toUpperCase(),
-          stateCode.toUpperCase()
-        );
-
-      return Array.isArray(cities)
-        ? cities
-        : [];
-    } catch (error) {
-      console.error(
-        "CITY LOAD ERROR:",
-        error
+      const cities = City.getCitiesOfState(
+        countryCode.toUpperCase(),
+        stateCode.toUpperCase()
       );
 
+      return Array.isArray(cities) ? cities : [];
+    } catch (error) {
+      console.error("CITY LOAD ERROR:", error);
       return [];
     }
   })();
 
-  const selectedStateParts =
-    filters.state
-      ? filters.state.split("-")
-      : [];
+  const selectedStateParts = filters.state
+    ? filters.state.split("-")
+    : [];
 
   const selectedCountryCode =
     selectedStateParts[0] || "";
@@ -690,13 +478,8 @@ export default function UsersTable({
       ?.trim()
       .toLowerCase() || "";
 
-  /* =====================================================
-     FILTER SEARCH
-  ===================================================== */
-
   useEffect(() => {
-    const searchValue =
-      filterSearch.trim();
+    const searchValue = filterSearch.trim();
 
     if (!searchValue) {
       setSearchSuggestions([]);
@@ -709,58 +492,43 @@ export default function UsersTable({
 
     let cancelled = false;
 
-    const timer = setTimeout(
-      async () => {
-        try {
-          setSearchLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        setSearchLoading(true);
 
-          const response =
-            await getAllStaffData(
-              1,
-              getSearchLimit(),
-              selectedRoleId || "",
-              searchValue
-            );
+        const response = await getAllStaffData(
+          1,
+          getSearchLimit(),
+          selectedRoleId || "",
+          searchValue
+        );
 
-          if (cancelled) {
-            return;
-          }
+        if (cancelled) {
+          return;
+        }
 
-          const data =
-            Array.isArray(
-              response?.data
-            )
-              ? response.data
-              : [];
+        const data = Array.isArray(response?.data)
+          ? response.data
+          : [];
 
-          setSearchSuggestions(
-            data
+        setSearchSuggestions(data);
+        setShowSuggestions(true);
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            "FILTER SEARCH ERROR:",
+            error
           );
 
-          setShowSuggestions(true);
-        } catch (error) {
-          if (!cancelled) {
-            console.error(
-              "FILTER SEARCH ERROR:",
-              error
-            );
-
-            setSearchSuggestions(
-              []
-            );
-
-            setShowSuggestions(
-              false
-            );
-          }
-        } finally {
-          if (!cancelled) {
-            setSearchLoading(false);
-          }
+          setSearchSuggestions([]);
+          setShowSuggestions(false);
         }
-      },
-      400
-    );
+      } finally {
+        if (!cancelled) {
+          setSearchLoading(false);
+        }
+      }
+    }, 400);
 
     return () => {
       cancelled = true;
@@ -774,17 +542,10 @@ export default function UsersTable({
     pagination?.count,
   ]);
 
-  /* =====================================================
-     SUGGESTION VALUE
-  ===================================================== */
-
-  const getSuggestionValue = (
-    user
-  ) => {
-    const query =
-      filterSearch
-        .trim()
-        .toLowerCase();
+  const getSuggestionValue = (user) => {
+    const query = filterSearch
+      .trim()
+      .toLowerCase();
 
     const fields = [
       {
@@ -792,8 +553,7 @@ export default function UsersTable({
         label: "Name",
       },
       {
-        value:
-          user?.organization_name,
+        value: user?.organization_name,
         label: "Organization",
       },
       {
@@ -814,14 +574,13 @@ export default function UsersTable({
       },
     ];
 
-    const matchedField =
-      fields.find(
-        (field) =>
-          field.value &&
-          String(field.value)
-            .toLowerCase()
-            .includes(query)
-      );
+    const matchedField = fields.find(
+      (field) =>
+        field.value &&
+        String(field.value)
+          .toLowerCase()
+          .includes(query)
+    );
 
     if (matchedField) {
       return matchedField;
@@ -839,43 +598,24 @@ export default function UsersTable({
     };
   };
 
-  /* =====================================================
-     SUGGESTION CLICK
-  ===================================================== */
+  const handleSuggestionClick = (user) => {
+    const suggestion = getSuggestionValue(user);
 
-  const handleSuggestionClick = (
-    user
-  ) => {
-    const suggestion =
-      getSuggestionValue(user);
-
-    const selectedValue =
-      String(
-        suggestion?.value || ""
-      ).trim();
+    const selectedValue = String(
+      suggestion?.value || ""
+    ).trim();
 
     if (!selectedValue) {
       return;
     }
 
-    setFilterSearch(
-      selectedValue
-    );
-
+    setFilterSearch(selectedValue);
     setShowSuggestions(false);
     setSearchSuggestions([]);
-
-    setFilterSearchResults([
-      user,
-    ]);
-
+    setFilterSearchResults([user]);
     setFilterSearchApplied(true);
     setPage?.(1);
   };
-
-  /* =====================================================
-     CLEAR FILTER
-  ===================================================== */
 
   const clearFilters = () => {
     setFilters({
@@ -888,23 +628,15 @@ export default function UsersTable({
     setFilterSearch("");
     setFilterSearchResults([]);
     setFilterSearchApplied(false);
-
     setSearchSuggestions([]);
     setShowSuggestions(false);
-
     setSearchResults([]);
     setSearchApplied(false);
-
     setPage?.(1);
   };
 
-  /* =====================================================
-     MAIN SEARCH
-  ===================================================== */
-
   const handleSearch = async () => {
-    const trimmedSearch =
-      search.trim();
+    const trimmedSearch = search.trim();
 
     setShowSuggestions(false);
     setSearchSuggestions([]);
@@ -914,10 +646,7 @@ export default function UsersTable({
       setSearchApplied(false);
       setPage?.(1);
 
-      if (
-        typeof onSearch ===
-        "function"
-      ) {
+      if (typeof onSearch === "function") {
         onSearch("");
       }
 
@@ -928,29 +657,22 @@ export default function UsersTable({
       setSearchLoading(true);
       setPage?.(1);
 
-      const response =
-        await getAllStaffData(
-          1,
-          getSearchLimit(),
-          selectedRoleId || "",
-          trimmedSearch,
-          filters.status
-        );
+      const response = await getAllStaffData(
+        1,
+        getSearchLimit(),
+        selectedRoleId || "",
+        trimmedSearch,
+        filters.status
+      );
 
-      const data =
-        Array.isArray(
-          response?.data
-        )
-          ? response.data
-          : [];
+      const data = Array.isArray(response?.data)
+        ? response.data
+        : [];
 
       setSearchResults(data);
       setSearchApplied(true);
 
-      if (
-        typeof onSearch ===
-        "function"
-      ) {
+      if (typeof onSearch === "function") {
         onSearch(trimmedSearch);
       }
     } catch (error) {
@@ -963,8 +685,7 @@ export default function UsersTable({
       setSearchApplied(true);
 
       toast.error(
-        error?.response?.data
-          ?.message ||
+        error?.response?.data?.message ||
           error?.message ||
           "Search failed"
       );
@@ -973,18 +694,12 @@ export default function UsersTable({
     }
   };
 
-  const handleSearchKeyDown = (
-    event
-  ) => {
+  const handleSearchKeyDown = (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
       handleSearch();
     }
   };
-
-  /* =====================================================
-     CLEAR SEARCH
-  ===================================================== */
 
   const handleClearSearch = () => {
     setSearch("");
@@ -994,27 +709,18 @@ export default function UsersTable({
     setSearchApplied(false);
     setPage?.(1);
 
-    if (
-      typeof onSearch ===
-      "function"
-    ) {
+    if (typeof onSearch === "function") {
       onSearch("");
     }
   };
 
-  /* =====================================================
-     LOGIN AS USER
-  ===================================================== */
-
-  const handleLoginAsUser = async (
-    user
-  ) => {
-    /*
-     * Permission check
-     */
+  const handleLoginAsUser = async (user) => {
     if (
       Number(currentRoleId) === 9 &&
-      !canLoginSelectedRole
+      !hasPermission(
+        selectedRoleSlug,
+        "login"
+      )
     ) {
       toast.error(
         `You don't have login permission for ${selectedRoleName}`
@@ -1025,15 +731,11 @@ export default function UsersTable({
     try {
       setLoginLoading(user.id);
 
-      const response =
-        await loginAsUser(
-          user.id
-        );
+      const response = await loginAsUser(user.id);
 
       if (!response?.success) {
         toast.error(
-          response?.message ||
-            "Login failed"
+          response?.message || "Login failed"
         );
         return;
       }
@@ -1052,42 +754,39 @@ export default function UsersTable({
         return;
       }
 
-      saveToken(
-        response.token
-      );
+      saveToken(response.token);
+      saveUser(response.user);
 
-      saveUser(
-        response.user
-      );
+      let permissions =
+        response.user?.role_permission
+          ?.permission || null;
 
-      /*
-       * IMPORTANT:
-       * If logged in user is Staff,
-       * preserve its permission.
-       */
-      if (
-        Number(
-          response.user?.role_id
-        ) === 9
-      ) {
-        const permission =
-          response.user
-            ?.role_permission
-            ?.permission;
-
-        if (
-          permission &&
-          typeof permission ===
-            "object"
-        ) {
-          localStorage.setItem(
-            "staff_permissions",
-            JSON.stringify(
-              permission
-            )
-          );
+      if (typeof permissions === "string") {
+        try {
+          permissions = JSON.parse(permissions);
+        } catch {
+          permissions = null;
         }
+      }
+
+      if (
+        permissions &&
+        typeof permissions === "object"
+      ) {
+        localStorage.setItem(
+          "permissions",
+          JSON.stringify(permissions)
+        );
+
+        localStorage.setItem(
+          "staff_permissions",
+          JSON.stringify(permissions)
+        );
       } else {
+        localStorage.removeItem(
+          "permissions"
+        );
+
         localStorage.removeItem(
           "staff_permissions"
         );
@@ -1097,8 +796,7 @@ export default function UsersTable({
         `Logged in as ${response.user.name}`
       );
 
-      window.location.href =
-        "/dashboard";
+      window.location.href = "/dashboard";
     } catch (error) {
       console.error(
         "LOGIN AS USER ERROR:",
@@ -1106,8 +804,7 @@ export default function UsersTable({
       );
 
       toast.error(
-        error?.response?.data
-          ?.message ||
+        error?.response?.data?.message ||
           error?.message ||
           "Unable to login as user"
       );
@@ -1116,298 +813,246 @@ export default function UsersTable({
     }
   };
 
-  /* =====================================================
-     STATUS TOGGLE
-  ===================================================== */
+  const handleStatusToggle = async (user) => {
+    if (
+      Number(currentRoleId) === 9 &&
+      !hasPermission(
+        selectedRoleSlug,
+        "status"
+      )
+    ) {
+      toast.error(
+        `You don't have status permission for ${selectedRoleName}`
+      );
+      return;
+    }
 
-  const handleStatusToggle =
-    async (user) => {
-      if (
-        Number(currentRoleId) === 9 &&
-        !canChangeStatus
-      ) {
+    try {
+      setStatusLoading(user.id);
+
+      const currentStatus = Number(
+        user?.userStatus ?? 1
+      );
+
+      const newStatus =
+        currentStatus === 1 ? 0 : 1;
+
+      const response =
+        await updateUserStatus(
+          user.id,
+          newStatus
+        );
+
+      if (!response?.success) {
         toast.error(
-          `You don't have status permission for ${selectedRoleName}`
-        );
-        return;
-      }
-
-      try {
-        setStatusLoading(user.id);
-
-        const currentStatus =
-          Number(
-            user?.userStatus ?? 1
-          );
-
-        const newStatus =
-          currentStatus === 1
-            ? 0
-            : 1;
-
-        const response =
-          await updateUserStatus(
-            user.id,
-            newStatus
-          );
-
-        if (!response?.success) {
-          toast.error(
-            response?.message ||
-              "Failed to update user status"
-          );
-          return;
-        }
-
-        user.userStatus =
-          newStatus;
-
-        setSearchResults(
-          (previous) =>
-            previous.map(
-              (item) =>
-                item.id === user.id
-                  ? {
-                      ...item,
-                      userStatus:
-                        newStatus,
-                    }
-                  : item
-            )
-        );
-
-        setFilterSearchResults(
-          (previous) =>
-            previous.map(
-              (item) =>
-                item.id === user.id
-                  ? {
-                      ...item,
-                      userStatus:
-                        newStatus,
-                    }
-                  : item
-            )
-        );
-
-        if (newStatus === 1) {
-          toast.success(
-            "User activated successfully"
-          );
-        } else {
-          toast.success(
-            "User deactivated successfully"
-          );
-        }
-      } catch (error) {
-        console.error(
-          "USER STATUS ERROR:",
-          error
-        );
-
-        toast.error(
-          error?.response?.data
-            ?.message ||
-            error?.message ||
+          response?.message ||
             "Failed to update user status"
         );
-      } finally {
-        setStatusLoading(null);
-      }
-    };
-
-  /* =====================================================
-     PAGINATION
-  ===================================================== */
-
-  const handlePreviousPage =
-    async () => {
-      if (page <= 1) {
         return;
       }
 
-      const previousPage =
-        page - 1;
+      user.userStatus = newStatus;
 
-      if (!filters.status) {
-        setPage(previousPage);
-        return;
-      }
+      setSearchResults((previous) =>
+        previous.map((item) =>
+          item.id === user.id
+            ? {
+                ...item,
+                userStatus: newStatus,
+              }
+            : item
+        )
+      );
 
-      try {
-        setSearchLoading(true);
+      setFilterSearchResults((previous) =>
+        previous.map((item) =>
+          item.id === user.id
+            ? {
+                ...item,
+                userStatus: newStatus,
+              }
+            : item
+        )
+      );
 
-        const response =
-          await getAllStaffData(
-            previousPage,
-            getSearchLimit(),
-            selectedRoleId || "",
-            "",
-            filters.status
-          );
+      toast.success(
+        newStatus === 1
+          ? "User activated successfully"
+          : "User deactivated successfully"
+      );
+    } catch (error) {
+      console.error(
+        "USER STATUS ERROR:",
+        error
+      );
 
-        const data =
-          Array.isArray(
-            response?.data
-          )
-            ? response.data
-            : [];
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update user status"
+      );
+    } finally {
+      setStatusLoading(null);
+    }
+  };
 
-        setSearchResults(data);
-        setSearchApplied(true);
-        setPage(previousPage);
-      } catch (error) {
-        console.error(
-          "STATUS PAGINATION ERROR:",
-          error
+  const handlePreviousPage = async () => {
+    if (page <= 1) {
+      return;
+    }
+
+    const previousPage = page - 1;
+
+    if (!filters.status) {
+      setPage(previousPage);
+      return;
+    }
+
+    try {
+      setSearchLoading(true);
+
+      const response =
+        await getAllStaffData(
+          previousPage,
+          getSearchLimit(),
+          selectedRoleId || "",
+          "",
+          filters.status
         );
 
-        toast.error(
-          error?.response?.data
-            ?.message ||
-            error?.message ||
-            "Failed to load users"
-        );
-      } finally {
-        setSearchLoading(false);
-      }
-    };
+      const data = Array.isArray(response?.data)
+        ? response.data
+        : [];
 
-  const handleNextPage =
-    async () => {
-      const totalPages =
-        pagination?.totalPages ||
-        1;
+      setSearchResults(data);
+      setSearchApplied(true);
+      setPage(previousPage);
+    } catch (error) {
+      console.error(
+        "STATUS PAGINATION ERROR:",
+        error
+      );
 
-      if (page >= totalPages) {
-        return;
-      }
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to load users"
+      );
+    } finally {
+      setSearchLoading(false);
+    }
+  };
 
-      const nextPage =
-        page + 1;
+  const handleNextPage = async () => {
+    const totalPages =
+      pagination?.totalPages || 1;
 
-      if (!filters.status) {
-        setPage(nextPage);
-        return;
-      }
+    if (page >= totalPages) {
+      return;
+    }
 
-      try {
-        setSearchLoading(true);
+    const nextPage = page + 1;
 
-        const response =
-          await getAllStaffData(
-            nextPage,
-            getSearchLimit(),
-            selectedRoleId || "",
-            "",
-            filters.status
-          );
+    if (!filters.status) {
+      setPage(nextPage);
+      return;
+    }
 
-        const data =
-          Array.isArray(
-            response?.data
-          )
-            ? response.data
-            : [];
+    try {
+      setSearchLoading(true);
 
-        setSearchResults(data);
-        setSearchApplied(true);
-        setPage(nextPage);
-      } catch (error) {
-        console.error(
-          "STATUS PAGINATION ERROR:",
-          error
+      const response =
+        await getAllStaffData(
+          nextPage,
+          getSearchLimit(),
+          selectedRoleId || "",
+          "",
+          filters.status
         );
 
-        toast.error(
-          error?.response?.data
-            ?.message ||
-            error?.message ||
-            "Failed to load users"
-        );
-      } finally {
-        setSearchLoading(false);
-      }
-    };
+      const data = Array.isArray(response?.data)
+        ? response.data
+        : [];
 
-  /* =====================================================
-     TABLE DATA
-  ===================================================== */
+      setSearchResults(data);
+      setSearchApplied(true);
+      setPage(nextPage);
+    } catch (error) {
+      console.error(
+        "STATUS PAGINATION ERROR:",
+        error
+      );
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to load users"
+      );
+    } finally {
+      setSearchLoading(false);
+    }
+  };
 
   let tableUsers = users;
 
   if (filterSearchApplied) {
-    tableUsers =
-      filterSearchResults;
+    tableUsers = filterSearchResults;
   } else if (searchApplied) {
-    tableUsers =
-      searchResults;
+    tableUsers = searchResults;
   }
 
-  /* =====================================================
-     LOCAL FILTER
-  ===================================================== */
+  const filteredUsers = tableUsers.filter(
+    (user) => {
+      const searchValue = search
+        .trim()
+        .toLowerCase();
 
-  const filteredUsers =
-    tableUsers.filter((user) => {
-      const searchValue =
-        search
-          .trim()
-          .toLowerCase();
+      const userName = String(
+        user?.name || ""
+      )
+        .trim()
+        .toLowerCase();
 
-      const userName =
-        String(user?.name || "")
-          .trim()
-          .toLowerCase();
+      const organizationName = String(
+        user?.organization_name || ""
+      )
+        .trim()
+        .toLowerCase();
 
-      const organizationName =
-        String(
-          user?.organization_name ||
-            ""
-        )
-          .trim()
-          .toLowerCase();
+      const userPhone = String(
+        user?.phone || ""
+      )
+        .trim()
+        .toLowerCase();
 
-      const userPhone =
-        String(user?.phone || "")
-          .trim()
-          .toLowerCase();
+      const userCity = String(
+        user?.city || ""
+      )
+        .trim()
+        .toLowerCase();
 
-      const userCity =
-        String(user?.city || "")
-          .trim()
-          .toLowerCase();
+      const userState = String(
+        user?.state || ""
+      )
+        .trim()
+        .toLowerCase();
 
-      const userState =
-        String(user?.state || "")
-          .trim()
-          .toLowerCase();
-
-      const userCountry =
-        String(user?.country || "")
-          .trim()
-          .toLowerCase();
+      const userCountry = String(
+        user?.country || ""
+      )
+        .trim()
+        .toLowerCase();
 
       const matchesSearch =
         !searchValue ||
-        userName.includes(
-          searchValue
-        ) ||
+        userName.includes(searchValue) ||
         organizationName.includes(
           searchValue
         ) ||
-        userPhone.includes(
-          searchValue
-        ) ||
-        userCity.includes(
-          searchValue
-        ) ||
-        userState.includes(
-          searchValue
-        ) ||
-        userCountry.includes(
-          searchValue
-        );
+        userPhone.includes(searchValue) ||
+        userCity.includes(searchValue) ||
+        userState.includes(searchValue) ||
+        userCountry.includes(searchValue);
 
       const selectedCountry =
         filters.country
@@ -1415,19 +1060,17 @@ export default function UsersTable({
           .toLowerCase();
 
       const selectedCountryName =
-        countryOptions
-          .find(
-            (country) =>
-              country.isoCode.toLowerCase() ===
-              selectedCountry
-          )
-          ?.name?.trim()
+        countryOptions.find(
+          (country) =>
+            country.isoCode.toLowerCase() ===
+            selectedCountry
+        )?.name
+          ?.trim()
           .toLowerCase() || "";
 
       const matchesCountry =
         !selectedCountry ||
-        userCountry ===
-          selectedCountry ||
+        userCountry === selectedCountry ||
         userCountry ===
           selectedCountryName;
 
@@ -1437,33 +1080,27 @@ export default function UsersTable({
           selectedStateCode
             .trim()
             .toLowerCase() ||
-        userState ===
-          selectedStateName;
+        userState === selectedStateName;
 
-      const selectedCity =
-        String(
-          filters.city || ""
-        )
-          .trim()
-          .toLowerCase();
+      const selectedCity = String(
+        filters.city || ""
+      )
+        .trim()
+        .toLowerCase();
 
       const matchesCity =
         !selectedCity ||
-        userCity ===
-          selectedCity;
+        userCity === selectedCity;
 
-      const userStatus =
-        Number(
-          user?.userStatus ?? 1
-        );
+      const userStatus = Number(
+        user?.userStatus ?? 1
+      );
 
       const matchesStatus =
         !filters.status ||
-        (filters.status ===
-          "active" &&
+        (filters.status === "active" &&
           userStatus === 1) ||
-        (filters.status ===
-          "inactive" &&
+        (filters.status === "inactive" &&
           userStatus === 0);
 
       return (
@@ -1473,11 +1110,8 @@ export default function UsersTable({
         matchesCity &&
         matchesStatus
       );
-    });
-
-  /* =====================================================
-     URLS
-  ===================================================== */
+    }
+  );
 
   const addPageUrl =
     `/dashboard/form?role=${selectedRoleId}` +
@@ -1486,16 +1120,13 @@ export default function UsersTable({
       selectedRoleSlug
     )}`;
 
-  const getEditFormUrl = (
-    user
-  ) => {
-    const actualRoleId =
-      Number(user?.role_id);
+  const getEditFormUrl = (user) => {
+    const actualRoleId = Number(
+      user?.role_id
+    );
 
     const actualRoleSlug =
-      roleSlugMap[
-        actualRoleId
-      ] || "";
+      roleSlugMap[actualRoleId] || "";
 
     return (
       `/dashboard/form?id=${encodeURIComponent(
@@ -1508,10 +1139,6 @@ export default function UsersTable({
       )}`
     );
   };
-
-  /* =====================================================
-     IF STAFF HAS NO ACCESS
-  ===================================================== */
 
   if (
     Number(currentRoleId) === 9 &&
@@ -1533,22 +1160,10 @@ export default function UsersTable({
     );
   }
 
-  /* =====================================================
-     UI
-  ===================================================== */
-
   return (
     <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6 max-w-full overflow-hidden">
-
-      {/* =================================================
-          HEADER
-      ================================================= */}
-
       <div className="flex justify-between items-center mb-4">
-
         <div className="flex gap-3 overflow-x-auto whitespace-nowrap w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-
-          {/* ROLE LIST */}
           <button
             type="button"
             onClick={() =>
@@ -1562,40 +1177,29 @@ export default function UsersTable({
             {selectedRoleName} List
           </button>
 
-          {/* ADD ROLE */}
           {canAddSelectedRole && (
             <Link
               href={addPageUrl}
               className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 cursor-pointer whitespace-nowrap inline-block"
             >
-              {roleButtons[
-                selectedRoleId
-              ] ||
+              {roleButtons[selectedRoleId] ||
                 `Add ${selectedRoleName}`}
             </Link>
           )}
         </div>
       </div>
 
-      {/* =================================================
-          SEARCH HEADER
-      ================================================= */}
-
       <div className="flex justify-between items-center mb-4 max-lg:flex-col max-lg:items-start max-lg:gap-3">
-
         <h2 className="lg:text-xl md:text-[15px] font-bold">
           Recent Users
         </h2>
 
         <div className="flex items-center gap-2 max-lg:w-full max-sm:flex-col max-sm:items-stretch">
-
-          {/* FILTER */}
           <button
             type="button"
             onClick={() =>
               setFilterOpen(
-                (previous) =>
-                  !previous
+                (previous) => !previous
               )
             }
             className={`flex items-center justify-center text-white cursor-pointer gap-2 border px-4 py-2 rounded-md transition-all duration-200 ease-in-out ${
@@ -1604,24 +1208,17 @@ export default function UsersTable({
                 : "bg-blue-400 border-white hover:bg-white hover:text-blue-400 hover:border-blue-500"
             }`}
           >
-            <RiFilterLine
-              size={18}
-            />
-
+            <RiFilterLine size={18} />
             Filter
           </button>
 
-          {/* SEARCH */}
           <div className="flex items-center gap-2 max-sm:w-full">
-
             <input
               type="text"
               placeholder="Search by name, city, state, phone..."
               value={search}
               onChange={(e) =>
-                setSearch(
-                  e.target.value
-                )
+                setSearch(e.target.value)
               }
               onKeyDown={
                 handleSearchKeyDown
@@ -1644,54 +1241,33 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* =================================================
-          FILTER PANEL
-      ================================================= */}
-
       {filterOpen && (
         <div className="mb-5 border border-gray-200 rounded-xl bg-gray-50 p-5">
-
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-
-            {/* SEARCH FILTER */}
             <div className="relative">
-
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Search
               </label>
 
               <div className="relative">
-
                 <input
                   type="text"
-                  value={
-                    filterSearch
-                  }
+                  value={filterSearch}
                   onChange={(e) => {
                     setFilterSearch(
                       e.target.value
                     );
-
                     setFilterSearchApplied(
                       false
                     );
-
-                    setShowSuggestions(
-                      true
-                    );
+                    setShowSuggestions(true);
                   }}
                   onFocus={() => {
-                    if (
-                      filterSearch.trim()
-                    ) {
-                      setShowSuggestions(
-                        true
-                      );
+                    if (filterSearch.trim()) {
+                      setShowSuggestions(true);
                     }
                   }}
-                  onKeyDown={(
-                    event
-                  ) => {
+                  onKeyDown={(event) => {
                     if (
                       event.key ===
                       "Enter"
@@ -1709,7 +1285,6 @@ export default function UsersTable({
               {showSuggestions &&
                 filterSearch.trim() && (
                   <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-y-auto">
-
                     {searchLoading ? (
                       <div className="px-4 py-3 text-sm text-gray-500">
                         Searching...
@@ -1779,18 +1354,14 @@ export default function UsersTable({
                 )}
             </div>
 
-            {/* COUNTRY */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Country
               </label>
 
               <div className="relative">
-
                 <select
-                  value={
-                    filters.country
-                  }
+                  value={filters.country}
                   onChange={(e) =>
                     handleFilterChange(
                       "country",
@@ -1826,27 +1397,21 @@ export default function UsersTable({
               </div>
             </div>
 
-            {/* STATE */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 State
               </label>
 
               <div className="relative">
-
                 <select
-                  value={
-                    filters.state
-                  }
+                  value={filters.state}
                   onChange={(e) =>
                     handleFilterChange(
                       "state",
                       e.target.value
                     )
                   }
-                  disabled={
-                    !filters.country
-                  }
+                  disabled={!filters.country}
                   className="w-full appearance-none border border-gray-300 rounded-md px-3 py-2 pr-10 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
                   <option value="">
@@ -1872,18 +1437,14 @@ export default function UsersTable({
               </div>
             </div>
 
-            {/* CITY */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 City
               </label>
 
               <div className="relative">
-
                 <select
-                  value={
-                    filters.city
-                  }
+                  value={filters.city}
                   onChange={(e) =>
                     handleFilterChange(
                       "city",
@@ -1901,15 +1462,10 @@ export default function UsersTable({
                   </option>
 
                   {cityOptions.map(
-                    (
-                      city,
-                      index
-                    ) => (
+                    (city, index) => (
                       <option
                         key={`${city.name}-${index}`}
-                        value={
-                          city.name
-                        }
+                        value={city.name}
                       >
                         {city.name}
                       </option>
@@ -1924,18 +1480,14 @@ export default function UsersTable({
               </div>
             </div>
 
-            {/* STATUS */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
 
               <div className="relative">
-
                 <select
-                  value={
-                    filters.status
-                  }
+                  value={filters.status}
                   onChange={(e) =>
                     handleFilterChange(
                       "status",
@@ -1964,37 +1516,24 @@ export default function UsersTable({
               </div>
             </div>
 
-            {/* CLEAR */}
             <div className="flex items-end">
-
               <button
                 type="button"
-                onClick={
-                  clearFilters
-                }
+                onClick={clearFilters}
                 className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 cursor-pointer"
               >
                 Clear Filters
               </button>
-
             </div>
           </div>
         </div>
       )}
 
-      {/* =================================================
-          TABLE
-      ================================================= */}
-
       <div className="w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-
         <div className="w-full min-w-[1000px]">
-
           <table className="w-full">
-
             <thead>
               <tr className="border-b">
-
                 <th className="text-left p-3">
                   S.No
                 </th>
@@ -2002,7 +1541,6 @@ export default function UsersTable({
                 <th className="text-left p-3">
                   Parent Name
                   <br />
-
                   <span className="text-sm text-gray-500">
                     Parent Organization
                   </span>
@@ -2011,7 +1549,6 @@ export default function UsersTable({
                 <th className="text-left p-3">
                   Name
                   <br />
-
                   <span className="text-sm text-gray-500">
                     Organization Name
                   </span>
@@ -2036,28 +1573,18 @@ export default function UsersTable({
                 <th className="text-left p-3">
                   Status
                 </th>
-
               </tr>
             </thead>
 
             <tbody>
-
-              {filteredUsers.length >
-              0 ? (
+              {filteredUsers.length > 0 ? (
                 filteredUsers.map(
-                  (
-                    user,
-                    index
-                  ) => {
+                  (user, index) => {
                     const actualRoleId =
-                      Number(
-                        user?.role_id
-                      );
+                      Number(user?.role_id);
 
                     const actualRoleName =
-                      roleMap[
-                        actualRoleId
-                      ] ||
+                      roleMap[actualRoleId] ||
                       getRoleName?.(
                         actualRoleId
                       ) ||
@@ -2070,17 +1597,9 @@ export default function UsersTable({
 
                     const isActive =
                       Number(
-                        user?.userStatus ??
-                          1
+                        user?.userStatus ?? 1
                       ) === 1;
 
-                    /*
-                     * Row permission.
-                     *
-                     * This is important if table
-                     * accidentally contains another
-                     * role.
-                     */
                     const canEditRow =
                       Number(
                         currentRoleId
@@ -2110,13 +1629,9 @@ export default function UsersTable({
 
                     return (
                       <tr
-                        key={
-                          user.id
-                        }
+                        key={user.id}
                         className="border-b"
                       >
-
-                        {/* S.NO */}
                         <td className="p-3">
                           {(page - 1) *
                             (pagination?.limit ||
@@ -2125,9 +1640,7 @@ export default function UsersTable({
                             1}
                         </td>
 
-                        {/* PARENT */}
                         <td className="p-3 py-1">
-
                           <div className="font-semibold">
                             {user.parent_name ||
                               "-"}
@@ -2137,46 +1650,34 @@ export default function UsersTable({
                             {user.parent_organization_name ||
                               "-"}
                           </div>
-
                         </td>
 
-                        {/* USER */}
                         <td className="p-3 py-1">
-
                           <div className="font-semibold">
-                            {user.name ||
-                              "-"}
+                            {user.name || "-"}
                           </div>
 
                           <div className="text-sm text-gray-500">
                             {user.organization_name ||
                               "-"}
                           </div>
-
                         </td>
 
-                        {/* PHONE */}
                         <td className="p-3 py-1">
-                          {user.phone ||
-                            "-"}
+                          {user.phone || "-"}
                         </td>
 
-                        {/* ROLE */}
                         <td className="p-3 py-1">
                           {actualRoleName}
                         </td>
 
-                        {/* CREATED */}
                         <td className="p-3 py-1">
-
                           {user.created_at ? (
                             <div className="text-sm leading-5">
-
                               <div>
                                 <span className="font-bold">
                                   Date:
                                 </span>{" "}
-
                                 {new Date(
                                   user.created_at
                                 ).toLocaleDateString(
@@ -2193,7 +1694,6 @@ export default function UsersTable({
                                 <span className="font-bold">
                                   Time:
                                 </span>{" "}
-
                                 {new Date(
                                   user.created_at
                                 ).toLocaleTimeString(
@@ -2204,20 +1704,14 @@ export default function UsersTable({
                                   }
                                 )}
                               </div>
-
                             </div>
                           ) : (
                             "-"
                           )}
-
                         </td>
 
-                        {/* ACTIONS */}
                         <td className="p-3 py-1 text-center">
-
                           <div className="flex items-center justify-center gap-2">
-
-                            {/* EDIT */}
                             {isActive &&
                               canEditRow && (
                                 <button
@@ -2233,14 +1727,11 @@ export default function UsersTable({
                                   title={`Edit ${actualRoleName}`}
                                 >
                                   <RiEditLine
-                                    size={
-                                      20
-                                    }
+                                    size={20}
                                   />
                                 </button>
                               )}
 
-                            {/* LOGIN */}
                             {isActive &&
                               canLoginRow && (
                                 <button
@@ -2262,23 +1753,17 @@ export default function UsersTable({
                                     <span className="h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
                                   ) : (
                                     <RiLoginBoxLine
-                                      size={
-                                        20
-                                      }
+                                      size={20}
                                     />
                                   )}
                                 </button>
                               )}
-
                           </div>
                         </td>
 
-                        {/* STATUS */}
                         <td className="p-3 py-1">
-
                           {canStatusRow ? (
                             <div className="flex items-center gap-3">
-
                               <button
                                 type="button"
                                 disabled={
@@ -2301,7 +1786,6 @@ export default function UsersTable({
                                     : "Activate User"
                                 }
                               >
-
                                 <span
                                   className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
                                     isActive
@@ -2309,18 +1793,14 @@ export default function UsersTable({
                                       : "translate-x-1"
                                   }`}
                                 />
-
                               </button>
-
                             </div>
                           ) : (
                             <span className="text-gray-400">
                               -
                             </span>
                           )}
-
                         </td>
-
                       </tr>
                     );
                   }
@@ -2335,25 +1815,16 @@ export default function UsersTable({
                   </td>
                 </tr>
               )}
-
             </tbody>
-
           </table>
         </div>
       </div>
 
-      {/* =================================================
-          PAGINATION
-      ================================================= */}
-
       <div className="flex justify-center items-center gap-3 mt-5">
-
         <button
           type="button"
           disabled={page <= 1}
-          onClick={
-            handlePreviousPage
-          }
+          onClick={handlePreviousPage}
           className={`px-4 py-2 rounded cursor-pointer ${
             page <= 1
               ? "bg-gray-200 cursor-not-allowed"
@@ -2365,34 +1836,27 @@ export default function UsersTable({
 
         <span className="px-4 py-2 font-semibold">
           Page{" "}
-          {pagination?.currentPage ||
-            page}{" "}
+          {pagination?.currentPage || page}{" "}
           /{" "}
-          {pagination?.totalPages ||
-            1}
+          {pagination?.totalPages || 1}
         </span>
 
         <button
           type="button"
           disabled={
             page >=
-            (pagination?.totalPages ||
-              1)
+            (pagination?.totalPages || 1)
           }
-          onClick={
-            handleNextPage
-          }
+          onClick={handleNextPage}
           className={`px-4 py-2 rounded cursor-pointer ${
             page >=
-            (pagination?.totalPages ||
-              1)
+            (pagination?.totalPages || 1)
               ? "bg-gray-200 cursor-not-allowed"
               : "bg-blue-500 text-white hover:bg-blue-600"
           }`}
         >
           Next
         </button>
-
       </div>
     </div>
   );
