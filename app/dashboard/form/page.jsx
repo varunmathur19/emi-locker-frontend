@@ -2280,6 +2280,7 @@ export default function Page() {
                 <form
                     onSubmit={handleSubmit}
                     className="pt-6"
+                    autoComplete="off"
                 >
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {Number(
@@ -2347,6 +2348,7 @@ export default function Page() {
                                 onChange={
                                     handleChange
                                 }
+                                 autoComplete="new-email"
                                 required
                                 placeholder="staff@example.com"
                                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2426,6 +2428,7 @@ export default function Page() {
                                     required={
                                         !isEditMode
                                     }
+                                    autoComplete="new-password"
                                     placeholder={
                                         isEditMode
                                             ? "Leave blank to keep current password"
