@@ -1,8 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+import {
+  usePathname,
+  useSearchParams,
+} from "next/navigation";
 import * as RiIcons from "react-icons/ri";
 
 import {
@@ -17,21 +24,17 @@ import {
   getRoles,
 } from "@/services/api";
 
-/* =========================================================
-   ROLE ACCESS
-========================================================= */
-
 const allowedRolesByRole = {
-  0: [1], // Master Admin -> Admin
-  1: [2, 3, 4, 5, 6, 7, 8, 9], // Admin
-  2: [3, 4, 5, 6, 7, 8, 9], // CNF
-  3: [4, 5, 6, 7, 8, 9], // Super Distributor
-  4: [5, 6, 7, 8, 9], // Distributor
-  5: [6, 7, 8, 9], // FOS
-  6: [7, 8, 9], // Retailer
-  7: [8, 9], // Sub Retailer
-  8: [9], // Employee
-  9: [], // Staff -> permission based
+  0: [1],
+  1: [2, 3, 4, 5, 6, 7, 8, 9],
+  2: [3, 4, 5, 6, 7, 8, 9],
+  3: [4, 5, 6, 7, 8, 9],
+  4: [5, 6, 7, 8, 9],
+  5: [6, 7, 8, 9],
+  6: [7, 8, 9],
+  7: [8, 9],
+  8: [9],
+  9: [],
 };
 
 const defaultAdminRole = {
@@ -44,13 +47,8 @@ const defaultAdminRole = {
   status: 1,
 };
 
-/* =========================================================
-   ICON HELPERS
-========================================================= */
-
 const getRoleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -59,7 +57,9 @@ const getRoleIcon = (iconName, size = 20) => {
     !IconComponent ||
     typeof IconComponent !== "function"
   ) {
-    return <RiIcons.RiUserLine size={size} />;
+    return (
+      <RiIcons.RiUserLine size={size} />
+    );
   }
 
   return <IconComponent size={size} />;
@@ -67,7 +67,6 @@ const getRoleIcon = (iconName, size = 20) => {
 
 const getModuleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -76,30 +75,28 @@ const getModuleIcon = (iconName, size = 20) => {
     !IconComponent ||
     typeof IconComponent !== "function"
   ) {
-    return <RiIcons.RiBuilding2Line size={size} />;
+    return (
+      <RiIcons.RiBuilding2Line size={size} />
+    );
   }
 
   return <IconComponent size={size} />;
 };
 
-/* =========================================================
-   SIDEBAR
-========================================================= */
-
-export default function Sidebar({ sidebarOpen }) {
+export default function Sidebar({
+  sidebarOpen,
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [roleId, setRoleId] = useState(null);
   const [roles, setRoles] = useState([]);
   const [modules, setModules] = useState([]);
-  const [permissions, setPermissions] = useState(null);
+  const [permissions, setPermissions] =
+    useState(null);
 
-  /* =======================================================
-     URL STATE
-  ======================================================= */
-
-  const activeRoleParam = searchParams.get("role");
+  const activeRoleParam =
+    searchParams.get("role");
 
   const activeModule = String(
     searchParams.get("module") || ""
@@ -113,83 +110,28 @@ export default function Sidebar({ sidebarOpen }) {
       ? Number(activeRoleParam)
       : null;
 
-  /* =======================================================
-     STAFF PERMISSION
-  ======================================================= */
-
-  const loadStaffPermissions = useCallback(() => {
-    try {
-      /*
-       * First priority:
-       * staff_permissions localStorage
-       */
-      const savedPermissions =
-        localStorage.getItem("staff_permissions");
-
-      if (savedPermissions) {
-        const parsedPermissions =
-          JSON.parse(savedPermissions);
-
-        if (
-          parsedPermissions &&
-          typeof parsedPermissions === "object"
-        ) {
-          setPermissions(parsedPermissions);
-          return parsedPermissions;
-        }
+  const removeInvalidPermissionKeys =
+    useCallback(() => {
+      if (typeof window === "undefined") {
+        return;
       }
 
-      /*
-       * Fallback:
-       * user.role_permission.permission
-       */
-      const savedUser =
-        localStorage.getItem("user");
+      localStorage.removeItem("permission");
+      localStorage.removeItem("permissions");
+      localStorage.removeItem(
+        "role_permission"
+      );
+      localStorage.removeItem(
+        "rolePermission"
+      );
+    }, []);
 
-      if (!savedUser) {
-        setPermissions(null);
+  const loadStaffPermissions =
+    useCallback(() => {
+      if (typeof window === "undefined") {
         return null;
       }
 
-      const user = JSON.parse(savedUser);
-
-      const staffPermission =
-        user?.role_permission?.permission || null;
-
-      if (
-        staffPermission &&
-        typeof staffPermission === "object"
-      ) {
-        setPermissions(staffPermission);
-
-        localStorage.setItem(
-          "staff_permissions",
-          JSON.stringify(staffPermission)
-        );
-
-        return staffPermission;
-      }
-
-      /*
-       * IMPORTANT:
-       * Yaha staff_permissions remove nahi karna.
-       *
-       * Agar pehle se permission saved hai aur
-       * user object me permission nahi hai,
-       * to permission ko remove nahi karna.
-       */
-      setPermissions(null);
-
-      return null;
-    } catch (error) {
-      console.error(
-        "LOAD STAFF PERMISSION ERROR:",
-        error
-      );
-
-      /*
-       * Last fallback
-       */
       try {
         const savedPermissions =
           localStorage.getItem(
@@ -202,168 +144,230 @@ export default function Sidebar({ sidebarOpen }) {
 
           if (
             parsedPermissions &&
-            typeof parsedPermissions === "object"
+            typeof parsedPermissions ===
+              "object" &&
+            !Array.isArray(parsedPermissions)
           ) {
-            setPermissions(parsedPermissions);
+            setPermissions(
+              parsedPermissions
+            );
+
             return parsedPermissions;
           }
         }
-      } catch (parseError) {
+      } catch (error) {
         console.error(
-          "PARSE STAFF PERMISSION ERROR:",
-          parseError
+          "STAFF PERMISSION STORAGE ERROR:",
+          error
+        );
+      }
+
+      try {
+        const savedUser =
+          localStorage.getItem("user");
+
+        if (!savedUser) {
+          setPermissions(null);
+          return null;
+        }
+
+        const user = JSON.parse(savedUser);
+
+        const permission =
+          user?.staff_permission
+            ?.permission ||
+          user?.role_permission
+            ?.permission ||
+          null;
+
+        if (
+          permission &&
+          typeof permission ===
+            "object" &&
+          !Array.isArray(permission)
+        ) {
+          setPermissions(permission);
+
+          localStorage.setItem(
+            "staff_permissions",
+            JSON.stringify(permission)
+          );
+
+          return permission;
+        }
+      } catch (error) {
+        console.error(
+          "STAFF USER PERMISSION ERROR:",
+          error
         );
       }
 
       setPermissions(null);
+
       return null;
-    }
-  }, []);
+    }, []);
 
-  /* =======================================================
-     CURRENT USER
-  ======================================================= */
+  const loadCurrentUser =
+    useCallback(() => {
+      try {
+        const currentRole = getRoleId();
 
-  const loadCurrentUser = useCallback(() => {
-    try {
-      const currentRole = getRoleId();
+        if (
+          currentRole === null ||
+          currentRole === undefined ||
+          currentRole === ""
+        ) {
+          setRoleId(null);
+          setPermissions(null);
 
-      if (
-        currentRole !== null &&
-        currentRole !== undefined &&
-        currentRole !== ""
-      ) {
-        const numericRole = Number(currentRole);
+          removeInvalidPermissionKeys();
 
-        setRoleId(numericRole);
-
-        /*
-         * Staff
-         */
-        if (numericRole === 9) {
-          loadStaffPermissions();
           return;
         }
 
-        /*
-         * Non Staff
-         */
+        const numericRole =
+          Number(currentRole);
+
+        setRoleId(numericRole);
+
+        if (numericRole === 9) {
+          loadStaffPermissions();
+
+          removeInvalidPermissionKeys();
+
+          return;
+        }
+
         setPermissions(null);
 
         localStorage.removeItem(
           "staff_permissions"
         );
 
-        return;
+        removeInvalidPermissionKeys();
+      } catch (error) {
+        console.error(
+          "LOAD CURRENT USER ERROR:",
+          error
+        );
+
+        setRoleId(null);
+        setPermissions(null);
+
+        removeInvalidPermissionKeys();
       }
+    }, [
+      loadStaffPermissions,
+      removeInvalidPermissionKeys,
+    ]);
 
-      setRoleId(null);
-      setPermissions(null);
-    } catch (error) {
-      console.error(
-        "LOAD CURRENT USER ERROR:",
-        error
-      );
+  const loadRoles = useCallback(
+    async () => {
+      try {
+        const response =
+          await getRoles();
 
-      setRoleId(null);
-      setPermissions(null);
-    }
-  }, [loadStaffPermissions]);
+        if (
+          response?.success &&
+          Array.isArray(response?.data)
+        ) {
+          const activeRoles =
+            response.data
+              .filter(
+                (role) =>
+                  Number(
+                    role?.status ?? 1
+                  ) === 1
+              )
+              .sort(
+                (a, b) =>
+                  Number(
+                    a?.sequence ?? 0
+                  ) -
+                  Number(
+                    b?.sequence ?? 0
+                  )
+              );
 
-  /* =======================================================
-     LOAD ROLES
-  ======================================================= */
+          setRoles(activeRoles);
+        } else {
+          setRoles([]);
+        }
+      } catch (error) {
+        console.error(
+          "GET ROLES ERROR:",
+          error
+        );
 
-  const loadRoles = useCallback(async () => {
-    try {
-      const response = await getRoles();
-
-      if (
-        response?.success &&
-        Array.isArray(response?.data)
-      ) {
-        const activeRoles = response.data
-          .filter(
-            (role) =>
-              Number(role?.status ?? 1) === 1
-          )
-          .sort(
-            (a, b) =>
-              Number(a?.sequence ?? 0) -
-              Number(b?.sequence ?? 0)
-          );
-
-        setRoles(activeRoles);
-      } else {
         setRoles([]);
       }
-    } catch (error) {
-      console.error(
-        "GET ROLES ERROR:",
-        error
-      );
+    },
+    []
+  );
 
-      setRoles([]);
-    }
-  }, []);
+  const loadModules =
+    useCallback(async () => {
+      try {
+        const response =
+          await getModules();
 
-  /* =======================================================
-     LOAD MODULES
-  ======================================================= */
+        if (
+          response?.success &&
+          Array.isArray(response?.data)
+        ) {
+          const activeModules =
+            response.data
+              .filter(
+                (moduleItem) =>
+                  Number(
+                    moduleItem?.status ?? 1
+                  ) === 1
+              )
+              .sort(
+                (a, b) =>
+                  Number(
+                    a?.sequence ?? 0
+                  ) -
+                  Number(
+                    b?.sequence ?? 0
+                  )
+              );
 
-  const loadModules = useCallback(async () => {
-    try {
-      const response = await getModules();
+          setModules(activeModules);
+        } else {
+          setModules([]);
+        }
+      } catch (error) {
+        console.error(
+          "GET MODULES ERROR:",
+          error
+        );
 
-      if (
-        response?.success &&
-        Array.isArray(response?.data)
-      ) {
-        const activeModules = response.data
-          .filter(
-            (moduleItem) =>
-              Number(moduleItem?.status ?? 1) === 1
-          )
-          .sort(
-            (a, b) =>
-              Number(a?.sequence ?? 0) -
-              Number(b?.sequence ?? 0)
-          );
-
-        setModules(activeModules);
-      } else {
         setModules([]);
       }
-    } catch (error) {
-      console.error(
-        "GET MODULES ERROR:",
-        error
-      );
-
-      setModules([]);
-    }
-  }, []);
-
-  /* =======================================================
-     INITIAL LOAD
-  ======================================================= */
+    }, []);
 
   useEffect(() => {
+    removeInvalidPermissionKeys();
+
     loadRoles();
     loadModules();
     loadCurrentUser();
   }, [
+    removeInvalidPermissionKeys,
     loadRoles,
     loadModules,
     loadCurrentUser,
   ]);
 
-  /* =======================================================
-     FOCUS + VISIBILITY
-  ======================================================= */
-
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     const handleFocus = () => {
+      removeInvalidPermissionKeys();
+
       loadRoles();
       loadModules();
       loadCurrentUser();
@@ -371,8 +375,11 @@ export default function Sidebar({ sidebarOpen }) {
 
     const handleVisibilityChange = () => {
       if (
-        document.visibilityState === "visible"
+        document.visibilityState ===
+        "visible"
       ) {
+        removeInvalidPermissionKeys();
+
         loadRoles();
         loadModules();
         loadCurrentUser();
@@ -401,39 +408,47 @@ export default function Sidebar({ sidebarOpen }) {
       );
     };
   }, [
+    removeInvalidPermissionKeys,
     loadRoles,
     loadModules,
     loadCurrentUser,
   ]);
 
-  /* =======================================================
-     STORAGE CHANGE
-  ======================================================= */
-
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     const handleStorage = (event) => {
-      /*
-       * Modules updated
-       */
-      if (event.key === "modules_updated") {
+      if (
+        event.key === "modules_updated"
+      ) {
         loadModules();
       }
 
-      /*
-       * Roles updated
-       */
-      if (event.key === "roles_updated") {
+      if (
+        event.key === "roles_updated"
+      ) {
         loadRoles();
       }
 
-      /*
-       * User / Staff permission updated
-       */
       if (
         event.key === "user" ||
-        event.key === "staff_permissions"
+        event.key ===
+          "staff_permissions"
       ) {
         loadCurrentUser();
+      }
+
+      if (
+        event.key === "permission" ||
+        event.key === "permissions" ||
+        event.key ===
+          "role_permission" ||
+        event.key ===
+          "rolePermission"
+      ) {
+        removeInvalidPermissionKeys();
       }
     };
 
@@ -449,17 +464,35 @@ export default function Sidebar({ sidebarOpen }) {
       );
     };
   }, [
-    loadRoles,
     loadModules,
+    loadRoles,
     loadCurrentUser,
+    removeInvalidPermissionKeys,
   ]);
 
-  /* =======================================================
-     PERMISSION VALUE CHECK
-  ======================================================= */
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
 
-  const isPermissionEnabled = useCallback(
-    (value) => {
+    removeInvalidPermissionKeys();
+
+    const timer = setTimeout(() => {
+      removeInvalidPermissionKeys();
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [
+    pathname,
+    activeRole,
+    activeModule,
+    removeInvalidPermissionKeys,
+  ]);
+
+  const isPermissionEnabled =
+    useCallback((value) => {
       if (
         value === undefined ||
         value === null
@@ -467,18 +500,25 @@ export default function Sidebar({ sidebarOpen }) {
         return false;
       }
 
-      if (typeof value === "boolean") {
+      if (
+        typeof value === "boolean"
+      ) {
         return value;
       }
 
-      if (typeof value === "number") {
+      if (
+        typeof value === "number"
+      ) {
         return value === 1;
       }
 
-      if (typeof value === "string") {
+      if (
+        typeof value === "string"
+      ) {
         return (
           value === "1" ||
-          value.toLowerCase() === "true"
+          value.toLowerCase() ===
+            "true"
         );
       }
 
@@ -489,7 +529,9 @@ export default function Sidebar({ sidebarOpen }) {
           value.status !== undefined
         ) {
           return (
-            Number(value.status) === 1
+            Number(
+              value.status
+            ) === 1
           );
         }
 
@@ -497,7 +539,9 @@ export default function Sidebar({ sidebarOpen }) {
           value.view !== undefined
         ) {
           return (
-            Number(value.view) === 1
+            Number(
+              value.view
+            ) === 1
           );
         }
 
@@ -505,7 +549,9 @@ export default function Sidebar({ sidebarOpen }) {
           value.access !== undefined
         ) {
           return (
-            Number(value.access) === 1
+            Number(
+              value.access
+            ) === 1
           );
         }
 
@@ -513,204 +559,170 @@ export default function Sidebar({ sidebarOpen }) {
       }
 
       return false;
-    },
-    []
-  );
+    }, []);
 
-  /* =======================================================
-     PERMISSION BY SLUG
-  ======================================================= */
+  const hasPermissionForSlug =
+    useCallback(
+      (slug) => {
+        if (!permissions) {
+          return false;
+        }
 
-  const hasPermissionForSlug = useCallback(
-    (slug) => {
-      if (!permissions) {
-        return false;
-      }
+        const cleanSlug = String(
+          slug || ""
+        )
+          .trim()
+          .toLowerCase();
 
-      const cleanSlug = String(
-        slug || ""
-      )
-        .trim()
-        .toLowerCase();
+        if (!cleanSlug) {
+          return false;
+        }
 
-      if (!cleanSlug) {
-        return false;
-      }
+        const permissionKeys =
+          Object.keys(
+            permissions
+          );
 
-      const permissionKeys =
-        Object.keys(permissions);
+        if (
+          permissions[
+            cleanSlug
+          ] !== undefined
+        ) {
+          return isPermissionEnabled(
+            permissions[
+              cleanSlug
+            ]
+          );
+        }
 
-      /*
-       * Exact permission
-       *
-       * Example:
-       * {
-       *   "cnf": 1
-       * }
-       */
-      if (
-        permissions[cleanSlug] !==
-        undefined
-      ) {
-        return isPermissionEnabled(
-          permissions[cleanSlug]
+        const matchingKeys =
+          permissionKeys.filter(
+            (key) => {
+              const cleanKey =
+                String(key)
+                  .trim()
+                  .toLowerCase();
+
+              return (
+                cleanKey ===
+                  cleanSlug ||
+                cleanKey.startsWith(
+                  `${cleanSlug}.`
+                )
+              );
+            }
+          );
+
+        return matchingKeys.some(
+          (key) =>
+            isPermissionEnabled(
+              permissions[key]
+            )
         );
-      }
+      },
+      [
+        permissions,
+        isPermissionEnabled,
+      ]
+    );
 
-      /*
-       * Action permission
-       *
-       * Example:
-       * cnf.add
-       * cnf.edit
-       * cnf.delete
-       * cnf.view
-       */
-      const matchingKeys =
-        permissionKeys.filter(
-          (key) => {
-            const cleanKey = String(key)
-              .trim()
-              .toLowerCase();
+  const hasModulePermission =
+    useCallback(
+      (moduleItem) => {
+        if (
+          Number(roleId) !== 9
+        ) {
+          return true;
+        }
 
-            return (
-              cleanKey === cleanSlug ||
-              cleanKey.startsWith(
-                `${cleanSlug}.`
-              )
-            );
-          }
-        );
+        const slug = String(
+          moduleItem?.slug || ""
+        )
+          .trim()
+          .toLowerCase();
 
-      return matchingKeys.some(
-        (key) =>
-          isPermissionEnabled(
-            permissions[key]
+        const name = String(
+          moduleItem?.name || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        if (
+          slug &&
+          hasPermissionForSlug(
+            slug
           )
-      );
-    },
-    [
-      permissions,
-      isPermissionEnabled,
-    ]
-  );
+        ) {
+          return true;
+        }
 
-  /* =======================================================
-     MODULE PERMISSION
-  ======================================================= */
+        if (
+          name &&
+          hasPermissionForSlug(
+            name
+          )
+        ) {
+          return true;
+        }
 
-  const hasModulePermission = useCallback(
-    (moduleItem) => {
-      /*
-       * Non Staff:
-       * modules normally visible
-       */
-      if (Number(roleId) !== 9) {
-        return true;
-      }
+        return false;
+      },
+      [
+        roleId,
+        hasPermissionForSlug,
+      ]
+    );
 
-      const slug = String(
-        moduleItem?.slug || ""
-      )
-        .trim()
-        .toLowerCase();
+  const hasRolePermission =
+    useCallback(
+      (roleItem) => {
+        if (
+          Number(roleId) !== 9
+        ) {
+          return true;
+        }
 
-      const name = String(
-        moduleItem?.name || ""
-      )
-        .trim()
-        .toLowerCase();
+        const roleSlug = String(
+          roleItem?.slug || ""
+        )
+          .trim()
+          .toLowerCase();
 
-      /*
-       * Check slug
-       */
-      if (
-        slug &&
-        hasPermissionForSlug(slug)
-      ) {
-        return true;
-      }
+        const roleName = String(
+          roleItem?.name || ""
+        )
+          .trim()
+          .toLowerCase();
 
-      /*
-       * Check name
-       */
-      if (
-        name &&
-        hasPermissionForSlug(name)
-      ) {
-        return true;
-      }
+        if (
+          roleSlug &&
+          hasPermissionForSlug(
+            roleSlug
+          )
+        ) {
+          return true;
+        }
 
-      return false;
-    },
-    [
-      roleId,
-      hasPermissionForSlug,
-    ]
-  );
+        if (
+          roleName &&
+          hasPermissionForSlug(
+            roleName
+          )
+        ) {
+          return true;
+        }
 
-  /* =======================================================
-     ROLE PERMISSION
-  ======================================================= */
-
-  const hasRolePermission = useCallback(
-    (roleItem) => {
-      /*
-       * Non Staff:
-       * role access comes from hierarchy
-       */
-      if (Number(roleId) !== 9) {
-        return true;
-      }
-
-      const roleSlug = String(
-        roleItem?.slug || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const roleName = String(
-        roleItem?.name || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      /*
-       * Example:
-       *
-       * {
-       *   "cnf.add": 1
-       * }
-       *
-       * CNF will be visible.
-       */
-      if (
-        roleSlug &&
-        hasPermissionForSlug(roleSlug)
-      ) {
-        return true;
-      }
-
-      if (
-        roleName &&
-        hasPermissionForSlug(roleName)
-      ) {
-        return true;
-      }
-
-      return false;
-    },
-    [
-      roleId,
-      hasPermissionForSlug,
-    ]
-  );
-
-  /* =======================================================
-     MY LOGIN
-  ======================================================= */
+        return false;
+      },
+      [
+        roleId,
+        hasPermissionForSlug,
+      ]
+    );
 
   const myLogin = () => {
+    removeInvalidPermissionKeys();
+
     const restored =
       restoreOriginalLogin();
 
@@ -721,21 +733,11 @@ export default function Sidebar({ sidebarOpen }) {
       return;
     }
 
-    /*
-     * Staff permission belongs to
-     * impersonated Staff session.
-     */
-    localStorage.removeItem(
-      "staff_permissions"
-    );
+    removeInvalidPermissionKeys();
 
     window.location.href =
       "/dashboard";
   };
-
-  /* =======================================================
-     LOGOUT
-  ======================================================= */
 
   const logout = async () => {
     try {
@@ -764,51 +766,48 @@ export default function Sidebar({ sidebarOpen }) {
         "staff_permissions"
       );
 
+      removeInvalidPermissionKeys();
+
       window.location.href = "/";
     }
   };
 
-  /* =======================================================
-     ACTIVE ROLE
-  ======================================================= */
+  const isRoleLinkActive =
+    useCallback(
+      (roleItem) => {
+        const currentRoleId =
+          Number(
+            roleItem?.role_id
+          );
 
-  const isRoleLinkActive = useCallback(
-    (roleItem) => {
-      const currentRoleId =
-        Number(roleItem?.role_id);
+        if (
+          activeRole !== null &&
+          Number.isFinite(
+            currentRoleId
+          ) &&
+          activeRole ===
+            currentRoleId
+        ) {
+          return true;
+        }
 
-      if (
-        activeRole !== null &&
-        Number.isFinite(
-          currentRoleId
-        ) &&
-        activeRole ===
-          currentRoleId
-      ) {
-        return true;
-      }
+        const slug = String(
+          roleItem?.slug || ""
+        )
+          .trim()
+          .toLowerCase();
 
-      const slug = String(
-        roleItem?.slug || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      return (
-        activeModule &&
-        slug &&
-        activeModule === slug
-      );
-    },
-    [
-      activeRole,
-      activeModule,
-    ]
-  );
-
-  /* =======================================================
-     ACTIVE MODULE
-  ======================================================= */
+        return (
+          activeModule &&
+          slug &&
+          activeModule === slug
+        );
+      },
+      [
+        activeRole,
+        activeModule,
+      ]
+    );
 
   const isModuleLinkActive =
     useCallback(
@@ -823,9 +822,6 @@ export default function Sidebar({ sidebarOpen }) {
           return false;
         }
 
-        /*
-         * URL module param
-         */
         if (
           activeModule &&
           activeModule === slug
@@ -833,11 +829,9 @@ export default function Sidebar({ sidebarOpen }) {
           return true;
         }
 
-        /*
-         * Role Permission
-         */
         if (
-          slug === "role-permission"
+          slug ===
+          "role-permission"
         ) {
           return (
             pathname ===
@@ -848,9 +842,6 @@ export default function Sidebar({ sidebarOpen }) {
           );
         }
 
-        /*
-         * Normal module
-         */
         const slugPath =
           `/${slug}`;
 
@@ -868,10 +859,6 @@ export default function Sidebar({ sidebarOpen }) {
       ]
     );
 
-  /* =======================================================
-     ROLE LINK
-  ======================================================= */
-
   const RoleLink = ({
     roleItem,
   }) => {
@@ -887,7 +874,9 @@ export default function Sidebar({ sidebarOpen }) {
       "Role";
 
     const roleValue =
-      Number(roleItem?.role_id);
+      Number(
+        roleItem?.role_id
+      );
 
     const isActive =
       isRoleLinkActive(
@@ -924,10 +913,6 @@ export default function Sidebar({ sidebarOpen }) {
     );
   };
 
-  /* =======================================================
-     MODULE LINK
-  ======================================================= */
-
   const ModuleLink = ({
     moduleItem,
   }) => {
@@ -943,7 +928,8 @@ export default function Sidebar({ sidebarOpen }) {
       "Module";
 
     const isRolePermission =
-      slug === "role-permission";
+      slug ===
+      "role-permission";
 
     const href =
       isRolePermission
@@ -983,10 +969,6 @@ export default function Sidebar({ sidebarOpen }) {
     );
   };
 
-  /* =======================================================
-     PROFILE LINK
-  ======================================================= */
-
   const ProfileLink = () => {
     const isActive =
       pathname ===
@@ -1021,18 +1003,10 @@ export default function Sidebar({ sidebarOpen }) {
     );
   };
 
-  /* =======================================================
-     RENDER ROLE LINKS
-  ======================================================= */
-
   const renderRoleLinks = () => {
     const currentRole =
       Number(roleId);
 
-    /*
-     * Master Admin
-     * Only Admin
-     */
     if (currentRole === 0) {
       const adminFromApi =
         roles.find(
@@ -1053,14 +1027,6 @@ export default function Sidebar({ sidebarOpen }) {
       );
     }
 
-    /*
-     * Staff
-     *
-     * Staff hierarchy restriction
-     * does not apply.
-     *
-     * Permissions decide visibility.
-     */
     if (currentRole === 9) {
       return roles
         .filter(
@@ -1082,9 +1048,6 @@ export default function Sidebar({ sidebarOpen }) {
         );
     }
 
-    /*
-     * Normal roles
-     */
     const allowedRoles =
       allowedRolesByRole[
         currentRole
@@ -1111,10 +1074,6 @@ export default function Sidebar({ sidebarOpen }) {
         />
       ));
   };
-
-  /* =======================================================
-     RENDER MODULE LINKS
-  ======================================================= */
 
   const renderModuleLinks =
     () => {
@@ -1143,10 +1102,6 @@ export default function Sidebar({ sidebarOpen }) {
         );
     };
 
-  /* =======================================================
-     LOADING STATE
-  ======================================================= */
-
   if (roleId === null) {
     return (
       <aside
@@ -1163,10 +1118,6 @@ export default function Sidebar({ sidebarOpen }) {
     );
   }
 
-  /* =======================================================
-     MAIN SIDEBAR
-  ======================================================= */
-
   return (
     <aside
       className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
@@ -1175,15 +1126,11 @@ export default function Sidebar({ sidebarOpen }) {
           : "w-0 p-0"
       }`}
     >
-      {/* HEADER */}
       <h2 className="relative mb-6 flex-shrink-0 text-2xl font-bold after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
         Dashboard
       </h2>
 
-      {/* MENU */}
       <div className="scrollbar-hide flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-5">
-
-        {/* DASHBOARD */}
         <Link
           href="/dashboard"
           className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -1199,20 +1146,15 @@ export default function Sidebar({ sidebarOpen }) {
             size={20}
           />
 
-          <span>
-            Dashboard
-          </span>
+          <span>Dashboard</span>
         </Link>
 
-        {/* ROLES */}
         <div className="space-y-2">
           {renderRoleLinks()}
         </div>
 
-        {/* MASTER ADMIN SETTINGS */}
         {Number(roleId) === 0 && (
           <>
-            {/* MASTER SETTINGS */}
             <Link
               href="/dashboard/modules"
               className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -1234,7 +1176,6 @@ export default function Sidebar({ sidebarOpen }) {
               </span>
             </Link>
 
-            {/* SUB MODULE */}
             <Link
               href="/dashboard/sub-modules"
               className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -1256,17 +1197,14 @@ export default function Sidebar({ sidebarOpen }) {
               </span>
             </Link>
 
-            {/* PROFILE */}
             <ProfileLink />
           </>
         )}
 
-        {/* MODULES */}
         <div className="space-y-2">
           {renderModuleLinks()}
         </div>
 
-        {/* MY LOGIN */}
         <button
           type="button"
           onClick={myLogin}
@@ -1276,12 +1214,9 @@ export default function Sidebar({ sidebarOpen }) {
             size={20}
           />
 
-          <span>
-            My Login
-          </span>
+          <span>My Login</span>
         </button>
 
-        {/* LOGOUT */}
         <button
           type="button"
           onClick={logout}
@@ -1291,9 +1226,7 @@ export default function Sidebar({ sidebarOpen }) {
             size={20}
           />
 
-          <span>
-            Logout
-          </span>
+          <span>Logout</span>
         </button>
       </div>
     </aside>
