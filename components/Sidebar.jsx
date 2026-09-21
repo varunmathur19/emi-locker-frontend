@@ -1,15 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
-import {
-  usePathname,
-  useSearchParams,
-} from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import * as RiIcons from "react-icons/ri";
 
 import {
@@ -49,7 +42,6 @@ const defaultAdminRole = {
 
 const getRoleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -58,9 +50,7 @@ const getRoleIcon = (iconName, size = 20) => {
     !IconComponent ||
     typeof IconComponent !== "function"
   ) {
-    return (
-      <RiIcons.RiUserLine size={size} />
-    );
+    return <RiIcons.RiUserLine size={size} />;
   }
 
   return <IconComponent size={size} />;
@@ -68,7 +58,6 @@ const getRoleIcon = (iconName, size = 20) => {
 
 const getModuleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -77,28 +66,22 @@ const getModuleIcon = (iconName, size = 20) => {
     !IconComponent ||
     typeof IconComponent !== "function"
   ) {
-    return (
-      <RiIcons.RiBuilding2Line size={size} />
-    );
+    return <RiIcons.RiBuilding2Line size={size} />;
   }
 
   return <IconComponent size={size} />;
 };
 
-export default function Sidebar({
-  sidebarOpen,
-}) {
+export default function Sidebar({ sidebarOpen }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [roleId, setRoleId] = useState(null);
   const [roles, setRoles] = useState([]);
   const [modules, setModules] = useState([]);
-  const [permissions, setPermissions] =
-    useState(null);
+  const [permissions, setPermissions] = useState(null);
 
-  const activeRoleParam =
-    searchParams.get("role");
+  const activeRoleParam = searchParams.get("role");
 
   const activeModule = String(
     searchParams.get("module") || ""
@@ -120,14 +103,8 @@ export default function Sidebar({
 
       localStorage.removeItem("permission");
       localStorage.removeItem("permissions");
-
-      localStorage.removeItem(
-        "role_permission"
-      );
-
-      localStorage.removeItem(
-        "rolePermission"
-      );
+      localStorage.removeItem("role_permission");
+      localStorage.removeItem("rolePermission");
     }, []);
 
   const loadStaffPermissions =
@@ -152,10 +129,7 @@ export default function Sidebar({
               "object" &&
             !Array.isArray(parsedPermissions)
           ) {
-            setPermissions(
-              parsedPermissions
-            );
-
+            setPermissions(parsedPermissions);
             return parsedPermissions;
           }
         }
@@ -178,10 +152,8 @@ export default function Sidebar({
         const user = JSON.parse(savedUser);
 
         const permission =
-          user?.staff_permission
-            ?.permission ||
-          user?.role_permission
-            ?.permission ||
+          user?.staff_permission?.permission ||
+          user?.role_permission?.permission ||
           null;
 
         if (
@@ -207,7 +179,6 @@ export default function Sidebar({
       }
 
       setPermissions(null);
-
       return null;
     }, []);
 
@@ -223,22 +194,19 @@ export default function Sidebar({
         ) {
           setRoleId(null);
           setPermissions(null);
-
           removeInvalidPermissionKeys();
-
           return;
         }
 
-        const numericRole =
-          Number(currentRole);
+        const numericRole = Number(
+          currentRole
+        );
 
         setRoleId(numericRole);
 
         if (numericRole === 9) {
           loadStaffPermissions();
-
           removeInvalidPermissionKeys();
-
           return;
         }
 
@@ -257,7 +225,6 @@ export default function Sidebar({
 
         setRoleId(null);
         setPermissions(null);
-
         removeInvalidPermissionKeys();
       }
     }, [
@@ -353,7 +320,6 @@ export default function Sidebar({
 
   useEffect(() => {
     removeInvalidPermissionKeys();
-
     loadRoles();
     loadModules();
     loadCurrentUser();
@@ -371,7 +337,6 @@ export default function Sidebar({
 
     const handleFocus = () => {
       removeInvalidPermissionKeys();
-
       loadRoles();
       loadModules();
       loadCurrentUser();
@@ -383,7 +348,6 @@ export default function Sidebar({
         "visible"
       ) {
         removeInvalidPermissionKeys();
-
         loadRoles();
         loadModules();
         loadCurrentUser();
@@ -496,74 +460,77 @@ export default function Sidebar({
   ]);
 
   const isPermissionEnabled =
-    useCallback((value) => {
-      if (
-        value === undefined ||
-        value === null
-      ) {
+    useCallback(
+      (value) => {
+        if (
+          value === undefined ||
+          value === null
+        ) {
+          return false;
+        }
+
+        if (
+          typeof value === "boolean"
+        ) {
+          return value;
+        }
+
+        if (
+          typeof value === "number"
+        ) {
+          return value === 1;
+        }
+
+        if (
+          typeof value === "string"
+        ) {
+          return (
+            value === "1" ||
+            value.toLowerCase() ===
+              "true"
+          );
+        }
+
+        if (
+          typeof value === "object"
+        ) {
+          if (
+            value.status !== undefined
+          ) {
+            return (
+              Number(
+                value.status
+              ) === 1
+            );
+          }
+
+          if (
+            value.view !== undefined
+          ) {
+            return (
+              Number(
+                value.view
+              ) === 1
+            );
+          }
+
+          if (
+            value.access !== undefined
+          ) {
+            return (
+              Number(
+                value.access
+              ) === 1
+            );
+          }
+
+          return true;
+        }
+
         return false;
-      }
-
-      if (
-        typeof value === "boolean"
-      ) {
-        return value;
-      }
-
-      if (
-        typeof value === "number"
-      ) {
-        return value === 1;
-      }
-
-      if (
-        typeof value === "string"
-      ) {
-        return (
-          value === "1" ||
-          value.toLowerCase() ===
-            "true"
-        );
-      }
-
-      if (
-        typeof value === "object"
-      ) {
-        if (
-          value.status !== undefined
-        ) {
-          return (
-            Number(
-              value.status
-            ) === 1
-          );
-        }
-
-        if (
-          value.view !== undefined
-        ) {
-          return (
-            Number(
-              value.view
-            ) === 1
-          );
-        }
-
-        if (
-          value.access !== undefined
-        ) {
-          return (
-            Number(
-              value.access
-            ) === 1
-          );
-        }
-
-        return true;
-      }
-
-      return false;
-    }, []);
+      },
+      []
+    );
 
   const hasPermissionForSlug =
     useCallback(
@@ -826,15 +793,6 @@ export default function Sidebar({
           return false;
         }
 
-        /*
-         * KEY SETTINGS
-         *
-         * Sidebar:
-         * Key settings
-         *
-         * Redirect:
-         * /dashboard/key-setting
-         */
         if (
           slug === "key-settings"
         ) {
@@ -847,12 +805,8 @@ export default function Sidebar({
           );
         }
 
-        /*
-         * ROLE & PERMISSION
-         */
         if (
-          slug ===
-          "role-permission"
+          slug === "role-permission"
         ) {
           return (
             pathname ===
@@ -863,9 +817,18 @@ export default function Sidebar({
           );
         }
 
-        /*
-         * OTHER MODULES
-         */
+        if (
+          slug === "transfer-points"
+        ) {
+          return (
+            pathname ===
+              "/dashboard/transfer-point" ||
+            pathname.startsWith(
+              "/dashboard/transfer-point/"
+            )
+          );
+        }
+
         if (
           activeModule &&
           activeModule === slug
@@ -873,14 +836,11 @@ export default function Sidebar({
           return true;
         }
 
-        const slugPath =
-          `/${slug}`;
-
         return (
           pathname ===
-            `/dashboard${slugPath}` ||
+            `/dashboard/${slug}` ||
           pathname.startsWith(
-            `/dashboard${slugPath}/`
+            `/dashboard/${slug}/`
           )
         );
       },
@@ -904,10 +864,9 @@ export default function Sidebar({
       roleSlug ||
       "Role";
 
-    const roleValue =
-      Number(
-        roleItem?.role_id
-      );
+    const roleValue = Number(
+      roleItem?.role_id
+    );
 
     const isActive =
       isRoleLinkActive(
@@ -958,36 +917,30 @@ export default function Sidebar({
       slug ||
       "Module";
 
-    const isRolePermission =
-      slug ===
-      "role-permission";
-
-    const isKeySettings =
-      slug ===
-      "key-settings";
-
-    /*
-     * DEFAULT MODULE URL
-     */
     let href =
       `/dashboard?module=${encodeURIComponent(
         slug
       )}`;
 
-    /*
-     * ROLE & PERMISSION
-     */
-    if (isRolePermission) {
+    if (
+      slug === "key-settings"
+    ) {
+      href =
+        "/dashboard/key-setting";
+    }
+
+    if (
+      slug === "role-permission"
+    ) {
       href =
         "/dashboard/role-permission";
     }
 
-    /*
-     * KEY SETTINGS
-     */
-    if (isKeySettings) {
+    if (
+      slug === "transfer-points"
+    ) {
       href =
-        "/dashboard/key-setting";
+        "/dashboard/transfer-point";
     }
 
     const isActive =
@@ -1021,47 +974,10 @@ export default function Sidebar({
     );
   };
 
-  const ProfileLink = () => {
-    const isActive =
-      pathname ===
-        "/dashboard/profile" ||
-      pathname.startsWith(
-        "/dashboard/profile/"
-      );
-
-    return (
-      <Link
-        href="/dashboard/profile"
-        className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
-          isActive
-            ? "bg-blue-400 text-black"
-            : "hover:bg-gray-700"
-        }`}
-      >
-        <span
-          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
-            isActive
-              ? "text-black"
-              : "text-white"
-          }`}
-        >
-          <RiIcons.RiUserSettingsLine
-            size={20}
-          />
-        </span>
-
-        <span>Profile</span>
-      </Link>
-    );
-  };
-
   const renderRoleLinks = () => {
     const currentRole =
       Number(roleId);
 
-    /*
-     * MASTER ADMIN
-     */
     if (currentRole === 0) {
       const adminFromApi =
         roles.find(
@@ -1082,9 +998,6 @@ export default function Sidebar({
       );
     }
 
-    /*
-     * STAFF
-     */
     if (currentRole === 9) {
       return roles
         .filter(
@@ -1106,9 +1019,6 @@ export default function Sidebar({
         );
     }
 
-    /*
-     * OTHER ROLES
-     */
     const allowedRoles =
       allowedRolesByRole[
         currentRole
@@ -1192,7 +1102,6 @@ export default function Sidebar({
       </h2>
 
       <div className="scrollbar-hide flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-5">
-        {/* DASHBOARD */}
         <Link
           href="/dashboard"
           className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -1211,12 +1120,10 @@ export default function Sidebar({
           <span>Dashboard</span>
         </Link>
 
-        {/* ROLE LINKS */}
         <div className="space-y-2">
           {renderRoleLinks()}
         </div>
 
-        {/* MASTER SETTINGS */}
         {Number(roleId) === 0 && (
           <>
             <Link
@@ -1260,17 +1167,13 @@ export default function Sidebar({
                 Sub Module
               </span>
             </Link>
-
-            <ProfileLink />
           </>
         )}
 
-        {/* DYNAMIC MODULES */}
         <div className="space-y-2">
           {renderModuleLinks()}
         </div>
 
-        {/* MY LOGIN */}
         <button
           type="button"
           onClick={myLogin}
@@ -1283,7 +1186,6 @@ export default function Sidebar({
           <span>My Login</span>
         </button>
 
-        {/* LOGOUT */}
         <button
           type="button"
           onClick={logout}
