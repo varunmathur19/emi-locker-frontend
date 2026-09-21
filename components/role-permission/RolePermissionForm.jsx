@@ -55,44 +55,31 @@ const permissionTypes = [
 
 export default function RolePermissionForm() {
   const [profiles, setProfiles] = useState([]);
-  const [selectedProfile, setSelectedProfile] =
-    useState("");
-  const [profileDropdownOpen, setProfileDropdownOpen] =
-    useState(false);
+  const [selectedProfile, setSelectedProfile] = useState("");
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
   const [roles, setRoles] = useState([]);
   const [modules, setModules] = useState([]);
 
-  const [loggedInRoleId, setLoggedInRoleId] =
-    useState(null);
+  const [loggedInRoleId, setLoggedInRoleId] = useState(null);
 
-  const [loadingProfiles, setLoadingProfiles] =
-    useState(true);
-  const [loadingRoles, setLoadingRoles] =
-    useState(true);
-  const [loadingModules, setLoadingModules] =
-    useState(true);
-  const [loadingPermissions, setLoadingPermissions] =
-    useState(false);
+  const [loadingProfiles, setLoadingProfiles] = useState(true);
+  const [loadingRoles, setLoadingRoles] = useState(true);
+  const [loadingModules, setLoadingModules] = useState(true);
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [permissions, setPermissions] = useState({});
 
-  const [roleModalOpen, setRoleModalOpen] =
-    useState(false);
-  const [manageRoleOpen, setManageRoleOpen] =
-    useState(false);
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [manageRoleOpen, setManageRoleOpen] = useState(false);
 
   const [roleName, setRoleName] = useState("");
-  const [roleSubmitting, setRoleSubmitting] =
-    useState(false);
+  const [roleSubmitting, setRoleSubmitting] = useState(false);
 
-  const [editingProfileId, setEditingProfileId] =
-    useState(null);
-  const [editingProfileName, setEditingProfileName] =
-    useState("");
-  const [editingProfileSaving, setEditingProfileSaving] =
-    useState(false);
+  const [editingProfileId, setEditingProfileId] = useState(null);
+  const [editingProfileName, setEditingProfileName] = useState("");
+  const [editingProfileSaving, setEditingProfileSaving] = useState(false);
 
   const loadProfiles = async () => {
     try {
@@ -140,57 +127,56 @@ export default function RolePermissionForm() {
     }
   };
 
- const loadRoles = async (currentRoleId) => {
-  try {
-    setLoadingRoles(true);
+  const loadRoles = async (currentRoleId) => {
+    try {
+      setLoadingRoles(true);
 
-    const response = await getRoles();
+      const response = await getRoles();
 
-    const roleData = Array.isArray(response?.data)
-      ? response.data
-      : [];
+      const roleData = Array.isArray(response?.data)
+        ? response.data
+        : [];
 
-    const loggedRoleId = Number(currentRoleId);
+      const loggedRoleId = Number(currentRoleId);
 
-    const activeRoles = roleData
-      .filter((role) => {
-        const roleId = Number(role?.role_id);
-        const isActive =
-          Number(role?.status) === 1;
+      const activeRoles = roleData
+        .filter((role) => {
+          const roleId = Number(role?.role_id);
+          const isActive = Number(role?.status) === 1;
 
-        if (!isActive) {
-          return false;
-        }
+          if (!isActive) {
+            return false;
+          }
 
-        if (roleId === 9) {
-          return false;
-        }
+          if (roleId === 9) {
+            return false;
+          }
 
-        if (!Number.isFinite(loggedRoleId)) {
-          return false;
-        }
+          if (!Number.isFinite(loggedRoleId)) {
+            return false;
+          }
 
-        return roleId > loggedRoleId;
-      })
-      .sort(
-        (a, b) =>
-          Number(a?.role_id || 0) -
-          Number(b?.role_id || 0)
+          return roleId > loggedRoleId;
+        })
+        .sort(
+          (a, b) =>
+            Number(a?.role_id || 0) -
+            Number(b?.role_id || 0)
+        );
+
+      setRoles(activeRoles);
+    } catch (error) {
+      setRoles([]);
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to get roles"
       );
-
-    setRoles(activeRoles);
-  } catch (error) {
-    setRoles([]);
-
-    toast.error(
-      error?.response?.data?.message ||
-        error?.message ||
-        "Failed to get roles"
-    );
-  } finally {
-    setLoadingRoles(false);
-  }
-};
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
 
   const loadModules = async () => {
     try {
@@ -230,8 +216,7 @@ export default function RolePermissionForm() {
     let currentRoleId = null;
 
     try {
-      const storedUser =
-        localStorage.getItem("user");
+      const storedUser = localStorage.getItem("user");
 
       if (storedUser) {
         const user = JSON.parse(storedUser);
@@ -242,7 +227,7 @@ export default function RolePermissionForm() {
             user?.user?.role_id
         );
       }
-    } catch (error) {
+    } catch {
       currentRoleId = null;
     }
 
@@ -297,6 +282,19 @@ export default function RolePermissionForm() {
   ) => {
     if (!selectedProfile) {
       return false;
+    }
+
+    const manageKey = getPermissionKey(
+      type,
+      itemId,
+      "manage"
+    );
+
+    if (
+      permission !== "manage" &&
+      Boolean(permissions[manageKey])
+    ) {
+      return true;
     }
 
     const key = getPermissionKey(
@@ -357,11 +355,30 @@ export default function RolePermissionForm() {
               ) === 1;
           }
         );
+
+        const manageKey = getPermissionKey(
+          "role",
+          role.id,
+          "manage"
+        );
+
+        if (formattedPermissions[manageKey]) {
+          permissionTypes.forEach(
+            (permissionType) => {
+              formattedPermissions[
+                getPermissionKey(
+                  "role",
+                  role.id,
+                  permissionType.key
+                )
+              ] = true;
+            }
+          );
+        }
       });
 
       modules.forEach((module) => {
-        const moduleSlug =
-          getModuleSlug(module);
+        const moduleSlug = getModuleSlug(module);
 
         permissionTypes.forEach(
           (permissionType) => {
@@ -381,6 +398,26 @@ export default function RolePermissionForm() {
               ) === 1;
           }
         );
+
+        const manageKey = getPermissionKey(
+          "module",
+          module.id,
+          "manage"
+        );
+
+        if (formattedPermissions[manageKey]) {
+          permissionTypes.forEach(
+            (permissionType) => {
+              formattedPermissions[
+                getPermissionKey(
+                  "module",
+                  module.id,
+                  permissionType.key
+                )
+              ] = true;
+            }
+          );
+        }
       });
 
       setPermissions(formattedPermissions);
@@ -433,6 +470,36 @@ export default function RolePermissionForm() {
       permission
     );
 
+    if (permission === "manage") {
+      const manageEnabled =
+        !permissions[key];
+
+      setPermissions((previous) => {
+        const updated = {
+          ...previous,
+          [key]: manageEnabled,
+        };
+
+        if (manageEnabled) {
+          permissionTypes.forEach(
+            (permissionType) => {
+              updated[
+                getPermissionKey(
+                  type,
+                  itemId,
+                  permissionType.key
+                )
+              ] = true;
+            }
+          );
+        }
+
+        return updated;
+      });
+
+      return;
+    }
+
     setPermissions((previous) => ({
       ...previous,
       [key]: !previous[key],
@@ -478,53 +545,6 @@ export default function RolePermissionForm() {
     });
   };
 
-  const handleSelectAll = () => {
-    if (!selectedProfile) {
-      toast.error("Please select a profile");
-      return;
-    }
-
-    setPermissions((previous) => {
-      const updated = {
-        ...previous,
-      };
-
-      roles.forEach((role) => {
-        if (Number(role?.role_id) === 9) {
-          return;
-        }
-
-        permissionTypes.forEach(
-          (permission) => {
-            const key = getPermissionKey(
-              "role",
-              role.id,
-              permission.key
-            );
-
-            updated[key] = true;
-          }
-        );
-      });
-
-      modules.forEach((module) => {
-        permissionTypes.forEach(
-          (permission) => {
-            const key = getPermissionKey(
-              "module",
-              module.id,
-              permission.key
-            );
-
-            updated[key] = true;
-          }
-        );
-      });
-
-      return updated;
-    });
-  };
-
   const handleClearAll = () => {
     if (!selectedProfile) {
       toast.error("Please select a profile");
@@ -543,13 +563,13 @@ export default function RolePermissionForm() {
 
         permissionTypes.forEach(
           (permission) => {
-            const key = getPermissionKey(
-              "role",
-              role.id,
-              permission.key
-            );
-
-            updated[key] = false;
+            updated[
+              getPermissionKey(
+                "role",
+                role.id,
+                permission.key
+              )
+            ] = false;
           }
         );
       });
@@ -557,13 +577,13 @@ export default function RolePermissionForm() {
       modules.forEach((module) => {
         permissionTypes.forEach(
           (permission) => {
-            const key = getPermissionKey(
-              "module",
-              module.id,
-              permission.key
-            );
-
-            updated[key] = false;
+            updated[
+              getPermissionKey(
+                "module",
+                module.id,
+                permission.key
+              )
+            ] = false;
           }
         );
       });
@@ -582,6 +602,15 @@ export default function RolePermissionForm() {
 
       const roleSlug = getRoleSlug(role);
 
+      const manageKey = getPermissionKey(
+        "role",
+        role.id,
+        "manage"
+      );
+
+      const manageEnabled =
+        Boolean(permissions[manageKey]);
+
       permissionTypes.forEach(
         (permissionType) => {
           const key = getPermissionKey(
@@ -592,14 +621,26 @@ export default function RolePermissionForm() {
 
           permission[
             `${roleSlug}.${permissionType.key}`
-          ] = permissions[key] ? 1 : 0;
+          ] = manageEnabled
+            ? 1
+            : permissions[key]
+            ? 1
+            : 0;
         }
       );
     });
 
     modules.forEach((module) => {
-      const moduleSlug =
-        getModuleSlug(module);
+      const moduleSlug = getModuleSlug(module);
+
+      const manageKey = getPermissionKey(
+        "module",
+        module.id,
+        "manage"
+      );
+
+      const manageEnabled =
+        Boolean(permissions[manageKey]);
 
       permissionTypes.forEach(
         (permissionType) => {
@@ -611,7 +652,11 @@ export default function RolePermissionForm() {
 
           permission[
             `${moduleSlug}.${permissionType.key}`
-          ] = permissions[key] ? 1 : 0;
+          ] = manageEnabled
+            ? 1
+            : permissions[key]
+            ? 1
+            : 0;
         }
       );
     });
@@ -732,9 +777,7 @@ export default function RolePermissionForm() {
 
   const openEditRole = (profile) => {
     setEditingProfileId(profile.id);
-    setEditingProfileName(
-      profile.name || ""
-    );
+    setEditingProfileName(profile.name || "");
   };
 
   const cancelEditRole = () => {
@@ -745,8 +788,7 @@ export default function RolePermissionForm() {
   const handleInlineEditRole = async (
     profile
   ) => {
-    const name =
-      editingProfileName.trim();
+    const name = editingProfileName.trim();
 
     if (!name) {
       toast.error("Role name is required");
@@ -861,8 +903,7 @@ export default function RolePermissionForm() {
 
             {permissionTypes.map(
               (permission) => {
-                const Icon =
-                  permission.icon;
+                const Icon = permission.icon;
 
                 return (
                   <div
@@ -888,6 +929,12 @@ export default function RolePermissionForm() {
                   )
               );
 
+            const manageChecked = isChecked(
+              type,
+              item.id,
+              "manage"
+            );
+
             return (
               <div
                 key={item.id}
@@ -899,19 +946,15 @@ export default function RolePermissionForm() {
               >
                 <div className="flex items-center justify-between pr-4">
                   <div className="flex min-w-0 items-center gap-3">
-                    {type === "role" ? (
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                        <RiShieldUserLine
-                          size={18}
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-blue-600">
-                        <RiShieldUserLine
-                          size={18}
-                        />
-                      </div>
-                    )}
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                        type === "role"
+                          ? "bg-blue-50 text-blue-600"
+                          : "bg-indigo-50 text-blue-600"
+                      }`}
+                    >
+                      <RiShieldUserLine size={18} />
+                    </div>
 
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-slate-700">
@@ -946,19 +989,24 @@ export default function RolePermissionForm() {
 
                 {permissionTypes.map(
                   (permission) => {
-                    const checked =
-                      isChecked(
-                        type,
-                        item.id,
-                        permission.key
-                      );
+                    const checked = isChecked(
+                      type,
+                      item.id,
+                      permission.key
+                    );
+
+                    const isManage =
+                      permission.key ===
+                      "manage";
 
                     return (
                       <label
-                        key={
-                          permission.key
-                        }
-                        className="flex h-8 w-[110px] cursor-pointer items-center justify-center"
+                        key={permission.key}
+                        className={`flex h-8 w-[110px] items-center justify-center ${
+                          isManage
+                            ? "font-semibold"
+                            : ""
+                        }`}
                       >
                         <input
                           type="checkbox"
@@ -1004,8 +1052,7 @@ export default function RolePermissionForm() {
                 </h1>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  Manage roles, modules and
-                  permissions
+                  Manage roles, modules and permissions
                 </p>
               </div>
             </div>
@@ -1027,9 +1074,7 @@ export default function RolePermissionForm() {
                 }
                 className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
               >
-                <RiUserSettingsLine
-                  size={18}
-                />
+                <RiUserSettingsLine size={18} />
                 Manage Role
               </button>
             </div>
@@ -1051,8 +1096,7 @@ export default function RolePermissionForm() {
                 }
                 onClick={() =>
                   setProfileDropdownOpen(
-                    (previous) =>
-                      !previous
+                    (previous) => !previous
                   )
                 }
                 className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm shadow-sm outline-none transition hover:border-blue-300 focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
@@ -1085,13 +1129,11 @@ export default function RolePermissionForm() {
                   <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
                     {profiles.filter(
                       (profile) =>
-                        Number(
-                          profile.status
-                        ) === 1
+                        Number(profile.status) ===
+                        1
                     ).length === 0 ? (
                       <div className="px-4 py-3 text-sm text-slate-500">
-                        No active profiles
-                        found
+                        No active profiles found
                       </div>
                     ) : (
                       profiles
@@ -1112,9 +1154,7 @@ export default function RolePermissionForm() {
 
                           return (
                             <button
-                              key={
-                                profile.id
-                              }
+                              key={profile.id}
                               type="button"
                               onClick={() =>
                                 handleProfileChange(
@@ -1128,9 +1168,7 @@ export default function RolePermissionForm() {
                               }`}
                             >
                               <span>
-                                {
-                                  profile.name
-                                }
+                                {profile.name}
                               </span>
 
                               {isSelected && (
@@ -1153,16 +1191,13 @@ export default function RolePermissionForm() {
               <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-800">
-                    {
-                      selectedProfileData?.name
-                    }{" "}
+                    {selectedProfileData?.name}{" "}
                     Permissions
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Configure role and module
-                    permissions for this
-                    profile
+                    Configure role and module permissions
+                    for this profile
                   </p>
                 </div>
 
@@ -1183,23 +1218,7 @@ export default function RolePermissionForm() {
 
                   <button
                     type="button"
-                    onClick={handleSelectAll}
-                    disabled={
-                      loadingRoles ||
-                      loadingModules ||
-                      loadingPermissions ||
-                      saving
-                    }
-                    className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Select All
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={
-                      handleSavePermissions
-                    }
+                    onClick={handleSavePermissions}
                     disabled={
                       loadingRoles ||
                       loadingModules ||
@@ -1220,8 +1239,7 @@ export default function RolePermissionForm() {
               {loadingPermissions ? (
                 <div className="rounded-xl border border-slate-200 p-12 text-center">
                   <div className="text-sm text-slate-500">
-                    Loading saved
-                    permissions...
+                    Loading saved permissions...
                   </div>
                 </div>
               ) : (
@@ -1229,9 +1247,7 @@ export default function RolePermissionForm() {
                   <section>
                     <div className="mb-3 flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                        <RiShieldUserLine
-                          size={17}
-                        />
+                        <RiShieldUserLine size={17} />
                       </div>
 
                       <div>
@@ -1240,8 +1256,7 @@ export default function RolePermissionForm() {
                         </h3>
 
                         <p className="text-xs text-slate-500">
-                          Manage permissions
-                          for each role
+                          Manage permissions for each role
                         </p>
                       </div>
                     </div>
@@ -1251,16 +1266,22 @@ export default function RolePermissionForm() {
                         Loading roles...
                       </div>
                     ) : (
-                     renderPermissionTable(
-  "role",
-  roles.filter(
-    (role) =>
-      Number(role?.role_id) !== 9 &&
-      Number(role?.role_id) >
-        Number(loggedInRoleId)
-  ),
-  "No active roles found"
-)
+                      renderPermissionTable(
+                        "role",
+                        roles.filter(
+                          (role) =>
+                            Number(
+                              role?.role_id
+                            ) !== 9 &&
+                            Number(
+                              role?.role_id
+                            ) >
+                              Number(
+                                loggedInRoleId
+                              )
+                        ),
+                        "No active roles found"
+                      )
                     )}
                   </section>
 
@@ -1566,9 +1587,7 @@ export default function RolePermissionForm() {
                                   className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
                                   title="Edit"
                                 >
-                                  <RiEditLine
-                                    size={18}
-                                  />
+                                  <RiEditLine size={18} />
                                 </button>
                               )}
                           </div>
