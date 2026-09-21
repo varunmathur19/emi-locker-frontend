@@ -420,3 +420,15 @@ export const getCities = async (state_id) => {
     });
     return response.data;
 };
+
+// get key-setting api
+export const getKeySettings = async () => {
+  const response = await api.get("/key-setting");
+  return response.data;
+};
+
+//Updated key-setting api 
+export const updateKeySetting = async (id, data) => {
+  const response = await api.put(`/key-setting/${id}`, data);
+  return response.data;
+};

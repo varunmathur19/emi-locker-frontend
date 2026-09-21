@@ -49,6 +49,7 @@ const defaultAdminRole = {
 
 const getRoleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
+
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -67,6 +68,7 @@ const getRoleIcon = (iconName, size = 20) => {
 
 const getModuleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
+
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -118,9 +120,11 @@ export default function Sidebar({
 
       localStorage.removeItem("permission");
       localStorage.removeItem("permissions");
+
       localStorage.removeItem(
         "role_permission"
       );
+
       localStorage.removeItem(
         "rolePermission"
       );
@@ -822,13 +826,30 @@ export default function Sidebar({
           return false;
         }
 
+        /*
+         * KEY SETTINGS
+         *
+         * Sidebar:
+         * Key settings
+         *
+         * Redirect:
+         * /dashboard/key-setting
+         */
         if (
-          activeModule &&
-          activeModule === slug
+          slug === "key-settings"
         ) {
-          return true;
+          return (
+            pathname ===
+              "/dashboard/key-setting" ||
+            pathname.startsWith(
+              "/dashboard/key-setting/"
+            )
+          );
         }
 
+        /*
+         * ROLE & PERMISSION
+         */
         if (
           slug ===
           "role-permission"
@@ -840,6 +861,16 @@ export default function Sidebar({
               "/dashboard/role-permission/"
             )
           );
+        }
+
+        /*
+         * OTHER MODULES
+         */
+        if (
+          activeModule &&
+          activeModule === slug
+        ) {
+          return true;
         }
 
         const slugPath =
@@ -931,12 +962,33 @@ export default function Sidebar({
       slug ===
       "role-permission";
 
-    const href =
-      isRolePermission
-        ? "/dashboard/role-permission"
-        : `/dashboard?module=${encodeURIComponent(
-            slug
-          )}`;
+    const isKeySettings =
+      slug ===
+      "key-settings";
+
+    /*
+     * DEFAULT MODULE URL
+     */
+    let href =
+      `/dashboard?module=${encodeURIComponent(
+        slug
+      )}`;
+
+    /*
+     * ROLE & PERMISSION
+     */
+    if (isRolePermission) {
+      href =
+        "/dashboard/role-permission";
+    }
+
+    /*
+     * KEY SETTINGS
+     */
+    if (isKeySettings) {
+      href =
+        "/dashboard/key-setting";
+    }
 
     const isActive =
       isModuleLinkActive(
@@ -1007,6 +1059,9 @@ export default function Sidebar({
     const currentRole =
       Number(roleId);
 
+    /*
+     * MASTER ADMIN
+     */
     if (currentRole === 0) {
       const adminFromApi =
         roles.find(
@@ -1027,6 +1082,9 @@ export default function Sidebar({
       );
     }
 
+    /*
+     * STAFF
+     */
     if (currentRole === 9) {
       return roles
         .filter(
@@ -1048,6 +1106,9 @@ export default function Sidebar({
         );
     }
 
+    /*
+     * OTHER ROLES
+     */
     const allowedRoles =
       allowedRolesByRole[
         currentRole
@@ -1131,6 +1192,7 @@ export default function Sidebar({
       </h2>
 
       <div className="scrollbar-hide flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-5">
+        {/* DASHBOARD */}
         <Link
           href="/dashboard"
           className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -1149,10 +1211,12 @@ export default function Sidebar({
           <span>Dashboard</span>
         </Link>
 
+        {/* ROLE LINKS */}
         <div className="space-y-2">
           {renderRoleLinks()}
         </div>
 
+        {/* MASTER SETTINGS */}
         {Number(roleId) === 0 && (
           <>
             <Link
@@ -1201,10 +1265,12 @@ export default function Sidebar({
           </>
         )}
 
+        {/* DYNAMIC MODULES */}
         <div className="space-y-2">
           {renderModuleLinks()}
         </div>
 
+        {/* MY LOGIN */}
         <button
           type="button"
           onClick={myLogin}
@@ -1217,6 +1283,7 @@ export default function Sidebar({
           <span>My Login</span>
         </button>
 
+        {/* LOGOUT */}
         <button
           type="button"
           onClick={logout}
