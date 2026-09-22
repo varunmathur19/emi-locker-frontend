@@ -98,15 +98,7 @@ export default function TransferPoint() {
   const transferPointName =
     selectedKeyData?.name || "";
 
-  const nextRoleId =
-    roleId !== null
-      ? nextRoleMap[roleId]
-      : null;
 
-  const nextRoleName =
-    nextRoleId !== undefined
-      ? roleNames[nextRoleId]
-      : "";
 
   return (
     <div className="min-h-screen">
@@ -200,18 +192,14 @@ export default function TransferPoint() {
                   onChange={(e) =>
                     setSelectedTransferRole(e.target.value)
                   }
-                  disabled={!nextRoleId}
+                  
                   className="w-full appearance-none cursor-pointer rounded-lg border border-gray-300 bg-white px-4 py-3 pr-10 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
                 >
                   <option value="">
                     Select Role
                   </option>
 
-                  {nextRoleId && (
-                    <option value={nextRoleId}>
-                      {nextRoleName}
-                    </option>
-                  )}
+                  
                 </select>
 
                 <IoMdArrowDropdown
