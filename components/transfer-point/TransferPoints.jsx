@@ -7,7 +7,7 @@ import {
   getDropdownUsers,
   transferWalletPoints,
 } from "@/services/api";
-import { getRoleId } from "@/utils/token";
+import { getRoleId, getUser } from "@/utils/token";
 
 const roleNames = {
   0: "Master Admin",
@@ -112,10 +112,19 @@ export default function TransferPoint() {
         return;
       }
 
+      const user = getUser();
+      const currentUserId = Number(user?.id);
+
+      if (!currentUserId) {
+        setTransferUsers([]);
+        return;
+      }
+
       setLoadingTransferUsers(true);
 
       const response = await getDropdownUsers(
-        nextRoleId
+        nextRoleId,
+        currentUserId
       );
 
       if (
@@ -193,6 +202,7 @@ export default function TransferPoint() {
   const handleKeySelect = (id) => {
     setSelectedKey(id);
     setTransferPoint("");
+
     setMessage({
       type: "",
       text: "",
