@@ -1,8 +1,6 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
-import { FiEdit2 } from "react-icons/fi";
 import {
   getKeySettings,
   updateKeySetting,
@@ -10,8 +8,6 @@ import {
 
 export default function KeySetting() {
   const [keySettings, setKeySettings] = useState([]);
-  const [editingId, setEditingId] = useState(null);
-  const [editingName, setEditingName] = useState("");
 
   useEffect(() => {
     fetchKeySettings();
@@ -25,9 +21,16 @@ export default function KeySetting() {
 
       if (response?.success) {
         setKeySettings(response.data || []);
+      } else {
+        setKeySettings([]);
       }
     } catch (error) {
-      console.error("GET KEY SETTINGS ERROR:", error);
+      console.error(
+        "GET KEY SETTINGS ERROR:",
+        error
+      );
+
+      setKeySettings([]);
     }
   };
 
@@ -53,58 +56,10 @@ export default function KeySetting() {
         );
       }
     } catch (error) {
-      console.error("UPDATE KEY SETTING ERROR:", error);
-    }
-  };
-
-  const handleEdit = (item) => {
-    setEditingId(item.id);
-    setEditingName(item.name || "");
-  };
-
-  const handleNameUpdate = async (item) => {
-    const name = editingName.trim();
-
-    if (!name) {
-      return;
-    }
-
-    try {
-      const response = await updateKeySetting(item.id, {
-        name,
-      });
-
-      if (response?.success) {
-        setKeySettings((prev) =>
-          prev.map((setting) =>
-            setting.id === item.id
-              ? {
-                  ...setting,
-                  name,
-                }
-              : setting
-          )
-        );
-
-        setEditingId(null);
-        setEditingName("");
-      }
-    } catch (error) {
       console.error(
-        "UPDATE KEY SETTING NAME ERROR:",
+        "UPDATE KEY SETTING STATUS ERROR:",
         error
       );
-    }
-  };
-
-  const handleKeyDown = (e, item) => {
-    if (e.key === "Enter") {
-      handleNameUpdate(item);
-    }
-
-    if (e.key === "Escape") {
-      setEditingId(null);
-      setEditingName("");
     }
   };
 
@@ -112,19 +67,23 @@ export default function KeySetting() {
     <div className="min-h-screen bg-slate-50 p-5 sm:p-6">
       <div className="mx-auto max-w-5xl">
 
+        {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900">
             Key Setting
           </h1>
 
           <p className="mt-1 text-sm text-slate-500">
-            Manage key names and their active status.
+            Manage key settings and their active status.
           </p>
         </div>
 
+        {/* Table */}
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-          <div className="grid grid-cols-[120px_1fr_220px_80px] items-center border-b border-slate-200 bg-slate-50 px-6 py-4">
+          {/* Table Header */}
+          <div className="grid grid-cols-[120px_1fr_220px] items-center border-b border-slate-200 bg-slate-50 px-6 py-4">
+
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Root
             </div>
@@ -137,76 +96,36 @@ export default function KeySetting() {
               Status
             </div>
 
-            <div className="text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Action
-            </div>
           </div>
 
+          {/* Table Body */}
           <div className="divide-y divide-slate-100">
 
             {keySettings.map((item) => {
               const isActive =
                 Number(item.status) === 1;
 
-              const isEditing =
-                editingId === item.id;
-
               return (
                 <div
                   key={item.id}
-                  className="grid grid-cols-[120px_1fr_220px_80px] items-center px-6 py-5 transition hover:bg-slate-50"
+                  className="grid grid-cols-[120px_1fr_220px] items-center px-6 py-5 transition hover:bg-slate-50"
                 >
 
+                  {/* Root */}
                   <div>
                     <span className="inline-flex rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-600">
                       Root {item.id}
                     </span>
                   </div>
 
+                  {/* Name */}
                   <div>
-                    {isEditing ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={editingName}
-                          onChange={(e) =>
-                            setEditingName(e.target.value)
-                          }
-                          onKeyDown={(e) =>
-                            handleKeyDown(e, item)
-                          }
-                          autoFocus
-                          className="h-10 w-full max-w-xs rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleNameUpdate(item)
-                          }
-                          className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
-                        >
-                          Save
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingId(null);
-                            setEditingName("");
-                          }}
-                          className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-base font-semibold text-slate-800">
-                        {item.name || "Unnamed"}
-                      </span>
-                    )}
+                    <span className="text-base font-semibold text-slate-800">
+                      {item.name || "Unnamed"}
+                    </span>
                   </div>
 
+                  {/* Status */}
                   <div className="flex shrink-0 items-center justify-end gap-2">
 
                     <button
@@ -253,26 +172,13 @@ export default function KeySetting() {
 
                   </div>
 
-                  <div className="flex justify-end">
-                    {!isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(item)}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
-                        title="Edit"
-                        aria-label="Edit"
-                      >
-                        <FiEdit2 size={16} />
-                      </button>
-                    )}
-                  </div>
-
                 </div>
               );
             })}
 
           </div>
 
+          {/* Empty State */}
           {keySettings.length === 0 && (
             <div className="px-6 py-12 text-center text-sm text-slate-500">
               No key settings found.

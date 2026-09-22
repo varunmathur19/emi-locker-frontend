@@ -15,6 +15,7 @@ import {
   logoutStaff,
   getModules,
   getRoles,
+  getKeySettings,
 } from "@/services/api";
 
 const allowedRolesByRole = {
@@ -42,9 +43,7 @@ const defaultAdminRole = {
 
 const getRoleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-  const IconComponent = iconKey
-    ? RiIcons[iconKey]
-    : null;
+  const IconComponent = iconKey ? RiIcons[iconKey] : null;
 
   if (
     !IconComponent ||
@@ -58,9 +57,7 @@ const getRoleIcon = (iconName, size = 20) => {
 
 const getModuleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-  const IconComponent = iconKey
-    ? RiIcons[iconKey]
-    : null;
+  const IconComponent = iconKey ? RiIcons[iconKey] : null;
 
   if (
     !IconComponent ||
@@ -80,6 +77,7 @@ export default function Sidebar({ sidebarOpen }) {
   const [roles, setRoles] = useState([]);
   const [modules, setModules] = useState([]);
   const [permissions, setPermissions] = useState(null);
+  const [totalWalletBalance, setTotalWalletBalance] = useState(0);
 
   const activeRoleParam = searchParams.get("role");
 
@@ -95,239 +93,247 @@ export default function Sidebar({ sidebarOpen }) {
       ? Number(activeRoleParam)
       : null;
 
-  const removeInvalidPermissionKeys =
-    useCallback(() => {
-      if (typeof window === "undefined") {
-        return;
+  const removeInvalidPermissionKeys = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    localStorage.removeItem("permission");
+    localStorage.removeItem("permissions");
+    localStorage.removeItem("role_permission");
+    localStorage.removeItem("rolePermission");
+  }, []);
+
+  const loadStaffPermissions = useCallback(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    try {
+      const savedPermissions =
+        localStorage.getItem("staff_permissions");
+
+      if (savedPermissions) {
+        const parsedPermissions =
+          JSON.parse(savedPermissions);
+
+        if (
+          parsedPermissions &&
+          typeof parsedPermissions === "object" &&
+          !Array.isArray(parsedPermissions)
+        ) {
+          setPermissions(parsedPermissions);
+          return parsedPermissions;
+        }
       }
+    } catch (error) {
+      console.error(
+        "STAFF PERMISSION STORAGE ERROR:",
+        error
+      );
+    }
 
-      localStorage.removeItem("permission");
-      localStorage.removeItem("permissions");
-      localStorage.removeItem("role_permission");
-      localStorage.removeItem("rolePermission");
-    }, []);
+    try {
+      const savedUser =
+        localStorage.getItem("user");
 
-  const loadStaffPermissions =
-    useCallback(() => {
-      if (typeof window === "undefined") {
+      if (!savedUser) {
+        setPermissions(null);
         return null;
       }
 
-      try {
-        const savedPermissions =
-          localStorage.getItem(
-            "staff_permissions"
-          );
+      const user = JSON.parse(savedUser);
 
-        if (savedPermissions) {
-          const parsedPermissions =
-            JSON.parse(savedPermissions);
+      const permission =
+        user?.staff_permission?.permission ||
+        user?.role_permission?.permission ||
+        null;
 
-          if (
-            parsedPermissions &&
-            typeof parsedPermissions ===
-              "object" &&
-            !Array.isArray(parsedPermissions)
-          ) {
-            setPermissions(parsedPermissions);
-            return parsedPermissions;
-          }
-        }
-      } catch (error) {
-        console.error(
-          "STAFF PERMISSION STORAGE ERROR:",
-          error
+      if (
+        permission &&
+        typeof permission === "object" &&
+        !Array.isArray(permission)
+      ) {
+        setPermissions(permission);
+
+        localStorage.setItem(
+          "staff_permissions",
+          JSON.stringify(permission)
         );
+
+        return permission;
       }
+    } catch (error) {
+      console.error(
+        "STAFF USER PERMISSION ERROR:",
+        error
+      );
+    }
 
-      try {
-        const savedUser =
-          localStorage.getItem("user");
+    setPermissions(null);
+    return null;
+  }, []);
 
-        if (!savedUser) {
-          setPermissions(null);
-          return null;
-        }
+  const loadCurrentUser = useCallback(() => {
+    try {
+      const currentRole = getRoleId();
 
-        const user = JSON.parse(savedUser);
-
-        const permission =
-          user?.staff_permission?.permission ||
-          user?.role_permission?.permission ||
-          null;
-
-        if (
-          permission &&
-          typeof permission ===
-            "object" &&
-          !Array.isArray(permission)
-        ) {
-          setPermissions(permission);
-
-          localStorage.setItem(
-            "staff_permissions",
-            JSON.stringify(permission)
-          );
-
-          return permission;
-        }
-      } catch (error) {
-        console.error(
-          "STAFF USER PERMISSION ERROR:",
-          error
-        );
-      }
-
-      setPermissions(null);
-      return null;
-    }, []);
-
-  const loadCurrentUser =
-    useCallback(() => {
-      try {
-        const currentRole = getRoleId();
-
-        if (
-          currentRole === null ||
-          currentRole === undefined ||
-          currentRole === ""
-        ) {
-          setRoleId(null);
-          setPermissions(null);
-          removeInvalidPermissionKeys();
-          return;
-        }
-
-        const numericRole = Number(
-          currentRole
-        );
-
-        setRoleId(numericRole);
-
-        if (numericRole === 9) {
-          loadStaffPermissions();
-          removeInvalidPermissionKeys();
-          return;
-        }
-
-        setPermissions(null);
-
-        localStorage.removeItem(
-          "staff_permissions"
-        );
-
-        removeInvalidPermissionKeys();
-      } catch (error) {
-        console.error(
-          "LOAD CURRENT USER ERROR:",
-          error
-        );
-
+      if (
+        currentRole === null ||
+        currentRole === undefined ||
+        currentRole === ""
+      ) {
         setRoleId(null);
         setPermissions(null);
         removeInvalidPermissionKeys();
+        return;
       }
-    }, [
-      loadStaffPermissions,
-      removeInvalidPermissionKeys,
-    ]);
 
-  const loadRoles = useCallback(
-    async () => {
-      try {
-        const response =
-          await getRoles();
+      const numericRole = Number(currentRole);
 
-        if (
-          response?.success &&
-          Array.isArray(response?.data)
-        ) {
-          const activeRoles =
-            response.data
-              .filter(
-                (role) =>
-                  Number(
-                    role?.status ?? 1
-                  ) === 1
-              )
-              .sort(
-                (a, b) =>
-                  Number(
-                    a?.sequence ?? 0
-                  ) -
-                  Number(
-                    b?.sequence ?? 0
-                  )
-              );
+      setRoleId(numericRole);
 
-          setRoles(activeRoles);
-        } else {
-          setRoles([]);
-        }
-      } catch (error) {
-        console.error(
-          "GET ROLES ERROR:",
-          error
-        );
+      if (numericRole === 9) {
+        loadStaffPermissions();
+        removeInvalidPermissionKeys();
+        return;
+      }
 
+      setPermissions(null);
+
+      localStorage.removeItem(
+        "staff_permissions"
+      );
+
+      removeInvalidPermissionKeys();
+    } catch (error) {
+      console.error(
+        "LOAD CURRENT USER ERROR:",
+        error
+      );
+
+      setRoleId(null);
+      setPermissions(null);
+      removeInvalidPermissionKeys();
+    }
+  }, [
+    loadStaffPermissions,
+    removeInvalidPermissionKeys,
+  ]);
+
+  const loadRoles = useCallback(async () => {
+    try {
+      const response = await getRoles();
+
+      if (
+        response?.success &&
+        Array.isArray(response?.data)
+      ) {
+        const activeRoles =
+          response.data
+            .filter(
+              (role) =>
+                Number(role?.status ?? 1) === 1
+            )
+            .sort(
+              (a, b) =>
+                Number(a?.sequence ?? 0) -
+                Number(b?.sequence ?? 0)
+            );
+
+        setRoles(activeRoles);
+      } else {
         setRoles([]);
       }
-    },
-    []
-  );
+    } catch (error) {
+      console.error(
+        "GET ROLES ERROR:",
+        error
+      );
 
-  const loadModules =
-    useCallback(async () => {
-      try {
-        const response =
-          await getModules();
+      setRoles([]);
+    }
+  }, []);
 
-        if (
-          response?.success &&
-          Array.isArray(response?.data)
-        ) {
-          const activeModules =
-            response.data
-              .filter(
-                (moduleItem) =>
-                  Number(
-                    moduleItem?.status ?? 1
-                  ) === 1
-              )
-              .sort(
-                (a, b) =>
-                  Number(
-                    a?.sequence ?? 0
-                  ) -
-                  Number(
-                    b?.sequence ?? 0
-                  )
-              );
+  const loadModules = useCallback(async () => {
+    try {
+      const response = await getModules();
 
-          setModules(activeModules);
-        } else {
-          setModules([]);
-        }
-      } catch (error) {
-        console.error(
-          "GET MODULES ERROR:",
-          error
-        );
+      if (
+        response?.success &&
+        Array.isArray(response?.data)
+      ) {
+        const activeModules =
+          response.data
+            .filter(
+              (moduleItem) =>
+                Number(moduleItem?.status ?? 1) === 1
+            )
+            .sort(
+              (a, b) =>
+                Number(a?.sequence ?? 0) -
+                Number(b?.sequence ?? 0)
+            );
 
+        setModules(activeModules);
+      } else {
         setModules([]);
       }
-    }, []);
+    } catch (error) {
+      console.error(
+        "GET MODULES ERROR:",
+        error
+      );
+
+      setModules([]);
+    }
+  }, []);
+
+  const loadWalletBalance = useCallback(async () => {
+    try {
+      const response = await getKeySettings();
+
+      if (
+        response?.success &&
+        Array.isArray(response?.data)
+      ) {
+        const total = response.data
+          .filter(
+            (item) =>
+              Number(item?.status) === 1
+          )
+          .reduce(
+            (sum, item) =>
+              sum + Number(item?.balance || 0),
+            0
+          );
+
+        setTotalWalletBalance(total);
+      } else {
+        setTotalWalletBalance(0);
+      }
+    } catch (error) {
+      console.error(
+        "GET WALLET BALANCE ERROR:",
+        error
+      );
+
+      setTotalWalletBalance(0);
+    }
+  }, []);
 
   useEffect(() => {
     removeInvalidPermissionKeys();
     loadRoles();
     loadModules();
     loadCurrentUser();
+    loadWalletBalance();
   }, [
     removeInvalidPermissionKeys,
     loadRoles,
     loadModules,
     loadCurrentUser,
+    loadWalletBalance,
   ]);
 
   useEffect(() => {
@@ -340,17 +346,18 @@ export default function Sidebar({ sidebarOpen }) {
       loadRoles();
       loadModules();
       loadCurrentUser();
+      loadWalletBalance();
     };
 
     const handleVisibilityChange = () => {
       if (
-        document.visibilityState ===
-        "visible"
+        document.visibilityState === "visible"
       ) {
         removeInvalidPermissionKeys();
         loadRoles();
         loadModules();
         loadCurrentUser();
+        loadWalletBalance();
       }
     };
 
@@ -380,6 +387,7 @@ export default function Sidebar({ sidebarOpen }) {
     loadRoles,
     loadModules,
     loadCurrentUser,
+    loadWalletBalance,
   ]);
 
   useEffect(() => {
@@ -388,33 +396,27 @@ export default function Sidebar({ sidebarOpen }) {
     }
 
     const handleStorage = (event) => {
-      if (
-        event.key === "modules_updated"
-      ) {
+      if (event.key === "modules_updated") {
         loadModules();
       }
 
-      if (
-        event.key === "roles_updated"
-      ) {
+      if (event.key === "roles_updated") {
         loadRoles();
       }
 
       if (
         event.key === "user" ||
-        event.key ===
-          "staff_permissions"
+        event.key === "staff_permissions"
       ) {
         loadCurrentUser();
+        loadWalletBalance();
       }
 
       if (
         event.key === "permission" ||
         event.key === "permissions" ||
-        event.key ===
-          "role_permission" ||
-        event.key ===
-          "rolePermission"
+        event.key === "role_permission" ||
+        event.key === "rolePermission"
       ) {
         removeInvalidPermissionKeys();
       }
@@ -435,6 +437,7 @@ export default function Sidebar({ sidebarOpen }) {
     loadModules,
     loadRoles,
     loadCurrentUser,
+    loadWalletBalance,
     removeInvalidPermissionKeys,
   ]);
 
@@ -459,237 +462,181 @@ export default function Sidebar({ sidebarOpen }) {
     removeInvalidPermissionKeys,
   ]);
 
-  const isPermissionEnabled =
-    useCallback(
-      (value) => {
-        if (
-          value === undefined ||
-          value === null
-        ) {
-          return false;
-        }
-
-        if (
-          typeof value === "boolean"
-        ) {
-          return value;
-        }
-
-        if (
-          typeof value === "number"
-        ) {
-          return value === 1;
-        }
-
-        if (
-          typeof value === "string"
-        ) {
-          return (
-            value === "1" ||
-            value.toLowerCase() ===
-              "true"
-          );
-        }
-
-        if (
-          typeof value === "object"
-        ) {
-          if (
-            value.status !== undefined
-          ) {
-            return (
-              Number(
-                value.status
-              ) === 1
-            );
-          }
-
-          if (
-            value.view !== undefined
-          ) {
-            return (
-              Number(
-                value.view
-              ) === 1
-            );
-          }
-
-          if (
-            value.access !== undefined
-          ) {
-            return (
-              Number(
-                value.access
-              ) === 1
-            );
-          }
-
-          return true;
-        }
-
+  const isPermissionEnabled = useCallback(
+    (value) => {
+      if (
+        value === undefined ||
+        value === null
+      ) {
         return false;
-      },
-      []
-    );
+      }
 
-  const hasPermissionForSlug =
-    useCallback(
-      (slug) => {
-        if (!permissions) {
-          return false;
-        }
+      if (typeof value === "boolean") {
+        return value;
+      }
 
-        const cleanSlug = String(
-          slug || ""
-        )
-          .trim()
-          .toLowerCase();
+      if (typeof value === "number") {
+        return value === 1;
+      }
 
-        if (!cleanSlug) {
-          return false;
-        }
-
-        const permissionKeys =
-          Object.keys(
-            permissions
-          );
-
-        if (
-          permissions[
-            cleanSlug
-          ] !== undefined
-        ) {
-          return isPermissionEnabled(
-            permissions[
-              cleanSlug
-            ]
-          );
-        }
-
-        const matchingKeys =
-          permissionKeys.filter(
-            (key) => {
-              const cleanKey =
-                String(key)
-                  .trim()
-                  .toLowerCase();
-
-              return (
-                cleanKey ===
-                  cleanSlug ||
-                cleanKey.startsWith(
-                  `${cleanSlug}.`
-                )
-              );
-            }
-          );
-
-        return matchingKeys.some(
-          (key) =>
-            isPermissionEnabled(
-              permissions[key]
-            )
+      if (typeof value === "string") {
+        return (
+          value === "1" ||
+          value.toLowerCase() === "true"
         );
-      },
-      [
-        permissions,
-        isPermissionEnabled,
-      ]
-    );
+      }
 
-  const hasModulePermission =
-    useCallback(
-      (moduleItem) => {
-        if (
-          Number(roleId) !== 9
-        ) {
-          return true;
+      if (typeof value === "object") {
+        if (value.status !== undefined) {
+          return Number(value.status) === 1;
         }
 
-        const slug = String(
-          moduleItem?.slug || ""
-        )
-          .trim()
-          .toLowerCase();
-
-        const name = String(
-          moduleItem?.name || ""
-        )
-          .trim()
-          .toLowerCase();
-
-        if (
-          slug &&
-          hasPermissionForSlug(
-            slug
-          )
-        ) {
-          return true;
+        if (value.view !== undefined) {
+          return Number(value.view) === 1;
         }
 
-        if (
-          name &&
-          hasPermissionForSlug(
-            name
-          )
-        ) {
-          return true;
+        if (value.access !== undefined) {
+          return Number(value.access) === 1;
         }
 
+        return true;
+      }
+
+      return false;
+    },
+    []
+  );
+
+  const hasPermissionForSlug = useCallback(
+    (slug) => {
+      if (!permissions) {
         return false;
-      },
-      [
-        roleId,
-        hasPermissionForSlug,
-      ]
-    );
+      }
 
-  const hasRolePermission =
-    useCallback(
-      (roleItem) => {
-        if (
-          Number(roleId) !== 9
-        ) {
-          return true;
-        }
+      const cleanSlug = String(slug || "")
+        .trim()
+        .toLowerCase();
 
-        const roleSlug = String(
-          roleItem?.slug || ""
-        )
-          .trim()
-          .toLowerCase();
-
-        const roleName = String(
-          roleItem?.name || ""
-        )
-          .trim()
-          .toLowerCase();
-
-        if (
-          roleSlug &&
-          hasPermissionForSlug(
-            roleSlug
-          )
-        ) {
-          return true;
-        }
-
-        if (
-          roleName &&
-          hasPermissionForSlug(
-            roleName
-          )
-        ) {
-          return true;
-        }
-
+      if (!cleanSlug) {
         return false;
-      },
-      [
-        roleId,
-        hasPermissionForSlug,
-      ]
-    );
+      }
+
+      const permissionKeys =
+        Object.keys(permissions);
+
+      if (
+        permissions[cleanSlug] !== undefined
+      ) {
+        return isPermissionEnabled(
+          permissions[cleanSlug]
+        );
+      }
+
+      const matchingKeys =
+        permissionKeys.filter((key) => {
+          const cleanKey = String(key)
+            .trim()
+            .toLowerCase();
+
+          return (
+            cleanKey === cleanSlug ||
+            cleanKey.startsWith(
+              `${cleanSlug}.`
+            )
+          );
+        });
+
+      return matchingKeys.some((key) =>
+        isPermissionEnabled(
+          permissions[key]
+        )
+      );
+    },
+    [
+      permissions,
+      isPermissionEnabled,
+    ]
+  );
+
+  const hasModulePermission = useCallback(
+    (moduleItem) => {
+      if (Number(roleId) !== 9) {
+        return true;
+      }
+
+      const slug = String(
+        moduleItem?.slug || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const name = String(
+        moduleItem?.name || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (
+        slug &&
+        hasPermissionForSlug(slug)
+      ) {
+        return true;
+      }
+
+      if (
+        name &&
+        hasPermissionForSlug(name)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [
+      roleId,
+      hasPermissionForSlug,
+    ]
+  );
+
+  const hasRolePermission = useCallback(
+    (roleItem) => {
+      if (Number(roleId) !== 9) {
+        return true;
+      }
+
+      const roleSlug = String(
+        roleItem?.slug || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const roleName = String(
+        roleItem?.name || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (
+        roleSlug &&
+        hasPermissionForSlug(roleSlug)
+      ) {
+        return true;
+      }
+
+      if (
+        roleName &&
+        hasPermissionForSlug(roleName)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [
+      roleId,
+      hasPermissionForSlug,
+    ]
+  );
 
   const myLogin = () => {
     removeInvalidPermissionKeys();
@@ -721,18 +668,9 @@ export default function Sidebar({ sidebarOpen }) {
     } finally {
       removeToken();
 
-      localStorage.removeItem(
-        "user"
-      );
-
-      localStorage.removeItem(
-        "original_token"
-      );
-
-      localStorage.removeItem(
-        "original_user"
-      );
-
+      localStorage.removeItem("user");
+      localStorage.removeItem("original_token");
+      localStorage.removeItem("original_user");
       localStorage.removeItem(
         "staff_permissions"
       );
@@ -743,112 +681,99 @@ export default function Sidebar({ sidebarOpen }) {
     }
   };
 
-  const isRoleLinkActive =
-    useCallback(
-      (roleItem) => {
-        const currentRoleId =
-          Number(
-            roleItem?.role_id
-          );
+  const isRoleLinkActive = useCallback(
+    (roleItem) => {
+      const currentRoleId =
+        Number(roleItem?.role_id);
 
-        if (
-          activeRole !== null &&
-          Number.isFinite(
-            currentRoleId
-          ) &&
-          activeRole ===
-            currentRoleId
-        ) {
-          return true;
-        }
+      if (
+        activeRole !== null &&
+        Number.isFinite(currentRoleId) &&
+        activeRole === currentRoleId
+      ) {
+        return true;
+      }
 
-        const slug = String(
-          roleItem?.slug || ""
-        )
-          .trim()
-          .toLowerCase();
+      const slug = String(
+        roleItem?.slug || ""
+      )
+        .trim()
+        .toLowerCase();
 
-        return (
-          activeModule &&
-          slug &&
-          activeModule === slug
-        );
-      },
-      [
-        activeRole,
-        activeModule,
-      ]
-    );
+      return (
+        activeModule &&
+        slug &&
+        activeModule === slug
+      );
+    },
+    [
+      activeRole,
+      activeModule,
+    ]
+  );
 
-  const isModuleLinkActive =
-    useCallback(
-      (moduleItem) => {
-        const slug = String(
-          moduleItem?.slug || ""
-        )
-          .trim()
-          .toLowerCase();
+  const isModuleLinkActive = useCallback(
+    (moduleItem) => {
+      const slug = String(
+        moduleItem?.slug || ""
+      )
+        .trim()
+        .toLowerCase();
 
-        if (!slug) {
-          return false;
-        }
+      if (!slug) {
+        return false;
+      }
 
-        if (
-          slug === "key-settings"
-        ) {
-          return (
-            pathname ===
-              "/dashboard/key-setting" ||
-            pathname.startsWith(
-              "/dashboard/key-setting/"
-            )
-          );
-        }
-
-        if (
-          slug === "role-permission"
-        ) {
-          return (
-            pathname ===
-              "/dashboard/role-permission" ||
-            pathname.startsWith(
-              "/dashboard/role-permission/"
-            )
-          );
-        }
-
-        if (
-          slug === "transfer-points"
-        ) {
-          return (
-            pathname ===
-              "/dashboard/transfer-point" ||
-            pathname.startsWith(
-              "/dashboard/transfer-point/"
-            )
-          );
-        }
-
-        if (
-          activeModule &&
-          activeModule === slug
-        ) {
-          return true;
-        }
-
+      if (slug === "key-settings") {
         return (
           pathname ===
-            `/dashboard/${slug}` ||
+            "/dashboard/key-setting" ||
           pathname.startsWith(
-            `/dashboard/${slug}/`
+            "/dashboard/key-setting/"
           )
         );
-      },
-      [
-        pathname,
-        activeModule,
-      ]
-    );
+      }
+
+      if (slug === "role-permission") {
+        return (
+          pathname ===
+            "/dashboard/role-permission" ||
+          pathname.startsWith(
+            "/dashboard/role-permission/"
+          )
+        );
+      }
+
+      if (slug === "transfer-points") {
+        return (
+          pathname ===
+            "/dashboard/transfer-point" ||
+          pathname.startsWith(
+            "/dashboard/transfer-point/"
+          )
+        );
+      }
+
+      if (
+        activeModule &&
+        activeModule === slug
+      ) {
+        return true;
+      }
+
+      return (
+        pathname ===
+          `/dashboard/${slug}` ||
+        pathname.startsWith(
+          `/dashboard/${slug}/`
+        )
+      );
+    },
+    [
+      pathname,
+      activeModule,
+    ]
+  );
 
   const RoleLink = ({
     roleItem,
@@ -869,9 +794,7 @@ export default function Sidebar({ sidebarOpen }) {
     );
 
     const isActive =
-      isRoleLinkActive(
-        roleItem
-      );
+      isRoleLinkActive(roleItem);
 
     return (
       <Link
@@ -922,31 +845,25 @@ export default function Sidebar({ sidebarOpen }) {
         slug
       )}`;
 
-    if (
-      slug === "key-settings"
-    ) {
-      href =
-        "/dashboard/key-setting";
+    if (slug === "key-settings") {
+      href = "/dashboard/key-setting";
     }
 
-    if (
-      slug === "role-permission"
-    ) {
+    if (slug === "role-permission") {
       href =
         "/dashboard/role-permission";
     }
 
-    if (
-      slug === "transfer-points"
-    ) {
+    if (slug === "transfer-points") {
       href =
         "/dashboard/transfer-point";
     }
 
     const isActive =
-      isModuleLinkActive(
-        moduleItem
-      );
+      isModuleLinkActive(moduleItem);
+
+    const isTransferPoints =
+      slug === "transfer-points";
 
     return (
       <Link
@@ -969,14 +886,31 @@ export default function Sidebar({ sidebarOpen }) {
           )}
         </span>
 
-        <span>{label}</span>
+        <span className="flex min-w-0 flex-1 items-center">
+          <span className="truncate">
+            {label}
+          </span>
+
+          {isTransferPoints && (
+            <span
+              className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${
+                isActive
+                  ? "border-red-600 bg-red-600 text-white"
+                  : "border-red-500 bg-red-500 text-white"
+              }`}
+            >
+              {totalWalletBalance.toLocaleString(
+                "en-IN"
+              )}
+            </span>
+          )}
+        </span>
       </Link>
     );
   };
 
   const renderRoleLinks = () => {
-    const currentRole =
-      Number(roleId);
+    const currentRole = Number(roleId);
 
     if (currentRole === 0) {
       const adminFromApi =
@@ -1000,23 +934,20 @@ export default function Sidebar({ sidebarOpen }) {
 
     if (currentRole === 9) {
       return roles
-        .filter(
-          (roleItem) =>
-            hasRolePermission(
-              roleItem
-            )
-        )
-        .map(
-          (roleItem) => (
-            <RoleLink
-              key={
-                roleItem?.id ??
-                roleItem?.role_id
-              }
-              roleItem={roleItem}
-            />
+        .filter((roleItem) =>
+          hasRolePermission(
+            roleItem
           )
-        );
+        )
+        .map((roleItem) => (
+          <RoleLink
+            key={
+              roleItem?.id ??
+              roleItem?.role_id
+            }
+            roleItem={roleItem}
+          />
+        ));
     }
 
     const allowedRoles =
@@ -1046,32 +977,40 @@ export default function Sidebar({ sidebarOpen }) {
       ));
   };
 
-  const renderModuleLinks =
-    () => {
-      return modules
-        .filter(
-          (moduleItem) =>
-            hasModulePermission(
-              moduleItem
-            )
+  const renderModuleLinks = () => {
+    return modules
+      .filter((moduleItem) => {
+        const slug = String(
+          moduleItem?.slug || ""
         )
-        .map(
-          (
-            moduleItem,
-            index
-          ) => (
-            <ModuleLink
-              key={
-                moduleItem?.id ||
-                `${moduleItem?.slug}-${index}`
-              }
-              moduleItem={
-                moduleItem
-              }
-            />
-          )
+          .trim()
+          .toLowerCase();
+
+        if (
+          slug === "key-settings" &&
+          Number(roleId) !== 0
+        ) {
+          return false;
+        }
+
+        return hasModulePermission(
+          moduleItem
         );
-    };
+      })
+      .map(
+        (moduleItem, index) => (
+          <ModuleLink
+            key={
+              moduleItem?.id ||
+              `${moduleItem?.slug}-${index}`
+            }
+            moduleItem={
+              moduleItem
+            }
+          />
+        )
+      );
+  };
 
   if (roleId === null) {
     return (
