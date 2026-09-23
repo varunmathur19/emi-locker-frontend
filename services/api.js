@@ -58,47 +58,19 @@ export const getDropdownUsers = async (
 ) => {
   const params = new URLSearchParams();
 
-  // =========================================
-  // ROLE ID
-  // =========================================
-
-  params.append(
-    "role_id",
-    Number(role_id)
-  );
-
-  // =========================================
-  // PARENT ID
-  // =========================================
+  params.append("role_id", Number(role_id));
 
   if (
     parent_id !== null &&
     parent_id !== undefined &&
     parent_id !== ""
   ) {
-    params.append(
-      "parent_id",
-      Number(parent_id)
-    );
+    params.append("parent_id", Number(parent_id));
   }
 
-  // =========================================
-  // SEARCH
-  // =========================================
-
-  if (
-    search &&
-    search.trim()
-  ) {
-    params.append(
-      "search",
-      search.trim()
-    );
+  if (search && search.trim()) {
+    params.append("search", search.trim());
   }
-
-  // =========================================
-  // API CALL
-  // =========================================
 
   const response = await api.get(
     `/hierarchy-dropdown?${params.toString()}`
@@ -106,7 +78,6 @@ export const getDropdownUsers = async (
 
   return response.data;
 };
-
 
 // LOGOUT STAFF
 
@@ -419,4 +390,32 @@ export const getCities = async (state_id) => {
         params: { state_id },
     });
     return response.data;
+};
+
+// get key-setting api
+export const getKeySettings = async () => {
+  const response = await api.get("/key-setting");
+  return response.data;
+};
+
+//Updated key-setting api 
+export const updateKeySetting = async (id, data) => {
+  const response = await api.put(`/key-setting/${id}`, data);
+  return response.data;
+};
+
+
+//transfer wallet point
+export const transferWalletPoints = async (
+  to_user_id,
+  key_setting_id,
+  points_sent
+) => {
+  const response = await api.post("/wallet/transfer", {
+    to_user_id: Number(to_user_id),
+    key_setting_id: Number(key_setting_id),
+    points_sent: Number(points_sent),
+  });
+
+  return response.data;
 };

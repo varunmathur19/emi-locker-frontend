@@ -15,23 +15,20 @@ import {
   logoutStaff,
   getModules,
   getRoles,
+  getKeySettings,
 } from "@/services/api";
 
-/* =========================================================
-   ROLE ACCESS
-========================================================= */
-
 const allowedRolesByRole = {
-  0: [1], // Master Admin -> Admin
-  1: [2, 3, 4, 5, 6, 7, 8, 9], // Admin
-  2: [3, 4, 5, 6, 7, 8, 9], // CNF
-  3: [4, 5, 6, 7, 8, 9], // Super Distributor
-  4: [5, 6, 7, 8, 9], // Distributor
-  5: [6, 7, 8, 9], // FOS
-  6: [7, 8, 9], // Retailer
-  7: [8, 9], // Sub Retailer
-  8: [9], // Employee
-  9: [], // Staff -> permission based
+  0: [1],
+  1: [2, 3, 4, 5, 6, 7, 8, 9],
+  2: [3, 4, 5, 6, 7, 8, 9],
+  3: [4, 5, 6, 7, 8, 9],
+  4: [5, 6, 7, 8, 9],
+  5: [6, 7, 8, 9],
+  6: [7, 8, 9],
+  7: [8, 9],
+  8: [9],
+  9: [],
 };
 
 const defaultAdminRole = {
@@ -44,16 +41,9 @@ const defaultAdminRole = {
   status: 1,
 };
 
-/* =========================================================
-   ICON HELPERS
-========================================================= */
-
 const getRoleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-
-  const IconComponent = iconKey
-    ? RiIcons[iconKey]
-    : null;
+  const IconComponent = iconKey ? RiIcons[iconKey] : null;
 
   if (
     !IconComponent ||
@@ -67,10 +57,7 @@ const getRoleIcon = (iconName, size = 20) => {
 
 const getModuleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-
-  const IconComponent = iconKey
-    ? RiIcons[iconKey]
-    : null;
+  const IconComponent = iconKey ? RiIcons[iconKey] : null;
 
   if (
     !IconComponent ||
@@ -82,10 +69,6 @@ const getModuleIcon = (iconName, size = 20) => {
   return <IconComponent size={size} />;
 };
 
-/* =========================================================
-   SIDEBAR
-========================================================= */
-
 export default function Sidebar({ sidebarOpen }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -94,10 +77,7 @@ export default function Sidebar({ sidebarOpen }) {
   const [roles, setRoles] = useState([]);
   const [modules, setModules] = useState([]);
   const [permissions, setPermissions] = useState(null);
-
-  /* =======================================================
-     URL STATE
-  ======================================================= */
+  const [totalWalletBalance, setTotalWalletBalance] = useState(0);
 
   const activeRoleParam = searchParams.get("role");
 
@@ -113,16 +93,23 @@ export default function Sidebar({ sidebarOpen }) {
       ? Number(activeRoleParam)
       : null;
 
-  /* =======================================================
-     STAFF PERMISSION
-  ======================================================= */
+  const removeInvalidPermissionKeys = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    localStorage.removeItem("permission");
+    localStorage.removeItem("permissions");
+    localStorage.removeItem("role_permission");
+    localStorage.removeItem("rolePermission");
+  }, []);
 
   const loadStaffPermissions = useCallback(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
     try {
-      /*
-       * First priority:
-       * staff_permissions localStorage
-       */
       const savedPermissions =
         localStorage.getItem("staff_permissions");
 
@@ -132,17 +119,21 @@ export default function Sidebar({ sidebarOpen }) {
 
         if (
           parsedPermissions &&
-          typeof parsedPermissions === "object"
+          typeof parsedPermissions === "object" &&
+          !Array.isArray(parsedPermissions)
         ) {
           setPermissions(parsedPermissions);
           return parsedPermissions;
         }
       }
+    } catch (error) {
+      console.error(
+        "STAFF PERMISSION STORAGE ERROR:",
+        error
+      );
+    }
 
-      /*
-       * Fallback:
-       * user.role_permission.permission
-       */
+    try {
       const savedUser =
         localStorage.getItem("user");
 
@@ -153,112 +144,68 @@ export default function Sidebar({ sidebarOpen }) {
 
       const user = JSON.parse(savedUser);
 
-      const staffPermission =
-        user?.role_permission?.permission || null;
+      const permission =
+        user?.staff_permission?.permission ||
+        user?.role_permission?.permission ||
+        null;
 
       if (
-        staffPermission &&
-        typeof staffPermission === "object"
+        permission &&
+        typeof permission === "object" &&
+        !Array.isArray(permission)
       ) {
-        setPermissions(staffPermission);
+        setPermissions(permission);
 
         localStorage.setItem(
           "staff_permissions",
-          JSON.stringify(staffPermission)
+          JSON.stringify(permission)
         );
 
-        return staffPermission;
+        return permission;
       }
-
-      /*
-       * IMPORTANT:
-       * Yaha staff_permissions remove nahi karna.
-       *
-       * Agar pehle se permission saved hai aur
-       * user object me permission nahi hai,
-       * to permission ko remove nahi karna.
-       */
-      setPermissions(null);
-
-      return null;
     } catch (error) {
       console.error(
-        "LOAD STAFF PERMISSION ERROR:",
+        "STAFF USER PERMISSION ERROR:",
         error
       );
-
-      /*
-       * Last fallback
-       */
-      try {
-        const savedPermissions =
-          localStorage.getItem(
-            "staff_permissions"
-          );
-
-        if (savedPermissions) {
-          const parsedPermissions =
-            JSON.parse(savedPermissions);
-
-          if (
-            parsedPermissions &&
-            typeof parsedPermissions === "object"
-          ) {
-            setPermissions(parsedPermissions);
-            return parsedPermissions;
-          }
-        }
-      } catch (parseError) {
-        console.error(
-          "PARSE STAFF PERMISSION ERROR:",
-          parseError
-        );
-      }
-
-      setPermissions(null);
-      return null;
     }
-  }, []);
 
-  /* =======================================================
-     CURRENT USER
-  ======================================================= */
+    setPermissions(null);
+    return null;
+  }, []);
 
   const loadCurrentUser = useCallback(() => {
     try {
       const currentRole = getRoleId();
 
       if (
-        currentRole !== null &&
-        currentRole !== undefined &&
-        currentRole !== ""
+        currentRole === null ||
+        currentRole === undefined ||
+        currentRole === ""
       ) {
-        const numericRole = Number(currentRole);
-
-        setRoleId(numericRole);
-
-        /*
-         * Staff
-         */
-        if (numericRole === 9) {
-          loadStaffPermissions();
-          return;
-        }
-
-        /*
-         * Non Staff
-         */
+        setRoleId(null);
         setPermissions(null);
-
-        localStorage.removeItem(
-          "staff_permissions"
-        );
-
+        removeInvalidPermissionKeys();
         return;
       }
 
-      setRoleId(null);
+      const numericRole = Number(currentRole);
+
+      setRoleId(numericRole);
+
+      if (numericRole === 9) {
+        loadStaffPermissions();
+        removeInvalidPermissionKeys();
+        return;
+      }
+
       setPermissions(null);
+
+      localStorage.removeItem(
+        "staff_permissions"
+      );
+
+      removeInvalidPermissionKeys();
     } catch (error) {
       console.error(
         "LOAD CURRENT USER ERROR:",
@@ -267,12 +214,12 @@ export default function Sidebar({ sidebarOpen }) {
 
       setRoleId(null);
       setPermissions(null);
+      removeInvalidPermissionKeys();
     }
-  }, [loadStaffPermissions]);
-
-  /* =======================================================
-     LOAD ROLES
-  ======================================================= */
+  }, [
+    loadStaffPermissions,
+    removeInvalidPermissionKeys,
+  ]);
 
   const loadRoles = useCallback(async () => {
     try {
@@ -282,16 +229,17 @@ export default function Sidebar({ sidebarOpen }) {
         response?.success &&
         Array.isArray(response?.data)
       ) {
-        const activeRoles = response.data
-          .filter(
-            (role) =>
-              Number(role?.status ?? 1) === 1
-          )
-          .sort(
-            (a, b) =>
-              Number(a?.sequence ?? 0) -
-              Number(b?.sequence ?? 0)
-          );
+        const activeRoles =
+          response.data
+            .filter(
+              (role) =>
+                Number(role?.status ?? 1) === 1
+            )
+            .sort(
+              (a, b) =>
+                Number(a?.sequence ?? 0) -
+                Number(b?.sequence ?? 0)
+            );
 
         setRoles(activeRoles);
       } else {
@@ -307,10 +255,6 @@ export default function Sidebar({ sidebarOpen }) {
     }
   }, []);
 
-  /* =======================================================
-     LOAD MODULES
-  ======================================================= */
-
   const loadModules = useCallback(async () => {
     try {
       const response = await getModules();
@@ -319,16 +263,17 @@ export default function Sidebar({ sidebarOpen }) {
         response?.success &&
         Array.isArray(response?.data)
       ) {
-        const activeModules = response.data
-          .filter(
-            (moduleItem) =>
-              Number(moduleItem?.status ?? 1) === 1
-          )
-          .sort(
-            (a, b) =>
-              Number(a?.sequence ?? 0) -
-              Number(b?.sequence ?? 0)
-          );
+        const activeModules =
+          response.data
+            .filter(
+              (moduleItem) =>
+                Number(moduleItem?.status ?? 1) === 1
+            )
+            .sort(
+              (a, b) =>
+                Number(a?.sequence ?? 0) -
+                Number(b?.sequence ?? 0)
+            );
 
         setModules(activeModules);
       } else {
@@ -344,38 +289,75 @@ export default function Sidebar({ sidebarOpen }) {
     }
   }, []);
 
-  /* =======================================================
-     INITIAL LOAD
-  ======================================================= */
+  const loadWalletBalance = useCallback(async () => {
+    try {
+      const response = await getKeySettings();
+
+      if (
+        response?.success &&
+        Array.isArray(response?.data)
+      ) {
+        const total = response.data
+          .filter(
+            (item) =>
+              Number(item?.status) === 1
+          )
+          .reduce(
+            (sum, item) =>
+              sum + Number(item?.balance || 0),
+            0
+          );
+
+        setTotalWalletBalance(total);
+      } else {
+        setTotalWalletBalance(0);
+      }
+    } catch (error) {
+      console.error(
+        "GET WALLET BALANCE ERROR:",
+        error
+      );
+
+      setTotalWalletBalance(0);
+    }
+  }, []);
 
   useEffect(() => {
+    removeInvalidPermissionKeys();
     loadRoles();
     loadModules();
     loadCurrentUser();
+    loadWalletBalance();
   }, [
+    removeInvalidPermissionKeys,
     loadRoles,
     loadModules,
     loadCurrentUser,
+    loadWalletBalance,
   ]);
 
-  /* =======================================================
-     FOCUS + VISIBILITY
-  ======================================================= */
-
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     const handleFocus = () => {
+      removeInvalidPermissionKeys();
       loadRoles();
       loadModules();
       loadCurrentUser();
+      loadWalletBalance();
     };
 
     const handleVisibilityChange = () => {
       if (
         document.visibilityState === "visible"
       ) {
+        removeInvalidPermissionKeys();
         loadRoles();
         loadModules();
         loadCurrentUser();
+        loadWalletBalance();
       }
     };
 
@@ -401,39 +383,42 @@ export default function Sidebar({ sidebarOpen }) {
       );
     };
   }, [
+    removeInvalidPermissionKeys,
     loadRoles,
     loadModules,
     loadCurrentUser,
+    loadWalletBalance,
   ]);
 
-  /* =======================================================
-     STORAGE CHANGE
-  ======================================================= */
-
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     const handleStorage = (event) => {
-      /*
-       * Modules updated
-       */
       if (event.key === "modules_updated") {
         loadModules();
       }
 
-      /*
-       * Roles updated
-       */
       if (event.key === "roles_updated") {
         loadRoles();
       }
 
-      /*
-       * User / Staff permission updated
-       */
       if (
         event.key === "user" ||
         event.key === "staff_permissions"
       ) {
         loadCurrentUser();
+        loadWalletBalance();
+      }
+
+      if (
+        event.key === "permission" ||
+        event.key === "permissions" ||
+        event.key === "role_permission" ||
+        event.key === "rolePermission"
+      ) {
+        removeInvalidPermissionKeys();
       }
     };
 
@@ -449,14 +434,33 @@ export default function Sidebar({ sidebarOpen }) {
       );
     };
   }, [
-    loadRoles,
     loadModules,
+    loadRoles,
     loadCurrentUser,
+    loadWalletBalance,
+    removeInvalidPermissionKeys,
   ]);
 
-  /* =======================================================
-     PERMISSION VALUE CHECK
-  ======================================================= */
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    removeInvalidPermissionKeys();
+
+    const timer = setTimeout(() => {
+      removeInvalidPermissionKeys();
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [
+    pathname,
+    activeRole,
+    activeModule,
+    removeInvalidPermissionKeys,
+  ]);
 
   const isPermissionEnabled = useCallback(
     (value) => {
@@ -482,31 +486,17 @@ export default function Sidebar({ sidebarOpen }) {
         );
       }
 
-      if (
-        typeof value === "object"
-      ) {
-        if (
-          value.status !== undefined
-        ) {
-          return (
-            Number(value.status) === 1
-          );
+      if (typeof value === "object") {
+        if (value.status !== undefined) {
+          return Number(value.status) === 1;
         }
 
-        if (
-          value.view !== undefined
-        ) {
-          return (
-            Number(value.view) === 1
-          );
+        if (value.view !== undefined) {
+          return Number(value.view) === 1;
         }
 
-        if (
-          value.access !== undefined
-        ) {
-          return (
-            Number(value.access) === 1
-          );
+        if (value.access !== undefined) {
+          return Number(value.access) === 1;
         }
 
         return true;
@@ -517,19 +507,13 @@ export default function Sidebar({ sidebarOpen }) {
     []
   );
 
-  /* =======================================================
-     PERMISSION BY SLUG
-  ======================================================= */
-
   const hasPermissionForSlug = useCallback(
     (slug) => {
       if (!permissions) {
         return false;
       }
 
-      const cleanSlug = String(
-        slug || ""
-      )
+      const cleanSlug = String(slug || "")
         .trim()
         .toLowerCase();
 
@@ -540,53 +524,32 @@ export default function Sidebar({ sidebarOpen }) {
       const permissionKeys =
         Object.keys(permissions);
 
-      /*
-       * Exact permission
-       *
-       * Example:
-       * {
-       *   "cnf": 1
-       * }
-       */
       if (
-        permissions[cleanSlug] !==
-        undefined
+        permissions[cleanSlug] !== undefined
       ) {
         return isPermissionEnabled(
           permissions[cleanSlug]
         );
       }
 
-      /*
-       * Action permission
-       *
-       * Example:
-       * cnf.add
-       * cnf.edit
-       * cnf.delete
-       * cnf.view
-       */
       const matchingKeys =
-        permissionKeys.filter(
-          (key) => {
-            const cleanKey = String(key)
-              .trim()
-              .toLowerCase();
+        permissionKeys.filter((key) => {
+          const cleanKey = String(key)
+            .trim()
+            .toLowerCase();
 
-            return (
-              cleanKey === cleanSlug ||
-              cleanKey.startsWith(
-                `${cleanSlug}.`
-              )
-            );
-          }
-        );
+          return (
+            cleanKey === cleanSlug ||
+            cleanKey.startsWith(
+              `${cleanSlug}.`
+            )
+          );
+        });
 
-      return matchingKeys.some(
-        (key) =>
-          isPermissionEnabled(
-            permissions[key]
-          )
+      return matchingKeys.some((key) =>
+        isPermissionEnabled(
+          permissions[key]
+        )
       );
     },
     [
@@ -595,16 +558,8 @@ export default function Sidebar({ sidebarOpen }) {
     ]
   );
 
-  /* =======================================================
-     MODULE PERMISSION
-  ======================================================= */
-
   const hasModulePermission = useCallback(
     (moduleItem) => {
-      /*
-       * Non Staff:
-       * modules normally visible
-       */
       if (Number(roleId) !== 9) {
         return true;
       }
@@ -621,9 +576,6 @@ export default function Sidebar({ sidebarOpen }) {
         .trim()
         .toLowerCase();
 
-      /*
-       * Check slug
-       */
       if (
         slug &&
         hasPermissionForSlug(slug)
@@ -631,9 +583,6 @@ export default function Sidebar({ sidebarOpen }) {
         return true;
       }
 
-      /*
-       * Check name
-       */
       if (
         name &&
         hasPermissionForSlug(name)
@@ -649,16 +598,8 @@ export default function Sidebar({ sidebarOpen }) {
     ]
   );
 
-  /* =======================================================
-     ROLE PERMISSION
-  ======================================================= */
-
   const hasRolePermission = useCallback(
     (roleItem) => {
-      /*
-       * Non Staff:
-       * role access comes from hierarchy
-       */
       if (Number(roleId) !== 9) {
         return true;
       }
@@ -675,15 +616,6 @@ export default function Sidebar({ sidebarOpen }) {
         .trim()
         .toLowerCase();
 
-      /*
-       * Example:
-       *
-       * {
-       *   "cnf.add": 1
-       * }
-       *
-       * CNF will be visible.
-       */
       if (
         roleSlug &&
         hasPermissionForSlug(roleSlug)
@@ -706,11 +638,9 @@ export default function Sidebar({ sidebarOpen }) {
     ]
   );
 
-  /* =======================================================
-     MY LOGIN
-  ======================================================= */
-
   const myLogin = () => {
+    removeInvalidPermissionKeys();
+
     const restored =
       restoreOriginalLogin();
 
@@ -721,21 +651,11 @@ export default function Sidebar({ sidebarOpen }) {
       return;
     }
 
-    /*
-     * Staff permission belongs to
-     * impersonated Staff session.
-     */
-    localStorage.removeItem(
-      "staff_permissions"
-    );
+    removeInvalidPermissionKeys();
 
     window.location.href =
       "/dashboard";
   };
-
-  /* =======================================================
-     LOGOUT
-  ======================================================= */
 
   const logout = async () => {
     try {
@@ -748,29 +668,18 @@ export default function Sidebar({ sidebarOpen }) {
     } finally {
       removeToken();
 
-      localStorage.removeItem(
-        "user"
-      );
-
-      localStorage.removeItem(
-        "original_token"
-      );
-
-      localStorage.removeItem(
-        "original_user"
-      );
-
+      localStorage.removeItem("user");
+      localStorage.removeItem("original_token");
+      localStorage.removeItem("original_user");
       localStorage.removeItem(
         "staff_permissions"
       );
 
+      removeInvalidPermissionKeys();
+
       window.location.href = "/";
     }
   };
-
-  /* =======================================================
-     ACTIVE ROLE
-  ======================================================= */
 
   const isRoleLinkActive = useCallback(
     (roleItem) => {
@@ -779,11 +688,8 @@ export default function Sidebar({ sidebarOpen }) {
 
       if (
         activeRole !== null &&
-        Number.isFinite(
-          currentRoleId
-        ) &&
-        activeRole ===
-          currentRoleId
+        Number.isFinite(currentRoleId) &&
+        activeRole === currentRoleId
       ) {
         return true;
       }
@@ -806,71 +712,68 @@ export default function Sidebar({ sidebarOpen }) {
     ]
   );
 
-  /* =======================================================
-     ACTIVE MODULE
-  ======================================================= */
+  const isModuleLinkActive = useCallback(
+    (moduleItem) => {
+      const slug = String(
+        moduleItem?.slug || ""
+      )
+        .trim()
+        .toLowerCase();
 
-  const isModuleLinkActive =
-    useCallback(
-      (moduleItem) => {
-        const slug = String(
-          moduleItem?.slug || ""
-        )
-          .trim()
-          .toLowerCase();
+      if (!slug) {
+        return false;
+      }
 
-        if (!slug) {
-          return false;
-        }
-
-        /*
-         * URL module param
-         */
-        if (
-          activeModule &&
-          activeModule === slug
-        ) {
-          return true;
-        }
-
-        /*
-         * Role Permission
-         */
-        if (
-          slug === "role-permission"
-        ) {
-          return (
-            pathname ===
-              "/dashboard/role-permission" ||
-            pathname.startsWith(
-              "/dashboard/role-permission/"
-            )
-          );
-        }
-
-        /*
-         * Normal module
-         */
-        const slugPath =
-          `/${slug}`;
-
+      if (slug === "key-settings") {
         return (
           pathname ===
-            `/dashboard${slugPath}` ||
+            "/dashboard/key-setting" ||
           pathname.startsWith(
-            `/dashboard${slugPath}/`
+            "/dashboard/key-setting/"
           )
         );
-      },
-      [
-        pathname,
-        activeModule,
-      ]
-    );
+      }
 
-  /* =======================================================
-     ROLE LINK
-  ======================================================= */
+      if (slug === "role-permission") {
+        return (
+          pathname ===
+            "/dashboard/role-permission" ||
+          pathname.startsWith(
+            "/dashboard/role-permission/"
+          )
+        );
+      }
+
+      if (slug === "transfer-points") {
+        return (
+          pathname ===
+            "/dashboard/transfer-point" ||
+          pathname.startsWith(
+            "/dashboard/transfer-point/"
+          )
+        );
+      }
+
+      if (
+        activeModule &&
+        activeModule === slug
+      ) {
+        return true;
+      }
+
+      return (
+        pathname ===
+          `/dashboard/${slug}` ||
+        pathname.startsWith(
+          `/dashboard/${slug}/`
+        )
+      );
+    },
+    [
+      pathname,
+      activeModule,
+    ]
+  );
 
   const RoleLink = ({
     roleItem,
@@ -886,13 +789,12 @@ export default function Sidebar({ sidebarOpen }) {
       roleSlug ||
       "Role";
 
-    const roleValue =
-      Number(roleItem?.role_id);
+    const roleValue = Number(
+      roleItem?.role_id
+    );
 
     const isActive =
-      isRoleLinkActive(
-        roleItem
-      );
+      isRoleLinkActive(roleItem);
 
     return (
       <Link
@@ -924,10 +826,6 @@ export default function Sidebar({ sidebarOpen }) {
     );
   };
 
-  /* =======================================================
-     MODULE LINK
-  ======================================================= */
-
   const ModuleLink = ({
     moduleItem,
   }) => {
@@ -942,20 +840,30 @@ export default function Sidebar({ sidebarOpen }) {
       slug ||
       "Module";
 
-    const isRolePermission =
-      slug === "role-permission";
+    let href =
+      `/dashboard?module=${encodeURIComponent(
+        slug
+      )}`;
 
-    const href =
-      isRolePermission
-        ? "/dashboard/role-permission"
-        : `/dashboard?module=${encodeURIComponent(
-            slug
-          )}`;
+    if (slug === "key-settings") {
+      href = "/dashboard/key-setting";
+    }
+
+    if (slug === "role-permission") {
+      href =
+        "/dashboard/role-permission";
+    }
+
+    if (slug === "transfer-points") {
+      href =
+        "/dashboard/transfer-point";
+    }
 
     const isActive =
-      isModuleLinkActive(
-        moduleItem
-      );
+      isModuleLinkActive(moduleItem);
+
+    const isTransferPoints =
+      slug === "transfer-points";
 
     return (
       <Link
@@ -978,61 +886,32 @@ export default function Sidebar({ sidebarOpen }) {
           )}
         </span>
 
-        <span>{label}</span>
-      </Link>
-    );
-  };
+        <span className="flex min-w-0 flex-1 items-center">
+          <span className="truncate">
+            {label}
+          </span>
 
-  /* =======================================================
-     PROFILE LINK
-  ======================================================= */
-
-  const ProfileLink = () => {
-    const isActive =
-      pathname ===
-        "/dashboard/profile" ||
-      pathname.startsWith(
-        "/dashboard/profile/"
-      );
-
-    return (
-      <Link
-        href="/dashboard/profile"
-        className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
-          isActive
-            ? "bg-blue-400 text-black"
-            : "hover:bg-gray-700"
-        }`}
-      >
-        <span
-          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
-            isActive
-              ? "text-black"
-              : "text-white"
-          }`}
-        >
-          <RiIcons.RiUserSettingsLine
-            size={20}
-          />
+          {isTransferPoints && (
+            <span
+              className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${
+                isActive
+                  ? "border-red-600 bg-red-600 text-white"
+                  : "border-red-500 bg-red-500 text-white"
+              }`}
+            >
+              {totalWalletBalance.toLocaleString(
+                "en-IN"
+              )}
+            </span>
+          )}
         </span>
-
-        <span>Profile</span>
       </Link>
     );
   };
-
-  /* =======================================================
-     RENDER ROLE LINKS
-  ======================================================= */
 
   const renderRoleLinks = () => {
-    const currentRole =
-      Number(roleId);
+    const currentRole = Number(roleId);
 
-    /*
-     * Master Admin
-     * Only Admin
-     */
     if (currentRole === 0) {
       const adminFromApi =
         roles.find(
@@ -1053,38 +932,24 @@ export default function Sidebar({ sidebarOpen }) {
       );
     }
 
-    /*
-     * Staff
-     *
-     * Staff hierarchy restriction
-     * does not apply.
-     *
-     * Permissions decide visibility.
-     */
     if (currentRole === 9) {
       return roles
-        .filter(
-          (roleItem) =>
-            hasRolePermission(
-              roleItem
-            )
-        )
-        .map(
-          (roleItem) => (
-            <RoleLink
-              key={
-                roleItem?.id ??
-                roleItem?.role_id
-              }
-              roleItem={roleItem}
-            />
+        .filter((roleItem) =>
+          hasRolePermission(
+            roleItem
           )
-        );
+        )
+        .map((roleItem) => (
+          <RoleLink
+            key={
+              roleItem?.id ??
+              roleItem?.role_id
+            }
+            roleItem={roleItem}
+          />
+        ));
     }
 
-    /*
-     * Normal roles
-     */
     const allowedRoles =
       allowedRolesByRole[
         currentRole
@@ -1112,40 +977,40 @@ export default function Sidebar({ sidebarOpen }) {
       ));
   };
 
-  /* =======================================================
-     RENDER MODULE LINKS
-  ======================================================= */
-
-  const renderModuleLinks =
-    () => {
-      return modules
-        .filter(
-          (moduleItem) =>
-            hasModulePermission(
-              moduleItem
-            )
+  const renderModuleLinks = () => {
+    return modules
+      .filter((moduleItem) => {
+        const slug = String(
+          moduleItem?.slug || ""
         )
-        .map(
-          (
-            moduleItem,
-            index
-          ) => (
-            <ModuleLink
-              key={
-                moduleItem?.id ||
-                `${moduleItem?.slug}-${index}`
-              }
-              moduleItem={
-                moduleItem
-              }
-            />
-          )
-        );
-    };
+          .trim()
+          .toLowerCase();
 
-  /* =======================================================
-     LOADING STATE
-  ======================================================= */
+        if (
+          slug === "key-settings" &&
+          Number(roleId) !== 0
+        ) {
+          return false;
+        }
+
+        return hasModulePermission(
+          moduleItem
+        );
+      })
+      .map(
+        (moduleItem, index) => (
+          <ModuleLink
+            key={
+              moduleItem?.id ||
+              `${moduleItem?.slug}-${index}`
+            }
+            moduleItem={
+              moduleItem
+            }
+          />
+        )
+      );
+  };
 
   if (roleId === null) {
     return (
@@ -1163,10 +1028,6 @@ export default function Sidebar({ sidebarOpen }) {
     );
   }
 
-  /* =======================================================
-     MAIN SIDEBAR
-  ======================================================= */
-
   return (
     <aside
       className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
@@ -1175,15 +1036,11 @@ export default function Sidebar({ sidebarOpen }) {
           : "w-0 p-0"
       }`}
     >
-      {/* HEADER */}
       <h2 className="relative mb-6 flex-shrink-0 text-2xl font-bold after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
         Dashboard
       </h2>
 
-      {/* MENU */}
       <div className="scrollbar-hide flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-5">
-
-        {/* DASHBOARD */}
         <Link
           href="/dashboard"
           className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -1199,20 +1056,15 @@ export default function Sidebar({ sidebarOpen }) {
             size={20}
           />
 
-          <span>
-            Dashboard
-          </span>
+          <span>Dashboard</span>
         </Link>
 
-        {/* ROLES */}
         <div className="space-y-2">
           {renderRoleLinks()}
         </div>
 
-        {/* MASTER ADMIN SETTINGS */}
         {Number(roleId) === 0 && (
           <>
-            {/* MASTER SETTINGS */}
             <Link
               href="/dashboard/modules"
               className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -1234,7 +1086,6 @@ export default function Sidebar({ sidebarOpen }) {
               </span>
             </Link>
 
-            {/* SUB MODULE */}
             <Link
               href="/dashboard/sub-modules"
               className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -1255,18 +1106,13 @@ export default function Sidebar({ sidebarOpen }) {
                 Sub Module
               </span>
             </Link>
-
-            {/* PROFILE */}
-            <ProfileLink />
           </>
         )}
 
-        {/* MODULES */}
         <div className="space-y-2">
           {renderModuleLinks()}
         </div>
 
-        {/* MY LOGIN */}
         <button
           type="button"
           onClick={myLogin}
@@ -1276,12 +1122,9 @@ export default function Sidebar({ sidebarOpen }) {
             size={20}
           />
 
-          <span>
-            My Login
-          </span>
+          <span>My Login</span>
         </button>
 
-        {/* LOGOUT */}
         <button
           type="button"
           onClick={logout}
@@ -1291,9 +1134,7 @@ export default function Sidebar({ sidebarOpen }) {
             size={20}
           />
 
-          <span>
-            Logout
-          </span>
+          <span>Logout</span>
         </button>
       </div>
     </aside>

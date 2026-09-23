@@ -1,7 +1,15 @@
-
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
+import {
+  RiEyeLine,
+  RiEyeOffLine,
+  RiMailLine,
+  RiLockLine,
+} from "react-icons/ri";
+
 import { login } from "@/services/api";
 
 import {
@@ -10,16 +18,6 @@ import {
   saveUser,
   saveOriginalLogin,
 } from "@/utils/token";
-
-import {
-  RiEyeLine,
-  RiEyeOffLine,
-  RiMailLine,
-  RiLockLine,
-} from "react-icons/ri";
-
-import { useRouter } from "next/navigation";
-import { toast } from "react-toastify";
 
 import type {
   ChangeEvent,
@@ -41,11 +39,8 @@ export default function Page() {
     password: "",
   });
 
-  const [loading, setLoading] =
-    useState(false);
-
-  const [mounted, setMounted] =
-    useState(false);
+  const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // ==========================================
   // LOGIN PAGE PROTECTION
@@ -69,10 +64,75 @@ export default function Page() {
   const handleChange = (
     e: ChangeEvent<HTMLInputElement>
   ) => {
+    const { name, value } = e.target;
+
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
+  };
+
+  // ==========================================
+  // SAVE STAFF PERMISSIONS
+  // ==========================================
+
+  const saveStaffPermissions = (user: any) => {
+    // Remove old staff permission first
+    localStorage.removeItem("staff_permissions");
+
+    // Only Staff role can have staff permissions
+    if (Number(user?.role_id) !== 9) {
+      return;
+    }
+
+    const permission =
+      user?.staff_permission?.permission;
+
+    // No permission received
+    if (!permission) {
+      return;
+    }
+
+    let parsedPermission = permission;
+
+    // If permission comes as JSON string
+    if (typeof parsedPermission === "string") {
+      try {
+        parsedPermission = JSON.parse(
+          parsedPermission
+        );
+      } catch (error) {
+        console.error(
+          "STAFF PERMISSION PARSE ERROR:",
+          error
+        );
+
+        parsedPermission = {};
+      }
+    }
+
+    // Make sure permission is an object
+    if (
+      !parsedPermission ||
+      typeof parsedPermission !== "object" ||
+      Array.isArray(parsedPermission)
+    ) {
+      parsedPermission = {};
+    }
+
+    // ========================================
+    // ONLY LOCAL STORAGE KEY
+    // ========================================
+
+    localStorage.setItem(
+      "staff_permissions",
+      JSON.stringify(parsedPermission)
+    );
+
+    console.log(
+      "Staff Permissions Saved:",
+      parsedPermission
+    );
   };
 
   // ==========================================
@@ -89,13 +149,20 @@ export default function Page() {
     try {
       setLoading(true);
 
-      const res = await login(formData);
+      // ========================================
+      // LOGIN API
+      // ========================================
+
+      const res = await login({
+        email: formData.email.trim(),
+        password: formData.password,
+      });
 
       console.log("Login Response:", res);
 
-      // ==========================================
+      // ========================================
       // LOGIN VALIDATION
-      // ==========================================
+      // ========================================
 
       if (!res?.success || !res?.token) {
         toast.error(
@@ -106,9 +173,9 @@ export default function Page() {
         return;
       }
 
-      // ==========================================
+      // ========================================
       // CURRENT USER
-      // ==========================================
+      // ========================================
 
       const loggedInUser = res?.user;
 
@@ -120,9 +187,9 @@ export default function Page() {
         return;
       }
 
-      // ==========================================
+      // ========================================
       // DEBUG
-      // ==========================================
+      // ========================================
 
       console.log(
         "Logged In User:",
@@ -130,86 +197,50 @@ export default function Page() {
       );
 
       console.log(
-        "Role Permission:",
-        loggedInUser?.role_permission
+        "Role ID:",
+        loggedInUser?.role_id
       );
 
       console.log(
-        "Permission:",
-        loggedInUser?.role_permission?.permission
+        "Role Permission ID:",
+        loggedInUser?.role_permission_id
       );
 
-      // ==========================================
+      console.log(
+        "Staff Permission:",
+        loggedInUser?.staff_permission
+      );
+
+      // ========================================
       // ORIGINAL LOGIN
-      // ==========================================
-      //
-      // Login page se jo user login karega,
-      // wahi original user rahega.
-      //
-      // Complete user object save hoga,
-      // including role_permission.
-      //
-      // ==========================================
+      // ========================================
 
       saveOriginalLogin(
         res.token,
         loggedInUser
       );
 
-      // ==========================================
-      // SAVE CURRENT TOKEN
-      // ==========================================
+      // ========================================
+      // SAVE TOKEN
+      // ========================================
 
       saveToken(res.token);
 
-      // ==========================================
-      // SAVE COMPLETE CURRENT USER
-      // ==========================================
-      //
-      // IMPORTANT:
-      //
-      // Yahan manually object create nahi karna.
-      //
-      // Direct complete backend user save karna hai
-      // taaki role_permission missing na ho.
-      //
-      // ==========================================
+      // ========================================
+      // SAVE COMPLETE USER
+      // ========================================
 
       saveUser(loggedInUser);
 
-      // ==========================================
-      // STAFF PERMISSIONS
-      // ==========================================
+      // ========================================
+      // SAVE STAFF PERMISSION
+      // ========================================
 
-      if (
-        Number(loggedInUser?.role_id) === 9 &&
-        loggedInUser?.role_permission?.permission
-      ) {
-        const staffPermissions =
-          loggedInUser.role_permission.permission;
+      saveStaffPermissions(loggedInUser);
 
-        localStorage.setItem(
-          "staff_permissions",
-          JSON.stringify(
-            staffPermissions
-          )
-        );
-
-        console.log(
-          "Staff Permissions Saved:",
-          staffPermissions
-        );
-      } else {
-        // Non-staff ke liye old permission
-        // remove kar do.
-        localStorage.removeItem(
-          "staff_permissions"
-        );
-      }
-
-      // ==========================================
-      // FINAL LOCAL STORAGE DEBUG
-      // ==========================================
+      // ========================================
+      // DEBUG LOCAL STORAGE
+      // ========================================
 
       console.log(
         "Saved User:",
@@ -223,24 +254,23 @@ export default function Page() {
         )
       );
 
-      // ==========================================
-      // SUCCESS MESSAGE
-      // ==========================================
+      // ========================================
+      // SUCCESS
+      // ========================================
 
       toast.success(
-        res.message ||
+        res?.message ||
           "Login Successfully"
       );
 
-      // ==========================================
-      // GO TO DASHBOARD
-      // ==========================================
+      // ========================================
+      // REDIRECT
+      // ========================================
 
       router.replace("/dashboard");
-
     } catch (error: any) {
       console.error(
-        "Login Error:",
+        "LOGIN ERROR:",
         error
       );
 
@@ -249,7 +279,6 @@ export default function Page() {
           error?.message ||
           "Invalid email or password"
       );
-
     } finally {
       setLoading(false);
     }
@@ -261,7 +290,6 @@ export default function Page() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-
       <form
         onSubmit={handleSubmit}
         className={`
@@ -284,13 +312,11 @@ export default function Page() {
           }
         `}
       >
-
         {/* ======================================
             ICON
         ====================================== */}
 
         <div className="flex justify-center mb-4">
-
           <div
             className="
               w-14
@@ -307,7 +333,6 @@ export default function Page() {
               className="text-blue-500"
             />
           </div>
-
         </div>
 
         {/* ======================================
@@ -342,7 +367,6 @@ export default function Page() {
         ====================================== */}
 
         <div className="mb-4">
-
           <label
             className="
               block
@@ -356,7 +380,6 @@ export default function Page() {
           </label>
 
           <div className="relative">
-
             <RiMailLine
               size={18}
               className="
@@ -392,9 +415,7 @@ export default function Page() {
                 focus:ring-blue-100
               "
             />
-
           </div>
-
         </div>
 
         {/* ======================================
@@ -402,7 +423,6 @@ export default function Page() {
         ====================================== */}
 
         <div className="mb-5">
-
           <label
             className="
               block
@@ -416,7 +436,6 @@ export default function Page() {
           </label>
 
           <div className="relative">
-
             <RiLockLine
               size={18}
               className="
@@ -478,18 +497,12 @@ export default function Page() {
               "
             >
               {showPassword ? (
-                <RiEyeOffLine
-                  size={22}
-                />
+                <RiEyeOffLine size={22} />
               ) : (
-                <RiEyeLine
-                  size={22}
-                />
+                <RiEyeLine size={22} />
               )}
             </button>
-
           </div>
-
         </div>
 
         {/* ======================================
@@ -540,9 +553,7 @@ export default function Page() {
             "Login"
           )}
         </button>
-
       </form>
-
     </div>
   );
 }
