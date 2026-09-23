@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -59,6 +60,9 @@ export default function TransferPoint() {
     text: "",
   });
 
+  // ============================
+  // LOAD KEY SETTINGS
+  // ============================
   const loadKeySettings = async () => {
     try {
       const response = await getKeySettings();
@@ -73,18 +77,40 @@ export default function TransferPoint() {
 
         setKeySettings(activeKeys);
 
-        if (selectedKey !== null) {
-          const selectedKeyData = activeKeys.find(
-            (item) =>
-              Number(item.id) === Number(selectedKey)
-          );
+        // Automatically select first active key
+        if (activeKeys.length > 0) {
+          setSelectedKey((previousSelectedKey) => {
+            const alreadySelected = activeKeys.find(
+              (item) =>
+                Number(item.id) ===
+                Number(previousSelectedKey)
+            );
 
-          setWalletBalance(
-            Number(selectedKeyData?.balance || 0)
-          );
+            // Keep previously selected key if it still exists
+            if (alreadySelected) {
+              setWalletBalance(
+                Number(alreadySelected?.balance || 0)
+              );
+
+              return previousSelectedKey;
+            }
+
+            // Otherwise select first active key
+            const firstKey = activeKeys[0];
+
+            setWalletBalance(
+              Number(firstKey?.balance || 0)
+            );
+
+            return firstKey.id;
+          });
+        } else {
+          setSelectedKey(null);
+          setWalletBalance(0);
         }
       } else {
         setKeySettings([]);
+        setSelectedKey(null);
         setWalletBalance(0);
       }
     } catch (error) {
@@ -94,12 +120,16 @@ export default function TransferPoint() {
       );
 
       setKeySettings([]);
+      setSelectedKey(null);
       setWalletBalance(0);
     } finally {
       setLoading(false);
     }
   };
 
+  // ============================
+  // LOAD TRANSFER USERS
+  // ============================
   const loadTransferUsers = async (currentRoleId) => {
     try {
       const nextRoleId = nextRoleMap[currentRoleId];
@@ -147,6 +177,9 @@ export default function TransferPoint() {
     }
   };
 
+  // ============================
+  // GET USER KEY BALANCE
+  // ============================
   const getUserKeyBalance = (user, keyName) => {
     if (!user || !keyName) {
       return 0;
@@ -179,6 +212,9 @@ export default function TransferPoint() {
     return Number(walletItem?.balance || 0);
   };
 
+  // ============================
+  // INITIAL LOAD
+  // ============================
   useEffect(() => {
     const loadData = async () => {
       await loadKeySettings();
@@ -199,6 +235,9 @@ export default function TransferPoint() {
       Number(item.id) === Number(selectedKey)
   );
 
+  // ============================
+  // KEY SELECT
+  // ============================
   const handleKeySelect = (id) => {
     setSelectedKey(id);
     setTransferPoint("");
@@ -238,6 +277,9 @@ export default function TransferPoint() {
     }
   };
 
+  // ============================
+  // TRANSFER USER CHANGE
+  // ============================
   const handleTransferUserChange = (userId) => {
     setSelectedTransferUser(userId);
 
@@ -269,6 +311,9 @@ export default function TransferPoint() {
     setAvailableBalance(receiverBalance);
   };
 
+  // ============================
+  // TRANSFER POINT CHANGE
+  // ============================
   const handleTransferPointChange = (e) => {
     const value = e.target.value;
 
@@ -282,6 +327,9 @@ export default function TransferPoint() {
     }
   };
 
+  // ============================
+  // TRANSFER
+  // ============================
   const handleTransfer = async () => {
     setMessage({
       type: "",
@@ -407,6 +455,10 @@ export default function TransferPoint() {
   return (
     <div className="min-h-screen">
       <div className="rounded-xl bg-white p-6 shadow-sm">
+
+        {/* ============================
+            KEY SETTINGS
+        ============================ */}
         <div className="mb-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-800">
             Key Settings
@@ -470,8 +522,13 @@ export default function TransferPoint() {
           )}
         </div>
 
+        {/* ============================
+            TRANSFER SECTION
+        ============================ */}
         <div className="border-t border-gray-200 pt-6">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+
+            {/* MY WALLET BALANCE */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 My Wallet Balance
@@ -485,6 +542,7 @@ export default function TransferPoint() {
               />
             </div>
 
+            {/* TRANSFER POINT */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Transfer Point
@@ -506,6 +564,7 @@ export default function TransferPoint() {
               />
             </div>
 
+            {/* TRANSFER TO */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Transfer To
@@ -554,6 +613,7 @@ export default function TransferPoint() {
               </div>
             </div>
 
+            {/* AVAILABLE BALANCE */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Available Balance
@@ -568,6 +628,7 @@ export default function TransferPoint() {
             </div>
           </div>
 
+          {/* MESSAGE */}
           {message.text && (
             <div
               className={`mt-4 rounded-lg px-4 py-3 text-sm font-medium ${
@@ -580,6 +641,7 @@ export default function TransferPoint() {
             </div>
           )}
 
+          {/* TRANSFER BUTTON */}
           <div className="mt-6 flex justify-end">
             <button
               type="button"

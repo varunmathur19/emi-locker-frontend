@@ -33,15 +33,14 @@ import {
 import {
   getAllStaffData,
   getRoles,
+  getKeySettings,
 } from "@/services/api";
 
 import { getRoleId } from "@/utils/token";
 
 import UsersTable from "../../components/dashboard/UsersTable";
 
-/* =========================================================
-   CHART COLORS
-========================================================= */
+
 
 const PIE_COLORS = [
   "#6366f1",
@@ -54,9 +53,6 @@ const PIE_COLORS = [
   "#14b8a6",
 ];
 
-/* =========================================================
-   NORMAL ROLE HIERARCHY
-========================================================= */
 
 const allowedRoles = {
   0: [1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -71,9 +67,7 @@ const allowedRoles = {
   9: [],
 };
 
-/* =========================================================
-   PERMISSION VALUE CHECK
-========================================================= */
+
 
 const isPermissionEnabled = (value) => {
   if (typeof value === "boolean") {
@@ -101,27 +95,19 @@ const isPermissionEnabled = (value) => {
     typeof value === "object" &&
     !Array.isArray(value)
   ) {
-    if (
-      value.status !== undefined
-    ) {
+    if (value.status !== undefined) {
       return Number(value.status) === 1;
     }
 
-    if (
-      value.access !== undefined
-    ) {
+    if (value.access !== undefined) {
       return Number(value.access) === 1;
     }
 
-    if (
-      value.view !== undefined
-    ) {
+    if (value.view !== undefined) {
       return Number(value.view) === 1;
     }
 
-    if (
-      value.enabled !== undefined
-    ) {
+    if (value.enabled !== undefined) {
       return isPermissionEnabled(
         value.enabled
       );
@@ -133,9 +119,6 @@ const isPermissionEnabled = (value) => {
   return false;
 };
 
-/* =========================================================
-   NORMALIZE PERMISSIONS
-========================================================= */
 
 const normalizePermissions = (
   permissions
@@ -175,9 +158,6 @@ const normalizePermissions = (
   return {};
 };
 
-/* =========================================================
-   GET PERMISSION OBJECT
-========================================================= */
 
 const getPermissionObject = (
   permissionData
@@ -186,13 +166,6 @@ const getPermissionObject = (
     return {};
   }
 
-  /*
-   * Direct permission object
-   *
-   * {
-   *   "wallet.view": 1
-   * }
-   */
   if (
     typeof permissionData === "object" &&
     !Array.isArray(permissionData)
@@ -215,9 +188,7 @@ const getPermissionObject = (
   return {};
 };
 
-/* =========================================================
-   ROLE PERMISSION CHECK
-========================================================= */
+
 
 const hasRolePermission = (
   permissions,
@@ -249,20 +220,6 @@ const hasRolePermission = (
     .toLowerCase()
     .replace(/_/g, "-");
 
-  /*
-   * ---------------------------------------------------------
-   * 1. DIRECT ROLE-ID PERMISSION
-   *
-   * Example:
-   *
-   * {
-   *   "9": 1,
-   *   "8": 1
-   * }
-   *
-   * ---------------------------------------------------------
-   */
-
   const roleIdKeys = [
     String(roleId),
     `role.${roleId}`,
@@ -288,25 +245,6 @@ const hasRolePermission = (
       }
     }
   }
-
-  /*
-   * ---------------------------------------------------------
-   * 2. ROLE NAME / SLUG PERMISSION
-   *
-   * Example:
-   *
-   * {
-   *   "retailer": 1
-   * }
-   *
-   * OR
-   *
-   * {
-   *   "retailer.view": 1
-   * }
-   *
-   * ---------------------------------------------------------
-   */
 
   const roleKeys = [
     roleName,
@@ -350,21 +288,6 @@ const hasRolePermission = (
     }
   }
 
-  /*
-   * ---------------------------------------------------------
-   * 3. NESTED ROLE PERMISSION
-   *
-   * Example:
-   *
-   * {
-   *   "retailer": {
-   *      "view": 1
-   *   }
-   * }
-   *
-   * ---------------------------------------------------------
-   */
-
   for (
     const roleKey of roleKeys
   ) {
@@ -389,36 +312,10 @@ const hasRolePermission = (
     }
   }
 
-  /*
-   * ---------------------------------------------------------
-   * 4. MODULE BASED ROLE ACCESS
-   *
-   * If your permission object contains:
-   *
-   * {
-   *   "user-list": {
-   *      "view": 1
-   *   }
-   * }
-   *
-   * or
-   *
-   * {
-   *   "user-list.view": 1
-   * }
-   *
-   * it is intentionally NOT treated as role access here.
-   *
-   * Role access and module permissions should remain separate.
-   * ---------------------------------------------------------
-   */
-
   return false;
 };
 
-/* =========================================================
-   DASHBOARD
-========================================================= */
+
 
 export default function Dashboard() {
   const router = useRouter();
@@ -426,9 +323,7 @@ export default function Dashboard() {
   const searchParams =
     useSearchParams();
 
-  /* =======================================================
-     STATE
-  ======================================================= */
+ 
 
   const [roleId, setRoleId] =
     useState(null);
@@ -448,6 +343,12 @@ export default function Dashboard() {
   const [counts, setCounts] =
     useState({});
 
+  const [keySettings, setKeySettings] =
+    useState([]);
+
+  const [keySettingsLoading, setKeySettingsLoading] =
+    useState(true);
+
   const [
     staffPermissions,
     setStaffPermissions,
@@ -458,9 +359,7 @@ export default function Dashboard() {
     setStaffPermissionsLoaded,
   ] = useState(false);
 
-  /* =======================================================
-     URL PARAMS
-  ======================================================= */
+
 
   const urlRoleParam =
     searchParams.get("role");
@@ -478,9 +377,6 @@ export default function Dashboard() {
     !hasRoleParam &&
     !hasModuleParam;
 
-  /* =======================================================
-     CURRENT LOGGED-IN ROLE
-  ======================================================= */
 
   useEffect(() => {
     const currentRoleId =
@@ -498,15 +394,59 @@ export default function Dashboard() {
     );
   }, []);
 
-  /* =======================================================
-     LOAD STAFF PERMISSIONS
-  ======================================================= */
+
 
   useEffect(() => {
-    /*
-     * Non-staff does not need staff permissions.
-     */
+    const loadKeySettings =
+      async () => {
+        try {
+          setKeySettingsLoading(
+            true
+          );
 
+          const response =
+            await getKeySettings();
+
+          if (
+            response?.success &&
+            Array.isArray(
+              response?.data
+            )
+          ) {
+            const activeKeys =
+              response.data.filter(
+                (item) =>
+                  Number(
+                    item?.status
+                  ) === 1
+              );
+
+            setKeySettings(
+              activeKeys
+            );
+          } else {
+            setKeySettings([]);
+          }
+        } catch (error) {
+          console.error(
+            "GET KEY SETTINGS ERROR:",
+            error
+          );
+
+          setKeySettings([]);
+        } finally {
+          setKeySettingsLoading(
+            false
+          );
+        }
+      };
+
+    loadKeySettings();
+  }, []);
+
+
+
+  useEffect(() => {
     if (roleId !== 9) {
       setStaffPermissions({});
       setStaffPermissionsLoaded(
@@ -515,13 +455,6 @@ export default function Dashboard() {
 
       return;
     }
-
-    /*
-     * IMPORTANT:
-     *
-     * Permission validation must wait until
-     * localStorage has been checked.
-     */
 
     setStaffPermissionsLoaded(
       false
@@ -559,7 +492,6 @@ export default function Dashboard() {
             break;
           }
         } catch {
-          // Continue checking next key
         }
       }
 
@@ -584,20 +516,13 @@ export default function Dashboard() {
 
       setStaffPermissions({});
     } finally {
-      /*
-       * Validation can start only after this
-       * becomes true.
-       */
-
       setStaffPermissionsLoaded(
         true
       );
     }
   }, [roleId]);
 
-  /* =======================================================
-     GET ROLES
-  ======================================================= */
+
 
   useEffect(() => {
     const loadRoles =
@@ -647,9 +572,7 @@ export default function Dashboard() {
     loadRoles();
   }, []);
 
-  /* =======================================================
-     ROLE HELPERS
-  ======================================================= */
+
 
   const normalizeRoleValue =
     useCallback(
@@ -679,10 +602,6 @@ export default function Dashboard() {
 
         const valueString =
           String(value).trim();
-
-        /*
-         * Numeric role ID
-         */
 
         if (
           /^\d+$/.test(
@@ -733,9 +652,7 @@ export default function Dashboard() {
       ]
     );
 
-  /* =======================================================
-     REQUESTED ROLE
-  ======================================================= */
+
 
   const urlRole = useMemo(
     () =>
@@ -765,23 +682,13 @@ export default function Dashboard() {
       ? urlRole
       : moduleRole;
 
-  /* =======================================================
-     ROLE ACCESS
-  ======================================================= */
+ 
 
   const isRoleAllowed =
     useMemo(() => {
-      /*
-       * No logged-in role yet.
-       */
-
       if (roleId === null) {
         return false;
       }
-
-      /*
-       * No requested role means dashboard home.
-       */
 
       if (
         requestedRole === null
@@ -789,21 +696,7 @@ export default function Dashboard() {
         return true;
       }
 
-      /*
-       * ---------------------------------------------------
-       * STAFF
-       * ---------------------------------------------------
-       *
-       * Staff does NOT use normal hierarchy.
-       */
-
       if (roleId === 9) {
-        /*
-         * Permission is still loading.
-         *
-         * Don't mark it unauthorized yet.
-         */
-
         if (
           !staffPermissionsLoaded
         ) {
@@ -831,21 +724,9 @@ export default function Dashboard() {
         );
       }
 
-      /*
-       * ---------------------------------------------------
-       * MASTER ADMIN
-       * ---------------------------------------------------
-       */
-
       if (roleId === 0) {
         return true;
       }
-
-      /*
-       * ---------------------------------------------------
-       * OWN ROLE
-       * ---------------------------------------------------
-       */
 
       if (
         requestedRole ===
@@ -853,12 +734,6 @@ export default function Dashboard() {
       ) {
         return true;
       }
-
-      /*
-       * ---------------------------------------------------
-       * NORMAL HIERARCHY
-       * ---------------------------------------------------
-       */
 
       return (
         allowedRoles[
@@ -875,9 +750,7 @@ export default function Dashboard() {
       staffPermissionsLoaded,
     ]);
 
-  /* =======================================================
-     SELECTED ROLE
-  ======================================================= */
+
 
   const selectedRole =
     requestedRole !== null &&
@@ -885,9 +758,7 @@ export default function Dashboard() {
       ? requestedRole
       : null;
 
-  /* =======================================================
-     ROLE LIST NAVIGATION
-  ======================================================= */
+
 
   const handleRoleList =
     useCallback(
@@ -901,9 +772,6 @@ export default function Dashboard() {
       [router]
     );
 
-  /* =======================================================
-     ROLE NAME
-  ======================================================= */
 
   const getRoleName =
     useCallback(
@@ -934,15 +802,9 @@ export default function Dashboard() {
       [roles]
     );
 
-  /* =======================================================
-     ROLE PARAM VALIDATION
-  ======================================================= */
+
 
   useEffect(() => {
-    /*
-     * Nothing to validate yet.
-     */
-
     if (
       roleId === null ||
       !hasRoleParam
@@ -950,25 +812,12 @@ export default function Dashboard() {
       return;
     }
 
-    /*
-     * ---------------------------------------------------
-     * VERY IMPORTANT FOR STAFF
-     * ---------------------------------------------------
-     *
-     * Don't show unauthorized message while permission
-     * is still being loaded.
-     */
-
     if (
       roleId === 9 &&
       !staffPermissionsLoaded
     ) {
       return;
     }
-
-    /*
-     * Roles API should also be ready.
-     */
 
     if (
       roles.length === 0
@@ -1008,9 +857,7 @@ export default function Dashboard() {
     router,
   ]);
 
-  /* =======================================================
-     MODULE PARAM VALIDATION
-  ======================================================= */
+ 
 
   useEffect(() => {
     if (
@@ -1021,20 +868,12 @@ export default function Dashboard() {
       return;
     }
 
-    /*
-     * Staff permission still loading.
-     */
-
     if (
       roleId === 9 &&
       !staffPermissionsLoaded
     ) {
       return;
     }
-
-    /*
-     * Roles not loaded yet.
-     */
 
     if (
       roles.length === 0
@@ -1061,9 +900,7 @@ export default function Dashboard() {
     router,
   ]);
 
-  /* =======================================================
-     RESET PAGE
-  ======================================================= */
+
 
   useEffect(() => {
     setPage(1);
@@ -1072,9 +909,7 @@ export default function Dashboard() {
     moduleParam,
   ]);
 
-  /* =======================================================
-     ROLE CARDS
-  ======================================================= */
+
 
   const cards = useMemo(() => {
     return roles.map(
@@ -1120,18 +955,12 @@ export default function Dashboard() {
     counts,
   ]);
 
-  /* =======================================================
-     VISIBLE ROLE CARDS
-  ======================================================= */
+
 
   const visibleCards =
     useMemo(() => {
       const currentRole =
         Number(roleId);
-
-      /*
-       * Master Admin
-       */
 
       if (
         currentRole === 0
@@ -1139,18 +968,9 @@ export default function Dashboard() {
         return cards;
       }
 
-      /*
-       * Staff
-       */
-
       if (
         currentRole === 9
       ) {
-        /*
-         * While permissions are loading,
-         * don't show incorrect role cards.
-         */
-
         if (
           !staffPermissionsLoaded
         ) {
@@ -1178,10 +998,6 @@ export default function Dashboard() {
         );
       }
 
-      /*
-       * Normal roles
-       */
-
       const roleIds =
         allowedRoles[
           currentRole
@@ -1203,20 +1019,11 @@ export default function Dashboard() {
       staffPermissionsLoaded,
     ]);
 
-  /* =======================================================
-     FETCH USERS
-  ======================================================= */
+
 
   const fetchUsers =
     useCallback(async () => {
       try {
-        /*
-         * -------------------------------------------------
-         * Staff permission is not ready.
-         * Don't make API calls.
-         * -------------------------------------------------
-         */
-
         if (
           roleId === 9 &&
           !staffPermissionsLoaded
@@ -1226,10 +1033,6 @@ export default function Dashboard() {
 
         const roleCounts =
           {};
-
-        /*
-         * Initialize all active roles.
-         */
 
         roles.forEach(
           (role) => {
@@ -1250,9 +1053,6 @@ export default function Dashboard() {
           }
         );
 
-        /* ===============================================
-           STAFF
-        =============================================== */
 
         if (
           roleId === 9
@@ -1265,10 +1065,6 @@ export default function Dashboard() {
                   role
                 )
             );
-
-          /*
-           * Get count for only permitted roles.
-           */
 
           const responses =
             await Promise.all(
@@ -1306,10 +1102,6 @@ export default function Dashboard() {
             }
           );
         }
-
-        /* ===============================================
-           MASTER / ADMIN / NORMAL
-        =============================================== */
 
         else {
           const countResponse =
@@ -1351,9 +1143,7 @@ export default function Dashboard() {
           roleCounts
         );
 
-        /* ===============================================
-           DASHBOARD HOME
-        =============================================== */
+      
 
         if (
           isDashboardHome
@@ -1363,9 +1153,7 @@ export default function Dashboard() {
           return;
         }
 
-        /* ===============================================
-           INVALID ROLE
-        =============================================== */
+       
 
         if (
           selectedRole === null
@@ -1374,10 +1162,6 @@ export default function Dashboard() {
           setPagination({});
           return;
         }
-
-        /* ===============================================
-           SELECTED ROLE USERS
-        =============================================== */
 
         const response =
           await getAllStaffData(
@@ -1417,34 +1201,20 @@ export default function Dashboard() {
       isDashboardHome,
     ]);
 
-  /* =======================================================
-     FETCH USERS EFFECT
-  ======================================================= */
+
 
   useEffect(() => {
-    /*
-     * Wait for role.
-     */
-
     if (
       roleId === null
     ) {
       return;
     }
 
-    /*
-     * Wait for roles.
-     */
-
     if (
       roles.length === 0
     ) {
       return;
     }
-
-    /*
-     * Staff permission must be loaded.
-     */
 
     if (
       roleId === 9 &&
@@ -1464,9 +1234,21 @@ export default function Dashboard() {
     fetchUsers,
   ]);
 
-  /* =======================================================
-     LOADING SCREEN FOR STAFF
-  ======================================================= */
+
+
+  const totalKeyBalance =
+    useMemo(() => {
+      return keySettings.reduce(
+        (total, item) =>
+          total +
+          Number(
+            item?.balance || 0
+          ),
+        0
+      );
+    }, [keySettings]);
+
+
 
   if (
     roleId === 9 &&
@@ -1483,31 +1265,23 @@ export default function Dashboard() {
     );
   }
 
-  /* =======================================================
-     RENDER
-  ======================================================= */
+  
 
   return (
     <div className="bg-gray-100">
       <main className="pt-0 p-0">
 
-        {/* =================================================
-            PAGE TITLE
-        ================================================= */}
+        
 
         <h1 className="md:text-3xl font-bold md:mb-6 mb-0 text-[20px]">
           Welcome Dashboard
         </h1>
 
-        {/* =================================================
-            DASHBOARD HOME
-        ================================================= */}
+       
 
         {isDashboardHome && (
           <>
-            {/* =============================================
-                ROLE CARDS
-            ============================================= */}
+           
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
               {visibleCards.map(
@@ -1531,15 +1305,94 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* =============================================
-                CHARTS
-            ============================================= */}
+          
+
+            <div className="mt-6">
+              <div className="bg-white p-5 rounded-xl shadow">
+
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      Key Settings
+                    </h2>
+
+                    <p className="text-sm text-gray-500 mt-1">
+                      Current wallet balance
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-blue-50 px-4 py-2">
+                    <p className="text-xs text-blue-500">
+                      Total Balance
+                    </p>
+
+                    <p className="text-lg font-bold text-blue-600">
+                      {totalKeyBalance.toLocaleString(
+                        "en-IN"
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {keySettingsLoading ? (
+                  <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+                    Loading key settings...
+                  </div>
+                ) : keySettings.length === 0 ? (
+                  <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+                    No active key settings found.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                    {keySettings.map(
+                      (item) => {
+                        const balance =
+                          Number(
+                            item?.balance ||
+                              0
+                          );
+
+                        return (
+                          <div
+                            key={
+                              item.id
+                            }
+                            className="rounded-xl border border-gray-200 bg-gray-50 p-5"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <h3 className="text-sm font-semibold text-gray-700">
+                                  {item.name ||
+                                    "Unnamed Key"}
+                                </h3>
+
+                                <p className="mt-1 text-xs text-gray-400">
+                                  Wallet Balance
+                                </p>
+                              </div>
+
+                              <div className="rounded-lg bg-blue-50 px-3 py-2">
+                                <span className="text-lg font-bold text-blue-600">
+                                  {balance.toLocaleString(
+                                    "en-IN"
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
 
-              {/* =========================================
-                  BAR CHART
-              ========================================= */}
+             
 
               <div className="bg-white p-5 rounded-xl shadow">
                 <h3 className="text-gray-700 font-semibold mb-4">
@@ -1643,65 +1496,9 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-
-              {/* =========================================
-                  LINE CHART
-              ========================================= */}
-
-              <div className="bg-white p-5 rounded-xl shadow md:col-span-2">
-                <h3 className="text-gray-700 font-semibold mb-4">
-                  Role-wise Users (Line Chart)
-                </h3>
-
-                <ResponsiveContainer
-                  width="100%"
-                  height={300}
-                >
-                  <LineChart
-                    data={
-                      visibleCards
-                    }
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                    />
-
-                    <XAxis
-                      dataKey="title"
-                      tick={{
-                        fontSize: 12,
-                      }}
-                      interval={0}
-                      angle={-20}
-                      textAnchor="end"
-                      height={60}
-                    />
-
-                    <YAxis
-                      allowDecimals={
-                        false
-                      }
-                    />
-
-                    <Tooltip />
-
-                    <Line
-                      type="monotone"
-                      dataKey="count"
-                      stroke="#22c55e"
-                      strokeWidth={2}
-                      dot={{
-                        r: 4,
-                      }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
             </div>
           </>
         )}
-
-      
 
         {!isDashboardHome &&
           selectedRole !== null && (
