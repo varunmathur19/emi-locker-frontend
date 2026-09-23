@@ -35,6 +35,7 @@ const permissionOrder = {
   add: 2,
   edit: 3,
   delete: 4,
+  status: 4,
   manage: 5,
 };
 
@@ -129,9 +130,6 @@ export default function RolePermissionForm() {
 
   const loggedInRoleId = Number(getRoleId() || 0);
 
-  /*
-   * Selected profile
-   */
   const selectedProfileData = useMemo(() => {
     return profiles.find(
       (profile) =>
@@ -139,9 +137,6 @@ export default function RolePermissionForm() {
     );
   }, [profiles, selectedProfile]);
 
-  /*
-   * Active modules
-   */
   const activeModules = useMemo(() => {
     return [...modules]
       .filter(
@@ -155,9 +150,6 @@ export default function RolePermissionForm() {
       );
   }, [modules]);
 
-  /*
-   * Active sub modules
-   */
   const activeSubModules = useMemo(() => {
     return [...subModules]
       .filter(
@@ -171,9 +163,6 @@ export default function RolePermissionForm() {
       );
   }, [subModules]);
 
-  /*
-   * Permission types
-   */
   const permissionTypes = useMemo(() => {
     const uniquePermissions = new Map();
 
@@ -198,27 +187,23 @@ export default function RolePermissionForm() {
       }
     });
 
-    return Array.from(uniquePermissions.values()).sort(
-      (a, b) => {
-        const orderA =
-          permissionOrder[a.key] ?? 999;
+    return Array.from(
+      uniquePermissions.values()
+    ).sort((a, b) => {
+      const orderA =
+        permissionOrder[a.key] ?? 999;
 
-        const orderB =
-          permissionOrder[b.key] ?? 999;
+      const orderB =
+        permissionOrder[b.key] ?? 999;
 
-        if (orderA !== orderB) {
-          return orderA - orderB;
-        }
-
-        return a.sequence - b.sequence;
+      if (orderA !== orderB) {
+        return orderA - orderB;
       }
-    );
+
+      return a.sequence - b.sequence;
+    });
   }, [activeSubModules]);
 
-  /*
-   * Active profiles
-   * Used only for Select Profile dropdown.
-   */
   const activeProfiles = useMemo(() => {
     return profiles.filter(
       (profile) =>
@@ -226,9 +211,6 @@ export default function RolePermissionForm() {
     );
   }, [profiles]);
 
-  /*
-   * Get sub modules for module
-   */
   const getSubModulesForModule = (moduleId) => {
     return activeSubModules.filter(
       (subModule) =>
@@ -239,10 +221,6 @@ export default function RolePermissionForm() {
 
   /*
    * Load Profiles
-   *
-   * IMPORTANT:
-   * We do NOT filter inactive profiles here.
-   * Both status 1 and status 0 are stored in profiles.
    */
   const loadProfiles = async () => {
     try {
@@ -259,9 +237,6 @@ export default function RolePermissionForm() {
 
       setProfiles(allProfiles);
 
-      /*
-       * Select first active profile by default.
-       */
       if (!selectedProfile) {
         const firstActiveProfile =
           allProfiles.find(
@@ -276,10 +251,6 @@ export default function RolePermissionForm() {
         }
       }
 
-      /*
-       * If currently selected profile became inactive,
-       * clear selection.
-       */
       if (selectedProfile) {
         const selectedProfileExists =
           allProfiles.find(
@@ -441,7 +412,10 @@ export default function RolePermissionForm() {
       const permissionData =
         response?.data?.permission || {};
 
-      setPermissions(permissionData || {});
+      setPermissions(
+        permissionData || {}
+      );
+
       setHasPermissionChanges(false);
     } catch (error) {
       console.error(
@@ -473,7 +447,7 @@ export default function RolePermissionForm() {
   }, []);
 
   /*
-   * Load permissions whenever profile changes
+   * Load permissions when profile changes
    */
   useEffect(() => {
     if (selectedProfile) {
@@ -492,13 +466,136 @@ export default function RolePermissionForm() {
   };
 
   /*
-   * Toggle permission
+   * Get all permission keys for one resource.
+   *
+   * Example:
+   * wallet.view
+   * wallet.add
+   * wallet.edit
+   * wallet.delete
+   * wallet.manage
    */
-  const handlePermissionToggle = (key) => {
-    setPermissions((prev) => ({
-      ...prev,
-      [key]: !Boolean(prev?.[key]),
-    }));
+  const getResourcePermissionKeys = (
+    slug
+  ) => {
+    if (!slug) {
+      return [];
+    }
+
+    return permissionTypes.map(
+      (permission) =>
+        getPermissionKey(
+          permission.key,
+          slug
+        )
+    );
+  };
+
+  /*
+   * Check whether all normal permissions
+   * are enabled for a resource.
+   *
+   * Manage itself is not included here.
+   */
+  const areAllAccessPermissionsEnabled = (
+    slug,
+    permissionState
+  ) => {
+    const normalPermissionTypes =
+      permissionTypes.filter(
+        (permission) =>
+          permission.key !== "manage"
+      );
+
+    if (
+      normalPermissionTypes.length === 0
+    ) {
+      return false;
+    }
+
+    return normalPermissionTypes.every(
+      (permission) => {
+        const key =
+          getPermissionKey(
+            permission.key,
+            slug
+          );
+
+        return Boolean(
+          permissionState?.[key]
+        );
+      }
+    );
+  };
+
+ 
+  const handlePermissionToggle = (
+    key
+  ) => {
+    const [slug, permissionName] =
+      String(key).split(".");
+
+    if (!slug || !permissionName) {
+      return;
+    }
+
+    setPermissions((prev) => {
+      const updated = {
+        ...prev,
+      };
+
+      /*
+       * MANAGE CHECKBOX
+       */
+      if (permissionName === "manage") {
+        const shouldEnableManage =
+          !Boolean(prev?.[key]);
+
+        const resourceKeys =
+          getResourcePermissionKeys(
+            slug
+          );
+
+        resourceKeys.forEach(
+          (resourceKey) => {
+            updated[resourceKey] =
+              shouldEnableManage;
+          }
+        );
+
+        return updated;
+      }
+
+      /*
+       * NORMAL PERMISSION
+       */
+      updated[key] =
+        !Boolean(prev?.[key]);
+
+      /*
+       * If ANY individual permission is OFF,
+       * Manage must be OFF.
+       *
+       * If ALL individual permissions are ON,
+       * Manage becomes ON automatically.
+       */
+      const manageKey =
+        getPermissionKey(
+          "manage",
+          slug
+        );
+
+      const allAccessEnabled =
+        areAllAccessPermissionsEnabled(
+          slug,
+          updated
+        );
+
+      updated[manageKey] =
+        allAccessEnabled;
+
+      return updated;
+    });
 
     setHasPermissionChanges(true);
   };
@@ -613,58 +710,62 @@ export default function RolePermissionForm() {
   /*
    * Save Permissions
    */
-  const handleSavePermissions = async () => {
-    if (!selectedProfile) {
-      toast.error(
-        "Please select a profile"
-      );
-      return;
-    }
-
-    if (!hasPermissionChanges) {
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      const response =
-        await saveRolePermissions({
-          profile_id:
-            Number(selectedProfile),
-          permission:
-            getAllPermissions(),
-        });
-
-      if (!response?.success) {
+  const handleSavePermissions =
+    async () => {
+      if (!selectedProfile) {
         toast.error(
-          response?.message ||
-            "Failed to save permissions"
+          "Please select a profile"
         );
         return;
       }
 
-      toast.success(
-        response?.message ||
-          "Permissions saved successfully"
-      );
+      if (!hasPermissionChanges) {
+        return;
+      }
 
-      setHasPermissionChanges(false);
-    } catch (error) {
-      console.error(
-        "SAVE ROLE PERMISSIONS ERROR:",
-        error
-      );
+      try {
+        setSaving(true);
 
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Failed to save permissions"
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
+        const response =
+          await saveRolePermissions({
+            profile_id:
+              Number(selectedProfile),
+            permission:
+              getAllPermissions(),
+          });
+
+        if (!response?.success) {
+          toast.error(
+            response?.message ||
+              "Failed to save permissions"
+          );
+          return;
+        }
+
+        toast.success(
+          response?.message ||
+            "Permissions saved successfully"
+        );
+
+        setHasPermissionChanges(
+          false
+        );
+      } catch (error) {
+        console.error(
+          "SAVE ROLE PERMISSIONS ERROR:",
+          error
+        );
+
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            error?.message ||
+            "Failed to save permissions"
+        );
+      } finally {
+        setSaving(false);
+      }
+    };
 
   /*
    * Clear all permissions
@@ -743,136 +844,136 @@ export default function RolePermissionForm() {
   /*
    * Update Profile Name
    */
-  const handleUpdateProfileName = async (
-    profile
-  ) => {
-    const trimmedName =
-      editingProfileName.trim();
+  const handleUpdateProfileName =
+    async (profile) => {
+      const trimmedName =
+        editingProfileName.trim();
 
-    if (!trimmedName) {
-      toast.error(
-        "Please enter profile name"
-      );
-      return;
-    }
-
-    try {
-      setSavingProfile(true);
-
-      const response =
-        await updateProfile(
-          profile.id,
-          {
-            name: trimmedName,
-          }
-        );
-
-      if (!response?.success) {
+      if (!trimmedName) {
         toast.error(
-          response?.message ||
-            "Failed to update profile"
+          "Please enter profile name"
         );
         return;
       }
 
-      toast.success(
-        response?.message ||
-          "Profile updated successfully"
-      );
+      try {
+        setSavingProfile(true);
 
-      setEditingProfileId(null);
-      setEditingProfileName("");
+        const response =
+          await updateProfile(
+            profile.id,
+            {
+              name: trimmedName,
+            }
+          );
 
-      await loadProfiles();
-    } catch (error) {
-      console.error(
-        "UPDATE PROFILE ERROR:",
-        error
-      );
+        if (!response?.success) {
+          toast.error(
+            response?.message ||
+              "Failed to update profile"
+          );
+          return;
+        }
 
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Failed to update profile"
-      );
-    } finally {
-      setSavingProfile(false);
-    }
-  };
+        toast.success(
+          response?.message ||
+            "Profile updated successfully"
+        );
+
+        setEditingProfileId(null);
+        setEditingProfileName("");
+
+        await loadProfiles();
+      } catch (error) {
+        console.error(
+          "UPDATE PROFILE ERROR:",
+          error
+        );
+
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            error?.message ||
+            "Failed to update profile"
+        );
+      } finally {
+        setSavingProfile(false);
+      }
+    };
 
   /*
    * Toggle Profile Status
    */
-  const handleProfileStatus = async (
-    profile
-  ) => {
-    const currentStatus =
-      Number(profile.status ?? 1);
-
-    const newStatus =
-      currentStatus === 1 ? 0 : 1;
-
-    try {
-      setSavingProfile(true);
-
-      const response =
-        await updateProfile(
-          profile.id,
-          {
-            status: newStatus,
-          }
+  const handleProfileStatus =
+    async (profile) => {
+      const currentStatus =
+        Number(
+          profile.status ?? 1
         );
 
-      if (!response?.success) {
+      const newStatus =
+        currentStatus === 1 ? 0 : 1;
+
+      try {
+        setSavingProfile(true);
+
+        const response =
+          await updateProfile(
+            profile.id,
+            {
+              status: newStatus,
+            }
+          );
+
+        if (!response?.success) {
+          toast.error(
+            response?.message ||
+              "Failed to update profile status"
+          );
+          return;
+        }
+
+        toast.success(
+          newStatus === 1
+            ? "Profile activated successfully"
+            : "Profile deactivated successfully"
+        );
+
+        if (
+          Number(selectedProfile) ===
+            Number(profile.id) &&
+          newStatus === 0
+        ) {
+          setSelectedProfile("");
+          setPermissions({});
+          setHasPermissionChanges(
+            false
+          );
+        }
+
+        await loadProfiles();
+      } catch (error) {
+        console.error(
+          "UPDATE PROFILE STATUS ERROR:",
+          error
+        );
+
         toast.error(
-          response?.message ||
+          error?.response?.data
+            ?.message ||
+            error?.message ||
             "Failed to update profile status"
         );
-        return;
+      } finally {
+        setSavingProfile(false);
       }
-
-      toast.success(
-        newStatus === 1
-          ? "Profile activated successfully"
-          : "Profile deactivated successfully"
-      );
-
-      /*
-       * If selected profile is deactivated,
-       * clear selected profile.
-       */
-      if (
-        Number(selectedProfile) ===
-          Number(profile.id) &&
-        newStatus === 0
-      ) {
-        setSelectedProfile("");
-        setPermissions({});
-        setHasPermissionChanges(false);
-      }
-
-      await loadProfiles();
-    } catch (error) {
-      console.error(
-        "UPDATE PROFILE STATUS ERROR:",
-        error
-      );
-
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Failed to update profile status"
-      );
-    } finally {
-      setSavingProfile(false);
-    }
-  };
+    };
 
   /*
    * Visible Roles
    */
-  const visibleRoles = roles.filter(
-    (role) => {
+  const visibleRoles =
+    roles.filter((role) => {
       const roleId = Number(
         role?.role_id ?? role?.id
       );
@@ -881,8 +982,7 @@ export default function RolePermissionForm() {
         roleId !== 9 &&
         roleId > loggedInRoleId
       );
-    }
-  );
+    });
 
   /*
    * Permission Checkbox
@@ -891,10 +991,11 @@ export default function RolePermissionForm() {
     slug,
     permission
   ) => {
-    const key = getPermissionKey(
-      permission.key,
-      slug
-    );
+    const key =
+      getPermissionKey(
+        permission.key,
+        slug
+      );
 
     const checked =
       getPermissionValue(key);
@@ -908,7 +1009,9 @@ export default function RolePermissionForm() {
           type="checkbox"
           checked={checked}
           onChange={() =>
-            handlePermissionToggle(key)
+            handlePermissionToggle(
+              key
+            )
           }
           className="h-4 w-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-500"
         />
@@ -926,16 +1029,21 @@ export default function RolePermissionForm() {
   const renderPermissionHeader = (
     permission
   ) => {
-    const Icon = permission.icon;
+    const Icon =
+      permission.icon;
 
     return (
       <div
         key={permission.key}
         className="flex w-[110px] shrink-0 items-center justify-center gap-1 text-center text-xs font-semibold uppercase text-slate-500"
       >
-        {Icon && <Icon size={15} />}
+        {Icon && (
+          <Icon size={15} />
+        )}
 
-        <span>{permission.label}</span>
+        <span>
+          {permission.label}
+        </span>
       </div>
     );
   };
@@ -943,182 +1051,195 @@ export default function RolePermissionForm() {
   /*
    * Role Permission Table
    */
-  const renderRolePermissionTable = () => {
-    if (visibleRoles.length === 0) {
-      return (
-        <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
-          No roles available
-        </div>
-      );
-    }
+  const renderRolePermissionTable =
+    () => {
+      if (visibleRoles.length === 0) {
+        return (
+          <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+            No roles available
+          </div>
+        );
+      }
 
-    return (
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
-        <div className="min-w-max">
-          <div className="flex border-b border-slate-200 bg-slate-50">
-            <div className="flex w-[220px] shrink-0 items-center px-5 py-4 text-sm font-semibold text-slate-700">
-              Role
+      return (
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <div className="min-w-max">
+            <div className="flex border-b border-slate-200 bg-slate-50">
+              <div className="flex w-[220px] shrink-0 items-center px-5 py-4 text-sm font-semibold text-slate-700">
+                Role
+              </div>
+
+              {permissionTypes.map(
+                renderPermissionHeader
+              )}
             </div>
 
-            {permissionTypes.map(
-              renderPermissionHeader
+            {visibleRoles.map(
+              (role) => {
+                const roleId =
+                  Number(
+                    role?.role_id ??
+                      role?.id
+                  );
+
+                const roleSlug =
+                  getRoleSlug(role);
+
+                const roleLabel =
+                  role?.name ||
+                  roleNames[roleId] ||
+                  "Unknown Role";
+
+                return (
+                  <div
+                    key={`role-${roleId}`}
+                    className="flex border-b border-slate-100 last:border-b-0"
+                  >
+                    <div className="flex w-[220px] shrink-0 items-center px-5 py-4">
+                      <span className="font-medium text-slate-700">
+                        {roleLabel}
+                      </span>
+                    </div>
+
+                    {permissionTypes.map(
+                      (permission) => (
+                        <div
+                          key={`${roleSlug}-${permission.key}`}
+                          className="flex w-[110px] shrink-0 items-center justify-center px-2 py-3"
+                        >
+                          {renderPermissionCheckbox(
+                            roleSlug,
+                            permission
+                          )}
+                        </div>
+                      )
+                    )}
+                  </div>
+                );
+              }
             )}
           </div>
-
-          {visibleRoles.map((role) => {
-            const roleId = Number(
-              role?.role_id ?? role?.id
-            );
-
-            const roleSlug =
-              getRoleSlug(role);
-
-            const roleLabel =
-              role?.name ||
-              roleNames[roleId] ||
-              "Unknown Role";
-
-            return (
-              <div
-                key={`role-${roleId}`}
-                className="flex border-b border-slate-100 last:border-b-0"
-              >
-                <div className="flex w-[220px] shrink-0 items-center px-5 py-4">
-                  <span className="font-medium text-slate-700">
-                    {roleLabel}
-                  </span>
-                </div>
-
-                {permissionTypes.map(
-                  (permission) => (
-                    <div
-                      key={`${roleSlug}-${permission.key}`}
-                      className="flex w-[110px] shrink-0 items-center justify-center px-2 py-3"
-                    >
-                      {renderPermissionCheckbox(
-                        roleSlug,
-                        permission
-                      )}
-                    </div>
-                  )
-                )}
-              </div>
-            );
-          })}
         </div>
-      </div>
-    );
-  };
+      );
+    };
 
   /*
    * Module Permission Table
    */
-  const renderModulePermissionTable = () => {
-    if (activeModules.length === 0) {
-      return (
-        <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
-          No active modules found
-        </div>
-      );
-    }
+  const renderModulePermissionTable =
+    () => {
+      if (activeModules.length === 0) {
+        return (
+          <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+            No active modules found
+          </div>
+        );
+      }
 
-    return (
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
-        <div className="min-w-max">
-          <div className="flex border-b border-slate-200 bg-slate-50">
-            <div className="flex w-[280px] shrink-0 items-center px-5 py-4 text-sm font-semibold text-slate-700">
-              Module / Sub Module
+      return (
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <div className="min-w-max">
+            <div className="flex border-b border-slate-200 bg-slate-50">
+              <div className="flex w-[280px] shrink-0 items-center px-5 py-4 text-sm font-semibold text-slate-700">
+                Module / Sub Module
+              </div>
+
+              {permissionTypes.map(
+                renderPermissionHeader
+              )}
             </div>
 
-            {permissionTypes.map(
-              renderPermissionHeader
+            {activeModules.map(
+              (module) => {
+                const moduleSlug =
+                  getModuleSlug(module);
+
+                const moduleSubModules =
+                  getSubModulesForModule(
+                    module.id
+                  );
+
+                return (
+                  <div
+                    key={module.id}
+                  >
+                    {/* Module */}
+                    <div className="flex border-b border-slate-100 bg-white">
+                      <div className="flex w-[280px] shrink-0 items-center px-5 py-4">
+                        <span className="font-semibold text-slate-800">
+                          {module.name}
+                        </span>
+                      </div>
+
+                      {permissionTypes.map(
+                        (permission) => (
+                          <div
+                            key={`${moduleSlug}-${permission.key}`}
+                            className="flex w-[110px] shrink-0 items-center justify-center px-2 py-3"
+                          >
+                            {renderPermissionCheckbox(
+                              moduleSlug,
+                              permission
+                            )}
+                          </div>
+                        )
+                      )}
+                    </div>
+
+                    {/* Sub Modules */}
+                    {moduleSubModules.map(
+                      (subModule) => {
+                        const subModuleSlug =
+                          getSubModuleSlug(
+                            subModule
+                          );
+
+                        return (
+                          <div
+                            key={`sub-module-${subModule.id}`}
+                            className="flex border-b border-slate-100 bg-slate-50/70"
+                          >
+                            <div className="flex w-[280px] shrink-0 items-center px-5 py-3">
+                              <div className="flex items-center gap-3 pl-6">
+                                <span className="h-2 w-2 rounded-full bg-blue-500" />
+
+                                <span className="text-sm font-medium text-slate-600">
+                                  {
+                                    subModule.name
+                                  }
+                                </span>
+                              </div>
+                            </div>
+
+                            {permissionTypes.map(
+                              (permission) => (
+                                <div
+                                  key={`${subModuleSlug}-${permission.key}`}
+                                  className="flex w-[110px] shrink-0 items-center justify-center px-2 py-3"
+                                >
+                                  {renderPermissionCheckbox(
+                                    subModuleSlug,
+                                    permission
+                                  )}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                );
+              }
             )}
           </div>
-
-          {activeModules.map((module) => {
-            const moduleSlug =
-              getModuleSlug(module);
-
-            const moduleSubModules =
-              getSubModulesForModule(
-                module.id
-              );
-
-            return (
-              <div key={module.id}>
-                {/* Module */}
-                <div className="flex border-b border-slate-100 bg-white">
-                  <div className="flex w-[280px] shrink-0 items-center px-5 py-4">
-                    <span className="font-semibold text-slate-800">
-                      {module.name}
-                    </span>
-                  </div>
-
-                  {permissionTypes.map(
-                    (permission) => (
-                      <div
-                        key={`${moduleSlug}-${permission.key}`}
-                        className="flex w-[110px] shrink-0 items-center justify-center px-2 py-3"
-                      >
-                        {renderPermissionCheckbox(
-                          moduleSlug,
-                          permission
-                        )}
-                      </div>
-                    )
-                  )}
-                </div>
-
-                {/* Sub Modules */}
-                {moduleSubModules.map(
-                  (subModule) => {
-                    const subModuleSlug =
-                      getSubModuleSlug(
-                        subModule
-                      );
-
-                    return (
-                      <div
-                        key={`sub-module-${subModule.id}`}
-                        className="flex border-b border-slate-100 bg-slate-50/70"
-                      >
-                        <div className="flex w-[280px] shrink-0 items-center px-5 py-3">
-                          <div className="flex items-center gap-3 pl-6">
-                            <span className="h-2 w-2 rounded-full bg-blue-500" />
-
-                            <span className="text-sm font-medium text-slate-600">
-                              {subModule.name}
-                            </span>
-                          </div>
-                        </div>
-
-                        {permissionTypes.map(
-                          (permission) => (
-                            <div
-                              key={`${subModuleSlug}-${permission.key}`}
-                              className="flex w-[110px] shrink-0 items-center justify-center px-2 py-3"
-                            >
-                              {renderPermissionCheckbox(
-                                subModuleSlug,
-                                permission
-                              )}
-                            </div>
-                          )
-                        )}
-                      </div>
-                    );
-                  }
-                )}
-              </div>
-            );
-          })}
         </div>
-      </div>
-    );
-  };
+      );
+    };
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
+
       {/* Header */}
       <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xl">
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1138,7 +1259,7 @@ export default function RolePermissionForm() {
               onClick={() =>
                 setRoleModalOpen(true)
               }
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
             >
               <RiIcons.RiAddLine className="text-lg" />
               Add Role
@@ -1149,7 +1270,7 @@ export default function RolePermissionForm() {
               onClick={() =>
                 setManageRoleOpen(true)
               }
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex items-center gap-2 cursor-pointer rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
               <RiIcons.RiShieldUserLine className="text-lg" />
               Manage Role
@@ -1159,6 +1280,7 @@ export default function RolePermissionForm() {
 
         {/* Profile + Actions */}
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+
           {/* Select Profile */}
           <div className="relative w-full max-w-md">
             <label className="mb-2 block text-sm font-semibold text-slate-700">
@@ -1172,7 +1294,7 @@ export default function RolePermissionForm() {
                   (prev) => !prev
                 )
               }
-              className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-3 text-left text-sm text-slate-700"
+              className="flex cursor-pointer w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-3 text-left text-sm text-slate-700"
             >
               <span>
                 {selectedProfileData?.name ||
@@ -1209,6 +1331,7 @@ export default function RolePermissionForm() {
                           setSelectedProfile(
                             profile.id
                           );
+
                           setProfileDropdownOpen(
                             false
                           );
@@ -1237,23 +1360,26 @@ export default function RolePermissionForm() {
               type="button"
               onClick={handleClearAll}
               disabled={
-                saving || !selectedProfile
+                saving ||
+                !selectedProfile
               }
-              className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg border cursor-pointer border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Clear All
             </button>
 
             <button
               type="button"
-              onClick={handleSavePermissions}
+              onClick={
+                handleSavePermissions
+              }
               disabled={
                 saving ||
                 loadingPermissions ||
                 !selectedProfile ||
                 !hasPermissionChanges
               }
-              className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg cursor-pointer bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving
                 ? "Saving..."
@@ -1320,7 +1446,7 @@ export default function RolePermissionForm() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-800">
+              <h3 className="text-lg font-semibold text-slate-800 ">
                 Add Role
               </h3>
 
@@ -1336,7 +1462,9 @@ export default function RolePermissionForm() {
             </div>
 
             <form
-              onSubmit={handleCreateProfile}
+              onSubmit={
+                handleCreateProfile
+              }
               className="space-y-4"
             >
               <div>
@@ -1359,7 +1487,9 @@ export default function RolePermissionForm() {
 
               <button
                 type="submit"
-                disabled={roleSubmitting}
+                disabled={
+                  roleSubmitting
+                }
                 className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {roleSubmitting
@@ -1375,6 +1505,7 @@ export default function RolePermissionForm() {
       {manageRoleOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-slate-800">
@@ -1403,154 +1534,166 @@ export default function RolePermissionForm() {
                   No profiles found
                 </div>
               ) : (
-                profiles.map((profile) => {
-                  const isEditing =
-                    Number(
-                      editingProfileId
-                    ) ===
-                    Number(profile.id);
+                profiles.map(
+                  (profile) => {
+                    const isEditing =
+                      Number(
+                        editingProfileId
+                      ) ===
+                      Number(
+                        profile.id
+                      );
 
-                  const isActive =
-                    Number(
-                      profile.status ?? 1
-                    ) === 1;
+                    const isActive =
+                      Number(
+                        profile.status ??
+                          1
+                      ) === 1;
 
-                  return (
-                    <div
-                      key={profile.id}
-                      className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 md:flex-row md:items-center md:justify-between"
-                    >
-                      {/* Role Name */}
-                      <div className="min-w-0 flex-1">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={
-                              editingProfileName
-                            }
-                            onChange={(event) =>
-                              setEditingProfileName(
-                                event.target
-                                  .value
-                              )
-                            }
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                          />
-                        ) : (
-                          <p
-                            className={`font-semibold ${
-                              isActive
-                                ? "text-slate-800"
-                                : "text-slate-400"
-                            }`}
-                          >
-                            {profile.name}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2">
-                        {isEditing ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleUpdateProfileName(
-                                  profile
+                    return (
+                      <div
+                        key={profile.id}
+                        className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 md:flex-row md:items-center md:justify-between"
+                      >
+                        {/* Role Name */}
+                        <div className="min-w-0 flex-1">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={
+                                editingProfileName
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                setEditingProfileName(
+                                  event
+                                    .target
+                                    .value
                                 )
                               }
-                              disabled={
-                                savingProfile
-                              }
-                              className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                            />
+                          ) : (
+                            <p
+                              className={`font-semibold ${
+                                isActive
+                                  ? "text-slate-800"
+                                  : "text-slate-400"
+                              }`}
                             >
-                              {savingProfile
-                                ? "Saving..."
-                                : "Save"}
-                            </button>
+                              {
+                                profile.name
+                              }
+                            </p>
+                          )}
+                        </div>
 
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                          {isEditing ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateProfileName(
+                                    profile
+                                  )
+                                }
+                                disabled={
+                                  savingProfile
+                                }
+                                className="rounded-lg cursor-pointer bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                              >
+                                {savingProfile
+                                  ? "Saving..."
+                                  : "Save"}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingProfileId(
+                                    null
+                                  );
+
+                                  setEditingProfileName(
+                                    ""
+                                  );
+                                }}
+                                className="rounded-lg cursor-pointer border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
                             <button
                               type="button"
                               onClick={() => {
                                 setEditingProfileId(
-                                  null
+                                  profile.id
                                 );
+
                                 setEditingProfileName(
-                                  ""
+                                  profile.name ||
+                                    ""
                                 );
                               }}
-                              className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600"
+                              className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                              title="Edit role"
                             >
-                              Cancel
+                              <RiIcons.RiEditLine className="text-lg" />
                             </button>
-                          </>
-                        ) : (
+                          )}
+
+                          {/* Status Toggle */}
                           <button
                             type="button"
-                            onClick={() => {
-                              setEditingProfileId(
-                                profile.id
-                              );
-                              setEditingProfileName(
-                                profile.name ||
-                                  ""
-                              );
-                            }}
-                            className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
-                            title="Edit role"
-                          >
-                            <RiIcons.RiEditLine className="text-lg" />
-                          </button>
-                        )}
-
-                        {/* Status Toggle */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleProfileStatus(
-                              profile
-                            )
-                          }
-                          disabled={
-                            savingProfile
-                          }
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                            isActive
-                              ? "bg-green-500"
-                              : "bg-slate-300"
-                          } disabled:cursor-not-allowed disabled:opacity-50`}
-                          title={
-                            isActive
-                              ? "Deactivate role"
-                              : "Activate role"
-                          }
-                        >
-                          <span
-                            className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                            onClick={() =>
+                              handleProfileStatus(
+                                profile
+                              )
+                            }
+                            disabled={
+                              savingProfile
+                            }
+                            className={`relative inline-flex cursor-pointer h-6 w-11 items-center rounded-full transition ${
                               isActive
-                                ? "translate-x-5"
-                                : "translate-x-0.5"
-                            }`}
-                          />
-                        </button>
+                                ? "bg-green-500"
+                                : "bg-slate-300"
+                            } disabled:cursor-not-allowed disabled:opacity-50`}
+                            title={
+                              isActive
+                                ? "Deactivate role"
+                                : "Activate role"
+                            }
+                          >
+                            <span
+                              className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                                isActive
+                                  ? "translate-x-5"
+                                  : "translate-x-0.5"
+                              }`}
+                            />
+                          </button>
 
-                        {/* Status Label */}
-                        <span
-                          className={`min-w-[58px] rounded-full px-2.5 py-1 text-center text-xs font-semibold ${
-                            isActive
-                              ? "bg-green-50 text-green-600"
-                              : "bg-red-50 text-red-500"
-                          }`}
-                        >
-                          {isActive
-                            ? "Active"
-                            : "Inactive"}
-                        </span>
+                          {/* Status Label */}
+                          <span
+                            className={`min-w-[58px] rounded-full px-2.5 py-1 text-center text-xs font-semibold ${
+                              isActive
+                                ? "bg-green-50 text-green-600"
+                                : "bg-red-50 text-red-500"
+                            }`}
+                          >
+                            {isActive
+                              ? "Active"
+                              : "Inactive"}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  }
+                )
               )}
             </div>
           </div>

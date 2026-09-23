@@ -1,13 +1,15 @@
-
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { IoMdArrowDropdown } from "react-icons/io";
+import { RiSearchLine } from "react-icons/ri";
+
 import {
   getKeySettings,
   getDropdownUsers,
   transferWalletPoints,
 } from "@/services/api";
+
 import { getRoleId, getUser } from "@/utils/token";
 
 const roleNames = {
@@ -55,6 +57,12 @@ export default function TransferPoint() {
   const [transferLoading, setTransferLoading] =
     useState(false);
 
+  const [transferUserDropdownOpen, setTransferUserDropdownOpen] =
+    useState(false);
+
+  const [transferUserSearch, setTransferUserSearch] =
+    useState("");
+
   const [message, setMessage] = useState({
     type: "",
     text: "",
@@ -77,7 +85,6 @@ export default function TransferPoint() {
 
         setKeySettings(activeKeys);
 
-        // Automatically select first active key
         if (activeKeys.length > 0) {
           setSelectedKey((previousSelectedKey) => {
             const alreadySelected = activeKeys.find(
@@ -86,7 +93,6 @@ export default function TransferPoint() {
                 Number(previousSelectedKey)
             );
 
-            // Keep previously selected key if it still exists
             if (alreadySelected) {
               setWalletBalance(
                 Number(alreadySelected?.balance || 0)
@@ -95,7 +101,6 @@ export default function TransferPoint() {
               return previousSelectedKey;
             }
 
-            // Otherwise select first active key
             const firstKey = activeKeys[0];
 
             setWalletBalance(
@@ -127,9 +132,7 @@ export default function TransferPoint() {
     }
   };
 
-  // ============================
-  // LOAD TRANSFER USERS
-  // ============================
+
   const loadTransferUsers = async (currentRoleId) => {
     try {
       const nextRoleId = nextRoleMap[currentRoleId];
@@ -177,9 +180,7 @@ export default function TransferPoint() {
     }
   };
 
-  // ============================
-  // GET USER KEY BALANCE
-  // ============================
+
   const getUserKeyBalance = (user, keyName) => {
     if (!user || !keyName) {
       return 0;
@@ -212,9 +213,7 @@ export default function TransferPoint() {
     return Number(walletItem?.balance || 0);
   };
 
-  // ============================
-  // INITIAL LOAD
-  // ============================
+ 
   useEffect(() => {
     const loadData = async () => {
       await loadKeySettings();
@@ -235,9 +234,55 @@ export default function TransferPoint() {
       Number(item.id) === Number(selectedKey)
   );
 
-  // ============================
-  // KEY SELECT
-  // ============================
+
+  const filteredTransferUsers = useMemo(() => {
+    const search = transferUserSearch
+      .trim()
+      .toLowerCase();
+
+    if (!search) {
+      return transferUsers;
+    }
+
+    return transferUsers.filter((user) => {
+      const name = String(
+        user?.name || ""
+      ).toLowerCase();
+
+      const organizationName = String(
+        user?.organization_name || ""
+      ).toLowerCase();
+
+      const email = String(
+        user?.email || ""
+      ).toLowerCase();
+
+      const phone = String(
+        user?.phone || ""
+      ).toLowerCase();
+
+      return (
+        name.includes(search) ||
+        organizationName.includes(search) ||
+        email.includes(search) ||
+        phone.includes(search)
+      );
+    });
+  }, [transferUsers, transferUserSearch]);
+
+  
+  const selectedTransferUserData = useMemo(() => {
+    return transferUsers.find(
+      (user) =>
+        Number(user?.id) ===
+        Number(selectedTransferUser)
+    );
+  }, [
+    transferUsers,
+    selectedTransferUser,
+  ]);
+
+
   const handleKeySelect = (id) => {
     setSelectedKey(id);
     setTransferPoint("");
@@ -277,11 +322,9 @@ export default function TransferPoint() {
     }
   };
 
-  // ============================
-  // TRANSFER USER CHANGE
-  // ============================
+
   const handleTransferUserChange = (userId) => {
-    setSelectedTransferUser(userId);
+    setSelectedTransferUser(String(userId));
 
     setMessage({
       type: "",
@@ -311,13 +354,21 @@ export default function TransferPoint() {
     setAvailableBalance(receiverBalance);
   };
 
-  // ============================
-  // TRANSFER POINT CHANGE
-  // ============================
+
+  const handleTransferUserSelect = (userId) => {
+    handleTransferUserChange(userId);
+
+    setTransferUserDropdownOpen(false);
+    setTransferUserSearch("");
+  };
+
   const handleTransferPointChange = (e) => {
     const value = e.target.value;
 
-    if (value === "" || Number(value) >= 0) {
+    if (
+      value === "" ||
+      Number(value) >= 0
+    ) {
       setTransferPoint(value);
 
       setMessage({
@@ -327,9 +378,7 @@ export default function TransferPoint() {
     }
   };
 
-  // ============================
-  // TRANSFER
-  // ============================
+
   const handleTransfer = async () => {
     setMessage({
       type: "",
@@ -456,9 +505,6 @@ export default function TransferPoint() {
     <div className="min-h-screen">
       <div className="rounded-xl bg-white p-6 shadow-sm">
 
-        {/* ============================
-            KEY SETTINGS
-        ============================ */}
         <div className="mb-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-800">
             Key Settings
@@ -522,13 +568,11 @@ export default function TransferPoint() {
           )}
         </div>
 
-        {/* ============================
-            TRANSFER SECTION
-        ============================ */}
+    
         <div className="border-t border-gray-200 pt-6">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
 
-            {/* MY WALLET BALANCE */}
+       
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 My Wallet Balance
@@ -542,7 +586,7 @@ export default function TransferPoint() {
               />
             </div>
 
-            {/* TRANSFER POINT */}
+    
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Transfer Point
@@ -553,7 +597,9 @@ export default function TransferPoint() {
                 min="0"
                 step="1"
                 value={transferPoint}
-                onChange={handleTransferPointChange}
+                onChange={
+                  handleTransferPointChange
+                }
                 disabled={transferLoading}
                 placeholder={
                   transferPointName
@@ -564,52 +610,157 @@ export default function TransferPoint() {
               />
             </div>
 
-            {/* TRANSFER TO */}
+        
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Transfer To
               </label>
 
               <div className="relative">
-                <select
-                  value={selectedTransferUser}
-                  onChange={(e) =>
-                    handleTransferUserChange(
-                      e.target.value
+                {/* SELECTED USER BUTTON */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setTransferUserDropdownOpen(
+                      (previous) => !previous
                     )
                   }
                   disabled={
                     !nextRoleName ||
                     loadingTransferUsers ||
-                    transferLoading
+                    transferLoading ||
+                    transferUsers.length === 0
                   }
-                  className="w-full appearance-none cursor-pointer rounded-lg border border-gray-300 bg-white px-4 py-3 pr-10 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
+                  className="flex w-full cursor-pointer items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-700 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
                 >
-                  <option value="">
+                  <span className="truncate">
                     {loadingTransferUsers
                       ? "Loading users..."
+                      : selectedTransferUserData
+                      ? selectedTransferUserData.name ||
+                        selectedTransferUserData.organization_name ||
+                        selectedTransferUserData.email ||
+                        `User ${selectedTransferUserData.id}`
                       : nextRoleName
                       ? `Select ${nextRoleName}`
                       : "No user available"}
-                  </option>
+                  </span>
 
-                  {transferUsers.map((user) => (
-                    <option
-                      key={user.id}
-                      value={user.id}
-                    >
-                      {user.name ||
-                        user.organization_name ||
-                        user.email ||
-                        `User ${user.id}`}
-                    </option>
-                  ))}
-                </select>
+                  <IoMdArrowDropdown
+                    size={22}
+                    className={`shrink-0 text-gray-500 transition-transform duration-200 ${
+                      transferUserDropdownOpen
+                        ? "rotate-180"
+                        : ""
+                    }`}
+                  />
+                </button>
 
-                <IoMdArrowDropdown
-                  size={22}
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                />
+                {transferUserDropdownOpen && (
+                  <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
+
+                    <div className="border-b border-gray-200 p-2">
+                      <div className="relative">
+                        <RiSearchLine
+                          size={18}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                        />
+
+                        <input
+                          type="text"
+                          value={transferUserSearch}
+                          onChange={(e) =>
+                            setTransferUserSearch(
+                              e.target.value
+                            )
+                          }
+                          placeholder={`Search ${nextRoleName}...`}
+                          autoFocus
+                          className="w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm font-normal text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="max-h-60 overflow-y-auto">
+                      {filteredTransferUsers.length >
+                      0 ? (
+                        filteredTransferUsers.map(
+                          (user) => {
+                            const isSelected =
+                              Number(
+                                selectedTransferUser
+                              ) ===
+                              Number(user.id);
+
+                            return (
+                              <button
+                                key={user.id}
+                                type="button"
+                                onClick={() =>
+                                  handleTransferUserSelect(
+                                    user.id
+                                  )
+                                }
+                                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${
+                                  isSelected
+                                    ? "bg-blue-50"
+                                    : "bg-white hover:bg-gray-50 cursor-pointer"
+                                }`}
+                              >
+                                <div
+                                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                                    isSelected
+                                      ? "bg-blue-100 text-blue-600"
+                                      : "bg-gray-100 text-gray-600"
+                                  }`}
+                                >
+                                  {String(
+                                    user?.name ||
+                                      user?.organization_name ||
+                                      user?.email ||
+                                      "U"
+                                  )
+                                    .charAt(0)
+                                    .toUpperCase()}
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className={`truncate text-sm font-semibold ${
+                                      isSelected
+                                        ? "text-blue-600"
+                                        : "text-gray-700"
+                                    }`}
+                                  >
+                                    {user?.name ||
+                                      user?.organization_name ||
+                                      `User ${user.id}`}
+                                  </p>
+
+                                  {/* {user?.email && (
+                                    <p className="truncate text-xs font-normal text-gray-400">
+                                      {user.email}
+                                    </p>
+                                  )} */}
+                                </div>
+
+                                {isSelected && (
+                                  <span className="text-sm font-bold text-blue-600">
+                                    ✓
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          }
+                        )
+                      ) : (
+                        <div className="px-4 py-6 text-center text-sm text-gray-400">
+                          No {nextRoleName} found
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -628,7 +779,6 @@ export default function TransferPoint() {
             </div>
           </div>
 
-          {/* MESSAGE */}
           {message.text && (
             <div
               className={`mt-4 rounded-lg px-4 py-3 text-sm font-medium ${
@@ -641,7 +791,6 @@ export default function TransferPoint() {
             </div>
           )}
 
-          {/* TRANSFER BUTTON */}
           <div className="mt-6 flex justify-end">
             <button
               type="button"

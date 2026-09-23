@@ -63,7 +63,7 @@ export default function Navbar({
 
   return (
     <nav
-      className={`fixed top-0 right-0 z-50 h-16 bg-white shadow flex items-center justify-between px-6 transition-all duration-300 ${
+      className={`fixed top-0 right-0 z-50 h-16  bg-gradient-to-r from-white via-white to-blue-200 shadow flex items-center justify-between px-6 transition-all duration-300 ${
         sidebarOpen ? "left-64" : "left-0"
       }`}
     >
