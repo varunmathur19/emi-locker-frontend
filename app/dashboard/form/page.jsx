@@ -623,7 +623,15 @@ export default function Page() {
     }, [countries, phoneCountryId]);
 
     const visibleParentRoles = useMemo(() => {
-        return (parentRoles[selectedRole] || []).filter(
+        const requiredParentRoles =
+            parentRoles[selectedRole] || [];
+
+       
+        if (loggedInRoleId === 9) {
+            return requiredParentRoles;
+        }
+
+        return requiredParentRoles.filter(
             (roleId) => {
                 const role = Number(roleId);
 

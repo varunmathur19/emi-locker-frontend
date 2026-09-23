@@ -5,16 +5,12 @@ const api = axios.create({
 });
 
 
-// =====================================================
-// REQUEST INTERCEPTOR
-// =====================================================
+
 
 api.interceptors.request.use(
   (config) => {
 
-    // =================================================
-    // TOKEN
-    // =================================================
+
 
     if (
       typeof window !== "undefined"
@@ -33,12 +29,7 @@ api.interceptors.request.use(
     }
 
 
-    // =================================================
-    // CONTENT TYPE
-    // =================================================
-    // FormData ke liye Content-Type manually set nahi
-    // karna hai. Browser automatically boundary add karega.
-    // =================================================
+
 
     if (
       config.data instanceof FormData
