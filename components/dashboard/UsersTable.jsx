@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -48,14 +49,18 @@ export default function UsersTable({
   const [filterSearch, setFilterSearch] = useState("");
   const [filterSearchResults, setFilterSearchResults] = useState([]);
   const [filterSearchApplied, setFilterSearchApplied] = useState(false);
+
   const [loginLoading, setLoginLoading] = useState(null);
   const [statusLoading, setStatusLoading] = useState(null);
+
   const [filterOpen, setFilterOpen] = useState(false);
+
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searchApplied, setSearchApplied] = useState(false);
+
   const [staffPermissions, setStaffPermissions] = useState(null);
   const [currentRoleId, setCurrentRoleId] = useState(null);
 
@@ -671,9 +676,11 @@ export default function UsersTable({
 
     setShowSuggestions(false);
     setSearchSuggestions([]);
+
     setFilterSearchResults([
       user,
     ]);
+
     setFilterSearchApplied(true);
     setPage?.(1);
   };
@@ -689,10 +696,13 @@ export default function UsersTable({
     setFilterSearch("");
     setFilterSearchResults([]);
     setFilterSearchApplied(false);
+
     setSearchSuggestions([]);
     setShowSuggestions(false);
+
     setSearchResults([]);
     setSearchApplied(false);
+
     setPage?.(1);
   };
 
@@ -916,11 +926,11 @@ export default function UsersTable({
       Number(currentRoleId) === 9 &&
       !hasPermission(
         selectedRoleSlug,
-        "status"
+        "delete"
       )
     ) {
       toast.error(
-        `You don't have status permission for ${selectedRoleName}`
+        `You don't have delete permission for ${selectedRoleName}`
       );
 
       return;
@@ -992,7 +1002,7 @@ export default function UsersTable({
       );
     } catch (error) {
       console.error(
-        "USER STATUS ERROR:",
+        "USER DELETE TOGGLE ERROR:",
         error
       );
 
@@ -1057,57 +1067,58 @@ export default function UsersTable({
       }
     };
 
-  const handleNextPage = async () => {
-    const totalPages =
-      pagination?.totalPages || 1;
+  const handleNextPage =
+    async () => {
+      const totalPages =
+        pagination?.totalPages || 1;
 
-    if (page >= totalPages) {
-      return;
-    }
+      if (page >= totalPages) {
+        return;
+      }
 
-    const nextPage = page + 1;
+      const nextPage = page + 1;
 
-    if (!filters.status) {
-      setPage(nextPage);
-      return;
-    }
+      if (!filters.status) {
+        setPage(nextPage);
+        return;
+      }
 
-    try {
-      setSearchLoading(true);
+      try {
+        setSearchLoading(true);
 
-      const response =
-        await getAllStaffData(
-          nextPage,
-          getSearchLimit(),
-          selectedRoleId || "",
-          "",
-          filters.status
+        const response =
+          await getAllStaffData(
+            nextPage,
+            getSearchLimit(),
+            selectedRoleId || "",
+            "",
+            filters.status
+          );
+
+        const data = Array.isArray(
+          response?.data
+        )
+          ? response.data
+          : [];
+
+        setSearchResults(data);
+        setSearchApplied(true);
+        setPage(nextPage);
+      } catch (error) {
+        console.error(
+          "STATUS PAGINATION ERROR:",
+          error
         );
 
-      const data = Array.isArray(
-        response?.data
-      )
-        ? response.data
-        : [];
-
-      setSearchResults(data);
-      setSearchApplied(true);
-      setPage(nextPage);
-    } catch (error) {
-      console.error(
-        "STATUS PAGINATION ERROR:",
-        error
-      );
-
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Failed to load users"
-      );
-    } finally {
-      setSearchLoading(false);
-    }
-  };
+        toast.error(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Failed to load users"
+        );
+      } finally {
+        setSearchLoading(false);
+      }
+    };
 
   let tableUsers = users;
 
@@ -1115,7 +1126,8 @@ export default function UsersTable({
     tableUsers =
       filterSearchResults;
   } else if (searchApplied) {
-    tableUsers = searchResults;
+    tableUsers =
+      searchResults;
   }
 
   const filteredUsers =
@@ -1260,7 +1272,9 @@ export default function UsersTable({
       selectedRoleSlug
     )}`;
 
-  const getEditFormUrl = (user) => {
+  const getEditFormUrl = (
+    user
+  ) => {
     const actualRoleId =
       Number(user?.role_id);
 
@@ -1626,7 +1640,9 @@ export default function UsersTable({
 
               <div className="relative">
                 <select
-                  value={filters.city}
+                  value={
+                    filters.city
+                  }
                   onChange={(e) =>
                     handleFilterChange(
                       "city",
@@ -1644,7 +1660,10 @@ export default function UsersTable({
                   </option>
 
                   {cityOptions.map(
-                    (city, index) => (
+                    (
+                      city,
+                      index
+                    ) => (
                       <option
                         key={`${city.name}-${index}`}
                         value={city.name}
@@ -1757,7 +1776,7 @@ export default function UsersTable({
                 </th>
 
                 <th className="text-left p-3">
-                  Status
+                  Delete
                 </th>
               </tr>
             </thead>
@@ -1810,13 +1829,13 @@ export default function UsersTable({
                         "login"
                       );
 
-                    const canStatusRow =
+                    const canDeleteRow =
                       Number(
                         currentRoleId
                       ) !== 9 ||
                       hasPermission(
                         actualRoleSlug,
-                        "status"
+                        "delete"
                       );
 
                     return (
@@ -1958,8 +1977,8 @@ export default function UsersTable({
                         </td>
 
                         <td className="p-3 py-1">
-                          {canStatusRow ? (
-                            <div className="flex items-center gap-3">
+                          {canDeleteRow ? (
+                            <div className="flex items-center justify-center">
                               <button
                                 type="button"
                                 disabled={
@@ -1978,17 +1997,22 @@ export default function UsersTable({
                                 }`}
                                 title={
                                   isActive
-                                    ? "Deactivate User"
-                                    : "Activate User"
+                                    ? `Deactivate ${actualRoleName}`
+                                    : `Activate ${actualRoleName}`
                                 }
                               >
-                                <span
-                                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
-                                    isActive
-                                      ? "translate-x-5"
-                                      : "translate-x-1"
-                                  }`}
-                                />
+                                {statusLoading ===
+                                user.id ? (
+                                  <span className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <span
+                                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                                      isActive
+                                        ? "translate-x-5"
+                                        : "translate-x-1"
+                                    }`}
+                                  />
+                                )}
                               </button>
                             </div>
                           ) : (
