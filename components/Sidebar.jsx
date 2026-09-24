@@ -1084,7 +1084,7 @@ export default function Sidebar({
       <aside
         className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
           sidebarOpen
-            ? "w-64 p-5"
+            ? "w-68 p-5"
             : "w-0 p-0"
         }`}
       >
@@ -1099,7 +1099,7 @@ export default function Sidebar({
     <aside
       className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
         sidebarOpen
-          ? "w-64 p-5"
+          ? "w-68 p-5"
           : "w-0 p-0"
       }`}
     >

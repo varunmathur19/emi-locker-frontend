@@ -1334,7 +1334,7 @@ export default function UsersTable({
   }
 
   return (
-    <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6 max-w-full overflow-hidden">
+    <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-4 max-w-full overflow-hidden">
       <div className="flex justify-between items-center mb-4">
         <div className="flex gap-3 overflow-x-auto whitespace-nowrap w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button

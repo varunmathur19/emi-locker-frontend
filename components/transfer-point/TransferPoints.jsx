@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-
 import { IoMdArrowDropdown } from "react-icons/io";
 import { RiSearchLine } from "react-icons/ri";
+import { toast } from "react-toastify";
 
 import {
   getKeySettings,
@@ -54,7 +54,9 @@ const getUserName = (user) =>
   `User ${user?.id}`;
 
 const filterUsers = (users, search) => {
-  const value = String(search || "").trim().toLowerCase();
+  const value = String(search || "")
+    .trim()
+    .toLowerCase();
 
   if (!value) {
     return users;
@@ -259,10 +261,10 @@ function UserDropdown({
       <button
         type="button"
         onClick={() =>
-          setOpen((prev) => !prev)
+          setOpen((previous) => !previous)
         }
         disabled={disabled}
-        className="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-700 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
+        className="flex h-[46px] w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-4 text-left text-sm font-medium text-gray-700 shadow-sm outline-none transition-all hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
       >
         <span className="truncate">
           {loading
@@ -273,8 +275,8 @@ function UserDropdown({
         </span>
 
         <IoMdArrowDropdown
-          size={22}
-          className={`shrink-0 text-gray-500 transition-transform ${
+          size={21}
+          className={`shrink-0 text-gray-500 transition-transform duration-200 ${
             open ? "rotate-180" : ""
           }`}
         />
@@ -292,12 +294,12 @@ function UserDropdown({
               <input
                 type="text"
                 value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
+                onChange={(event) =>
+                  setSearch(event.target.value)
                 }
                 placeholder={searchPlaceholder}
                 autoFocus
-                className="w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="h-[40px] w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
               />
             </div>
           </div>
@@ -310,8 +312,7 @@ function UserDropdown({
             ) : filteredUsers.length > 0 ? (
               filteredUsers.map((user) => {
                 const selected =
-                  Number(value) ===
-                  Number(user?.id);
+                  Number(value) === Number(user?.id);
 
                 const userName =
                   getUserName(user);
@@ -404,10 +405,10 @@ function RoleDropdown({
       <button
         type="button"
         onClick={() =>
-          setOpen((prev) => !prev)
+          setOpen((previous) => !previous)
         }
         disabled={disabled}
-        className="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-700 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
+        className="flex h-[46px] w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-4 text-left text-sm font-medium text-gray-700 shadow-sm outline-none transition-all hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
       >
         <span className="truncate">
           {loading
@@ -416,8 +417,8 @@ function RoleDropdown({
         </span>
 
         <IoMdArrowDropdown
-          size={22}
-          className={`shrink-0 text-gray-500 transition-transform ${
+          size={21}
+          className={`shrink-0 text-gray-500 transition-transform duration-200 ${
             open ? "rotate-180" : ""
           }`}
         />
@@ -449,7 +450,7 @@ function RoleDropdown({
                   onClick={() =>
                     onSelect(role)
                   }
-                  className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold ${
+                  className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold transition ${
                     selected
                       ? "bg-blue-50 text-blue-600"
                       : "text-gray-700 hover:bg-gray-50"
@@ -498,6 +499,11 @@ export default function TransferPoint() {
   const [keySettings, setKeySettings] =
     useState([]);
 
+  const [
+    schemaKeyDropdownOpen,
+    setSchemaKeyDropdownOpen,
+  ] = useState(false);
+
   const [selectedKey, setSelectedKey] =
     useState("");
 
@@ -525,68 +531,94 @@ export default function TransferPoint() {
   const [transferLoading, setTransferLoading] =
     useState(false);
 
-  const [message, setMessage] =
-    useState({
-      type: "",
-      text: "",
-    });
-
   const [transferUsers, setTransferUsers] =
     useState([]);
 
-  const [selectedTransferUser, setSelectedTransferUser] =
-    useState("");
+  const [
+    selectedTransferUser,
+    setSelectedTransferUser,
+  ] = useState("");
 
-  const [transferUserSearch, setTransferUserSearch] =
-    useState("");
+  const [
+    transferUserSearch,
+    setTransferUserSearch,
+  ] = useState("");
 
-  const [transferUserDropdownOpen, setTransferUserDropdownOpen] =
-    useState(false);
+  const [
+    transferUserDropdownOpen,
+    setTransferUserDropdownOpen,
+  ] = useState(false);
 
-  const [loadingTransferUsers, setLoadingTransferUsers] =
-    useState(false);
+  const [
+    loadingTransferUsers,
+    setLoadingTransferUsers,
+  ] = useState(false);
 
-  const [selectedSchemaRole, setSelectedSchemaRole] =
-    useState("");
+  const [
+    selectedSchemaRole,
+    setSelectedSchemaRole,
+  ] = useState("");
 
   const [schemaUsers, setSchemaUsers] =
     useState([]);
 
-  const [selectedSchemaUser, setSelectedSchemaUser] =
-    useState("");
+  const [
+    selectedSchemaUser,
+    setSelectedSchemaUser,
+  ] = useState("");
 
-  const [schemaUserSearch, setSchemaUserSearch] =
-    useState("");
+  const [
+    schemaUserSearch,
+    setSchemaUserSearch,
+  ] = useState("");
 
-  const [schemaRoleDropdownOpen, setSchemaRoleDropdownOpen] =
-    useState(false);
+  const [
+    schemaRoleDropdownOpen,
+    setSchemaRoleDropdownOpen,
+  ] = useState(false);
 
-  const [schemaUserDropdownOpen, setSchemaUserDropdownOpen] =
-    useState(false);
+  const [
+    schemaUserDropdownOpen,
+    setSchemaUserDropdownOpen,
+  ] = useState(false);
 
-  const [loadingSchemaUsers, setLoadingSchemaUsers] =
-    useState(false);
+  const [
+    loadingSchemaUsers,
+    setLoadingSchemaUsers,
+  ] = useState(false);
 
-  const [selectedFromRole, setSelectedFromRole] =
-    useState("");
+  const [
+    selectedFromRole,
+    setSelectedFromRole,
+  ] = useState("");
 
   const [revertUsers, setRevertUsers] =
     useState([]);
 
-  const [selectedRevertUser, setSelectedRevertUser] =
-    useState("");
+  const [
+    selectedRevertUser,
+    setSelectedRevertUser,
+  ] = useState("");
 
-  const [revertUserSearch, setRevertUserSearch] =
-    useState("");
+  const [
+    revertUserSearch,
+    setRevertUserSearch,
+  ] = useState("");
 
-  const [fromRoleDropdownOpen, setFromRoleDropdownOpen] =
-    useState(false);
+  const [
+    fromRoleDropdownOpen,
+    setFromRoleDropdownOpen,
+  ] = useState(false);
 
-  const [revertUserDropdownOpen, setRevertUserDropdownOpen] =
-    useState(false);
+  const [
+    revertUserDropdownOpen,
+    setRevertUserDropdownOpen,
+  ] = useState(false);
 
-  const [loadingRevertUsers, setLoadingRevertUsers] =
-    useState(false);
+  const [
+    loadingRevertUsers,
+    setLoadingRevertUsers,
+  ] = useState(false);
 
   const selectedKeyData = useMemo(
     () =>
@@ -598,92 +630,127 @@ export default function TransferPoint() {
     [keySettings, selectedKey]
   );
 
-  const selectedTransferUserData =
-    useMemo(
-      () =>
-        transferUsers.find(
-          (user) =>
-            Number(user?.id) ===
-            Number(selectedTransferUser)
-        ),
-      [
-        transferUsers,
-        selectedTransferUser,
-      ]
-    );
+  const selectedTransferUserData = useMemo(
+    () =>
+      transferUsers.find(
+        (user) =>
+          Number(user?.id) ===
+          Number(selectedTransferUser)
+      ),
+    [transferUsers, selectedTransferUser]
+  );
 
-  const selectedSchemaUserData =
-    useMemo(
-      () =>
-        schemaUsers.find(
-          (user) =>
-            Number(user?.id) ===
-            Number(selectedSchemaUser)
-        ),
-      [
-        schemaUsers,
-        selectedSchemaUser,
-      ]
-    );
+  const selectedSchemaUserData = useMemo(
+    () =>
+      schemaUsers.find(
+        (user) =>
+          Number(user?.id) ===
+          Number(selectedSchemaUser)
+      ),
+    [schemaUsers, selectedSchemaUser]
+  );
 
-  const selectedRevertUserData =
-    useMemo(
-      () =>
-        revertUsers.find(
-          (user) =>
-            Number(user?.id) ===
-            Number(selectedRevertUser)
-        ),
-      [
-        revertUsers,
-        selectedRevertUser,
-      ]
-    );
+  const selectedRevertUserData = useMemo(
+    () =>
+      revertUsers.find(
+        (user) =>
+          Number(user?.id) ===
+          Number(selectedRevertUser)
+      ),
+    [revertUsers, selectedRevertUser]
+  );
 
-  const selectedFromRoleData =
-    useMemo(
-      () =>
-        roles.find(
-          (role) =>
-            Number(role?.role_id) ===
-            Number(selectedFromRole)
-        ),
-      [roles, selectedFromRole]
-    );
+  const selectedFromRoleData = useMemo(
+    () =>
+      roles.find(
+        (role) =>
+          Number(role?.role_id) ===
+          Number(selectedFromRole)
+      ),
+    [roles, selectedFromRole]
+  );
 
-  const selectedSchemaRoleData =
-    useMemo(
-      () =>
-        roles.find(
-          (role) =>
-            Number(role?.role_id) ===
-            Number(selectedSchemaRole)
-        ),
-      [roles, selectedSchemaRole]
-    );
+  const selectedSchemaRoleData = useMemo(
+    () =>
+      roles.find(
+        (role) =>
+          Number(role?.role_id) ===
+          Number(selectedSchemaRole)
+      ),
+    [roles, selectedSchemaRole]
+  );
 
-  const nextRoleId =
-    roleId !== null
-      ? nextRoleMap[roleId]
+  const availableRoleOptions = useMemo(
+    () =>
+      roles.filter(
+        (role) =>
+          Number(role?.role_id) !==
+          Number(roleId)
+      ),
+    [roles, roleId]
+  );
+
+  const nextRoleId = useMemo(() => {
+    if (
+      roleId === null ||
+      roleId === undefined
+    ) {
+      return null;
+    }
+
+    if (Number(roleId) === 0) {
+      return 1;
+    }
+
+    const directNextRoleId =
+      nextRoleMap[Number(roleId)];
+
+    if (
+      directNextRoleId === undefined ||
+      directNextRoleId === null
+    ) {
+      return null;
+    }
+
+    const activeNextRole = roles
+      .filter(
+        (role) =>
+          Number(role?.status ?? 1) === 1
+      )
+      .filter(
+        (role) =>
+          Number(role?.role_id) >
+          Number(roleId)
+      )
+      .sort(
+        (a, b) =>
+          Number(a?.role_id) -
+          Number(b?.role_id)
+      )
+      .find(
+        (role) =>
+          Number(role?.role_id) >=
+          Number(directNextRoleId)
+      );
+
+    return activeNextRole
+      ? Number(activeNextRole.role_id)
       : null;
+  }, [roleId, roles]);
 
   const nextRoleName =
-    roleNames[nextRoleId] || "";
-
-  const schemaRoleOptions = roles;
+    Number(roleId) === 0
+      ? "Admin"
+      : roleNames[nextRoleId] || "";
 
   const selectedFromRoleName =
     selectedFromRoleData?.name ||
-    roleNames[
-      Number(selectedFromRole)
-    ] ||
+    roleNames[Number(selectedFromRole)] ||
     "";
 
   const selectedSchemaRoleName =
     selectedSchemaRoleData?.name ||
-    roleNames[
-      Number(selectedSchemaRole)
-    ] ||
+    roleNames[Number(selectedSchemaRole)] ||
     "";
 
   const loadKeySettings = async () => {
@@ -772,9 +839,7 @@ export default function TransferPoint() {
           response.data
             .filter(
               (role) =>
-                Number(
-                  role?.status ?? 1
-                ) === 1
+                Number(role?.status ?? 1) === 1
             )
             .sort(
               (a, b) =>
@@ -791,9 +856,12 @@ export default function TransferPoint() {
             );
 
         setRoles(activeRoles);
-      } else {
-        setRoles([]);
+
+        return activeRoles;
       }
+
+      setRoles([]);
+      return [];
     } catch (error) {
       console.error(
         "GET ROLES ERROR:",
@@ -801,27 +869,78 @@ export default function TransferPoint() {
       );
 
       setRoles([]);
+      return [];
     } finally {
       setLoadingRoles(false);
     }
   };
 
   const loadTransferUsers = async (
-    currentRoleId
+    currentRoleId,
+    activeRoles = roles
   ) => {
     try {
-      const targetRoleId =
-        nextRoleMap[currentRoleId];
+      const currentRole =
+        Number(currentRoleId);
 
-      if (
-        targetRoleId === undefined ||
-        targetRoleId === null
-      ) {
+      if (!Number.isFinite(currentRole)) {
         setTransferUsers([]);
         return;
       }
 
+      let targetRoleId;
+
+      if (currentRole === 0) {
+        targetRoleId = 1;
+      } else {
+        const directNextRoleId =
+          nextRoleMap[currentRole];
+
+        if (
+          directNextRoleId === undefined ||
+          directNextRoleId === null
+        ) {
+          setTransferUsers([]);
+          return;
+        }
+
+        let nextRole =
+          Number(directNextRoleId);
+
+        let activeTargetRole = null;
+
+        while (
+          nextRole !== undefined &&
+          nextRole !== null
+        ) {
+          activeTargetRole =
+            activeRoles.find(
+              (role) =>
+                Number(role?.role_id) ===
+                Number(nextRole)
+            );
+
+          if (activeTargetRole) {
+            break;
+          }
+
+          nextRole =
+            nextRoleMap[nextRole];
+        }
+
+        if (!activeTargetRole) {
+          setTransferUsers([]);
+          return;
+        }
+
+        targetRoleId =
+          Number(
+            activeTargetRole.role_id
+          );
+      }
+
       const user = getUser();
+
       const currentUserId =
         Number(user?.id);
 
@@ -842,9 +961,14 @@ export default function TransferPoint() {
         response?.success &&
         Array.isArray(response?.data)
       ) {
-        setTransferUsers(
-          response.data
-        );
+        const users =
+          response.data.filter(
+            (user) =>
+              Number(user?.role_id) ===
+              Number(targetRoleId)
+          );
+
+        setTransferUsers(users);
       } else {
         setTransferUsers([]);
       }
@@ -925,9 +1049,7 @@ export default function TransferPoint() {
       const role =
         Number(targetRoleId);
 
-      if (
-        !Number.isFinite(role)
-      ) {
+      if (!Number.isFinite(role)) {
         setRevertUsers([]);
         return;
       }
@@ -994,7 +1116,9 @@ export default function TransferPoint() {
       setRoleId(currentRole);
 
       await loadKeySettings();
-      await loadRoles();
+
+      const activeRoles =
+        await loadRoles();
 
       if (isSchemaTransfer) {
         setTransferUsers([]);
@@ -1010,12 +1134,30 @@ export default function TransferPoint() {
       }
 
       await loadTransferUsers(
-        currentRole
+        currentRole,
+        activeRoles
       );
     };
 
     loadData();
   }, [transactionType]);
+
+  useEffect(() => {
+    if (
+      isSchemaTransfer ||
+      isRevert ||
+      roleId === null
+    ) {
+      return;
+    }
+
+    loadTransferUsers(roleId);
+  }, [
+    roleId,
+    roles,
+    isSchemaTransfer,
+    isRevert,
+  ]);
 
   useEffect(() => {
     let selectedUser = null;
@@ -1063,11 +1205,6 @@ export default function TransferPoint() {
     setSelectedKey(id);
     setTransferPoint("");
 
-    setMessage({
-      type: "",
-      text: "",
-    });
-
     const key =
       keySettings.find(
         (item) =>
@@ -1098,15 +1235,8 @@ export default function TransferPoint() {
       String(userId)
     );
 
-    setTransferPoint("");
     setTransferUserSearch("");
     setTransferUserDropdownOpen(false);
-
-    setMessage({
-      type: "",
-      text: "",
-    });
-
     setAvailableBalance(0);
   };
 
@@ -1116,11 +1246,7 @@ export default function TransferPoint() {
     const selectedRoleId =
       Number(role?.role_id);
 
-    if (
-      !Number.isFinite(
-        selectedRoleId
-      )
-    ) {
+    if (!Number.isFinite(selectedRoleId)) {
       return;
     }
 
@@ -1133,13 +1259,7 @@ export default function TransferPoint() {
     setSchemaUserSearch("");
     setSchemaUserDropdownOpen(false);
     setAvailableBalance(0);
-    setTransferPoint("");
     setSchemaRoleDropdownOpen(false);
-
-    setMessage({
-      type: "",
-      text: "",
-    });
 
     await loadSchemaUsers(
       selectedRoleId
@@ -1155,13 +1275,7 @@ export default function TransferPoint() {
 
     setSchemaUserSearch("");
     setSchemaUserDropdownOpen(false);
-    setTransferPoint("");
     setAvailableBalance(0);
-
-    setMessage({
-      type: "",
-      text: "",
-    });
   };
 
   const handleFromRoleSelect = async (
@@ -1170,11 +1284,7 @@ export default function TransferPoint() {
     const targetRoleId =
       Number(role?.role_id);
 
-    if (
-      !Number.isFinite(
-        targetRoleId
-      )
-    ) {
+    if (!Number.isFinite(targetRoleId)) {
       return;
     }
 
@@ -1188,11 +1298,6 @@ export default function TransferPoint() {
     setAvailableBalance(0);
     setTransferPoint("");
     setFromRoleDropdownOpen(false);
-
-    setMessage({
-      type: "",
-      text: "",
-    });
 
     await loadRevertUsers(
       targetRoleId
@@ -1208,13 +1313,7 @@ export default function TransferPoint() {
 
     setRevertUserSearch("");
     setRevertUserDropdownOpen(false);
-    setTransferPoint("");
     setAvailableBalance(0);
-
-    setMessage({
-      type: "",
-      text: "",
-    });
   };
 
   const handleTransferPointChange = (
@@ -1228,11 +1327,6 @@ export default function TransferPoint() {
       Number(value) >= 0
     ) {
       setTransferPoint(value);
-
-      setMessage({
-        type: "",
-        text: "",
-      });
     }
   };
 
@@ -1245,74 +1339,63 @@ export default function TransferPoint() {
     setSelectedTransferUser("");
     setTransferUserSearch("");
     setTransferUserDropdownOpen(false);
-    setTransferUsers([]);
 
     setSelectedSchemaRole("");
-    setSchemaUsers([]);
     setSelectedSchemaUser("");
     setSchemaUserSearch("");
     setSchemaRoleDropdownOpen(false);
     setSchemaUserDropdownOpen(false);
+    setSchemaUsers([]);
+    setSchemaKeyDropdownOpen(false);
 
     setSelectedFromRole("");
-    setRevertUsers([]);
     setSelectedRevertUser("");
     setRevertUserSearch("");
     setFromRoleDropdownOpen(false);
     setRevertUserDropdownOpen(false);
+    setRevertUsers([]);
   };
 
   const handleTransfer = async () => {
-    setMessage({
-      type: "",
-      text: "",
-    });
-
     if (!selectedKey) {
-      setMessage({
-        type: "error",
-        text: "Please select a key setting",
-      });
+      toast.error(
+        "Please select a key setting"
+      );
       return;
     }
 
     if (isRevert) {
       if (!selectedFromRole) {
-        setMessage({
-          type: "error",
-          text: "Please select a role",
-        });
+        toast.error(
+          "Please select a role"
+        );
         return;
       }
 
       if (!selectedRevertUser) {
-        setMessage({
-          type: "error",
-          text: "Please select a user",
-        });
+        toast.error(
+          "Please select a user"
+        );
         return;
       }
     } else if (isSchemaTransfer) {
       if (!selectedSchemaRole) {
-        setMessage({
-          type: "error",
-          text: "Please select a role",
-        });
+        toast.error(
+          "Please select a role"
+        );
         return;
       }
 
       if (!selectedSchemaUser) {
-        setMessage({
-          type: "error",
-          text: "Please select a user",
-        });
+        toast.error(
+          "Please select a user"
+        );
         return;
       }
     } else if (!selectedTransferUser) {
-      setMessage({
-        type: "error",
-        text: "Please select a user",
-      });
+      toast.error(
+        "Please select a user"
+      );
       return;
     }
 
@@ -1323,12 +1406,11 @@ export default function TransferPoint() {
       !Number.isFinite(points) ||
       points <= 0
     ) {
-      setMessage({
-        type: "error",
-        text: isRevert
+      toast.error(
+        isRevert
           ? "Please enter valid revert points"
-          : "Please enter valid transfer points",
-      });
+          : "Please enter valid transfer points"
+      );
       return;
     }
 
@@ -1337,12 +1419,11 @@ export default function TransferPoint() {
       : walletBalance;
 
     if (points > balance) {
-      setMessage({
-        type: "error",
-        text: `Insufficient balance. Available balance is ${Number(
+      toast.error(
+        `Insufficient balance. Available balance is ${Number(
           balance || 0
-        ).toLocaleString("en-IN")}`,
-      });
+        ).toLocaleString("en-IN")}`
+      );
       return;
     }
 
@@ -1371,13 +1452,10 @@ export default function TransferPoint() {
         );
 
       if (!response?.success) {
-        setMessage({
-          type: "error",
-          text:
-            response?.message ||
-            "Failed to transfer points",
-        });
-
+        toast.error(
+          response?.message ||
+            "Failed to transfer points"
+        );
         return;
       }
 
@@ -1389,12 +1467,20 @@ export default function TransferPoint() {
           ? "Schema transferred successfully"
           : "Points transferred successfully");
 
+      const currentRole =
+        Number(getRoleId());
+
+      const previousFromRole =
+        selectedFromRole;
+
+      const previousSchemaRole =
+        selectedSchemaRole;
+
       resetAllFields();
 
-      setMessage({
-        type: "success",
-        text: successMessage,
-      });
+      toast.success(
+        successMessage
+      );
 
       if (
         typeof window !== "undefined"
@@ -1408,28 +1494,21 @@ export default function TransferPoint() {
 
       await loadKeySettings();
 
-      const currentRole =
-        Number(getRoleId());
-
       if (
         Number.isFinite(currentRole)
       ) {
         if (isRevert) {
-          if (selectedFromRole) {
+          if (previousFromRole) {
             await loadRevertUsers(
-              Number(
-                selectedFromRole
-              )
+              Number(previousFromRole)
             );
           }
         } else if (
           isSchemaTransfer
         ) {
-          if (selectedSchemaRole) {
+          if (previousSchemaRole) {
             await loadSchemaUsers(
-              Number(
-                selectedSchemaRole
-              )
+              Number(previousSchemaRole)
             );
           }
         } else {
@@ -1438,19 +1517,19 @@ export default function TransferPoint() {
           );
         }
       }
+
+      resetAllFields();
     } catch (error) {
       console.error(
         "TRANSFER WALLET POINTS ERROR:",
         error
       );
 
-      setMessage({
-        type: "error",
-        text:
-          error?.response?.data
-            ?.message ||
-          "Failed to transfer points",
-      });
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to transfer points"
+      );
     } finally {
       setTransferLoading(false);
     }
@@ -1461,18 +1540,19 @@ export default function TransferPoint() {
       <div className="rounded-xl bg-white p-6 shadow-sm">
         {isSchemaTransfer ? (
           <div className="mb-6">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Schema Transfer Point
+                  Device Type
                 </label>
 
                 <div className="relative">
-                  <select
-                    value={selectedKey || ""}
-                    onChange={(e) =>
-                      handleKeySelect(
-                        e.target.value
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSchemaKeyDropdownOpen(
+                        (previous) =>
+                          !previous
                       )
                     }
                     disabled={
@@ -1480,28 +1560,95 @@ export default function TransferPoint() {
                       transferLoading ||
                       keySettings.length === 0
                     }
-                    className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-4 py-3 pr-10 text-sm font-semibold text-gray-700 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
+                    className="flex h-[46px] w-full cursor-pointer items-center justify-between rounded-lg border border-gray-300 bg-white px-4 text-left text-sm font-medium text-gray-700 shadow-sm transition-all hover:border-blue-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
                   >
-                    <option value="">
-                      Select Key Setting
-                    </option>
+                    <span
+                      className={
+                        selectedKey
+                          ? "truncate text-gray-700"
+                          : "truncate text-gray-400"
+                      }
+                    >
+                      {selectedKey
+                        ? keySettings.find(
+                            (item) =>
+                              String(
+                                item?.id
+                              ) ===
+                              String(
+                                selectedKey
+                              )
+                          )?.name ||
+                          "Select Key Setting"
+                        : "Select Key Setting"}
+                    </span>
 
-                    {keySettings.map(
-                      (item) => (
-                        <option
-                          key={item?.id}
-                          value={item?.id}
-                        >
-                          {item?.name}
-                        </option>
-                      )
-                    )}
-                  </select>
+                    <IoMdArrowDropdown
+                      size={21}
+                      className={`shrink-0 text-gray-500 transition-transform duration-200 ${
+                        schemaKeyDropdownOpen
+                          ? "rotate-180"
+                          : ""
+                      }`}
+                    />
+                  </button>
 
-                  <IoMdArrowDropdown
-                    size={22}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                  />
+                  {schemaKeyDropdownOpen && (
+                    <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
+                      <div className="max-h-60 overflow-y-auto p-1">
+                        {keySettings.length > 0 ? (
+                          keySettings.map(
+                            (item) => {
+                              const selected =
+                                String(
+                                  selectedKey
+                                ) ===
+                                String(
+                                  item?.id
+                                );
+
+                              return (
+                                <button
+                                  key={
+                                    item?.id
+                                  }
+                                  type="button"
+                                  onClick={() => {
+                                    handleKeySelect(
+                                      item?.id
+                                    );
+
+                                    setSchemaKeyDropdownOpen(
+                                      false
+                                    );
+                                  }}
+                                  className={`flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm transition ${
+                                    selected
+                                      ? "bg-blue-50 font-semibold text-blue-600"
+                                      : "text-gray-700 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  <span>
+                                    {item?.name}
+                                  </span>
+
+                                  {selected && (
+                                    <span className="font-bold text-blue-600">
+                                      ✓
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            }
+                          )
+                        ) : (
+                          <div className="px-3 py-3 text-sm text-gray-400">
+                            No key settings available
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1514,7 +1661,29 @@ export default function TransferPoint() {
                   type="number"
                   value={walletBalance}
                   readOnly
-                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none"
+                  className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Transfer Point
+                </label>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={transferPoint}
+                  onChange={
+                    handleTransferPointChange
+                  }
+                  disabled={
+                    transferLoading ||
+                    !selectedKey
+                  }
+                  placeholder="Enter points"
+                  className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
                 />
               </div>
             </div>
@@ -1531,441 +1700,342 @@ export default function TransferPoint() {
               <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
                 Loading key settings...
               </div>
-            ) : keySettings.length ===
-              0 ? (
+            ) : keySettings.length === 0 ? (
               <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
                 No active key settings found.
               </div>
             ) : (
               <div className="flex flex-wrap gap-3">
-                {keySettings.map(
-                  (item) => {
-                    const selected =
-                      Number(
-                        selectedKey
-                      ) ===
-                      Number(
-                        item?.id
-                      );
+                {keySettings.map((item) => {
+                  const selected =
+                    Number(selectedKey) ===
+                    Number(item?.id);
 
-                    return (
-                      <button
-                        key={item?.id}
-                        type="button"
-                        onClick={() =>
-                          handleKeySelect(
-                            item?.id
-                          )
-                        }
-                        disabled={
-                          transferLoading
-                        }
-                        className={`rounded-lg border px-4 py-3 text-left transition disabled:cursor-not-allowed ${
-                          selected
-                            ? "border-blue-500 bg-blue-500 text-white shadow-md"
-                            : "border-gray-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-semibold">
-                            {item?.name ||
-                              "Unnamed Key"}
-                          </span>
+                  return (
+                    <button
+                      key={item?.id}
+                      type="button"
+                      onClick={() =>
+                        handleKeySelect(
+                          item?.id
+                        )
+                      }
+                      disabled={
+                        transferLoading
+                      }
+                      className={`cursor-pointer rounded-lg border px-4 py-3 text-left transition disabled:cursor-not-allowed ${
+                        selected
+                          ? "border-blue-500 bg-blue-500 text-white shadow-md"
+                          : "border-gray-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold">
+                          {item?.name ||
+                            "Unnamed Key"}
+                        </span>
 
-                          <span
-                            className={`rounded-md px-2 py-1 text-xs font-bold ${
-                              selected
-                                ? "bg-white/20 text-white"
-                                : "bg-blue-50 text-blue-600"
-                            }`}
-                          >
-                            {Number(
-                              item?.balance ||
-                                0
-                            ).toLocaleString(
-                              "en-IN"
-                            )}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  }
-                )}
+                        <span
+                          className={`rounded-md px-2 py-1 text-xs font-bold ${
+                            selected
+                              ? "bg-white/20 text-white"
+                              : "bg-blue-50 text-blue-600"
+                          }`}
+                        >
+                          {Number(
+                            item?.balance || 0
+                          ).toLocaleString(
+                            "en-IN"
+                          )}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         )}
 
-        <div className="border-t border-gray-200 pt-6">
-          {isRevert ? (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  From Role
-                </label>
+        {isRevert ? (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                From Role
+              </label>
 
-                <RoleDropdown
-                  value={
-                    selectedFromRole
-                  }
-                  roles={roles}
-                  open={
-                    fromRoleDropdownOpen
-                  }
-                  setOpen={
-                    setFromRoleDropdownOpen
-                  }
-                  loading={
-                    loadingRoles
-                  }
-                  disabled={
-                    loadingRoles ||
-                    transferLoading ||
-                    roles.length === 0
-                  }
-                  placeholder="Select Role"
-                  onSelect={
-                    handleFromRoleSelect
-                  }
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Select User
-                </label>
-
-                <UserDropdown
-                  value={
-                    selectedRevertUser
-                  }
-                  users={revertUsers}
-                  search={
-                    revertUserSearch
-                  }
-                  setSearch={
-                    setRevertUserSearch
-                  }
-                  open={
-                    revertUserDropdownOpen
-                  }
-                  setOpen={
-                    setRevertUserDropdownOpen
-                  }
-                  loading={
-                    loadingRevertUsers
-                  }
-                  disabled={
-                    !selectedFromRole ||
-                    loadingRevertUsers ||
-                    transferLoading
-                  }
-                  placeholder={
-                    selectedFromRole
-                      ? `Select ${selectedFromRoleName}`
-                      : "Select Role First"
-                  }
-                  searchPlaceholder={`Search ${selectedFromRoleName}...`}
-                  onSelect={
-                    handleRevertUserSelect
-                  }
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Available Balance
-                </label>
-
-                <input
-                  type="number"
-                  value={
-                    availableBalance
-                  }
-                  readOnly
-                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Revert Point
-                </label>
-
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={
-                    transferPoint
-                  }
-                  onChange={
-                    handleTransferPointChange
-                  }
-                  disabled={
-                    transferLoading ||
-                    !selectedRevertUser
-                  }
-                  placeholder="Enter points"
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
-                />
-              </div>
+              <RoleDropdown
+                value={selectedFromRole}
+                roles={availableRoleOptions}
+                open={fromRoleDropdownOpen}
+                setOpen={
+                  setFromRoleDropdownOpen
+                }
+                loading={loadingRoles}
+                disabled={
+                  loadingRoles ||
+                  transferLoading ||
+                  availableRoleOptions.length === 0
+                }
+                placeholder="Select Role"
+                onSelect={
+                  handleFromRoleSelect
+                }
+              />
             </div>
-          ) : isSchemaTransfer ? (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Transfer Point
-                </label>
 
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={
-                    transferPoint
-                  }
-                  onChange={
-                    handleTransferPointChange
-                  }
-                  disabled={
-                    transferLoading ||
-                    !selectedKey
-                  }
-                  placeholder="Enter points"
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
-                />
-              </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Select User
+              </label>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Role
-                </label>
-
-                <RoleDropdown
-                  value={
-                    selectedSchemaRole
-                  }
-                  roles={
-                    schemaRoleOptions
-                  }
-                  open={
-                    schemaRoleDropdownOpen
-                  }
-                  setOpen={
-                    setSchemaRoleDropdownOpen
-                  }
-                  loading={
-                    loadingRoles
-                  }
-                  disabled={
-                    !selectedKey ||
-                    loadingRoles ||
-                    transferLoading ||
-                    schemaRoleOptions.length === 0
-                  }
-                  placeholder="Select Role"
-                  onSelect={
-                    handleSchemaRoleSelect
-                  }
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Transfer To
-                </label>
-
-                <UserDropdown
-                  value={
-                    selectedSchemaUser
-                  }
-                  users={
-                    schemaUsers
-                  }
-                  search={
-                    schemaUserSearch
-                  }
-                  setSearch={
-                    setSchemaUserSearch
-                  }
-                  open={
-                    schemaUserDropdownOpen
-                  }
-                  setOpen={
-                    setSchemaUserDropdownOpen
-                  }
-                  loading={
-                    loadingSchemaUsers
-                  }
-                  disabled={
-                    !selectedSchemaRole ||
-                    loadingSchemaUsers ||
-                    transferLoading
-                  }
-                  placeholder={
-                    loadingSchemaUsers
-                      ? "Loading users..."
-                      : selectedSchemaRole
-                      ? `Select ${selectedSchemaRoleName}`
-                      : "Select Role First"
-                  }
-                  searchPlaceholder={
-                    selectedSchemaRoleName
-                      ? `Search ${selectedSchemaRoleName}...`
-                      : "Search user..."
-                  }
-                  onSelect={
-                    handleSchemaUserSelect
-                  }
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Available Balance
-                </label>
-
-                <input
-                  type="number"
-                  value={
-                    availableBalance
-                  }
-                  readOnly
-                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none"
-                />
-              </div>
+              <UserDropdown
+                value={selectedRevertUser}
+                users={revertUsers}
+                search={revertUserSearch}
+                setSearch={
+                  setRevertUserSearch
+                }
+                open={revertUserDropdownOpen}
+                setOpen={
+                  setRevertUserDropdownOpen
+                }
+                loading={loadingRevertUsers}
+                disabled={
+                  !selectedFromRole ||
+                  loadingRevertUsers ||
+                  transferLoading
+                }
+                placeholder={
+                  selectedFromRole
+                    ? `Select ${selectedFromRoleName}`
+                    : "Select Role First"
+                }
+                searchPlaceholder={`Search ${selectedFromRoleName}...`}
+                onSelect={
+                  handleRevertUserSelect
+                }
+              />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Transfer Point
-                </label>
 
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={
-                    transferPoint
-                  }
-                  onChange={
-                    handleTransferPointChange
-                  }
-                  disabled={
-                    transferLoading
-                  }
-                  placeholder="Enter amount"
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
-                />
-              </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Available Balance
+              </label>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Transfer To
-                </label>
-
-                <UserDropdown
-                  value={
-                    selectedTransferUser
-                  }
-                  users={
-                    transferUsers
-                  }
-                  search={
-                    transferUserSearch
-                  }
-                  setSearch={
-                    setTransferUserSearch
-                  }
-                  open={
-                    transferUserDropdownOpen
-                  }
-                  setOpen={
-                    setTransferUserDropdownOpen
-                  }
-                  loading={
-                    loadingTransferUsers
-                  }
-                  disabled={
-                    !nextRoleName ||
-                    loadingTransferUsers ||
-                    transferLoading
-                  }
-                  placeholder={
-                    nextRoleName
-                      ? `Select ${nextRoleName}`
-                      : "No user available"
-                  }
-                  searchPlaceholder={`Search ${nextRoleName}...`}
-                  onSelect={
-                    handleTransferUserSelect
-                  }
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Available Balance
-                </label>
-
-                <input
-                  type="number"
-                  value={
-                    availableBalance
-                  }
-                  readOnly
-                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none"
-                />
-              </div>
+              <input
+                type="number"
+                value={availableBalance}
+                readOnly
+                className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none"
+              />
             </div>
-          )}
 
-          {message.text && (
-            <div
-              className={`mt-4 rounded-lg px-4 py-3 text-sm font-medium ${
-                message.type ===
-                "success"
-                  ? "bg-green-50 text-green-700"
-                  : "bg-red-50 text-red-700"
-              }`}
-            >
-              {message.text}
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Revert Point
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={transferPoint}
+                onChange={
+                  handleTransferPointChange
+                }
+                disabled={
+                  transferLoading ||
+                  !selectedRevertUser
+                }
+                placeholder="Enter points"
+                className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
+              />
             </div>
-          )}
-
-          <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              onClick={
-                handleTransfer
-              }
-              disabled={
-                transferLoading ||
-                loading ||
-                !selectedKey ||
-                !transferPoint ||
-                (isRevert
-                  ? !selectedRevertUser
-                  : isSchemaTransfer
-                  ? !selectedSchemaRole ||
-                    !selectedSchemaUser
-                  : !selectedTransferUser)
-              }
-              className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
-            >
-              {transferLoading
-                ? isRevert
-                  ? "Reverting..."
-                  : "Transferring..."
-                : isRevert
-                ? "Revert Points"
-                : isSchemaTransfer
-                ? "Schema Transfer"
-                : "Transfer Points"}
-            </button>
           </div>
+        ) : isSchemaTransfer ? (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Role
+              </label>
+
+              <RoleDropdown
+                value={selectedSchemaRole}
+                roles={availableRoleOptions}
+                open={schemaRoleDropdownOpen}
+                setOpen={
+                  setSchemaRoleDropdownOpen
+                }
+                loading={loadingRoles}
+                disabled={
+                  !selectedKey ||
+                  loadingRoles ||
+                  transferLoading ||
+                  availableRoleOptions.length === 0
+                }
+                placeholder="Select Role"
+                onSelect={
+                  handleSchemaRoleSelect
+                }
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Transfer To
+              </label>
+
+              <UserDropdown
+                value={selectedSchemaUser}
+                users={schemaUsers}
+                search={schemaUserSearch}
+                setSearch={
+                  setSchemaUserSearch
+                }
+                open={schemaUserDropdownOpen}
+                setOpen={
+                  setSchemaUserDropdownOpen
+                }
+                loading={loadingSchemaUsers}
+                disabled={
+                  !selectedSchemaRole ||
+                  loadingSchemaUsers ||
+                  transferLoading
+                }
+                placeholder={
+                  loadingSchemaUsers
+                    ? "Loading users..."
+                    : selectedSchemaRole
+                    ? `Select ${selectedSchemaRoleName}`
+                    : "Select Role First"
+                }
+                searchPlaceholder={
+                  selectedSchemaRoleName
+                    ? `Search ${selectedSchemaRoleName}...`
+                    : "Search user..."
+                }
+                onSelect={
+                  handleSchemaUserSelect
+                }
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Available Balance
+              </label>
+
+              <input
+                type="number"
+                value={availableBalance}
+                readOnly
+                className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Transfer Point
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={transferPoint}
+                onChange={
+                  handleTransferPointChange
+                }
+                disabled={transferLoading}
+                placeholder="Enter amount"
+                className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Transfer To
+              </label>
+
+              <UserDropdown
+                value={selectedTransferUser}
+                users={transferUsers}
+                search={transferUserSearch}
+                setSearch={
+                  setTransferUserSearch
+                }
+                open={transferUserDropdownOpen}
+                setOpen={
+                  setTransferUserDropdownOpen
+                }
+                loading={loadingTransferUsers}
+                disabled={
+                  !nextRoleId ||
+                  loadingTransferUsers ||
+                  transferLoading
+                }
+                placeholder={
+                  nextRoleName
+                    ? `Select ${nextRoleName}`
+                    : "No user available"
+                }
+                searchPlaceholder={
+                  nextRoleName
+                    ? `Search ${nextRoleName}...`
+                    : "Search user..."
+                }
+                onSelect={
+                  handleTransferUserSelect
+                }
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Available Balance
+              </label>
+
+              <input
+                type="number"
+                value={availableBalance}
+                readOnly
+                className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={handleTransfer}
+            disabled={
+              transferLoading ||
+              loading ||
+              !selectedKey ||
+              !transferPoint ||
+              (isRevert
+                ? !selectedRevertUser
+                : isSchemaTransfer
+                ? !selectedSchemaRole ||
+                  !selectedSchemaUser
+                : !selectedTransferUser)
+            }
+            className="cursor-pointer rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+          >
+            {transferLoading
+              ? isRevert
+                ? "Reverting..."
+                : "Transferring..."
+              : isRevert
+              ? "Revert Points"
+              : isSchemaTransfer
+              ? "Schema Transfer"
+              : "Transfer Points"}
+          </button>
         </div>
       </div>
     </div>
