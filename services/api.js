@@ -290,6 +290,23 @@ export const getRoles = async () => {
   }
 };
 
+//update status active / inactive
+export const updateRoleStatus = async (id, status) => {
+  try {
+    const response = await api.patch(`/roles/${id}/status`, {
+      status,
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "UPDATE ROLE STATUS API ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
 
 //   GET PROFILES
 export const getProfiles = async () => {
@@ -312,7 +329,6 @@ export const createProfile = async (payload) => {
   const response = await api.post("/profiles", payload);
   return response.data;
 };
-
 
 //update profile
 export const updateProfile = async (id, payload) => {
@@ -409,13 +425,24 @@ export const updateKeySetting = async (id, data) => {
 export const transferWalletPoints = async (
   to_user_id,
   key_setting_id,
-  points_sent
+  points_sent,
+  transaction_type
 ) => {
-  const response = await api.post("/wallet/transfer", {
-    to_user_id: Number(to_user_id),
-    key_setting_id: Number(key_setting_id),
-    points_sent: Number(points_sent),
-  });
+  try {
+    const response = await api.post("/wallet/transfer", {
+      to_user_id: Number(to_user_id),
+      key_setting_id: Number(key_setting_id),
+      points_sent: Number(points_sent),
+      transaction_type: Number(transaction_type),
+    });
 
-  return response.data;
+    return response.data;
+  } catch (error) {
+    console.error(
+      "TRANSFER WALLET POINTS API ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
 };

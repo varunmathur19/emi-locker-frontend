@@ -35,7 +35,7 @@ const permissionOrder = {
   add: 2,
   edit: 3,
   delete: 4,
-  status: 4,
+  // status: 4,
   manage: 5,
 };
 

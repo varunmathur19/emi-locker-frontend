@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+
 import { IoMdArrowDropdown } from "react-icons/io";
 import { RiSearchLine } from "react-icons/ri";
 
 import {
   getKeySettings,
   getDropdownUsers,
+  getAllStaffData,
+  getRoles,
   transferWalletPoints,
 } from "@/services/api";
 
@@ -37,86 +41,559 @@ const nextRoleMap = {
   8: 9,
 };
 
-export default function TransferPoint() {
-  const [keySettings, setKeySettings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedKey, setSelectedKey] = useState(null);
+const TRANSACTION_TYPES = {
+  TRANSFER: 0,
+  SCHEMA_TRANSFER: 1,
+  REVERT: 2,
+};
 
-  const [roleId, setRoleId] = useState(null);
-  const [walletBalance, setWalletBalance] = useState(0);
-  const [transferPoint, setTransferPoint] = useState("");
-  const [availableBalance, setAvailableBalance] = useState(0);
+const getUserName = (user) =>
+  user?.name ||
+  user?.organization_name ||
+  user?.email ||
+  `User ${user?.id}`;
+
+const filterUsers = (users, search) => {
+  const value = search.trim().toLowerCase();
+
+  if (!value) {
+    return users;
+  }
+
+  return users.filter((user) => {
+    const name = String(user?.name || "").toLowerCase();
+    const organization = String(
+      user?.organization_name || ""
+    ).toLowerCase();
+    const email = String(user?.email || "").toLowerCase();
+    const phone = String(user?.phone || "").toLowerCase();
+
+    return (
+      name.includes(value) ||
+      organization.includes(value) ||
+      email.includes(value) ||
+      phone.includes(value)
+    );
+  });
+};
+
+const getUserKeyBalance = (user, key) => {
+  if (!user || !key) {
+    return 0;
+  }
+
+  let wallet = user?.wallet_balance;
+
+  if (
+    wallet === null ||
+    wallet === undefined ||
+    wallet === ""
+  ) {
+    return 0;
+  }
+
+  if (typeof wallet === "string") {
+    try {
+      wallet = JSON.parse(wallet);
+    } catch {
+      return 0;
+    }
+  }
+
+  const keyId = String(key?.id || "")
+    .trim()
+    .toLowerCase();
+
+  const keyName = String(key?.name || "")
+    .trim()
+    .toLowerCase();
+
+  if (Array.isArray(wallet)) {
+    const item = wallet.find((walletItem) => {
+      const itemId = String(
+        walletItem?.id ??
+          walletItem?.key_id ??
+          ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const itemName = String(
+        walletItem?.name ??
+          walletItem?.key_name ??
+          ""
+      )
+        .trim()
+        .toLowerCase();
+
+      return (
+        (keyId && itemId === keyId) ||
+        (keyName && itemName === keyName)
+      );
+    });
+
+    return Number(
+      item?.balance ??
+        item?.amount ??
+        0
+    );
+  }
+
+  if (
+    typeof wallet === "object" &&
+    wallet !== null
+  ) {
+    if (
+      key?.name &&
+      wallet[key.name] !== undefined
+    ) {
+      const value = wallet[key.name];
+
+      if (
+        typeof value === "object" &&
+        value !== null
+      ) {
+        return Number(
+          value?.balance ??
+            value?.amount ??
+            0
+        );
+      }
+
+      return Number(value || 0);
+    }
+
+    const matchedItem = Object.values(wallet).find(
+      (item) => {
+        if (
+          !item ||
+          typeof item !== "object"
+        ) {
+          return false;
+        }
+
+        const itemId = String(
+          item?.id ??
+            item?.key_id ??
+            ""
+        )
+          .trim()
+          .toLowerCase();
+
+        const itemName = String(
+          item?.name ??
+            item?.key_name ??
+            ""
+        )
+          .trim()
+          .toLowerCase();
+
+        return (
+          (keyId && itemId === keyId) ||
+          (keyName && itemName === keyName)
+        );
+      }
+    );
+
+    if (matchedItem) {
+      return Number(
+        matchedItem?.balance ??
+          matchedItem?.amount ??
+          0
+      );
+    }
+
+    const matchedKey = Object.keys(wallet).find(
+      (objectKey) =>
+        String(objectKey)
+          .trim()
+          .toLowerCase() === keyName
+    );
+
+    if (matchedKey) {
+      const value = wallet[matchedKey];
+
+      if (
+        typeof value === "object" &&
+        value !== null
+      ) {
+        return Number(
+          value?.balance ??
+            value?.amount ??
+            0
+        );
+      }
+
+      return Number(value || 0);
+    }
+  }
+
+  return 0;
+};
+
+function UserDropdown({
+  value,
+  users,
+  search,
+  setSearch,
+  open,
+  setOpen,
+  loading,
+  disabled,
+  placeholder,
+  searchPlaceholder,
+  onSelect,
+}) {
+  const filteredUsers = useMemo(
+    () => filterUsers(users, search),
+    [users, search]
+  );
+
+  const selectedUser = users.find(
+    (user) =>
+      Number(user?.id) === Number(value)
+  );
+
+  const selectedUserName =
+    getUserName(selectedUser);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() =>
+          setOpen((prev) => !prev)
+        }
+        disabled={disabled}
+        className="flex w-full cursor-pointer items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-700 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
+      >
+        <span className="truncate">
+          {loading
+            ? "Loading users..."
+            : value && selectedUser
+            ? selectedUserName
+            : placeholder}
+        </span>
+
+        <IoMdArrowDropdown
+          size={22}
+          className={`shrink-0 text-gray-500 transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
+          <div className="border-b border-gray-200 p-2">
+            <div className="relative">
+              <RiSearchLine
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+
+              <input
+                type="text"
+                value={search}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
+                placeholder={searchPlaceholder}
+                autoFocus
+                className="w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="max-h-60 overflow-y-auto">
+            {loading ? (
+              <div className="px-4 py-6 text-center text-sm text-gray-500">
+                Loading users...
+              </div>
+            ) : filteredUsers.length > 0 ? (
+              filteredUsers.map((user) => {
+                const isSelected =
+                  Number(value) ===
+                  Number(user?.id);
+
+                const userName =
+                  getUserName(user);
+
+                return (
+                  <button
+                    key={user?.id}
+                    type="button"
+                    onClick={() =>
+                      onSelect(user?.id)
+                    }
+                    className={`flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition ${
+                      isSelected
+                        ? "bg-blue-50"
+                        : "bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                        isSelected
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {String(userName)
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`truncate text-sm font-semibold ${
+                          isSelected
+                            ? "text-blue-600"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        {userName}
+                      </p>
+
+                      {user?.email && (
+                        <p className="truncate text-xs text-gray-400">
+                          {user.email}
+                        </p>
+                      )}
+                    </div>
+
+                    {isSelected && (
+                      <span className="text-sm font-bold text-blue-600">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-4 py-6 text-center text-sm text-gray-400">
+                No users found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function TransferPoint() {
+  const searchParams = useSearchParams();
+
+  const transactionTypeParam =
+    searchParams.get("transaction_type");
+
+  const transactionType =
+    transactionTypeParam === null
+      ? TRANSACTION_TYPES.TRANSFER
+      : Number(transactionTypeParam);
+
+  const isRevert =
+    transactionType ===
+    TRANSACTION_TYPES.REVERT;
+
+  const isSchemaTransfer =
+    transactionType ===
+    TRANSACTION_TYPES.SCHEMA_TRANSFER;
+
+  const [keySettings, setKeySettings] =
+    useState([]);
+
+  const [selectedKey, setSelectedKey] =
+    useState(null);
+
+  // Sender's own balance.
+  // Normal transfer validation uses this balance.
+  const [walletBalance, setWalletBalance] =
+    useState(0);
+
+  const [roleId, setRoleId] =
+    useState(null);
+
+  const [roles, setRoles] =
+    useState([]);
+
+  const [transferPoint, setTransferPoint] =
+    useState("");
+
+  // For normal transfer:
+  // selected Transfer To user's selected-key balance.
+  //
+  // For revert:
+  // selected revert user's selected-key balance.
+  const [availableBalance, setAvailableBalance] =
+    useState(0);
+
+  const [selectedFromRole, setSelectedFromRole] =
+    useState("");
 
   const [selectedTransferUser, setSelectedTransferUser] =
     useState("");
 
-  const [transferUsers, setTransferUsers] = useState([]);
-  const [loadingTransferUsers, setLoadingTransferUsers] =
-    useState(false);
+  const [selectedRevertUser, setSelectedRevertUser] =
+    useState("");
 
-  const [transferLoading, setTransferLoading] =
+  const [transferUsers, setTransferUsers] =
+    useState([]);
+
+  const [revertUsers, setRevertUsers] =
+    useState([]);
+
+  const [transferUserSearch, setTransferUserSearch] =
+    useState("");
+
+  const [revertUserSearch, setRevertUserSearch] =
+    useState("");
+
+  const [fromRoleDropdownOpen, setFromRoleDropdownOpen] =
     useState(false);
 
   const [transferUserDropdownOpen, setTransferUserDropdownOpen] =
     useState(false);
 
-  const [transferUserSearch, setTransferUserSearch] =
-    useState("");
+  const [revertUserDropdownOpen, setRevertUserDropdownOpen] =
+    useState(false);
 
-  const [message, setMessage] = useState({
-    type: "",
-    text: "",
-  });
+  const [loading, setLoading] =
+    useState(true);
 
-  // ============================
-  // LOAD KEY SETTINGS
-  // ============================
+  const [loadingRoles, setLoadingRoles] =
+    useState(false);
+
+  const [loadingTransferUsers, setLoadingTransferUsers] =
+    useState(false);
+
+  const [loadingRevertUsers, setLoadingRevertUsers] =
+    useState(false);
+
+  const [transferLoading, setTransferLoading] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState({
+      type: "",
+      text: "",
+    });
+
+  const selectedKeyData = useMemo(
+    () =>
+      keySettings.find(
+        (item) =>
+          Number(item?.id) ===
+          Number(selectedKey)
+      ),
+    [keySettings, selectedKey]
+  );
+
+  const selectedTransferUserData =
+    useMemo(
+      () =>
+        transferUsers.find(
+          (user) =>
+            Number(user?.id) ===
+            Number(selectedTransferUser)
+        ),
+      [
+        transferUsers,
+        selectedTransferUser,
+      ]
+    );
+
+  const selectedRevertUserData =
+    useMemo(
+      () =>
+        revertUsers.find(
+          (user) =>
+            Number(user?.id) ===
+            Number(selectedRevertUser)
+        ),
+      [
+        revertUsers,
+        selectedRevertUser,
+      ]
+    );
+
+  const selectedFromRoleData =
+    useMemo(
+      () =>
+        roles.find(
+          (role) =>
+            Number(role?.role_id) ===
+            Number(selectedFromRole)
+        ),
+      [roles, selectedFromRole]
+    );
+
+  const nextRoleId =
+    roleId !== null
+      ? nextRoleMap[roleId]
+      : null;
+
+  const nextRoleName =
+    roleNames[nextRoleId] || "";
+
+  const selectedFromRoleName =
+    selectedFromRoleData?.name ||
+    roleNames[
+      Number(selectedFromRole)
+    ] ||
+    "";
+
+  const transferPointName =
+    selectedKeyData?.name || "";
+
   const loadKeySettings = async () => {
     try {
-      const response = await getKeySettings();
+      setLoading(true);
+
+      const response =
+        await getKeySettings();
 
       if (
         response?.success &&
         Array.isArray(response?.data)
       ) {
-        const activeKeys = response.data.filter(
-          (item) => Number(item?.status) === 1
-        );
+        const activeKeys =
+          response.data.filter(
+            (item) =>
+              Number(item?.status) === 1
+          );
 
         setKeySettings(activeKeys);
 
         if (activeKeys.length > 0) {
-          setSelectedKey((previousSelectedKey) => {
-            const alreadySelected = activeKeys.find(
-              (item) =>
-                Number(item.id) ===
-                Number(previousSelectedKey)
-            );
-
-            if (alreadySelected) {
-              setWalletBalance(
-                Number(alreadySelected?.balance || 0)
+          setSelectedKey((previous) => {
+            const existing =
+              activeKeys.find(
+                (item) =>
+                  Number(item?.id) ===
+                  Number(previous)
               );
 
-              return previousSelectedKey;
-            }
-
-            const firstKey = activeKeys[0];
+            const key =
+              existing || activeKeys[0];
 
             setWalletBalance(
-              Number(firstKey?.balance || 0)
+              Number(key?.balance || 0)
             );
 
-            return firstKey.id;
+            return key.id;
           });
         } else {
           setSelectedKey(null);
           setWalletBalance(0);
+          setAvailableBalance(0);
         }
       } else {
         setKeySettings([]);
         setSelectedKey(null);
         setWalletBalance(0);
+        setAvailableBalance(0);
       }
     } catch (error) {
       console.error(
@@ -127,15 +604,67 @@ export default function TransferPoint() {
       setKeySettings([]);
       setSelectedKey(null);
       setWalletBalance(0);
+      setAvailableBalance(0);
     } finally {
       setLoading(false);
     }
   };
 
-
-  const loadTransferUsers = async (currentRoleId) => {
+  const loadRoles = async () => {
     try {
-      const nextRoleId = nextRoleMap[currentRoleId];
+      setLoadingRoles(true);
+
+      const response =
+        await getRoles();
+
+      if (
+        response?.success &&
+        Array.isArray(response?.data)
+      ) {
+        const activeRoles =
+          response.data
+            .filter(
+              (role) =>
+                Number(
+                  role?.status ?? 1
+                ) === 1
+            )
+            .sort(
+              (a, b) =>
+                Number(
+                  a?.sequence ??
+                    a?.role_id ??
+                    0
+                ) -
+                Number(
+                  b?.sequence ??
+                    b?.role_id ??
+                    0
+                )
+            );
+
+        setRoles(activeRoles);
+      } else {
+        setRoles([]);
+      }
+    } catch (error) {
+      console.error(
+        "GET ROLES ERROR:",
+        error
+      );
+
+      setRoles([]);
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
+
+  const loadTransferUsers = async (
+    currentRoleId
+  ) => {
+    try {
+      const nextRoleId =
+        nextRoleMap[currentRoleId];
 
       if (
         nextRoleId === undefined ||
@@ -146,7 +675,9 @@ export default function TransferPoint() {
       }
 
       const user = getUser();
-      const currentUserId = Number(user?.id);
+
+      const currentUserId =
+        Number(user?.id);
 
       if (!currentUserId) {
         setTransferUsers([]);
@@ -155,16 +686,19 @@ export default function TransferPoint() {
 
       setLoadingTransferUsers(true);
 
-      const response = await getDropdownUsers(
-        nextRoleId,
-        currentUserId
-      );
+      const response =
+        await getDropdownUsers(
+          nextRoleId,
+          currentUserId
+        );
 
       if (
         response?.success &&
         Array.isArray(response?.data)
       ) {
-        setTransferUsers(response.data);
+        setTransferUsers(
+          response.data
+        );
       } else {
         setTransferUsers([]);
       }
@@ -180,108 +714,120 @@ export default function TransferPoint() {
     }
   };
 
+  const loadRevertUsers = async (
+    targetRoleId
+  ) => {
+    try {
+      const role =
+        Number(targetRoleId);
 
-  const getUserKeyBalance = (user, keyName) => {
-    if (!user || !keyName) {
-      return 0;
-    }
-
-    let userWallet = user.wallet_balance || [];
-
-    if (typeof userWallet === "string") {
-      try {
-        userWallet = JSON.parse(userWallet);
-      } catch (error) {
-        userWallet = [];
+      if (!Number.isFinite(role)) {
+        setRevertUsers([]);
+        return;
       }
+
+      setLoadingRevertUsers(true);
+      setRevertUsers([]);
+
+      const response =
+        await getAllStaffData(
+          1,
+          1000,
+          role,
+          "",
+          ""
+        );
+
+      if (
+        response?.success &&
+        Array.isArray(response?.data)
+      ) {
+        setRevertUsers(
+          response.data
+        );
+      } else {
+        setRevertUsers([]);
+      }
+    } catch (error) {
+      console.error(
+        "GET REVERT USERS ERROR:",
+        error
+      );
+
+      setRevertUsers([]);
+    } finally {
+      setLoadingRevertUsers(false);
     }
-
-    if (!Array.isArray(userWallet)) {
-      return 0;
-    }
-
-    const walletItem = userWallet.find(
-      (item) =>
-        String(item?.name || "")
-          .trim()
-          .toLowerCase() ===
-        String(keyName || "")
-          .trim()
-          .toLowerCase()
-    );
-
-    return Number(walletItem?.balance || 0);
   };
 
- 
   useEffect(() => {
     const loadData = async () => {
       await loadKeySettings();
+      await loadRoles();
 
-      const currentRole = Number(getRoleId());
+      const currentRole =
+        Number(getRoleId());
 
-      if (Number.isFinite(currentRole)) {
-        setRoleId(currentRole);
-        await loadTransferUsers(currentRole);
+      if (!Number.isFinite(currentRole)) {
+        return;
+      }
+
+      setRoleId(currentRole);
+
+      if (!isRevert) {
+        await loadTransferUsers(
+          currentRole
+        );
       }
     };
 
     loadData();
-  }, []);
+  }, [transactionType]);
 
-  const selectedKeyData = keySettings.find(
-    (item) =>
-      Number(item.id) === Number(selectedKey)
-  );
+  /*
+   * IMPORTANT:
+   *
+   * Normal Transfer:
+   *   Available Balance = selected Transfer To user's
+   *   selected key balance.
+   *
+   * Revert:
+   *   Available Balance = selected revert user's
+   *   selected key balance.
+   *
+   * If no user or key is selected:
+   *   Available Balance = 0
+   */
+  useEffect(() => {
+    const selectedUser = isRevert
+      ? selectedRevertUserData
+      : selectedTransferUserData;
 
-
-  const filteredTransferUsers = useMemo(() => {
-    const search = transferUserSearch
-      .trim()
-      .toLowerCase();
-
-    if (!search) {
-      return transferUsers;
+    if (
+      !selectedUser ||
+      !selectedKeyData
+    ) {
+      setAvailableBalance(0);
+      return;
     }
 
-    return transferUsers.filter((user) => {
-      const name = String(
-        user?.name || ""
-      ).toLowerCase();
-
-      const organizationName = String(
-        user?.organization_name || ""
-      ).toLowerCase();
-
-      const email = String(
-        user?.email || ""
-      ).toLowerCase();
-
-      const phone = String(
-        user?.phone || ""
-      ).toLowerCase();
-
-      return (
-        name.includes(search) ||
-        organizationName.includes(search) ||
-        email.includes(search) ||
-        phone.includes(search)
+    const balance =
+      getUserKeyBalance(
+        selectedUser,
+        selectedKeyData
       );
-    });
-  }, [transferUsers, transferUserSearch]);
 
-  
-  const selectedTransferUserData = useMemo(() => {
-    return transferUsers.find(
-      (user) =>
-        Number(user?.id) ===
-        Number(selectedTransferUser)
+    setAvailableBalance(
+      Number.isFinite(balance)
+        ? balance
+        : 0
     );
   }, [
-    transferUsers,
-    selectedTransferUser,
+    isRevert,
+    selectedRevertUserData,
+    selectedTransferUserData,
+    selectedKeyData,
   ]);
-
 
   const handleKeySelect = (id) => {
     setSelectedKey(id);
@@ -292,78 +838,100 @@ export default function TransferPoint() {
       text: "",
     });
 
-    const selectedKeyItem = keySettings.find(
-      (item) =>
-        Number(item.id) === Number(id)
-    );
+    const key =
+      keySettings.find(
+        (item) =>
+          Number(item?.id) ===
+          Number(id)
+      );
 
+    // Sender's own balance.
     setWalletBalance(
-      Number(selectedKeyItem?.balance || 0)
+      Number(key?.balance || 0)
     );
 
-    if (
-      selectedTransferUser &&
-      selectedKeyItem
-    ) {
-      const selectedUser = transferUsers.find(
-        (user) =>
-          Number(user.id) ===
-          Number(selectedTransferUser)
-      );
-
-      const receiverBalance = getUserKeyBalance(
-        selectedUser,
-        selectedKeyItem.name
-      );
-
-      setAvailableBalance(receiverBalance);
-    } else {
-      setAvailableBalance(0);
-    }
+    // Reset temporarily.
+    // useEffect will calculate selected
+    // target user's balance for this key.
+    setAvailableBalance(0);
   };
 
+  const handleTransferUserSelect = (
+    userId
+  ) => {
+    setSelectedTransferUser(
+      String(userId)
+    );
 
-  const handleTransferUserChange = (userId) => {
-    setSelectedTransferUser(String(userId));
+    setTransferPoint("");
+    setTransferUserSearch("");
+    setTransferUserDropdownOpen(false);
 
     setMessage({
       type: "",
       text: "",
     });
 
-    if (!userId) {
-      setAvailableBalance(0);
+    // Immediately reset.
+    // The balance effect will calculate
+    // the selected target user's balance.
+    setAvailableBalance(0);
+  };
+
+  const handleFromRoleSelect = async (
+    role
+  ) => {
+    const targetRoleId =
+      Number(role?.role_id);
+
+    if (!Number.isFinite(targetRoleId)) {
       return;
     }
 
-    if (!selectedKeyData) {
-      setAvailableBalance(0);
-      return;
-    }
-
-    const selectedUser = transferUsers.find(
-      (user) =>
-        Number(user.id) === Number(userId)
+    setSelectedFromRole(
+      String(targetRoleId)
     );
 
-    const receiverBalance = getUserKeyBalance(
-      selectedUser,
-      selectedKeyData.name
+    setSelectedRevertUser("");
+    setRevertUsers([]);
+    setRevertUserSearch("");
+    setAvailableBalance(0);
+    setTransferPoint("");
+    setFromRoleDropdownOpen(false);
+
+    setMessage({
+      type: "",
+      text: "",
+    });
+
+    await loadRevertUsers(
+      targetRoleId
+    );
+  };
+
+  const handleRevertUserSelect = (
+    userId
+  ) => {
+    setSelectedRevertUser(
+      String(userId)
     );
 
-    setAvailableBalance(receiverBalance);
+    setRevertUserSearch("");
+    setRevertUserDropdownOpen(false);
+    setTransferPoint("");
+    setAvailableBalance(0);
+
+    setMessage({
+      type: "",
+      text: "",
+    });
   };
 
-
-  const handleTransferUserSelect = (userId) => {
-    handleTransferUserChange(userId);
-
-    setTransferUserDropdownOpen(false);
-    setTransferUserSearch("");
-  };
-
-  const handleTransferPointChange = (e) => {
-    const value = e.target.value;
+  const handleTransferPointChange = (
+    event
+  ) => {
+    const value =
+      event.target.value;
 
     if (
       value === "" ||
@@ -377,7 +945,6 @@ export default function TransferPoint() {
       });
     }
   };
-
 
   const handleTransfer = async () => {
     setMessage({
@@ -393,15 +960,34 @@ export default function TransferPoint() {
       return;
     }
 
-    if (!selectedTransferUser) {
-      setMessage({
-        type: "error",
-        text: "Please select a user",
-      });
-      return;
+    if (isRevert) {
+      if (!selectedFromRole) {
+        setMessage({
+          type: "error",
+          text: "Please select a role",
+        });
+        return;
+      }
+
+      if (!selectedRevertUser) {
+        setMessage({
+          type: "error",
+          text: "Please select a user",
+        });
+        return;
+      }
+    } else {
+      if (!selectedTransferUser) {
+        setMessage({
+          type: "error",
+          text: "Please select a user",
+        });
+        return;
+      }
     }
 
-    const points = Number(transferPoint);
+    const points =
+      Number(transferPoint);
 
     if (
       !Number.isFinite(points) ||
@@ -409,17 +995,32 @@ export default function TransferPoint() {
     ) {
       setMessage({
         type: "error",
-        text: "Please enter valid transfer points",
+        text: isRevert
+          ? "Please enter valid revert points"
+          : "Please enter valid transfer points",
       });
       return;
     }
 
-    if (points > walletBalance) {
+    /*
+     * IMPORTANT:
+     *
+     * Normal Transfer:
+     * Validate points against SENDER balance.
+     *
+     * Revert:
+     * Validate points against SELECTED USER balance.
+     */
+    const balance = isRevert
+      ? availableBalance
+      : walletBalance;
+
+    if (points > balance) {
       setMessage({
         type: "error",
-        text: `Insufficient wallet balance. Available balance is ${walletBalance.toLocaleString(
-          "en-IN"
-        )}`,
+        text: `Insufficient balance. Available balance is ${Number(
+          balance || 0
+        ).toLocaleString("en-IN")}`,
       });
       return;
     }
@@ -427,19 +1028,29 @@ export default function TransferPoint() {
     try {
       setTransferLoading(true);
 
-      const response = await transferWalletPoints(
-        selectedTransferUser,
-        selectedKey,
-        points
-      );
+      const targetUserId =
+        isRevert
+          ? selectedRevertUser
+          : selectedTransferUser;
+
+      const response =
+        await transferWalletPoints(
+          targetUserId,
+          selectedKey,
+          points,
+          transactionType
+        );
 
       if (!response?.success) {
         setMessage({
           type: "error",
           text:
             response?.message ||
-            "Failed to transfer points",
+            (isRevert
+              ? "Failed to revert points"
+              : "Failed to transfer points"),
         });
+
         return;
       }
 
@@ -447,31 +1058,80 @@ export default function TransferPoint() {
         type: "success",
         text:
           response?.message ||
-          "Points transferred successfully",
+          (isRevert
+            ? "Points reverted successfully"
+            : "Points transferred successfully"),
       });
 
       setTransferPoint("");
 
-      if (response?.data) {
-        setWalletBalance(
-          Number(
-            response.data.from_balance_after || 0
-          )
-        );
-
-        setAvailableBalance(
-          Number(
-            response.data.to_balance_after || 0
+      /*
+       * Notify Sidebar to refresh wallet balance.
+       */
+      if (
+        typeof window !== "undefined"
+      ) {
+        window.dispatchEvent(
+          new Event(
+            "wallet_balance_updated"
           )
         );
       }
 
+      /*
+       * Update balances from backend response
+       * immediately if available.
+       */
+      if (response?.data) {
+        if (
+          response.data
+            .from_balance_after !==
+          undefined
+        ) {
+          setWalletBalance(
+            Number(
+              response.data
+                .from_balance_after
+            )
+          );
+        }
+
+        if (
+          response.data
+            .to_balance_after !==
+          undefined
+        ) {
+          setAvailableBalance(
+            Number(
+              response.data
+                .to_balance_after
+            )
+          );
+        }
+      }
+
+      /*
+       * Refresh latest key settings.
+       */
       await loadKeySettings();
 
-      const currentRole = Number(getRoleId());
+      const currentRole =
+        Number(getRoleId());
 
-      if (Number.isFinite(currentRole)) {
-        await loadTransferUsers(currentRole);
+      if (
+        Number.isFinite(currentRole)
+      ) {
+        if (isRevert) {
+          if (selectedFromRole) {
+            await loadRevertUsers(
+              Number(selectedFromRole)
+            );
+          }
+        } else {
+          await loadTransferUsers(
+            currentRole
+          );
+        }
       }
     } catch (error) {
       console.error(
@@ -483,31 +1143,25 @@ export default function TransferPoint() {
         type: "error",
         text:
           error?.response?.data?.message ||
-          "Failed to transfer points",
+          (isRevert
+            ? "Failed to revert points"
+            : "Failed to transfer points"),
       });
     } finally {
       setTransferLoading(false);
     }
   };
 
-  const transferPointName =
-    selectedKeyData?.name || "";
-
-  const nextRoleId =
-    roleId !== null
-      ? nextRoleMap[roleId]
-      : null;
-
-  const nextRoleName =
-    roleNames[nextRoleId] || "";
-
   return (
     <div className="min-h-screen">
       <div className="rounded-xl bg-white p-6 shadow-sm">
-
         <div className="mb-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-800">
-            Key Settings
+            {isRevert
+              ? "Revert Point"
+              : isSchemaTransfer
+              ? "Schema Transfer Point"
+              : "Transfer Point"}
           </h2>
 
           {loading ? (
@@ -521,42 +1175,44 @@ export default function TransferPoint() {
           ) : (
             <div className="flex flex-wrap gap-3">
               {keySettings.map((item) => {
-                const isSelected =
+                const selected =
                   Number(selectedKey) ===
-                  Number(item.id);
-
-                const balance = Number(
-                  item.balance || 0
-                );
+                  Number(item?.id);
 
                 return (
                   <button
-                    type="button"
                     key={item.id}
+                    type="button"
                     onClick={() =>
-                      handleKeySelect(item.id)
+                      handleKeySelect(
+                        item.id
+                      )
                     }
-                    disabled={transferLoading}
-                    className={`cursor-pointer rounded-lg border px-4 py-3 text-left transition-all duration-200 disabled:cursor-not-allowed ${
-                      isSelected
+                    disabled={
+                      transferLoading
+                    }
+                    className={`cursor-pointer rounded-lg border px-4 py-3 text-left transition disabled:cursor-not-allowed ${
+                      selected
                         ? "border-blue-500 bg-blue-500 text-white shadow-md"
                         : "border-gray-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-semibold">
-                        {item.name ||
+                        {item?.name ||
                           "Unnamed Key"}
                       </span>
 
                       <span
                         className={`rounded-md px-2 py-1 text-xs font-bold ${
-                          isSelected
+                          selected
                             ? "bg-white/20 text-white"
                             : "bg-blue-50 text-blue-600"
                         }`}
                       >
-                        {balance.toLocaleString(
+                        {Number(
+                          item?.balance || 0
+                        ).toLocaleString(
                           "en-IN"
                         )}
                       </span>
@@ -568,62 +1224,245 @@ export default function TransferPoint() {
           )}
         </div>
 
-    
         <div className="border-t border-gray-200 pt-6">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+          {isRevert ? (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  From Role
+                </label>
 
-       
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                My Wallet Balance
-              </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFromRoleDropdownOpen(
+                        (prev) => !prev
+                      )
+                    }
+                    disabled={
+                      loadingRoles ||
+                      transferLoading ||
+                      roles.length === 0
+                    }
+                    className="flex w-full cursor-pointer items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
+                  >
+                    <span className="truncate">
+                      {loadingRoles
+                        ? "Loading roles..."
+                        : selectedFromRoleName ||
+                          "Select Role"}
+                    </span>
 
-              <input
-                type="number"
-                value={walletBalance}
-                readOnly
-                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none"
-              />
+                    <IoMdArrowDropdown
+                      size={22}
+                      className={`transition-transform ${
+                        fromRoleDropdownOpen
+                          ? "rotate-180"
+                          : ""
+                      }`}
+                    />
+                  </button>
+
+                  {fromRoleDropdownOpen && (
+                    <div className="absolute left-0 right-0 z-50 mt-2 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl">
+                      {roles.map((role) => {
+                        const roleValue =
+                          Number(
+                            role?.role_id
+                          );
+
+                        const roleName =
+                          role?.name ||
+                          roleNames[
+                            roleValue
+                          ] ||
+                          `Role ${roleValue}`;
+
+                        const selected =
+                          Number(
+                            selectedFromRole
+                          ) ===
+                          roleValue;
+
+                        return (
+                          <button
+                            key={
+                              role?.id ??
+                              role?.role_id
+                            }
+                            type="button"
+                            onClick={() =>
+                              handleFromRoleSelect(
+                                role
+                              )
+                            }
+                            className={`flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left text-sm font-semibold ${
+                              selected
+                                ? "bg-blue-50 text-blue-600"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            <span>
+                              {roleName}
+                            </span>
+
+                            {selected && (
+                              <span className="font-bold text-blue-600">
+                                ✓
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Select User
+                </label>
+
+                <UserDropdown
+                  value={
+                    selectedRevertUser
+                  }
+                  users={revertUsers}
+                  search={
+                    revertUserSearch
+                  }
+                  setSearch={
+                    setRevertUserSearch
+                  }
+                  open={
+                    revertUserDropdownOpen
+                  }
+                  setOpen={
+                    setRevertUserDropdownOpen
+                  }
+                  loading={
+                    loadingRevertUsers
+                  }
+                  disabled={
+                    !selectedFromRole ||
+                    loadingRevertUsers ||
+                    transferLoading ||
+                    revertUsers.length === 0
+                  }
+                  placeholder={
+                    selectedFromRole
+                      ? `Select ${selectedFromRoleName}`
+                      : "Select Role First"
+                  }
+                  searchPlaceholder={`Search ${selectedFromRoleName}...`}
+                  onSelect={
+                    handleRevertUserSelect
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Available Balance
+                </label>
+
+                <input
+                  type="number"
+                  value={
+                    availableBalance
+                  }
+                  readOnly
+                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Revert Point
+                </label>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={
+                    transferPoint
+                  }
+                  onChange={
+                    handleTransferPointChange
+                  }
+                  disabled={
+                    transferLoading ||
+                    !selectedRevertUser
+                  }
+                  placeholder={
+                    transferPointName
+                      ? `Enter ${transferPointName}`
+                      : "Enter points"
+                  }
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
+                />
+              </div>
             </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  {isSchemaTransfer
+                    ? "Schema Transfer Point"
+                    : "Transfer Point"}
+                </label>
 
-    
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Transfer Point
-              </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={
+                    transferPoint
+                  }
+                  onChange={
+                    handleTransferPointChange
+                  }
+                  disabled={
+                    transferLoading
+                  }
+                  placeholder={
+                    transferPointName
+                      ? `Enter ${transferPointName}`
+                      : "Enter amount"
+                  }
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
+                />
+              </div>
 
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={transferPoint}
-                onChange={
-                  handleTransferPointChange
-                }
-                disabled={transferLoading}
-                placeholder={
-                  transferPointName
-                    ? `Enter ${transferPointName}`
-                    : "Enter amount"
-                }
-                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
-              />
-            </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Transfer To
+                </label>
 
-        
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Transfer To
-              </label>
-
-              <div className="relative">
-                {/* SELECTED USER BUTTON */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setTransferUserDropdownOpen(
-                      (previous) => !previous
-                    )
+                <UserDropdown
+                  value={
+                    selectedTransferUser
+                  }
+                  users={
+                    transferUsers
+                  }
+                  search={
+                    transferUserSearch
+                  }
+                  setSearch={
+                    setTransferUserSearch
+                  }
+                  open={
+                    transferUserDropdownOpen
+                  }
+                  setOpen={
+                    setTransferUserDropdownOpen
+                  }
+                  loading={
+                    loadingTransferUsers
                   }
                   disabled={
                     !nextRoleName ||
@@ -631,158 +1470,48 @@ export default function TransferPoint() {
                     transferLoading ||
                     transferUsers.length === 0
                   }
-                  className="flex w-full cursor-pointer items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-700 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
-                >
-                  <span className="truncate">
-                    {loadingTransferUsers
-                      ? "Loading users..."
-                      : selectedTransferUserData
-                      ? selectedTransferUserData.name ||
-                        selectedTransferUserData.organization_name ||
-                        selectedTransferUserData.email ||
-                        `User ${selectedTransferUserData.id}`
-                      : nextRoleName
+                  placeholder={
+                    nextRoleName
                       ? `Select ${nextRoleName}`
-                      : "No user available"}
-                  </span>
+                      : "No user available"
+                  }
+                  searchPlaceholder={`Search ${nextRoleName}...`}
+                  onSelect={
+                    handleTransferUserSelect
+                  }
+                />
+              </div>
 
-                  <IoMdArrowDropdown
-                    size={22}
-                    className={`shrink-0 text-gray-500 transition-transform duration-200 ${
-                      transferUserDropdownOpen
-                        ? "rotate-180"
-                        : ""
-                    }`}
-                  />
-                </button>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Available Balance
+                </label>
 
-                {transferUserDropdownOpen && (
-                  <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
-
-                    <div className="border-b border-gray-200 p-2">
-                      <div className="relative">
-                        <RiSearchLine
-                          size={18}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                        />
-
-                        <input
-                          type="text"
-                          value={transferUserSearch}
-                          onChange={(e) =>
-                            setTransferUserSearch(
-                              e.target.value
-                            )
-                          }
-                          placeholder={`Search ${nextRoleName}...`}
-                          autoFocus
-                          className="w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm font-normal text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="max-h-60 overflow-y-auto">
-                      {filteredTransferUsers.length >
-                      0 ? (
-                        filteredTransferUsers.map(
-                          (user) => {
-                            const isSelected =
-                              Number(
-                                selectedTransferUser
-                              ) ===
-                              Number(user.id);
-
-                            return (
-                              <button
-                                key={user.id}
-                                type="button"
-                                onClick={() =>
-                                  handleTransferUserSelect(
-                                    user.id
-                                  )
-                                }
-                                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${
-                                  isSelected
-                                    ? "bg-blue-50"
-                                    : "bg-white hover:bg-gray-50 cursor-pointer"
-                                }`}
-                              >
-                                <div
-                                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                                    isSelected
-                                      ? "bg-blue-100 text-blue-600"
-                                      : "bg-gray-100 text-gray-600"
-                                  }`}
-                                >
-                                  {String(
-                                    user?.name ||
-                                      user?.organization_name ||
-                                      user?.email ||
-                                      "U"
-                                  )
-                                    .charAt(0)
-                                    .toUpperCase()}
-                                </div>
-
-                                <div className="min-w-0 flex-1">
-                                  <p
-                                    className={`truncate text-sm font-semibold ${
-                                      isSelected
-                                        ? "text-blue-600"
-                                        : "text-gray-700"
-                                    }`}
-                                  >
-                                    {user?.name ||
-                                      user?.organization_name ||
-                                      `User ${user.id}`}
-                                  </p>
-
-                                  {/* {user?.email && (
-                                    <p className="truncate text-xs font-normal text-gray-400">
-                                      {user.email}
-                                    </p>
-                                  )} */}
-                                </div>
-
-                                {isSelected && (
-                                  <span className="text-sm font-bold text-blue-600">
-                                    ✓
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          }
-                        )
-                      ) : (
-                        <div className="px-4 py-6 text-center text-sm text-gray-400">
-                          No {nextRoleName} found
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                {/* 
+                  Normal Transfer:
+                  This shows SELECTED TARGET USER's
+                  selected key balance.
+                  
+                  No target user selected:
+                  value = 0
+                */}
+                <input
+                  type="number"
+                  value={
+                    availableBalance
+                  }
+                  readOnly
+                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none"
+                />
               </div>
             </div>
-
-            {/* AVAILABLE BALANCE */}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Available Balance
-              </label>
-
-              <input
-                type="number"
-                value={availableBalance}
-                readOnly
-                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none"
-              />
-            </div>
-          </div>
+          )}
 
           {message.text && (
             <div
               className={`mt-4 rounded-lg px-4 py-3 text-sm font-medium ${
-                message.type === "success"
+                message.type ===
+                "success"
                   ? "bg-green-50 text-green-700"
                   : "bg-red-50 text-red-700"
               }`}
@@ -794,18 +1523,28 @@ export default function TransferPoint() {
           <div className="mt-6 flex justify-end">
             <button
               type="button"
-              onClick={handleTransfer}
+              onClick={
+                handleTransfer
+              }
               disabled={
                 transferLoading ||
                 loading ||
                 !selectedKey ||
-                !selectedTransferUser ||
-                !transferPoint
+                !transferPoint ||
+                (isRevert
+                  ? !selectedRevertUser
+                  : !selectedTransferUser)
               }
               className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
             >
               {transferLoading
-                ? "Transferring..."
+                ? isRevert
+                  ? "Reverting..."
+                  : "Transferring..."
+                : isRevert
+                ? "Revert Points"
+                : isSchemaTransfer
+                ? "Schema Transfer"
                 : "Transfer Points"}
             </button>
           </div>
