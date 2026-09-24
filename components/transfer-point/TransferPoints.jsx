@@ -8,7 +8,6 @@ import { toast } from "react-toastify";
 
 import {
   getKeySettings,
-  getDropdownUsers,
   getAllStaffData,
   getRoles,
   transferWalletPoints,
@@ -698,44 +697,41 @@ export default function TransferPoint() {
       return null;
     }
 
-    if (Number(roleId) === 0) {
-      return 1;
-    }
+    const currentRole = Number(roleId);
 
-    const directNextRoleId =
-      nextRoleMap[Number(roleId)];
-
-    if (
-      directNextRoleId === undefined ||
-      directNextRoleId === null
-    ) {
+    if (!Number.isFinite(currentRole)) {
       return null;
     }
 
-    const activeNextRole = roles
-      .filter(
+    if (currentRole === 0) {
+      return 1;
+    }
+
+    let nextRole =
+      nextRoleMap[currentRole];
+
+    while (
+      nextRole !== undefined &&
+      nextRole !== null
+    ) {
+      const activeRole = roles.find(
         (role) =>
+          Number(role?.role_id) ===
+            Number(nextRole) &&
           Number(role?.status ?? 1) === 1
-      )
-      .filter(
-        (role) =>
-          Number(role?.role_id) >
-          Number(roleId)
-      )
-      .sort(
-        (a, b) =>
-          Number(a?.role_id) -
-          Number(b?.role_id)
-      )
-      .find(
-        (role) =>
-          Number(role?.role_id) >=
-          Number(directNextRoleId)
       );
 
-    return activeNextRole
-      ? Number(activeNextRole.role_id)
-      : null;
+      if (activeRole) {
+        return Number(
+          activeRole.role_id
+        );
+      }
+
+      nextRole =
+        nextRoleMap[nextRole];
+    }
+
+    return null;
   }, [roleId, roles]);
 
   const nextRoleName =
@@ -893,50 +889,39 @@ export default function TransferPoint() {
       if (currentRole === 0) {
         targetRoleId = 1;
       } else {
-        const directNextRoleId =
-          nextRoleMap[currentRole];
-
-        if (
-          directNextRoleId === undefined ||
-          directNextRoleId === null
-        ) {
-          setTransferUsers([]);
-          return;
-        }
-
         let nextRole =
-          Number(directNextRoleId);
-
-        let activeTargetRole = null;
+          nextRoleMap[currentRole];
 
         while (
           nextRole !== undefined &&
           nextRole !== null
         ) {
-          activeTargetRole =
+          const activeTargetRole =
             activeRoles.find(
               (role) =>
                 Number(role?.role_id) ===
-                Number(nextRole)
+                  Number(nextRole) &&
+                Number(role?.status ?? 1) === 1
             );
 
           if (activeTargetRole) {
+            targetRoleId = Number(
+              activeTargetRole.role_id
+            );
             break;
           }
 
           nextRole =
             nextRoleMap[nextRole];
         }
+      }
 
-        if (!activeTargetRole) {
-          setTransferUsers([]);
-          return;
-        }
-
-        targetRoleId =
-          Number(
-            activeTargetRole.role_id
-          );
+      if (
+        targetRoleId === undefined ||
+        targetRoleId === null
+      ) {
+        setTransferUsers([]);
+        return;
       }
 
       const user = getUser();
@@ -952,26 +937,45 @@ export default function TransferPoint() {
       setLoadingTransferUsers(true);
 
       const response =
-        await getDropdownUsers(
+        await getAllStaffData(
+          1,
+          1000,
           targetRoleId,
-          currentUserId
+          "",
+          ""
         );
+
+      let users = [];
 
       if (
         response?.success &&
         Array.isArray(response?.data)
       ) {
-        const users =
-          response.data.filter(
-            (user) =>
-              Number(user?.role_id) ===
-              Number(targetRoleId)
-          );
-
-        setTransferUsers(users);
-      } else {
-        setTransferUsers([]);
+        users = response.data;
+      } else if (
+        response?.success &&
+        Array.isArray(response?.data?.data)
+      ) {
+        users = response.data.data;
+      } else if (
+        response?.success &&
+        Array.isArray(response?.data?.users)
+      ) {
+        users = response.data.users;
       }
+
+      const filteredUsers =
+        users.filter(
+          (item) =>
+            Number(item?.role_id) ===
+            Number(targetRoleId) &&
+            Number(item?.id) !==
+              Number(currentUserId)
+        );
+
+      setTransferUsers(
+        filteredUsers
+      );
     } catch (error) {
       console.error(
         "GET TRANSFER USERS ERROR:",
@@ -1151,7 +1155,10 @@ export default function TransferPoint() {
       return;
     }
 
-    loadTransferUsers(roleId);
+    loadTransferUsers(
+      roleId,
+      roles
+    );
   }, [
     roleId,
     roles,
@@ -1513,7 +1520,8 @@ export default function TransferPoint() {
           }
         } else {
           await loadTransferUsers(
-            currentRole
+            currentRole,
+            roles
           );
         }
       }
@@ -2024,7 +2032,7 @@ export default function TransferPoint() {
                   !selectedSchemaUser
                 : !selectedTransferUser)
             }
-            className="cursor-pointer rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+            className="cursor-pointer rounded-lg bg-blue-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-gray-400"
           >
             {transferLoading
               ? isRevert

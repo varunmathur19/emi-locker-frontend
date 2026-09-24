@@ -1048,37 +1048,43 @@ export default function Sidebar({
       ));
   };
 
-  const renderModuleLinks = () => {
-    return modules
-      .filter((moduleItem) => {
-        const slug = String(
-          moduleItem?.slug || ""
-        )
-          .trim()
-          .toLowerCase();
+ const renderModuleLinks = () => {
+  return modules
+    .filter((moduleItem) => {
+      const slug = String(
+        moduleItem?.slug || ""
+      )
+        .trim()
+        .toLowerCase();
 
-        if (
-          slug === "key-settings" &&
-          Number(roleId) !== 0
-        ) {
-          return false;
+      if (
+        slug === "schema-transfer-point" &&
+        Number(roleId) === 0
+      ) {
+        return false;
+      }
+
+      if (
+        slug === "key-settings" &&
+        Number(roleId) !== 0
+      ) {
+        return false;
+      }
+
+      return hasModulePermission(
+        moduleItem
+      );
+    })
+    .map((moduleItem, index) => (
+      <ModuleLink
+        key={
+          moduleItem?.id ||
+          `${moduleItem?.slug}-${index}`
         }
-
-        return hasModulePermission(
-          moduleItem
-        );
-      })
-      .map((moduleItem, index) => (
-        <ModuleLink
-          key={
-            moduleItem?.id ||
-            `${moduleItem?.slug}-${index}`
-          }
-          moduleItem={moduleItem}
-        />
-      ));
-  };
-
+        moduleItem={moduleItem}
+      />
+    ));
+};
   if (roleId === null) {
     return (
       <aside
