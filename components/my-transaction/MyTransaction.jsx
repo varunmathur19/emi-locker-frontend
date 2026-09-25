@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,17 +9,22 @@ import {
     RiCloseLine,
     RiExchangeLine,
     RiEyeLine,
+    RiFileList3Line,
+    RiInformationLine,
+    RiTimeLine,
+    RiUser3Line,
+    RiWallet3Line,
 } from "react-icons/ri";
+
+
+import { FaArrowRightLong } from "react-icons/fa6";
 
 import { getWalletTransactions } from "@/services/api";
 
 export default function MyTransaction() {
     const [transactions, setTransactions] = useState([]);
-
     const [loading, setLoading] = useState(true);
-
-    const [selectedTransaction, setSelectedTransaction] =
-        useState(null);
+    const [selectedTransaction, setSelectedTransaction] = useState(null);
 
     const [pagination, setPagination] = useState({
         page: 1,
@@ -42,40 +46,24 @@ export default function MyTransaction() {
                 setTransactions([]);
 
                 toast.error(
-                    response?.message ||
-                        "Failed to fetch transactions"
+                    response?.message || "Failed to fetch transactions"
                 );
 
                 return;
             }
 
             setTransactions(
-                Array.isArray(response?.data)
-                    ? response.data
-                    : []
+                Array.isArray(response?.data) ? response.data : []
             );
 
-            const backendPagination =
-                response?.pagination || {};
+            const backendPagination = response?.pagination || {};
 
             setPagination((prev) => ({
                 ...prev,
-
-                page:
-                    Number(
-                        backendPagination?.page
-                    ) || 1,
-
+                page: Number(backendPagination?.page) || 1,
                 limit:
-                    Number(
-                        backendPagination?.limit
-                    ) || prev.limit,
-
-                total:
-                    Number(
-                        backendPagination?.total
-                    ) || 0,
-
+                    Number(backendPagination?.limit) || prev.limit,
+                total: Number(backendPagination?.total) || 0,
                 totalPages:
                     Number(
                         backendPagination?.totalPages ??
@@ -83,10 +71,7 @@ export default function MyTransaction() {
                     ) || 0,
             }));
         } catch (error) {
-            console.error(
-                "GET TRANSACTIONS ERROR:",
-                error
-            );
+            console.error("GET TRANSACTIONS ERROR:", error);
 
             setTransactions([]);
 
@@ -105,14 +90,24 @@ export default function MyTransaction() {
     }, [pagination.page]);
 
     useEffect(() => {
-        if (selectedTransaction) {
-            document.body.style.overflow = "hidden";
-        } else {
+        if (!selectedTransaction) {
             document.body.style.overflow = "";
+            return;
         }
+
+        document.body.style.overflow = "hidden";
+
+        const handleEscape = (event) => {
+            if (event.key === "Escape") {
+                setSelectedTransaction(null);
+            }
+        };
+
+        document.addEventListener("keydown", handleEscape);
 
         return () => {
             document.body.style.overflow = "";
+            document.removeEventListener("keydown", handleEscape);
         };
     }, [selectedTransaction]);
 
@@ -120,10 +115,8 @@ export default function MyTransaction() {
         switch (Number(type)) {
             case 1:
                 return "Schema Transfer Point";
-
             case 2:
                 return "Revert Point";
-
             case 0:
             default:
                 return "Transfer Point";
@@ -133,28 +126,24 @@ export default function MyTransaction() {
     const getTransactionIcon = (type) => {
         switch (Number(type)) {
             case 1:
-                return <RiArrowDownLine size={22} />;
-
+                return <RiArrowDownLine size={20} />;
             case 2:
-                return <RiExchangeLine size={22} />;
-
+                return <RiExchangeLine size={20} />;
             case 0:
             default:
-                return <RiArrowUpLine size={22} />;
+                return <RiArrowUpLine size={20} />;
         }
     };
 
     const getTransactionIconClass = (type) => {
         switch (Number(type)) {
             case 1:
-                return "bg-green-100 text-green-600";
-
+                return "bg-green-50 text-green-600 border-green-100";
             case 2:
-                return "bg-orange-100 text-orange-600";
-
+                return "bg-orange-50 text-orange-600 border-orange-100";
             case 0:
             default:
-                return "bg-blue-100 text-blue-600";
+                return "bg-blue-50 text-blue-600 border-blue-100";
         }
     };
 
@@ -162,13 +151,23 @@ export default function MyTransaction() {
         switch (Number(type)) {
             case 1:
                 return "text-green-600";
-
             case 2:
                 return "text-orange-600";
-
             case 0:
             default:
                 return "text-blue-600";
+        }
+    };
+
+    const getTransactionBadgeClass = (type) => {
+        switch (Number(type)) {
+            case 1:
+                return "bg-green-50 text-green-600 border-green-100";
+            case 2:
+                return "bg-orange-50 text-orange-600 border-orange-100";
+            case 0:
+            default:
+                return "bg-blue-50 text-blue-600 border-blue-100";
         }
     };
 
@@ -205,6 +204,10 @@ export default function MyTransaction() {
         });
     };
 
+    const getUserDisplayName = (name, email, id) => {
+        return name || email || (id ? `User #${id}` : "-");
+    };
+
     const handlePrevious = () => {
         if (pagination.page <= 1) {
             return;
@@ -217,10 +220,7 @@ export default function MyTransaction() {
     };
 
     const handleNext = () => {
-        if (
-            pagination.page >=
-            pagination.totalPages
-        ) {
+        if (pagination.page >= pagination.totalPages) {
             return;
         }
 
@@ -243,9 +243,7 @@ export default function MyTransaction() {
     const startRecord =
         pagination.total === 0
             ? 0
-            : (pagination.page - 1) *
-                  pagination.limit +
-              1;
+            : (pagination.page - 1) * pagination.limit + 1;
 
     const endRecord = Math.min(
         pagination.page * pagination.limit,
@@ -254,61 +252,110 @@ export default function MyTransaction() {
 
     return (
         <>
-            <div className="w-full p-4">
-                {/* Header */}
-                <div className="mb-5">
-                    <h1 className="text-xl font-semibold text-gray-800">
-                        My Transactions
-                    </h1>
+            <div className="w-full p-4 sm:p-1">
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                                <RiFileList3Line size={20} />
+                            </div>
 
-                    <p className="mt-1 text-sm text-gray-500">
-                        View your wallet transaction history
-                    </p>
-                </div>
+                            <h1 className="text-xl font-semibold text-gray-800">
+                                My Transactions
+                            </h1>
+                        </div>
 
-                {/* Loading */}
-                {loading ? (
-                    <div className="flex min-h-[300px] items-center justify-center rounded-xl border border-gray-200 bg-white">
-                        <p className="text-sm text-gray-500">
-                            Loading transactions...
+                        <p className="mt-2 text-sm text-gray-500">
+                            Track your wallet transaction history and point
+                            transfers.
                         </p>
                     </div>
+
+                    {!loading && pagination.total > 0 && (
+                        <div className="flex w-fit items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                                <RiWallet3Line size={19} />
+                            </div>
+
+                            <div>
+                                <p className="text-xs text-gray-400">
+                                    Total Transactions
+                                </p>
+
+                                <p className="mt-0.5 text-base font-semibold text-gray-800">
+                                    {pagination.total.toLocaleString("en-IN")}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {loading ? (
+                    <div className="rounded-xl border border-gray-200 bg-white p-10 shadow-sm">
+                        <div className="flex flex-col items-center justify-center">
+                            <div className="h-9 w-9 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+
+                            <p className="mt-4 text-sm font-medium text-gray-600">
+                                Loading transactions...
+                            </p>
+
+                            <p className="mt-1 text-xs text-gray-400">
+                                Please wait while we fetch your transaction
+                                history.
+                            </p>
+                        </div>
+                    </div>
                 ) : transactions.length === 0 ? (
-                    /* Empty State */
-                    <div className="flex min-h-[300px] items-center justify-center rounded-xl border border-gray-200 bg-white">
-                        <p className="text-sm text-gray-500">
-                            No transactions found
-                        </p>
+                    <div className="rounded-xl border border-gray-200 bg-white px-5 py-14 shadow-sm">
+                        <div className="flex flex-col items-center justify-center text-center">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-500">
+                                <RiFileList3Line size={27} />
+                            </div>
+
+                            <h2 className="mt-4 text-base font-semibold text-gray-800">
+                                No Transactions Found
+                            </h2>
+
+                            <p className="mt-1 max-w-sm text-sm text-gray-500">
+                                There are no wallet transactions available to
+                                display at the moment.
+                            </p>
+                        </div>
                     </div>
                 ) : (
                     <>
-                        {/* Transaction List */}
-                        <div className="space-y-3">
-                            {transactions.map(
-                                (transaction) => {
-                                    const type = Number(
-                                        transaction?.transaction_type
-                                    );
+                        <div className="space-y-4">
+                            {transactions.map((transaction) => {
+                                const type = Number(
+                                    transaction?.transaction_type
+                                );
 
-                                    return (
-                                        <div
-                                            key={
-                                                transaction?.id
-                                            }
-                                            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md"
-                                        >
-                                            {/* Main Information */}
-                                            <div className="flex items-center justify-between gap-4">
-                                                {/* Left */}
+                                const fromUser = getUserDisplayName(
+                                    transaction?.from_user_name,
+                                    transaction?.from_user_email,
+                                    transaction?.from_user_id
+                                );
+
+                                const toUser = getUserDisplayName(
+                                    transaction?.to_user_name,
+                                    transaction?.to_user_email,
+                                    transaction?.to_user_id
+                                );
+
+                                return (
+                                    <div
+                                        key={transaction?.id}
+                                        className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:border-blue-200 hover:shadow-md"
+                                    >
+                                        <div className="p-2 sm:p-3">
+                                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                                 <div className="flex min-w-0 items-center gap-3">
                                                     <div
-                                                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${getTransactionIconClass(
+                                                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${getTransactionIconClass(
                                                             type
                                                         )}`}
                                                     >
-                                                        {getTransactionIcon(
-                                                            type
-                                                        )}
+                                                        {getTransactionIcon(type)}
                                                     </div>
 
                                                     <div className="min-w-0">
@@ -318,22 +365,25 @@ export default function MyTransaction() {
                                                                 `Key Setting #${transaction?.key_setting_id}`}
                                                         </h3>
 
-                                                        <p
-                                                            className={`mt-1 text-xs font-medium ${getTransactionTextClass(
+                                                        <span
+                                                            className={`mt-1.5 inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${getTransactionBadgeClass(
                                                                 type
                                                             )}`}
                                                         >
                                                             {getTransactionType(
                                                                 type
                                                             )}
-                                                        </p>
+                                                        </span>
                                                     </div>
                                                 </div>
 
-                                                {/* Points */}
-                                                <div className="shrink-0 text-right">
+                                                <div className="rounded-lg bg-gray-50 px-4 py-2.5 text-left sm:min-w-[125px] sm:text-right">
+                                                    <p className="text-[11px] text-gray-400">
+                                                        Points
+                                                    </p>
+
                                                     <p
-                                                        className={`text-base font-semibold ${getTransactionTextClass(
+                                                        className={`mt-0.5 text-base font-bold ${getTransactionTextClass(
                                                             type
                                                         )}`}
                                                     >
@@ -341,239 +391,224 @@ export default function MyTransaction() {
                                                             transaction?.points_sent
                                                         )}
                                                     </p>
-
-                                                    <p className="mt-1 text-xs text-gray-400">
-                                                        Points
-                                                    </p>
                                                 </div>
                                             </div>
 
-                                            {/* Main Details */}
-                                            <div className="mt-4 grid grid-cols-1 gap-3 border-t border-gray-100 pt-4 sm:grid-cols-3">
-                                                <div>
-                                                    <p className="text-xs text-gray-400">
-                                                        From
-                                                    </p>
+                                            <div className="grid grid-cols-1 gap-3 border-t border-gray-100 pt-2 md:grid-cols-3">
+                                                <div className="rounded-lg bg-gray-50 p-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <RiArrowUpLine
+                                                            size={15}
+                                                            className="text-gray-400"
+                                                        />
 
-                                                    <p className="mt-1 truncate text-sm font-medium text-gray-700">
-                                                        {transaction?.from_user_name ||
-                                                            transaction?.from_user_email ||
-                                                            `User #${transaction?.from_user_id}`}
-                                                    </p>
-                                                </div>
+                                                        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                                                            From
+                                                        </p>
+                                                    </div>
 
-                                                <div>
-                                                    <p className="text-xs text-gray-400">
-                                                        To
-                                                    </p>
-
-                                                    <p className="mt-1 truncate text-sm font-medium text-gray-700">
-                                                        {transaction?.to_user_name ||
-                                                            transaction?.to_user_email ||
-                                                            `User #${transaction?.to_user_id}`}
+                                                    <p className="mt-1.5 truncate text-sm font-medium text-gray-700">
+                                                        {fromUser}
                                                     </p>
                                                 </div>
 
-                                                <div>
-                                                    <p className="text-xs text-gray-400">
-                                                        Date
-                                                    </p>
+                                                <div className="rounded-lg bg-gray-50 p-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <RiArrowDownLine
+                                                            size={15}
+                                                            className="text-gray-400"
+                                                        />
 
-                                                    <p className="mt-1 text-sm font-medium text-gray-700">
+                                                        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                                                            To
+                                                        </p>
+                                                    </div>
+
+                                                    <p className="mt-1.5 truncate text-sm font-medium text-gray-700">
+                                                        {toUser}
+                                                    </p>
+                                                </div>
+
+                                                <div className="rounded-lg bg-gray-50 p-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <RiTimeLine
+                                                            size={15}
+                                                            className="text-gray-400"
+                                                        />
+
+                                                        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                                                            Date
+                                                        </p>
+                                                    </div>
+
+                                                    <p className="mt-1.5 text-sm font-medium text-gray-700">
                                                         {formatDate(
                                                             transaction?.created_at
                                                         )}
                                                     </p>
                                                 </div>
                                             </div>
-
-                                            {/* View Details */}
-                                            <div className="mt-4 flex justify-end border-t border-gray-100 pt-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setSelectedTransaction(
-                                                            transaction
-                                                        )
-                                                    }
-                                                    className="flex cursor-pointer items-center gap-2 rounded-sm bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-                                                >
-                                                    <RiEyeLine
-                                                        size={
-                                                            17
-                                                        }
-                                                    />
-
-                                                    View Details
-                                                </button>
-                                            </div>
                                         </div>
-                                    );
-                                }
-                            )}
+
+                                        <div className="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50/70 px-4 py-2 sm:px-5">
+                                            <p className="text-xs text-gray-400">
+                                                Transaction #{transaction?.id}
+                                            </p>
+
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setSelectedTransaction(
+                                                        transaction
+                                                    )
+                                                }
+                                                className="flex cursor-pointer items-center gap-2 rounded-sm border border-blue-600 bg-blue-600 px-3.5 py-2 text-xs font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                            >
+                                                <RiEyeLine size={16} />
+                                                View Details
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
 
-                        {/* Pagination */}
-                        {pagination.totalPages > 1 && (
-                            <div className="mt-6 flex flex-col items-center justify-center gap-3">
-                                {/* Record Count */}
-                                <p className="text-sm text-gray-500">
+                        <div className="mt-6 rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
+                            <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+                                <p className="text-xs text-gray-500">
                                     Showing{" "}
-                                    <span className="font-medium text-gray-700">
-                                        {
-                                            startRecord
-                                        }
+                                    <span className="font-semibold text-gray-700">
+                                        {startRecord}
                                     </span>{" "}
                                     to{" "}
-                                    <span className="font-medium text-gray-700">
+                                    <span className="font-semibold text-gray-700">
                                         {endRecord}
                                     </span>{" "}
                                     of{" "}
-                                    <span className="font-medium text-gray-700">
-                                        {
-                                            pagination.total
-                                        }
+                                    <span className="font-semibold text-gray-700">
+                                        {pagination.total}
                                     </span>{" "}
                                     transactions
                                 </p>
 
-                                {/* Pagination */}
                                 <div className="flex items-center gap-2">
-                                    {/* Previous */}
                                     <button
                                         type="button"
-                                        onClick={
-                                            handlePrevious
-                                        }
-                                        disabled={
+                                        onClick={handlePrevious}
+                                        disabled={isFirstPage}
+                                        className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-medium transition ${
                                             isFirstPage
-                                        }
-                                        className={`rounded-sm border px-4 py-2 text-sm font-medium transition ${
-                                            isFirstPage
-                                                ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                                                : "cursor-pointer border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
+                                                ? "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300"
+                                                : "border-gray-200 bg-white text-gray-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
                                         }`}
                                     >
-                                        Previous
+                                        <span>Previous</span>
                                     </button>
 
-                                    {/* Current Page */}
-                                    <div className="flex h-9 min-w-9 items-center justify-center rounded-sm bg-blue-600 px-3 text-sm font-semibold text-white">
-                                        {
-                                            pagination.page
-                                        }
+                                    <div className="flex h-9 min-w-9 items-center justify-center rounded-sm bg-blue-600 px-3 text-xs font-semibold text-white shadow-sm">
+                                        {pagination.page}
                                     </div>
 
-                                    {/* Next */}
                                     <button
                                         type="button"
-                                        onClick={
-                                            handleNext
-                                        }
-                                        disabled={
+                                        onClick={handleNext}
+                                        disabled={isLastPage}
+                                        className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-medium transition ${
                                             isLastPage
-                                        }
-                                        className={`rounded-sm border px-4 py-2 text-sm font-medium transition ${
-                                            isLastPage
-                                                ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                                                : "cursor-pointer border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
+                                                ? "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300"
+                                                : "border-gray-200 bg-white text-gray-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
                                         }`}
                                     >
-                                        Next
+                                        <span>Next</span>
                                     </button>
                                 </div>
                             </div>
-                        )}
+                        </div>
                     </>
                 )}
             </div>
 
-            {/* Transaction Details Modal */}
             {selectedTransaction && (
                 <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]"
                     onClick={closeModal}
                 >
                     <div
-                        className="w-full max-w-2xl rounded-xl bg-white shadow-xl"
-                        onClick={(event) =>
-                            event.stopPropagation()
-                        }
+                        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+                        onClick={(event) => event.stopPropagation()}
                     >
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-                            <div>
-                                <h2 className="text-lg font-semibold text-gray-800">
-                                    Transaction Details
-                                </h2>
+                        {(() => {
+                            const transaction = selectedTransaction;
 
-                                <p className="mt-1 text-xs text-gray-500">
-                                    Transaction #
-                                    {
-                                        selectedTransaction?.id
-                                    }
-                                </p>
-                            </div>
+                            const type = Number(
+                                transaction?.transaction_type
+                            );
 
-                            <button
-                                type="button"
-                                onClick={closeModal}
-                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
-                            >
-                                <RiCloseLine
-                                    size={22}
-                                />
-                            </button>
-                        </div>
+                            return (
+                                <>
+                                    <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                className={`flex h-10 w-10 items-center justify-center rounded-full border ${getTransactionIconClass(
+                                                    type
+                                                )}`}
+                                            >
+                                                {getTransactionIcon(type)}
+                                            </div>
 
-                        {/* Modal Body */}
-                        <div className="max-h-[75vh] overflow-y-auto p-5">
-                            {(() => {
-                                const transaction =
-                                    selectedTransaction;
+                                            <div>
+                                                <h2 className="text-base font-semibold text-gray-800">
+                                                    Transaction Details
+                                                </h2>
 
-                                const type = Number(
-                                    transaction?.transaction_type
-                                );
+                                                <p className="mt-0.5 text-xs text-gray-400">
+                                                    Transaction #
+                                                    {transaction?.id}
+                                                </p>
+                                            </div>
+                                        </div>
 
-                                return (
-                                    <>
-                                        {/* Transaction Summary */}
-                                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                            <div className="flex items-center justify-between gap-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div
-                                                        className={`flex h-11 w-11 items-center justify-center rounded-full ${getTransactionIconClass(
+                                        <button
+                                            type="button"
+                                            onClick={closeModal}
+                                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                                        >
+                                            <RiCloseLine size={22} />
+                                        </button>
+                                    </div>
+
+                                    <div className="overflow-y-auto p-5">
+                                        <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+                                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                                <div>
+                                                    <p className="text-xs text-gray-500">
+                                                        Key Setting
+                                                    </p>
+
+                                                    <p className="mt-1 text-sm font-semibold text-gray-800">
+                                                        {transaction?.key_setting_name ||
+                                                            transaction?.key_name ||
+                                                            `Key Setting #${transaction?.key_setting_id}`}
+                                                    </p>
+
+                                                    <span
+                                                        className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${getTransactionBadgeClass(
                                                             type
                                                         )}`}
                                                     >
-                                                        {getTransactionIcon(
+                                                        {getTransactionType(
                                                             type
                                                         )}
-                                                    </div>
-
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-gray-800">
-                                                            {transaction?.key_setting_name ||
-                                                                transaction?.key_name ||
-                                                                `Key Setting #${transaction?.key_setting_id}`}
-                                                        </p>
-
-                                                        <p
-                                                            className={`mt-1 text-xs font-medium ${getTransactionTextClass(
-                                                                type
-                                                            )}`}
-                                                        >
-                                                            {getTransactionType(
-                                                                type
-                                                            )}
-                                                        </p>
-                                                    </div>
+                                                    </span>
                                                 </div>
 
-                                                <div className="text-right">
+                                                <div className="rounded-lg bg-white px-4 py-3 text-left shadow-sm sm:min-w-[150px] sm:text-right">
+                                                    <p className="text-[11px] text-gray-400">
+                                                        Points
+                                                    </p>
+
                                                     <p
-                                                        className={`text-lg font-bold ${getTransactionTextClass(
+                                                        className={`mt-0.5 text-xl font-bold ${getTransactionTextClass(
                                                             type
                                                         )}`}
                                                     >
@@ -581,36 +616,35 @@ export default function MyTransaction() {
                                                             transaction?.points_sent
                                                         )}
                                                     </p>
-
-                                                    <p className="text-xs text-gray-400">
-                                                        Points
-                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* User Information */}
-                                        <div className="mt-4">
-                                            <h3 className="mb-3 text-sm font-semibold text-gray-800">
-                                                User Information
-                                            </h3>
+                                        <div className="mt-5">
+                                            <div className="mb-3 flex items-center gap-2">
+                                                <RiUser3Line
+                                                    size={17}
+                                                    className="text-blue-600"
+                                                />
+
+                                                <h3 className="text-sm font-semibold text-gray-800">
+                                                    User Information
+                                                </h3>
+                                            </div>
 
                                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                <div className="rounded-lg border border-gray-200 p-3">
-                                                    <p className="text-xs text-gray-400">
+                                                <div className="rounded-xl border border-gray-200 p-4">
+                                                    <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
                                                         From User
                                                     </p>
 
-                                                    <p className="mt-1 text-sm font-medium text-gray-700">
-                                                        {transaction?.from_user_name ||
-                                                            "-"}
+                                                    <p className="mt-2 text-sm font-semibold text-gray-700">
+                                                        {getUserDisplayName(
+                                                            transaction?.from_user_name,
+                                                            transaction?.from_user_email,
+                                                            transaction?.from_user_id
+                                                        )}
                                                     </p>
-
-                                                    {/* <p className="mt-1 text-xs text-gray-500">
-                                                        ID:{" "}
-                                                        {transaction?.from_user_id ??
-                                                            "-"}
-                                                    </p> */}
 
                                                     {transaction?.from_user_email && (
                                                         <p className="mt-1 truncate text-xs text-gray-500">
@@ -621,21 +655,18 @@ export default function MyTransaction() {
                                                     )}
                                                 </div>
 
-                                                <div className="rounded-lg border border-gray-200 p-3">
-                                                    <p className="text-xs text-gray-400">
+                                                <div className="rounded-xl border border-gray-200 p-4">
+                                                    <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
                                                         To User
                                                     </p>
 
-                                                    <p className="mt-1 text-sm font-medium text-gray-700">
-                                                        {transaction?.to_user_name ||
-                                                            "-"}
+                                                    <p className="mt-2 text-sm font-semibold text-gray-700">
+                                                        {getUserDisplayName(
+                                                            transaction?.to_user_name,
+                                                            transaction?.to_user_email,
+                                                            transaction?.to_user_id
+                                                        )}
                                                     </p>
-
-                                                    {/* <p className="mt-1 text-xs text-gray-500">
-                                                        ID:{" "}
-                                                        {transaction?.to_user_id ??
-                                                            "-"}
-                                                    </p> */}
 
                                                     {transaction?.to_user_email && (
                                                         <p className="mt-1 truncate text-xs text-gray-500">
@@ -648,92 +679,70 @@ export default function MyTransaction() {
                                             </div>
                                         </div>
 
-                                        {/* Transaction Information */}
                                         <div className="mt-5">
-                                            <h3 className="mb-3 text-sm font-semibold text-gray-800">
-                                                Transaction Information
-                                            </h3>
+                                            <div className="mb-3 flex items-center gap-2">
+                                                <RiInformationLine
+                                                    size={17}
+                                                    className="text-blue-600"
+                                                />
+
+                                                <h3 className="text-sm font-semibold text-gray-800">
+                                                    Transaction Information
+                                                </h3>
+                                            </div>
 
                                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                <div className="rounded-lg border border-gray-200 p-3">
-                                                    <p className="text-xs text-gray-400">
-                                                        Transaction ID
+                                                <DetailItem
+                                                    label="Transaction ID"
+                                                    value={transaction?.id}
+                                                />
+
+                                                <DetailItem
+                                                    label="Transaction Type"
+                                                    value={getTransactionType(
+                                                        type
+                                                    )}
+                                                    valueClass={getTransactionTextClass(
+                                                        type
+                                                    )}
+                                                />
+
+                                                <DetailItem
+                                                    label="Key Setting"
+                                                    value={
+                                                        transaction?.key_setting_name ||
+                                                        transaction?.key_name ||
+                                                        `Key Setting #${transaction?.key_setting_id}`
+                                                    }
+                                                />
+
+                                                <DetailItem
+                                                    label="Key Setting ID"
+                                                    value={
+                                                        transaction?.key_setting_id
+                                                    }
+                                                />
+
+                                                <DetailItem
+                                                    label="Points"
+                                                    value={formatPoints(
+                                                        transaction?.points_sent
+                                                    )}
+                                                />
+
+                                                <DetailItem
+                                                    label="Created By"
+                                                    value={
+                                                        transaction?.created_by
+                                                    }
+                                                />
+
+                                                <div className="rounded-xl border border-gray-200 p-4 sm:col-span-2">
+                                                    <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                                                        Transaction Date
                                                     </p>
 
-                                                    <p className="mt-1 text-sm font-medium text-gray-700">
-                                                        {transaction?.id ??
-                                                            "-"}
-                                                    </p>
-                                                </div>
-
-                                                <div className="rounded-lg border border-gray-200 p-3">
-                                                    <p className="text-xs text-gray-400">
-                                                        Transaction Type
-                                                    </p>
-
-                                                    <p
-                                                        className={`mt-1 text-sm font-medium ${getTransactionTextClass(
-                                                            type
-                                                        )}`}
-                                                    >
-                                                        {getTransactionType(
-                                                            type
-                                                        )}
-                                                    </p>
-                                                </div>
-
-                                                <div className="rounded-lg border border-gray-200 p-3">
-                                                    <p className="text-xs text-gray-400">
-                                                        Key Setting
-                                                    </p>
-
-                                                    <p className="mt-1 text-sm font-medium text-gray-700">
-                                                        {transaction?.key_setting_name ||
-                                                            transaction?.key_name ||
-                                                            `Key Setting #${transaction?.key_setting_id}`}
-                                                    </p>
-                                                </div>
-
-                                                <div className="rounded-lg border border-gray-200 p-3">
-                                                    <p className="text-xs text-gray-400">
-                                                        Key Setting ID
-                                                    </p>
-
-                                                    <p className="mt-1 text-sm font-medium text-gray-700">
-                                                        {transaction?.key_setting_id ??
-                                                            "-"}
-                                                    </p>
-                                                </div>
-
-                                                <div className="rounded-lg border border-gray-200 p-3">
-                                                    <p className="text-xs text-gray-400">
-                                                        Points
-                                                    </p>
-
-                                                    <p className="mt-1 text-sm font-semibold text-gray-700">
-                                                        {formatPoints(
-                                                            transaction?.points_sent
-                                                        )}
-                                                    </p>
-                                                </div>
-
-                                                <div className="rounded-lg border border-gray-200 p-3">
-                                                    <p className="text-xs text-gray-400">
-                                                        Created By
-                                                    </p>
-
-                                                    <p className="mt-1 text-sm font-medium text-gray-700">
-                                                        {transaction?.created_by ??
-                                                            "-"}
-                                                    </p>
-                                                </div>
-
-                                                <div className="rounded-lg border border-gray-200 p-3 sm:col-span-2">
-                                                    <p className="text-xs text-gray-400">
-                                                        Date
-                                                    </p>
-
-                                                    <p className="mt-1 text-sm font-medium text-gray-700">
+                                                    <p className="mt-2 text-sm font-semibold text-gray-700">
                                                         {formatDate(
                                                             transaction?.created_at
                                                         )}
@@ -742,106 +751,117 @@ export default function MyTransaction() {
                                             </div>
                                         </div>
 
-                                        {/* Balance Information */}
                                         <div className="mt-5">
-                                            <h3 className="mb-3 text-sm font-semibold text-gray-800">
-                                                Balance Information
-                                            </h3>
+                                            <div className="mb-3 flex items-center gap-2">
+                                                <RiWallet3Line
+                                                    size={17}
+                                                    className="text-blue-600"
+                                                />
+
+                                                <h3 className="text-sm font-semibold text-gray-800">
+                                                    Balance Information
+                                                </h3>
+                                            </div>
 
                                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                {/* From Balance */}
-                                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                                    <p className="text-xs font-medium text-gray-500">
-                                                        From Balance
-                                                    </p>
+                                                <BalanceCard
+                                                    title="From Balance"
+                                                    before={formatPoints(
+                                                        transaction?.from_balance_before
+                                                    )}
+                                                    after={formatPoints(
+                                                        transaction?.from_balance_after
+                                                    )}
+                                                />
 
-                                                    <div className="mt-3 flex items-center justify-between">
-                                                        <div>
-                                                            <p className="text-xs text-gray-400">
-                                                                Before
-                                                            </p>
-
-                                                            <p className="mt-1 text-sm font-semibold text-gray-700">
-                                                                {formatPoints(
-                                                                    transaction?.from_balance_before
-                                                                )}
-                                                            </p>
-                                                        </div>
-
-                                                        <span className="text-gray-400">
-                                                            →
-                                                        </span>
-
-                                                        <div className="text-right">
-                                                            <p className="text-xs text-gray-400">
-                                                                After
-                                                            </p>
-
-                                                            <p className="mt-1 text-sm font-semibold text-gray-700">
-                                                                {formatPoints(
-                                                                    transaction?.from_balance_after
-                                                                )}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* To Balance */}
-                                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                                    <p className="text-xs font-medium text-gray-500">
-                                                        To Balance
-                                                    </p>
-
-                                                    <div className="mt-3 flex items-center justify-between">
-                                                        <div>
-                                                            <p className="text-xs text-gray-400">
-                                                                Before
-                                                            </p>
-
-                                                            <p className="mt-1 text-sm font-semibold text-gray-700">
-                                                                {formatPoints(
-                                                                    transaction?.to_balance_before
-                                                                )}
-                                                            </p>
-                                                        </div>
-
-                                                        <span className="text-gray-400">
-                                                            →
-                                                        </span>
-
-                                                        <div className="text-right">
-                                                            <p className="text-xs text-gray-400">
-                                                                After
-                                                            </p>
-
-                                                            <p className="mt-1 text-sm font-semibold text-gray-700">
-                                                                {formatPoints(
-                                                                    transaction?.to_balance_after
-                                                                )}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <BalanceCard
+                                                    title="To Balance"
+                                                    before={formatPoints(
+                                                        transaction?.to_balance_before
+                                                    )}
+                                                    after={formatPoints(
+                                                        transaction?.to_balance_after
+                                                    )}
+                                                />
                                             </div>
                                         </div>
-                                    </>
-                                );
-                            })()}
-                        </div>
+                                    </div>
 
-                        {/* Modal Footer */}
-                        <div className="flex justify-end border-t border-gray-200 px-5 py-4">
-                            <button
-                                type="button"
-                                onClick={closeModal}
-                                className="cursor-pointer rounded-sm bg-blue-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-                            >
-                                Close
-                            </button>
-                        </div>
+                                    <div className="flex items-center justify-end border-t border-gray-200 bg-gray-50 px-5 py-3">
+                                        <button
+                                            type="button"
+                                            onClick={closeModal}
+                                            className="cursor-pointer rounded-sm bg-blue-600 px-5 py-2.5 text-xs font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
                 </div>
             )}
         </>
+    );
+}
+
+function DetailItem({
+    label,
+    value,
+    valueClass = "text-gray-700",
+}) {
+    return (
+        <div className="rounded-xl border border-gray-200 p-4">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                {label}
+            </p>
+
+            <p
+                className={`mt-2 text-sm font-semibold ${valueClass}`}
+            >
+                {value ?? "-"}
+            </p>
+        </div>
+    );
+}
+
+function BalanceCard({
+    title,
+    before,
+    after,
+}) {
+    return (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <p className="text-xs font-semibold text-gray-600">
+                {title}
+            </p>
+
+            <div className="mt-4 flex items-center justify-between gap-3">
+                <div>
+                    <p className="text-[11px] text-gray-400">
+                        Before
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-gray-700">
+                        {before}
+                    </p>
+                </div>
+
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-gray-400 shadow-sm">
+                    <FaArrowRightLong size={13} />
+                </div>
+
+                <div className="text-right">
+                    <p className="text-[11px] text-gray-400">
+                        After
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-gray-700">
+                        {after}
+                    </p>
+                </div>
+            </div>
+        </div>
     );
 }
