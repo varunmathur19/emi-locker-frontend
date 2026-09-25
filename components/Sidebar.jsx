@@ -1006,87 +1006,92 @@ export default function Sidebar({
   // =========================
   // MODULE LINK
   // =========================
-  const ModuleLink = ({
-    moduleItem,
-  }) => {
-    const slug = String(
-      moduleItem?.slug || ""
-    )
-      .trim()
-      .toLowerCase();
+const ModuleLink = ({ moduleItem }) => {
+  const slug = String(
+    moduleItem?.slug || ""
+  )
+    .trim()
+    .toLowerCase();
 
-    const label =
-      moduleItem?.name ||
-      slug ||
-      "Module";
+  const label =
+    moduleItem?.name ||
+    slug ||
+    "Module";
 
-    let href = `/dashboard?module=${encodeURIComponent(
-      slug
-    )}`;
+  let href = `/dashboard?module=${encodeURIComponent(
+    slug
+  )}`;
 
-    if (slug === "key-settings") {
-      href = "/dashboard/key-setting";
-    }
+  if (slug === "key-settings") {
+    href = "/dashboard/key-setting";
+  }
 
-    if (slug === "role-permission") {
-      href = "/dashboard/role-permission";
-    }
+  if (slug === "role-permission") {
+    href = "/dashboard/role-permission";
+  }
 
-    if (
-      pointTransactionSlugs.includes(
-        slug
-      )
-    ) {
-      const transactionType =
-        pointTransactionTypes[slug];
+  // My Transaction
+  if (slug === "transaction") {
+    href = "/dashboard/my-transaction";
+  }
 
-      href = `/dashboard/transfer-point?transaction_type=${transactionType}`;
-    }
+  if (slug === "my-transaction") {
+    href = "/dashboard/my-transaction";
+  }
 
-    const isActive =
-      isModuleLinkActive(moduleItem);
+  if (
+    pointTransactionSlugs.includes(slug)
+  ) {
+    const transactionType =
+      pointTransactionTypes[slug];
 
-    return (
-      <Link
-        href={href}
-        className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
+    href = `/dashboard/transfer-point?transaction_type=${transactionType}`;
+  }
+
+  const isActive =
+    isModuleLinkActive(moduleItem);
+
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
+        isActive
+          ? "bg-blue-400 text-black"
+          : "hover:bg-gray-700"
+      }`}
+    >
+      <span
+        className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
           isActive
-            ? "bg-blue-400 text-black"
-            : "hover:bg-gray-700"
+            ? "text-black"
+            : "text-white"
         }`}
       >
-        <span
-          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
-            isActive
-              ? "text-black"
-              : "text-white"
-          }`}
-        >
-          {getModuleIcon(moduleItem?.icon)}
+        {getModuleIcon(moduleItem?.icon)}
+      </span>
+
+      <span className="flex min-w-0 flex-1 items-center">
+        <span className="truncate">
+          {label}
         </span>
 
-        <span className="flex min-w-0 flex-1 items-center">
-          <span className="truncate">
-            {label}
+        {slug === "transfer-points" && (
+          <span
+            className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${
+              isActive
+                ? "border-red-600 bg-red-600 text-white"
+                : "border-red-500 bg-red-500 text-white"
+            }`}
+          >
+            {totalWalletBalance.toLocaleString(
+              "en-IN"
+            )}
           </span>
-
-          {slug === "transfer-points" && (
-            <span
-              className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${
-                isActive
-                  ? "border-red-600 bg-red-600 text-white"
-                  : "border-red-500 bg-red-500 text-white"
-              }`}
-            >
-              {totalWalletBalance.toLocaleString(
-                "en-IN"
-              )}
-            </span>
-          )}
-        </span>
-      </Link>
-    );
-  };
+        )}
+      </span>
+    </Link>
+  );
+};
 
   // =========================
   // ROLE LINKS

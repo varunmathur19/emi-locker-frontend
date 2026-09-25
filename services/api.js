@@ -421,7 +421,7 @@ export const updateKeySetting = async (id, data) => {
 };
 
 
-//transfer wallet point
+//post the transactione data
 export const transferWalletPoints = async (
   to_user_id,
   key_setting_id,
@@ -445,4 +445,59 @@ export const transferWalletPoints = async (
 
     throw error;
   }
+};
+
+//get the transaction data
+export const getWalletTransactions = async (params = {}) => {
+    try {
+        const queryParams = new URLSearchParams();
+
+        if (params.page) {
+            queryParams.append("page", params.page);
+        }
+
+        if (params.limit) {
+            queryParams.append("limit", params.limit);
+        }
+
+        if (
+            params.transaction_type !== undefined &&
+            params.transaction_type !== ""
+        ) {
+            queryParams.append(
+                "transaction_type",
+                params.transaction_type
+            );
+        }
+
+        if (
+            params.key_setting_id !== undefined &&
+            params.key_setting_id !== ""
+        ) {
+            queryParams.append(
+                "key_setting_id",
+                params.key_setting_id
+            );
+        }
+
+        const queryString =
+            queryParams.toString();
+
+        const response = await api.get(
+            `/transactions-histroy${
+                queryString
+                    ? `?${queryString}`
+                    : ""
+            }`
+        );
+
+        return response.data;
+    } catch (error) {
+        console.error(
+            "GET WALLET TRANSACTIONS ERROR:",
+            error
+        );
+
+        throw error;
+    }
 };
