@@ -128,6 +128,9 @@ export default function Sidebar({
       ? Number(activeRoleParam)
       : null;
 
+  // =========================
+  // REMOVE OLD PERMISSION KEYS
+  // =========================
   const removeInvalidPermissionKeys =
     useCallback(() => {
       if (typeof window === "undefined") {
@@ -140,6 +143,9 @@ export default function Sidebar({
       localStorage.removeItem("rolePermission");
     }, []);
 
+  // =========================
+  // LOAD STAFF PERMISSIONS
+  // =========================
   const loadStaffPermissions =
     useCallback(() => {
       if (typeof window === "undefined") {
@@ -214,6 +220,9 @@ export default function Sidebar({
       return null;
     }, []);
 
+  // =========================
+  // LOAD CURRENT USER
+  // =========================
   const loadCurrentUser =
     useCallback(() => {
       try {
@@ -262,6 +271,9 @@ export default function Sidebar({
       removeInvalidPermissionKeys,
     ]);
 
+  // =========================
+  // LOAD ROLES
+  // =========================
   const loadRoles = useCallback(async () => {
     try {
       const response = await getRoles();
@@ -295,6 +307,9 @@ export default function Sidebar({
     }
   }, []);
 
+  // =========================
+  // LOAD MODULES
+  // =========================
   const loadModules = useCallback(async () => {
     try {
       const response = await getModules();
@@ -328,6 +343,9 @@ export default function Sidebar({
     }
   }, []);
 
+  // =========================
+  // LOAD WALLET BALANCE
+  // =========================
   const loadWalletBalance =
     useCallback(async () => {
       try {
@@ -364,6 +382,9 @@ export default function Sidebar({
       }
     }, []);
 
+  // =========================
+  // INITIAL LOAD
+  // =========================
   useEffect(() => {
     removeInvalidPermissionKeys();
     loadRoles();
@@ -378,6 +399,9 @@ export default function Sidebar({
     loadWalletBalance,
   ]);
 
+  // =========================
+  // FOCUS / VISIBILITY REFRESH
+  // =========================
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -432,6 +456,9 @@ export default function Sidebar({
     loadWalletBalance,
   ]);
 
+  // =========================
+  // WALLET BALANCE UPDATE
+  // =========================
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -454,6 +481,52 @@ export default function Sidebar({
     };
   }, [loadWalletBalance]);
 
+  // =========================
+  // MODULE / ROLE UPDATE
+  // =========================
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    // Same tab event
+    const handleModulesUpdated = () => {
+      loadModules();
+    };
+
+    const handleRolesUpdated = () => {
+      loadRoles();
+    };
+
+    window.addEventListener(
+      "modules_updated",
+      handleModulesUpdated
+    );
+
+    window.addEventListener(
+      "roles_updated",
+      handleRolesUpdated
+    );
+
+    return () => {
+      window.removeEventListener(
+        "modules_updated",
+        handleModulesUpdated
+      );
+
+      window.removeEventListener(
+        "roles_updated",
+        handleRolesUpdated
+      );
+    };
+  }, [
+    loadModules,
+    loadRoles,
+  ]);
+
+  // =========================
+  // STORAGE EVENT
+  // =========================
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -505,6 +578,9 @@ export default function Sidebar({
     removeInvalidPermissionKeys,
   ]);
 
+  // =========================
+  // CLEAN INVALID PERMISSIONS
+  // =========================
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -527,6 +603,9 @@ export default function Sidebar({
     removeInvalidPermissionKeys,
   ]);
 
+  // =========================
+  // PERMISSION CHECK
+  // =========================
   const isPermissionEnabled =
     useCallback((value) => {
       if (
@@ -707,6 +786,9 @@ export default function Sidebar({
       ]
     );
 
+  // =========================
+  // MY LOGIN
+  // =========================
   const myLogin = () => {
     removeInvalidPermissionKeys();
 
@@ -725,6 +807,9 @@ export default function Sidebar({
     window.location.href = "/dashboard";
   };
 
+  // =========================
+  // LOGOUT
+  // =========================
   const logout = async () => {
     try {
       await logoutStaff();
@@ -749,6 +834,9 @@ export default function Sidebar({
     }
   };
 
+  // =========================
+  // ROLE ACTIVE
+  // =========================
   const isRoleLinkActive =
     useCallback(
       (roleItem) => {
@@ -782,6 +870,9 @@ export default function Sidebar({
       ]
     );
 
+  // =========================
+  // MODULE ACTIVE
+  // =========================
   const isModuleLinkActive =
     useCallback(
       (moduleItem) => {
@@ -862,6 +953,9 @@ export default function Sidebar({
       ]
     );
 
+  // =========================
+  // ROLE LINK
+  // =========================
   const RoleLink = ({ roleItem }) => {
     const roleSlug = String(
       roleItem?.slug || ""
@@ -909,6 +1003,9 @@ export default function Sidebar({
     );
   };
 
+  // =========================
+  // MODULE LINK
+  // =========================
   const ModuleLink = ({
     moduleItem,
   }) => {
@@ -991,6 +1088,9 @@ export default function Sidebar({
     );
   };
 
+  // =========================
+  // ROLE LINKS
+  // =========================
   const renderRoleLinks = () => {
     const currentRole = Number(roleId);
 
@@ -1048,43 +1148,50 @@ export default function Sidebar({
       ));
   };
 
- const renderModuleLinks = () => {
-  return modules
-    .filter((moduleItem) => {
-      const slug = String(
-        moduleItem?.slug || ""
-      )
-        .trim()
-        .toLowerCase();
+  // =========================
+  // MODULE LINKS
+  // =========================
+  const renderModuleLinks = () => {
+    return modules
+      .filter((moduleItem) => {
+        const slug = String(
+          moduleItem?.slug || ""
+        )
+          .trim()
+          .toLowerCase();
 
-      if (
-        slug === "schema-transfer-point" &&
-        Number(roleId) === 0
-      ) {
-        return false;
-      }
-
-      if (
-        slug === "key-settings" &&
-        Number(roleId) !== 0
-      ) {
-        return false;
-      }
-
-      return hasModulePermission(
-        moduleItem
-      );
-    })
-    .map((moduleItem, index) => (
-      <ModuleLink
-        key={
-          moduleItem?.id ||
-          `${moduleItem?.slug}-${index}`
+        if (
+          slug === "schema-transfer-point" &&
+          Number(roleId) === 0
+        ) {
+          return false;
         }
-        moduleItem={moduleItem}
-      />
-    ));
-};
+
+        if (
+          slug === "key-settings" &&
+          Number(roleId) !== 0
+        ) {
+          return false;
+        }
+
+        return hasModulePermission(
+          moduleItem
+        );
+      })
+      .map((moduleItem, index) => (
+        <ModuleLink
+          key={
+            moduleItem?.id ||
+            `${moduleItem?.slug}-${index}`
+          }
+          moduleItem={moduleItem}
+        />
+      ));
+  };
+
+  // =========================
+  // SIDEBAR LOADING
+  // =========================
   if (roleId === null) {
     return (
       <aside
@@ -1101,6 +1208,9 @@ export default function Sidebar({
     );
   }
 
+  // =========================
+  // SIDEBAR
+  // =========================
   return (
     <aside
       className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
@@ -1114,6 +1224,7 @@ export default function Sidebar({
       </h2>
 
       <div className="scrollbar-hide flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-5">
+        {/* Dashboard */}
         <Link
           href="/dashboard"
           className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -1131,10 +1242,12 @@ export default function Sidebar({
           <span>Dashboard</span>
         </Link>
 
+        {/* Roles */}
         <div className="space-y-2">
           {renderRoleLinks()}
         </div>
 
+        {/* Master Settings */}
         {Number(roleId) === 0 && (
           <>
             <Link
@@ -1177,10 +1290,12 @@ export default function Sidebar({
           </>
         )}
 
+        {/* Modules */}
         <div className="space-y-2">
           {renderModuleLinks()}
         </div>
 
+        {/* My Login */}
         <button
           type="button"
           onClick={myLogin}
@@ -1193,6 +1308,7 @@ export default function Sidebar({
           <span>My Login</span>
         </button>
 
+        {/* Logout */}
         <button
           type="button"
           onClick={logout}

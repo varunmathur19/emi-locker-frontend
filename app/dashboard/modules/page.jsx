@@ -121,69 +121,77 @@ export default function ModulePage() {
   // =========================
   // UPDATE MODULE STATUS
   // =========================
-  const handleToggleModuleStatus = async (moduleItem) => {
-    if (
-      !moduleItem?.id ||
-      updatingStatus !== null ||
-      updatingRoleStatus !== null
-    ) {
-      return;
-    }
+const handleToggleModuleStatus = async (moduleItem) => {
+  if (
+    !moduleItem?.id ||
+    updatingStatus !== null ||
+    updatingRoleStatus !== null
+  ) {
+    return;
+  }
 
-    const currentStatus = Number(
-      moduleItem?.status ?? 1
-    );
+  const currentStatus = Number(
+    moduleItem?.status ?? 1
+  );
 
-    const newStatus =
-      currentStatus === 1 ? 0 : 1;
+  const newStatus =
+    currentStatus === 1 ? 0 : 1;
 
-    try {
-      setUpdatingStatus(moduleItem.id);
+  try {
+    setUpdatingStatus(moduleItem.id);
 
-      const response = await updateModule({
-        id: moduleItem.id,
-        status: newStatus,
-      });
+    const response = await updateModule({
+      id: moduleItem.id,
+      status: newStatus,
+    });
 
-      if (response?.success === true) {
-        setModules((prev) =>
-          prev.map((item) =>
-            Number(item.id) ===
-            Number(moduleItem.id)
-              ? {
-                  ...item,
-                  status: newStatus,
-                }
-              : item
-          )
-        );
+    if (response?.success === true) {
+      // Update current module list
+      setModules((prev) =>
+        prev.map((item) =>
+          Number(item.id) ===
+          Number(moduleItem.id)
+            ? {
+                ...item,
+                status: newStatus,
+              }
+            : item
+        )
+      );
 
-        toast.success(
-          newStatus === 1
-            ? "Module activated successfully"
-            : "Module deactivated successfully"
-        );
-      } else {
-        toast.error(
-          response?.message ||
-            "Failed to update module status"
+      // Immediately notify Sidebar
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new Event("modules_updated")
         );
       }
-    } catch (error) {
-      console.error(
-        "UPDATE MODULE STATUS ERROR:",
-        error
-      );
 
+      toast.success(
+        newStatus === 1
+          ? "Module activated successfully"
+          : "Module deactivated successfully"
+      );
+    } else {
       toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
+        response?.message ||
           "Failed to update module status"
       );
-    } finally {
-      setUpdatingStatus(null);
     }
-  };
+  } catch (error) {
+    console.error(
+      "UPDATE MODULE STATUS ERROR:",
+      error
+    );
+
+    toast.error(
+      error?.response?.data?.message ||
+        error?.message ||
+        "Failed to update module status"
+    );
+  } finally {
+    setUpdatingStatus(null);
+  }
+};
 
   // =========================
   // UPDATE ROLE STATUS
