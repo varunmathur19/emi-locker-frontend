@@ -64,7 +64,7 @@ export default function KeySetting() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-5 sm:p-6">
+    <div className="min-h-screen">
       <div className="mx-auto max-w-5xl">
 
         {/* Header */}
@@ -178,7 +178,6 @@ export default function KeySetting() {
 
           </div>
 
-          {/* Empty State */}
           {keySettings.length === 0 && (
             <div className="px-6 py-12 text-center text-sm text-slate-500">
               No key settings found.
