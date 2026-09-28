@@ -297,9 +297,7 @@ const SearchableCountryDropdown = ({
                                 type="text"
                                 value={search}
                                 onChange={(e) =>
-                                    setSearch(
-                                        e.target.value
-                                    )
+                                    setSearch(e.target.value)
                                 }
                                 placeholder="Search country..."
                                 autoFocus
@@ -310,51 +308,41 @@ const SearchableCountryDropdown = ({
 
                     <div className="max-h-60 overflow-y-auto">
                         {filteredCountries.length > 0 ? (
-                            filteredCountries.map(
-                                (country) => (
-                                    <button
-                                        key={
+                            filteredCountries.map((country) => (
+                                <button
+                                    key={country.country_id}
+                                    type="button"
+                                    onClick={() =>
+                                        handleSelect(country)
+                                    }
+                                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50 ${
+                                        String(
+                                            selectedCountryId
+                                        ) ===
+                                        String(
                                             country.country_id
-                                        }
-                                        type="button"
-                                        onClick={() =>
-                                            handleSelect(
+                                        )
+                                            ? "bg-blue-50 text-blue-700"
+                                            : "text-slate-700"
+                                    }`}
+                                >
+                                    <span className="text-lg shrink-0">
+                                        {country.emoji}
+                                    </span>
+
+                                    <span className="flex-1 truncate">
+                                        {country.country_name}
+                                    </span>
+
+                                    {showCode && (
+                                        <span className="text-slate-500 shrink-0">
+                                            {getCountryCode(
                                                 country
-                                            )
-                                        }
-                                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50 ${
-                                            String(
-                                                selectedCountryId
-                                            ) ===
-                                            String(
-                                                country.country_id
-                                            )
-                                                ? "bg-blue-50 text-blue-700"
-                                                : "text-slate-700"
-                                        }`}
-                                    >
-                                        <span className="text-lg shrink-0">
-                                            {
-                                                country.emoji
-                                            }
+                                            )}
                                         </span>
-
-                                        <span className="flex-1 truncate">
-                                            {
-                                                country.country_name
-                                            }
-                                        </span>
-
-                                        {showCode && (
-                                            <span className="text-slate-500 shrink-0">
-                                                {getCountryCode(
-                                                    country
-                                                )}
-                                            </span>
-                                        )}
-                                    </button>
-                                )
-                            )
+                                    )}
+                                </button>
+                            ))
                         ) : (
                             <div className="px-4 py-4 text-center text-sm text-slate-400">
                                 No country found
@@ -383,8 +371,7 @@ const SearchableLocationDropdown = ({
     const selectedItem = useMemo(() => {
         return items.find(
             (item) =>
-                String(item.id) ===
-                String(selectedId)
+                String(item.id) === String(selectedId)
         );
     }, [items, selectedId]);
 
@@ -455,13 +442,9 @@ const SearchableLocationDropdown = ({
                                 type="text"
                                 value={search}
                                 onChange={(e) =>
-                                    setSearch(
-                                        e.target.value
-                                    )
+                                    setSearch(e.target.value)
                                 }
-                                placeholder={
-                                    searchPlaceholder
-                                }
+                                placeholder={searchPlaceholder}
                                 autoFocus
                                 className="w-full border border-slate-300 rounded-md pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
@@ -470,33 +453,25 @@ const SearchableLocationDropdown = ({
 
                     <div className="max-h-60 overflow-y-auto">
                         {filteredItems.length > 0 ? (
-                            filteredItems.map(
-                                (item) => (
-                                    <button
-                                        key={item.id}
-                                        type="button"
-                                        onClick={() =>
-                                            handleSelect(
-                                                item
-                                            )
-                                        }
-                                        className={`w-full flex items-center px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${
-                                            String(
-                                                selectedId
-                                            ) ===
-                                            String(
-                                                item.id
-                                            )
-                                                ? "bg-blue-50 text-blue-700"
-                                                : "text-slate-700"
-                                        }`}
-                                    >
-                                        <span className="truncate">
-                                            {item.name}
-                                        </span>
-                                    </button>
-                                )
-                            )
+                            filteredItems.map((item) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() =>
+                                        handleSelect(item)
+                                    }
+                                    className={`w-full flex items-center px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${
+                                        String(selectedId) ===
+                                        String(item.id)
+                                            ? "bg-blue-50 text-blue-700"
+                                            : "text-slate-700"
+                                    }`}
+                                >
+                                    <span className="truncate">
+                                        {item.name}
+                                    </span>
+                                </button>
+                            ))
                         ) : (
                             <div className="px-4 py-4 text-center text-sm text-slate-400">
                                 {emptyText}
@@ -626,7 +601,6 @@ export default function Page() {
         const requiredParentRoles =
             parentRoles[selectedRole] || [];
 
-       
         if (loggedInRoleId === 9) {
             return requiredParentRoles;
         }
@@ -1266,81 +1240,67 @@ export default function Page() {
 
             const editFormData = {
                 ...initialFormData,
-
                 organization_name:
                     user?.organization_name ||
                     "",
-
                 role_id: roleId || "",
-
                 profile_id:
                     user?.profile_id ??
                     user?.profileId ??
                     user?.role_permission
                         ?.profile_id ??
                     "",
-
                 name: user?.name || "",
                 email: user?.email || "",
                 phone: user?.phone || "",
-
                 company_address:
                     user?.company_address || "",
-
                 country: user?.country || "",
                 country_code:
                     user?.country_code || "",
                 state: user?.state || "",
                 city: user?.city || "",
-
                 parent_id: user?.parent_id
                     ? Number(
                           user.parent_id
                       )
                     : null,
-
                 new_device:
                     Number(
                         user?.new_device
                     ) === 1
                         ? 1
                         : 0,
-
                 old_device:
                     Number(
                         user?.old_device
                     ) === 1
                         ? 1
                         : 0,
-
                 supreme_device:
                     Number(
                         user?.supreme_device
                     ) === 1
                         ? 1
                         : 0,
-
                 pro_star:
                     Number(
                         user?.pro_star
                     ) === 1
                         ? 1
                         : 0,
-
                 lite:
                     Number(
                         user?.lite
                     ) === 1
                         ? 1
                         : 0,
-
                 google_tv:
                     Number(
                         user?.google_tv
                     ) === 1
                         ? 1
                         : 0,
-
                 supreme_lock:
                     Number(
                         user?.supreme_lock
@@ -1818,16 +1778,6 @@ export default function Page() {
             return;
         }
 
-        if (
-            roleId === 9 &&
-            !formData.profile_id
-        ) {
-            toast.error(
-                "Please select a profile"
-            );
-            return;
-        }
-
         if (!loggedInUser?.id) {
             toast.error(
                 "Logged-in user not found"
@@ -1916,43 +1866,39 @@ export default function Page() {
 
         const payload = {
             ...formData,
-
             role_id: roleId,
-
-            parent_id:
-                finalParentId,
-
+            parent_id: finalParentId,
             country:
                 selectedCountry?.country_name ||
                 String(
                     formData.country || ""
                 ).trim(),
-
             country_code:
                 finalCountryCode,
-
             state: formData.state
                 ? String(
                       formData.state
                   ).trim()
                 : null,
-
             city: formData.city
                 ? String(
                       formData.city
                   ).trim()
                 : null,
-
             phone: String(
                 formData.phone || ""
             ).trim(),
         };
 
         if (roleId === 9) {
-            payload.profile_id =
-                Number(
-                    formData.profile_id
-                );
+            if (formData.profile_id) {
+                payload.profile_id =
+                    Number(
+                        formData.profile_id
+                    );
+            } else {
+                delete payload.profile_id;
+            }
 
             delete payload.organization_name;
         } else {
@@ -2018,11 +1964,9 @@ export default function Page() {
                     updatedOriginal
                 );
 
-                setOriginalSelectedParents(
-                    {
-                        ...selectedParents,
-                    }
-                );
+                setOriginalSelectedParents({
+                    ...selectedParents,
+                });
 
                 setFormData((prev) => ({
                     ...prev,
@@ -2089,13 +2033,10 @@ export default function Page() {
 
                 {isMounted &&
                     selectedRole > 1 &&
-                    visibleParentRoles.length >
-                        0 && (
+                    visibleParentRoles.length > 0 && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
                             {visibleParentRoles.map(
-                                (
-                                    parentRoleId
-                                ) => {
+                                (parentRoleId) => {
                                     const role =
                                         Number(
                                             parentRoleId
@@ -2108,9 +2049,7 @@ export default function Page() {
 
                                     const selectedUser =
                                         users.find(
-                                            (
-                                                user
-                                            ) =>
+                                            (user) =>
                                                 Number(
                                                     user?.id
                                                 ) ===
@@ -2123,9 +2062,7 @@ export default function Page() {
 
                                     return (
                                         <div
-                                            key={
-                                                role
-                                            }
+                                            key={role}
                                             className="space-y-1.5"
                                         >
                                             <label className="text-sm font-medium text-slate-700">
@@ -2155,9 +2092,7 @@ export default function Page() {
                                                     </span>
 
                                                     <RiArrowDownSLine
-                                                        size={
-                                                            22
-                                                        }
+                                                        size={22}
                                                         className={`shrink-0 transition-transform text-slate-500 ${
                                                             openDropdown ===
                                                             role
@@ -2356,7 +2291,7 @@ export default function Page() {
                                 onChange={
                                     handleChange
                                 }
-                                 autoComplete="new-email"
+                                autoComplete="new-email"
                                 required
                                 placeholder="staff@example.com"
                                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2637,10 +2572,7 @@ export default function Page() {
                         ) === 9 && (
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-700">
-                                    Assigned Role{" "}
-                                    <span className="text-red-500">
-                                        *
-                                    </span>
+                                    Assigned Role
                                 </label>
 
                                 <div className="relative">
@@ -2652,7 +2584,6 @@ export default function Page() {
                                         onChange={
                                             handleChange
                                         }
-                                        required
                                         disabled={
                                             profileLoading
                                         }
@@ -2702,9 +2633,7 @@ export default function Page() {
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                     {devicePermissions.map(
-                                        (
-                                            item
-                                        ) => (
+                                        (item) => (
                                             <label
                                                 key={
                                                     item.name
