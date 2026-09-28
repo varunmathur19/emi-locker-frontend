@@ -16,7 +16,6 @@ import {
     RiWallet3Line,
 } from "react-icons/ri";
 
-
 import { FaArrowRightLong } from "react-icons/fa6";
 
 import { getWalletTransactions } from "@/services/api";
@@ -462,7 +461,7 @@ export default function MyTransaction() {
                                                         transaction
                                                     )
                                                 }
-                                                className="flex cursor-pointer items-center gap-2 rounded-sm border border-blue-600 bg-blue-600 px-3.5 py-2 text-xs font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                                className="flex cursor-pointer items-center gap-1 rounded-sm border border-blue-600 bg-blue-600 px-2 py-2 text-[14px] font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
                                             >
                                                 <RiEyeLine size={16} />
                                                 View Details
@@ -717,13 +716,6 @@ export default function MyTransaction() {
                                                 />
 
                                                 <DetailItem
-                                                    label="Key Setting ID"
-                                                    value={
-                                                        transaction?.key_setting_id
-                                                    }
-                                                />
-
-                                                <DetailItem
                                                     label="Points"
                                                     value={formatPoints(
                                                         transaction?.points_sent
@@ -737,17 +729,12 @@ export default function MyTransaction() {
                                                     }
                                                 />
 
-                                                <div className="rounded-xl border border-gray-200 p-4 sm:col-span-2">
-                                                    <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
-                                                        Transaction Date
-                                                    </p>
-
-                                                    <p className="mt-2 text-sm font-semibold text-gray-700">
-                                                        {formatDate(
-                                                            transaction?.created_at
-                                                        )}
-                                                    </p>
-                                                </div>
+                                                <DetailItem
+                                                    label="Transaction Date"
+                                                    value={formatDate(
+                                                        transaction?.created_at
+                                                    )}
+                                                />
                                             </div>
                                         </div>
 
@@ -864,4 +851,4 @@ function BalanceCard({
             </div>
         </div>
     );
-}
+} 
