@@ -142,17 +142,13 @@ const normalizeCountryCode = (value) => {
         return "";
     }
 
-    let code = String(value).trim();
+    const code = String(value).trim();
 
     if (!code) {
         return "";
     }
 
-    if (!code.startsWith("+")) {
-        code = `+${code}`;
-    }
-
-    return code;
+    return code.startsWith("+") ? code : `+${code}`;
 };
 
 const getCountryCode = (country) => {
@@ -175,21 +171,137 @@ const getCountryIsoCode = (country) => {
         .toUpperCase();
 };
 
+const getDigits = (value) => {
+    return String(value || "").replace(/\D/g, "");
+};
+
 const removeCountryCode = (phone, country) => {
-    const value = String(phone || "").trim();
-    const code = getCountryCode(country);
+    const rawPhone = String(phone || "").trim();
 
-    if (!value || !code) {
-        return value;
+    if (!rawPhone) {
+        return "";
     }
 
-    const cleanValue = value.replace(/[\s()-]/g, "");
+    const digits = getDigits(rawPhone);
+    const countryCode = getDigits(
+        getCountryCode(country)
+    );
 
-    if (cleanValue.startsWith(code)) {
-        return cleanValue.slice(code.length);
+    if (!digits || !countryCode) {
+        return digits;
     }
 
-    return value;
+    const hasInternationalPrefix =
+        rawPhone.startsWith("+") ||
+        rawPhone.startsWith("00");
+
+    if (
+        hasInternationalPrefix &&
+        digits.startsWith(countryCode)
+    ) {
+        return digits.slice(countryCode.length);
+    }
+
+    return digits;
+};
+
+const getInternationalPhone = (phone, country) => {
+    const localNumber = getDigits(phone);
+    const countryCode = getDigits(
+        getCountryCode(country)
+    );
+
+    if (!localNumber) {
+        return "";
+    }
+
+    if (!countryCode) {
+        return localNumber;
+    }
+
+    return `+${countryCode}${localNumber}`;
+};
+
+const normalizeFormData = (data) => {
+    return {
+        organization_name: String(
+            data?.organization_name || ""
+        ).trim(),
+
+        role_id: String(
+            data?.role_id || ""
+        ),
+
+        profile_id: String(
+            data?.profile_id || ""
+        ),
+
+        name: String(
+            data?.name || ""
+        ).trim(),
+
+        email: String(
+            data?.email || ""
+        ).trim(),
+
+        phone: getDigits(
+            data?.phone
+        ),
+
+        company_address: String(
+            data?.company_address || ""
+        ).trim(),
+
+        country: String(
+            data?.country || ""
+        ).trim(),
+
+        country_code: String(
+            data?.country_code || ""
+        )
+            .trim()
+            .toUpperCase(),
+
+        state: String(
+            data?.state || ""
+        ).trim(),
+
+        city: String(
+            data?.city || ""
+        ).trim(),
+
+        parent_id: data?.parent_id
+            ? Number(data.parent_id)
+            : null,
+
+        new_device: Number(
+            data?.new_device || 0
+        ),
+
+        old_device: Number(
+            data?.old_device || 0
+        ),
+
+        supreme_device: Number(
+            data?.supreme_device || 0
+        ),
+
+        pro_star: Number(
+            data?.pro_star || 0
+        ),
+
+        lite: Number(
+            data?.lite || 0
+        ),
+
+        google_tv: Number(
+            data?.google_tv || 0
+        ),
+
+        supreme_lock: Number(
+            data?.supreme_lock || 0
+        ),
+    };
 };
 
 const SearchableCountryDropdown = ({
@@ -248,12 +360,12 @@ const SearchableCountryDropdown = ({
         <div className="relative w-full">
             <button
                 type="button"
+                disabled={loading}
                 onClick={() => {
                     if (!loading) {
                         setOpen((prev) => !prev);
                     }
                 }}
-                disabled={loading}
                 className="w-full h-[42px] flex items-center border border-slate-300 rounded-l-lg px-3 text-sm bg-white text-slate-700 disabled:bg-slate-50 disabled:cursor-not-allowed"
             >
                 <span className="flex items-center gap-2 min-w-0 flex-1">
@@ -297,7 +409,9 @@ const SearchableCountryDropdown = ({
                                 type="text"
                                 value={search}
                                 onChange={(e) =>
-                                    setSearch(e.target.value)
+                                    setSearch(
+                                        e.target.value
+                                    )
                                 }
                                 placeholder="Search country..."
                                 autoFocus
@@ -308,41 +422,51 @@ const SearchableCountryDropdown = ({
 
                     <div className="max-h-60 overflow-y-auto">
                         {filteredCountries.length > 0 ? (
-                            filteredCountries.map((country) => (
-                                <button
-                                    key={country.country_id}
-                                    type="button"
-                                    onClick={() =>
-                                        handleSelect(country)
-                                    }
-                                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50 ${
-                                        String(
-                                            selectedCountryId
-                                        ) ===
-                                        String(
+                            filteredCountries.map(
+                                (country) => (
+                                    <button
+                                        key={
                                             country.country_id
-                                        )
-                                            ? "bg-blue-50 text-blue-700"
-                                            : "text-slate-700"
-                                    }`}
-                                >
-                                    <span className="text-lg shrink-0">
-                                        {country.emoji}
-                                    </span>
-
-                                    <span className="flex-1 truncate">
-                                        {country.country_name}
-                                    </span>
-
-                                    {showCode && (
-                                        <span className="text-slate-500 shrink-0">
-                                            {getCountryCode(
+                                        }
+                                        type="button"
+                                        onClick={() =>
+                                            handleSelect(
                                                 country
-                                            )}
+                                            )
+                                        }
+                                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50 ${
+                                            String(
+                                                selectedCountryId
+                                            ) ===
+                                            String(
+                                                country.country_id
+                                            )
+                                                ? "bg-blue-50 text-blue-700"
+                                                : "text-slate-700"
+                                        }`}
+                                    >
+                                        <span className="text-lg shrink-0">
+                                            {
+                                                country.emoji
+                                            }
                                         </span>
-                                    )}
-                                </button>
-                            ))
+
+                                        <span className="flex-1 truncate">
+                                            {
+                                                country.country_name
+                                            }
+                                        </span>
+
+                                        {showCode && (
+                                            <span className="text-slate-500 shrink-0">
+                                                {getCountryCode(
+                                                    country
+                                                )}
+                                            </span>
+                                        )}
+                                    </button>
+                                )
+                            )
                         ) : (
                             <div className="px-4 py-4 text-center text-sm text-slate-400">
                                 No country found
@@ -371,7 +495,8 @@ const SearchableLocationDropdown = ({
     const selectedItem = useMemo(() => {
         return items.find(
             (item) =>
-                String(item.id) === String(selectedId)
+                String(item.id) ===
+                String(selectedId)
         );
     }, [items, selectedId]);
 
@@ -442,9 +567,13 @@ const SearchableLocationDropdown = ({
                                 type="text"
                                 value={search}
                                 onChange={(e) =>
-                                    setSearch(e.target.value)
+                                    setSearch(
+                                        e.target.value
+                                    )
                                 }
-                                placeholder={searchPlaceholder}
+                                placeholder={
+                                    searchPlaceholder
+                                }
                                 autoFocus
                                 className="w-full border border-slate-300 rounded-md pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
@@ -453,25 +582,33 @@ const SearchableLocationDropdown = ({
 
                     <div className="max-h-60 overflow-y-auto">
                         {filteredItems.length > 0 ? (
-                            filteredItems.map((item) => (
-                                <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() =>
-                                        handleSelect(item)
-                                    }
-                                    className={`w-full flex items-center px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${
-                                        String(selectedId) ===
-                                        String(item.id)
-                                            ? "bg-blue-50 text-blue-700"
-                                            : "text-slate-700"
-                                    }`}
-                                >
-                                    <span className="truncate">
-                                        {item.name}
-                                    </span>
-                                </button>
-                            ))
+                            filteredItems.map(
+                                (item) => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() =>
+                                            handleSelect(
+                                                item
+                                            )
+                                        }
+                                        className={`w-full flex items-center px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${
+                                            String(
+                                                selectedId
+                                            ) ===
+                                            String(
+                                                item.id
+                                            )
+                                                ? "bg-blue-50 text-blue-700"
+                                                : "text-slate-700"
+                                        }`}
+                                    >
+                                        <span className="truncate">
+                                            {item.name}
+                                        </span>
+                                    </button>
+                                )
+                            )
                         ) : (
                             <div className="px-4 py-4 text-center text-sm text-slate-400">
                                 {emptyText}
@@ -597,6 +734,14 @@ export default function Page() {
         );
     }, [countries, phoneCountryId]);
 
+    const selectedCountry = useMemo(() => {
+        return countries.find(
+            (country) =>
+                String(country.country_id) ===
+                String(selectedCountryId)
+        );
+    }, [countries, selectedCountryId]);
+
     const visibleParentRoles = useMemo(() => {
         const requiredParentRoles =
             parentRoles[selectedRole] || [];
@@ -623,34 +768,46 @@ export default function Page() {
                 );
             }
         );
-    }, [selectedRole, loggedInRoleId]);
+    }, [
+        selectedRole,
+        loggedInRoleId,
+    ]);
 
     const hasChanges = useMemo(() => {
         if (!isEditMode || !originalFormData) {
             return true;
         }
 
-        const currentForm = {
-            ...formData,
-            password: formData.password || "",
-            confirm_password:
-                formData.confirm_password || "",
-        };
+        const currentForm =
+            normalizeFormData(formData);
 
-        const originalForm = {
-            ...originalFormData,
-            password: "",
-            confirm_password: "",
-        };
+        const originalForm =
+            normalizeFormData(
+                originalFormData
+            );
+
+        const formChanged =
+            !isEqual(
+                currentForm,
+                originalForm
+            );
+
+        const parentsChanged =
+            !isEqual(
+                selectedParents || {},
+                originalSelectedParents || {}
+            );
+
+        const passwordChanged =
+            Boolean(formData.password) ||
+            Boolean(
+                formData.confirm_password
+            );
 
         return (
-            !isEqual(currentForm, originalForm) ||
-            !isEqual(
-                selectedParents,
-                originalSelectedParents
-            ) ||
-            Boolean(formData.password) ||
-            Boolean(formData.confirm_password)
+            formChanged ||
+            parentsChanged ||
+            passwordChanged
         );
     }, [
         isEditMode,
@@ -664,10 +821,13 @@ export default function Page() {
         try {
             setProfileLoading(true);
 
-            const response = await getProfiles();
+            const response =
+                await getProfiles();
 
             setProfiles(
-                getProfilesFromResponse(response)
+                getProfilesFromResponse(
+                    response
+                )
             );
         } catch (error) {
             console.error(
@@ -678,7 +838,8 @@ export default function Page() {
             setProfiles([]);
 
             toast.error(
-                error?.response?.data?.message ||
+                error?.response?.data
+                    ?.message ||
                     error?.message ||
                     "Failed to load profiles"
             );
@@ -691,7 +852,8 @@ export default function Page() {
         try {
             setCountryLoading(true);
 
-            const response = await getCountries();
+            const response =
+                await getCountries();
 
             const countryList =
                 getArrayFromResponse(
@@ -709,7 +871,8 @@ export default function Page() {
             setCountries([]);
 
             toast.error(
-                error?.response?.data?.message ||
+                error?.response?.data
+                    ?.message ||
                     error?.message ||
                     "Failed to load countries"
             );
@@ -746,10 +909,19 @@ export default function Page() {
         isEditMode,
     ]);
 
-    const getParentValue = (user, roleId) => {
+    const getParentValue = (
+        user,
+        roleId
+    ) => {
         const roleFields = {
-            1: ["parent_admin_id", "admin_id"],
-            2: ["parent_cnf_id", "cnf_id"],
+            1: [
+                "parent_admin_id",
+                "admin_id",
+            ],
+            2: [
+                "parent_cnf_id",
+                "cnf_id",
+            ],
             3: [
                 "parent_super_distributor_id",
                 "parent_superdistributor_id",
@@ -759,7 +931,10 @@ export default function Page() {
                 "parent_distributor_id",
                 "distributor_id",
             ],
-            5: ["parent_fos_id", "fos_id"],
+            5: [
+                "parent_fos_id",
+                "fos_id",
+            ],
             6: [
                 "parent_retailer_id",
                 "retailer_id",
@@ -773,14 +948,20 @@ export default function Page() {
                 "parent_employee_id",
                 "employee_id",
             ],
-            9: ["parent_staff_id", "staff_id"],
+            9: [
+                "parent_staff_id",
+                "staff_id",
+            ],
         };
 
         const fields =
-            roleFields[Number(roleId)] || [];
+            roleFields[
+                Number(roleId)
+            ] || [];
 
         for (const field of fields) {
-            const value = user?.[field];
+            const value =
+                user?.[field];
 
             if (
                 value !== undefined &&
@@ -794,7 +975,9 @@ export default function Page() {
         return null;
     };
 
-    const getParentChainFromUser = (user) => {
+    const getParentChainFromUser = (
+        user
+    ) => {
         const result = {};
 
         const possibleChain =
@@ -806,217 +989,286 @@ export default function Page() {
             user?.parentUsers;
 
         if (Array.isArray(possibleChain)) {
-            possibleChain.forEach((item) => {
-                const roleId = Number(
-                    item?.role_id ??
-                        item?.roleId ??
-                        item?.current_role_id
-                );
+            possibleChain.forEach(
+                (item) => {
+                    const roleId = Number(
+                        item?.role_id ??
+                            item?.roleId ??
+                            item?.current_role_id
+                    );
 
-                const id = Number(
-                    item?.id ??
-                        item?.user_id ??
-                        item?.parent_id
-                );
+                    const id = Number(
+                        item?.id ??
+                            item?.user_id ??
+                            item?.parent_id
+                    );
 
-                if (roleId > 0 && id > 0) {
-                    result[roleId] = id;
+                    if (
+                        roleId > 0 &&
+                        id > 0
+                    ) {
+                        result[roleId] =
+                            id;
+                    }
                 }
-            });
+            );
         }
 
         if (
             possibleChain &&
-            typeof possibleChain === "object" &&
-            !Array.isArray(possibleChain)
+            typeof possibleChain ===
+                "object" &&
+            !Array.isArray(
+                possibleChain
+            )
         ) {
             Object.entries(
                 possibleChain
-            ).forEach(([key, value]) => {
-                const roleId = Number(key);
+            ).forEach(
+                ([key, value]) => {
+                    const roleId =
+                        Number(key);
 
-                const id = Number(
-                    value?.id ??
-                        value?.user_id ??
-                        value?.parent_id ??
-                        value
-                );
+                    const id = Number(
+                        value?.id ??
+                            value?.user_id ??
+                            value?.parent_id ??
+                            value
+                    );
 
-                if (roleId > 0 && id > 0) {
-                    result[roleId] = id;
-                }
-            });
-        }
-
-        Object.keys(roleNames).forEach(
-            (roleId) => {
-                const role = Number(roleId);
-
-                if (!result[role]) {
-                    const value =
-                        getParentValue(
-                            user,
-                            role
-                        );
-
-                    if (value) {
-                        result[role] = value;
+                    if (
+                        roleId > 0 &&
+                        id > 0
+                    ) {
+                        result[roleId] =
+                            id;
                     }
                 }
+            );
+        }
+
+        Object.keys(
+            roleNames
+        ).forEach((roleId) => {
+            const role =
+                Number(roleId);
+
+            if (!result[role]) {
+                const value =
+                    getParentValue(
+                        user,
+                        role
+                    );
+
+                if (value) {
+                    result[role] = value;
+                }
             }
-        );
+        });
 
         return result;
     };
 
-    const loadStatesForCountry = async (
-        countryId
-    ) => {
-        if (!countryId) {
-            return;
-        }
+    const loadStatesForCountry =
+        async (countryId) => {
+            if (!countryId) {
+                return [];
+            }
 
-        try {
-            setStateLoading(true);
+            try {
+                setStateLoading(true);
 
-            const response = await getStates(
-                Number(countryId)
-            );
+                const response =
+                    await getStates(
+                        Number(countryId)
+                    );
 
-            const stateList =
-                getArrayFromResponse(
-                    response,
-                    "states"
+                const stateList =
+                    getArrayFromResponse(
+                        response,
+                        "states"
+                    );
+
+                setStates(stateList);
+
+                return stateList;
+            } catch (error) {
+                console.error(
+                    "GET STATES ERROR:",
+                    error
                 );
 
-            setStates(stateList);
+                setStates([]);
 
-            return stateList;
-        } catch (error) {
-            console.error(
-                "GET STATES ERROR:",
-                error
+                toast.error(
+                    error?.response?.data
+                        ?.message ||
+                        error?.message ||
+                        "Failed to load states"
+                );
+
+                return [];
+            } finally {
+                setStateLoading(false);
+            }
+        };
+
+    const syncCountrySelection =
+        async (country) => {
+            if (!country) {
+                return;
+            }
+
+            const countryId =
+                String(
+                    country.country_id
+                );
+
+            const countryName =
+                country.country_name ||
+                "";
+
+            const countryCode =
+                getCountryIsoCode(
+                    country
+                );
+
+            const countryChanged =
+                String(
+                    selectedCountryId
+                ) !== countryId;
+
+            setSelectedCountryId(
+                countryId
             );
+
+            setPhoneCountryId(
+                countryId
+            );
+
+            setSelectedStateId("");
+            setSelectedCityId("");
 
             setStates([]);
-
-            toast.error(
-                error?.response?.data?.message ||
-                    error?.message ||
-                    "Failed to load states"
-            );
-
-            return [];
-        } finally {
-            setStateLoading(false);
-        }
-    };
-
-    const syncCountrySelection = async (country) => {
-        if (!country) {
-            return;
-        }
-
-        const countryId = String(
-            country.country_id
-        );
-
-        const countryName =
-            country.country_name || "";
-
-        const countryCode =
-            getCountryIsoCode(country);
-
-        setSelectedCountryId(countryId);
-        setPhoneCountryId(countryId);
-
-        setSelectedStateId("");
-        setSelectedCityId("");
-
-        setStates([]);
-        setCities([]);
-
-        setFormData((prev) => ({
-            ...prev,
-            country: countryName,
-            country_code: countryCode,
-            state: "",
-            city: "",
-            phone: removeCountryCode(
-                prev.phone,
-                country
-            ),
-        }));
-
-        await loadStatesForCountry(
-            country.country_id
-        );
-    };
-
-    const handleCountrySelect = async (
-        country
-    ) => {
-        await syncCountrySelection(country);
-    };
-
-    const handlePhoneCountrySelect = async (
-        country
-    ) => {
-        await syncCountrySelection(country);
-    };
-
-    const handleStateSelect = async (
-        state
-    ) => {
-        if (!state) {
-            return;
-        }
-
-        const stateId = String(state.id);
-
-        setSelectedStateId(stateId);
-        setSelectedCityId("");
-        setCities([]);
-
-        setFormData((prev) => ({
-            ...prev,
-            state: state.name || "",
-            city: "",
-        }));
-
-        try {
-            setCityLoading(true);
-
-            const response = await getCities(
-                Number(state.id)
-            );
-
-            const cityList =
-                getArrayFromResponse(
-                    response,
-                    "cities"
-                );
-
-            setCities(cityList);
-        } catch (error) {
-            console.error(
-                "GET CITIES ERROR:",
-                error
-            );
-
             setCities([]);
 
-            toast.error(
-                error?.response?.data?.message ||
-                    error?.message ||
-                    "Failed to load cities"
-            );
-        } finally {
-            setCityLoading(false);
-        }
-    };
+            setFormData((prev) => ({
+                ...prev,
+                country:
+                    countryName,
+                country_code:
+                    countryCode,
+                state: "",
+                city: "",
+                phone:
+                    countryChanged
+                        ? ""
+                        : removeCountryCode(
+                              prev.phone,
+                              country
+                          ),
+            }));
 
-    const handleCitySelect = (city) => {
+            await loadStatesForCountry(
+                country.country_id
+            );
+        };
+
+    const handleCountrySelect =
+        async (country) => {
+            await syncCountrySelection(
+                country
+            );
+        };
+
+    const handlePhoneCountrySelect =
+        async (country) => {
+            const countryId =
+                String(
+                    country.country_id
+                );
+
+            const countryChanged =
+                String(
+                    phoneCountryId
+                ) !== countryId;
+
+            if (countryChanged) {
+                setPhoneCountryId(
+                    countryId
+                );
+
+                setFormData((prev) => ({
+                    ...prev,
+                    phone: "",
+                }));
+            } else {
+                setPhoneCountryId(
+                    countryId
+                );
+            }
+        };
+
+    const handleStateSelect =
+        async (state) => {
+            if (!state) {
+                return;
+            }
+
+            const stateId =
+                String(state.id);
+
+            setSelectedStateId(
+                stateId
+            );
+
+            setSelectedCityId("");
+            setCities([]);
+
+            setFormData((prev) => ({
+                ...prev,
+                state:
+                    state.name || "",
+                city: "",
+            }));
+
+            try {
+                setCityLoading(true);
+
+                const response =
+                    await getCities(
+                        Number(state.id)
+                    );
+
+                const cityList =
+                    getArrayFromResponse(
+                        response,
+                        "cities"
+                    );
+
+                setCities(cityList);
+            } catch (error) {
+                console.error(
+                    "GET CITIES ERROR:",
+                    error
+                );
+
+                setCities([]);
+
+                toast.error(
+                    error?.response?.data
+                        ?.message ||
+                        error?.message ||
+                        "Failed to load cities"
+                );
+            } finally {
+                setCityLoading(false);
+            }
+        };
+
+    const handleCitySelect = (
+        city
+    ) => {
         if (!city) {
             return;
         }
@@ -1027,40 +1279,18 @@ export default function Page() {
 
         setFormData((prev) => ({
             ...prev,
-            city: city.name || "",
+            city:
+                city.name || "",
         }));
     };
 
-    const handlePhoneChange = (e) => {
-        let value = e.target.value;
-
-        value = value.replace(
-            /[^\d\s()-]/g,
-            ""
-        );
-
-        const currentCountry =
-            countries.find(
-                (country) =>
-                    String(
-                        country.country_id
-                    ) ===
-                    String(phoneCountryId)
+    const handlePhoneChange = (
+        e
+    ) => {
+        const value =
+            getDigits(
+                e.target.value
             );
-
-        const currentCode =
-            getCountryCode(
-                currentCountry
-            );
-
-        if (
-            currentCode &&
-            value.startsWith(currentCode)
-        ) {
-            value = value
-                .slice(currentCode.length)
-                .trim();
-        }
 
         setFormData((prev) => ({
             ...prev,
@@ -1068,147 +1298,219 @@ export default function Page() {
         }));
     };
 
-    const loadLocationForEdit = async (
-        user
-    ) => {
-        try {
-            const countryName = String(
-                user?.country || ""
-            ).trim();
-
-            const stateName = String(
-                user?.state || ""
-            ).trim();
-
-            const cityName = String(
-                user?.city || ""
-            ).trim();
-
-            const country =
-                countries.find(
-                    (item) =>
-                        String(
-                            item?.country_name ||
-                                ""
-                        )
-                            .trim()
-                            .toLowerCase() ===
-                        countryName.toLowerCase()
-                ) ||
-                countries.find(
-                    (item) =>
-                        String(
-                            item?.country_id
-                        ) === countryName
-                );
-
-            if (!country) {
-                return;
-            }
-
-            const countryId = String(
-                country.country_id
-            );
-
-            const countryCode =
-                getCountryIsoCode(country);
-
-            setSelectedCountryId(countryId);
-            setPhoneCountryId(countryId);
-
-            const stateResponse =
-                await getStates(
-                    Number(countryId)
-                );
-
-            const stateList =
-                getArrayFromResponse(
-                    stateResponse,
-                    "states"
-                );
-
-            setStates(stateList);
-
-            const state = stateList.find(
-                (item) =>
+    const loadLocationForEdit =
+        async (user, baseFormData) => {
+            try {
+                const countryName =
                     String(
-                        item?.name || ""
-                    )
-                        .trim()
-                        .toLowerCase() ===
-                    stateName.toLowerCase()
-            );
+                        user?.country ||
+                            ""
+                    ).trim();
 
-            if (!state) {
-                setFormData((prev) => ({
-                    ...prev,
+                const stateName =
+                    String(
+                        user?.state || ""
+                    ).trim();
+
+                const cityName =
+                    String(
+                        user?.city || ""
+                    ).trim();
+
+                const country =
+                    countries.find(
+                        (item) =>
+                            String(
+                                item?.country_name ||
+                                    ""
+                            )
+                                .trim()
+                                .toLowerCase() ===
+                            countryName.toLowerCase()
+                    ) ||
+                    countries.find(
+                        (item) =>
+                            String(
+                                item?.country_id
+                            ) ===
+                            countryName
+                    );
+
+                if (!country) {
+                    setOriginalFormData(
+                        normalizeFormData(
+                            baseFormData
+                        )
+                    );
+
+                    return;
+                }
+
+                const countryId =
+                    String(
+                        country.country_id
+                    );
+
+                const countryCode =
+                    getCountryIsoCode(
+                        country
+                    );
+
+                const localPhone =
+                    removeCountryCode(
+                        user?.phone ||
+                            "",
+                        country
+                    );
+
+                setSelectedCountryId(
+                    countryId
+                );
+
+                setPhoneCountryId(
+                    countryId
+                );
+
+                const stateResponse =
+                    await getStates(
+                        Number(
+                            countryId
+                        )
+                    );
+
+                const stateList =
+                    getArrayFromResponse(
+                        stateResponse,
+                        "states"
+                    );
+
+                setStates(stateList);
+
+                const state =
+                    stateList.find(
+                        (item) =>
+                            String(
+                                item?.name ||
+                                    ""
+                            )
+                                .trim()
+                                .toLowerCase() ===
+                            stateName.toLowerCase()
+                    );
+
+                let finalState =
+                    stateName;
+
+                let finalCity =
+                    cityName;
+
+                if (state) {
+                    const stateId =
+                        Number(
+                            state.id
+                        );
+
+                    setSelectedStateId(
+                        String(
+                            stateId
+                        )
+                    );
+
+                    const cityResponse =
+                        await getCities(
+                            stateId
+                        );
+
+                    const cityList =
+                        getArrayFromResponse(
+                            cityResponse,
+                            "cities"
+                        );
+
+                    setCities(
+                        cityList
+                    );
+
+                    const city =
+                        cityList.find(
+                            (item) =>
+                                String(
+                                    item?.name ||
+                                        ""
+                                )
+                                    .trim()
+                                    .toLowerCase() ===
+                                cityName.toLowerCase()
+                        );
+
+                    setSelectedCityId(
+                        city
+                            ? String(
+                                  city.id
+                              )
+                            : ""
+                    );
+
+                    finalState =
+                        state.name ||
+                        stateName;
+
+                    finalCity =
+                        city?.name ||
+                        cityName;
+                } else {
+                    setSelectedStateId(
+                        ""
+                    );
+
+                    setSelectedCityId(
+                        ""
+                    );
+
+                    setCities([]);
+                }
+
+                const normalizedForm = {
+                    ...baseFormData,
                     country:
-                        country.country_name,
+                        country.country_name ||
+                        "",
                     country_code:
                         countryCode,
-                    phone: removeCountryCode(
-                        prev.phone,
-                        country
-                    ),
-                }));
+                    state:
+                        finalState,
+                    city:
+                        finalCity,
+                    phone:
+                        localPhone,
+                };
 
-                return;
-            }
-
-            const stateId = Number(state.id);
-
-            setSelectedStateId(
-                String(stateId)
-            );
-
-            const cityResponse =
-                await getCities(stateId);
-
-            const cityList =
-                getArrayFromResponse(
-                    cityResponse,
-                    "cities"
+                setFormData(
+                    normalizedForm
                 );
 
-            setCities(cityList);
+                setOriginalFormData(
+                    normalizedForm
+                );
+            } catch (error) {
+                console.error(
+                    "LOAD EDIT LOCATION ERROR:",
+                    error
+                );
 
-            const city = cityList.find(
-                (item) =>
-                    String(
-                        item?.name || ""
+                setOriginalFormData(
+                    normalizeFormData(
+                        baseFormData
                     )
-                        .trim()
-                        .toLowerCase() ===
-                    cityName.toLowerCase()
-            );
-
-            setSelectedCityId(
-                city ? String(city.id) : ""
-            );
-
-            setFormData((prev) => ({
-                ...prev,
-                country:
-                    country.country_name,
-                country_code:
-                    countryCode,
-                state: state.name,
-                city: city?.name || cityName,
-                phone: removeCountryCode(
-                    prev.phone,
-                    country
-                ),
-            }));
-        } catch (error) {
-            console.error(
-                "LOAD EDIT LOCATION ERROR:",
-                error
-            );
-        }
-    };
+                );
+            }
+        };
 
     const loadEditUser = async () => {
-        if (!isEditMode || !editId) {
+        if (
+            !isEditMode ||
+            !editId
+        ) {
             return;
         }
 
@@ -1217,7 +1519,9 @@ export default function Page() {
             setEditUserLoaded(false);
 
             const response =
-                await getStaffDataById(editId);
+                await getStaffDataById(
+                    editId
+                );
 
             const user =
                 getSingleUserFromResponse(
@@ -1240,67 +1544,96 @@ export default function Page() {
 
             const editFormData = {
                 ...initialFormData,
+
                 organization_name:
                     user?.organization_name ||
                     "",
-                role_id: roleId || "",
+
+                role_id:
+                    roleId || "",
+
                 profile_id:
                     user?.profile_id ??
                     user?.profileId ??
                     user?.role_permission
                         ?.profile_id ??
                     "",
-                name: user?.name || "",
-                email: user?.email || "",
-                phone: user?.phone || "",
+
+                name:
+                    user?.name || "",
+
+                email:
+                    user?.email || "",
+
+                phone:
+                    user?.phone || "",
+
                 company_address:
-                    user?.company_address || "",
-                country: user?.country || "",
+                    user?.company_address ||
+                    "",
+
+                country:
+                    user?.country || "",
+
                 country_code:
-                    user?.country_code || "",
-                state: user?.state || "",
-                city: user?.city || "",
-                parent_id: user?.parent_id
-                    ? Number(
-                          user.parent_id
-                      )
-                    : null,
+                    user?.country_code ||
+                    "",
+
+                state:
+                    user?.state || "",
+
+                city:
+                    user?.city || "",
+
+                parent_id:
+                    user?.parent_id
+                        ? Number(
+                              user.parent_id
+                          )
+                        : null,
+
                 new_device:
                     Number(
                         user?.new_device
                     ) === 1
                         ? 1
                         : 0,
+
                 old_device:
                     Number(
                         user?.old_device
                     ) === 1
                         ? 1
                         : 0,
+
                 supreme_device:
                     Number(
                         user?.supreme_device
                     ) === 1
                         ? 1
                         : 0,
+
                 pro_star:
                     Number(
                         user?.pro_star
                     ) === 1
                         ? 1
                         : 0,
+
                 lite:
                     Number(
                         user?.lite
                     ) === 1
                         ? 1
                         : 0,
+
                 google_tv:
                     Number(
                         user?.google_tv
                     ) === 1
                         ? 1
                         : 0,
+
                 supreme_lock:
                     Number(
                         user?.supreme_lock
@@ -1309,10 +1642,14 @@ export default function Page() {
                         : 0,
             };
 
-            setFormData(editFormData);
+            setFormData(
+                editFormData
+            );
 
             const parentChain =
-                getParentChainFromUser(user);
+                getParentChainFromUser(
+                    user
+                );
 
             if (user?.parent_id) {
                 const lastParentRole =
@@ -1322,7 +1659,9 @@ export default function Page() {
                         ] || []
                     ).slice(-1)[0];
 
-                if (lastParentRole) {
+                if (
+                    lastParentRole
+                ) {
                     parentChain[
                         Number(
                             lastParentRole
@@ -1337,21 +1676,24 @@ export default function Page() {
                 parentChain
             );
 
-            setOriginalFormData(
-                editFormData
-            );
-
             setOriginalSelectedParents(
                 parentChain
             );
 
-            setEditUserLoaded(true);
-
             if (countries.length) {
                 await loadLocationForEdit(
-                    user
+                    user,
+                    editFormData
+                );
+            } else {
+                setOriginalFormData(
+                    editFormData
                 );
             }
+
+            setEditUserLoaded(
+                true
+            );
         } catch (error) {
             console.error(
                 "GET STAFF DATA ERROR:",
@@ -1359,7 +1701,8 @@ export default function Page() {
             );
 
             toast.error(
-                error?.response?.data?.message ||
+                error?.response?.data
+                    ?.message ||
                     error?.message ||
                     "Failed to load user data"
             );
@@ -1407,179 +1750,215 @@ export default function Page() {
 
         let cancelled = false;
 
-        const loadParents = async () => {
-            try {
-                const updatedUsers = {};
-                const updatedSelected = {
-                    ...selectedParents,
-                };
+        const loadParents =
+            async () => {
+                try {
+                    const updatedUsers =
+                        {};
 
-                for (
-                    let index = 0;
-                    index < parents.length;
-                    index++
-                ) {
-                    if (cancelled) {
-                        return;
-                    }
+                    const updatedSelected =
+                        {
+                            ...selectedParents,
+                        };
 
-                    const currentRole =
-                        Number(
-                            parents[index]
-                        );
-
-                    let parentId = null;
-
-                    if (index === 0) {
+                    for (
+                        let index = 0;
+                        index <
+                        parents.length;
+                        index++
+                    ) {
                         if (
-                            currentRole ===
-                            loggedInRoleId
+                            cancelled
                         ) {
-                            parentId =
-                                loggedInUserId;
+                            return;
                         }
-                    } else {
-                        const previousRole =
+
+                        const currentRole =
                             Number(
                                 parents[
-                                    index - 1
+                                    index
                                 ]
                             );
 
-                        parentId =
-                            updatedSelected[
-                                previousRole
-                            ]
-                                ? Number(
-                                      updatedSelected[
-                                          previousRole
-                                      ]
-                                  )
-                                : null;
-                    }
+                        let parentId =
+                            null;
 
-                    const response =
-                        await getDropdownUsers(
-                            currentRole,
-                            parentId
-                        );
-
-                    let users =
-                        getUsersFromResponse(
-                            response
-                        );
-
-                    if (currentRole === 5) {
-                        users =
-                            users.filter(
-                                (user) =>
-                                    Number(
-                                        user?.role_id
-                                    ) === 5 &&
-                                    (parentId ===
-                                        null ||
-                                        Number(
-                                            user?.parent_id
-                                        ) ===
-                                            Number(
-                                                parentId
-                                            ))
-                            );
-                    }
-
-                    const selectedId =
-                        updatedSelected[
-                            currentRole
-                        ];
-
-                    if (
-                        selectedId &&
-                        !users.some(
-                            (user) =>
+                        if (
+                            index === 0
+                        ) {
+                            if (
+                                currentRole ===
+                                loggedInRoleId
+                            ) {
+                                parentId =
+                                    loggedInUserId;
+                            }
+                        } else {
+                            const previousRole =
                                 Number(
-                                    user?.id
-                                ) ===
-                                Number(
-                                    selectedId
-                                )
-                        )
-                    ) {
-                        const responseById =
+                                    parents[
+                                        index -
+                                            1
+                                    ]
+                                );
+
+                            parentId =
+                                updatedSelected[
+                                    previousRole
+                                ]
+                                    ? Number(
+                                          updatedSelected[
+                                              previousRole
+                                          ]
+                                      )
+                                    : null;
+                        }
+
+                        const response =
                             await getDropdownUsers(
                                 currentRole,
-                                parentId,
-                                ""
+                                parentId
                             );
 
-                        const allUsers =
+                        let users =
                             getUsersFromResponse(
-                                responseById
+                                response
                             );
 
-                        const selectedUser =
-                            allUsers.find(
-                                (user) =>
+                        if (
+                            currentRole ===
+                            5
+                        ) {
+                            users =
+                                users.filter(
+                                    (
+                                        user
+                                    ) =>
+                                        Number(
+                                            user?.role_id
+                                        ) ===
+                                            5 &&
+                                        (parentId ===
+                                            null ||
+                                            Number(
+                                                user?.parent_id
+                                            ) ===
+                                                Number(
+                                                    parentId
+                                                ))
+                                );
+                        }
+
+                        const selectedId =
+                            updatedSelected[
+                                currentRole
+                            ];
+
+                        if (
+                            selectedId &&
+                            !users.some(
+                                (
+                                    user
+                                ) =>
                                     Number(
                                         user?.id
                                     ) ===
                                     Number(
                                         selectedId
                                     )
-                            );
+                            )
+                        ) {
+                            const responseById =
+                                await getDropdownUsers(
+                                    currentRole,
+                                    parentId,
+                                    ""
+                                );
 
-                        if (selectedUser) {
-                            users = [
-                                ...users,
-                                selectedUser,
-                            ];
+                            const allUsers =
+                                getUsersFromResponse(
+                                    responseById
+                                );
+
+                            const selectedUser =
+                                allUsers.find(
+                                    (
+                                        user
+                                    ) =>
+                                        Number(
+                                            user?.id
+                                        ) ===
+                                        Number(
+                                            selectedId
+                                        )
+                                );
+
+                            if (
+                                selectedUser
+                            ) {
+                                users = [
+                                    ...users,
+                                    selectedUser,
+                                ];
+                            }
                         }
+
+                        updatedUsers[
+                            currentRole
+                        ] = users;
                     }
 
-                    updatedUsers[
-                        currentRole
-                    ] = users;
-                }
+                    if (
+                        cancelled
+                    ) {
+                        return;
+                    }
 
-                if (cancelled) {
-                    return;
-                }
-
-                setParentUsers(
-                    updatedUsers
-                );
-
-                setSelectedParents(
-                    updatedSelected
-                );
-
-                const lastRole =
-                    parents[
-                        parents.length - 1
-                    ];
-
-                const lastParentId =
-                    updatedSelected[
-                        Number(lastRole)
-                    ];
-
-                if (lastParentId) {
-                    setFormData((prev) => ({
-                        ...prev,
-                        parent_id:
-                            Number(
-                                lastParentId
-                            ),
-                    }));
-                }
-            } catch (error) {
-                if (!cancelled) {
-                    console.error(
-                        "LOAD PARENTS ERROR:",
-                        error
+                    setParentUsers(
+                        updatedUsers
                     );
+
+                    setSelectedParents(
+                        updatedSelected
+                    );
+
+                    const lastRole =
+                        parents[
+                            parents.length -
+                                1
+                        ];
+
+                    const lastParentId =
+                        updatedSelected[
+                            Number(
+                                lastRole
+                            )
+                        ];
+
+                    if (
+                        lastParentId
+                    ) {
+                        setFormData(
+                            (prev) => ({
+                                ...prev,
+                                parent_id:
+                                    Number(
+                                        lastParentId
+                                    ),
+                            })
+                        );
+                    }
+                } catch (error) {
+                    if (
+                        !cancelled
+                    ) {
+                        console.error(
+                            "LOAD PARENTS ERROR:",
+                            error
+                        );
+                    }
                 }
-            }
-        };
+            };
 
         loadParents();
 
@@ -1594,159 +1973,209 @@ export default function Page() {
         editUserLoaded,
     ]);
 
-    const loadNextParentUsers = async (
-        selectedParentId,
-        nextRoleId
-    ) => {
-        if (
-            !selectedParentId ||
-            !nextRoleId
-        ) {
-            return;
-        }
-
-        const nextRole = Number(
+    const loadNextParentUsers =
+        async (
+            selectedParentId,
             nextRoleId
-        );
-
-        try {
-            setSearchLoading((prev) => ({
-                ...prev,
-                [nextRole]: true,
-            }));
-
-            const response =
-                await getDropdownUsers(
-                    nextRole,
-                    Number(selectedParentId)
-                );
-
-            let users =
-                getUsersFromResponse(
-                    response
-                );
-
-            if (nextRole === 5) {
-                users = users.filter(
-                    (user) =>
-                        Number(
-                            user?.role_id
-                        ) === 5 &&
-                        Number(
-                            user?.parent_id
-                        ) ===
-                            Number(
-                                selectedParentId
-                            )
-                );
+        ) => {
+            if (
+                !selectedParentId ||
+                !nextRoleId
+            ) {
+                return;
             }
 
-            setParentUsers((prev) => ({
-                ...prev,
-                [nextRole]: users,
-            }));
-        } catch (error) {
-            console.error(
-                `LOAD ${getRoleName(
-                    nextRole
-                )} ERROR:`,
-                error
-            );
+            const nextRole =
+                Number(nextRoleId);
 
-            setParentUsers((prev) => ({
-                ...prev,
-                [nextRole]: [],
-            }));
-        } finally {
-            setSearchLoading((prev) => ({
-                ...prev,
-                [nextRole]: false,
-            }));
-        }
-    };
+            try {
+                setSearchLoading(
+                    (prev) => ({
+                        ...prev,
+                        [nextRole]:
+                            true,
+                    })
+                );
 
-    const handleParentChange = async (
-        parentRoleId,
-        parentId
-    ) => {
-        const roleId = Number(
-            parentRoleId
-        );
+                const response =
+                    await getDropdownUsers(
+                        nextRole,
+                        Number(
+                            selectedParentId
+                        )
+                    );
 
-        const selectedId = parentId
-            ? Number(parentId)
-            : null;
+                let users =
+                    getUsersFromResponse(
+                        response
+                    );
 
-        const parents =
-            visibleParentRoles;
+                if (
+                    nextRole === 5
+                ) {
+                    users =
+                        users.filter(
+                            (user) =>
+                                Number(
+                                    user?.role_id
+                                ) ===
+                                    5 &&
+                                Number(
+                                    user?.parent_id
+                                ) ===
+                                    Number(
+                                        selectedParentId
+                                    )
+                        );
+                }
 
-        const currentIndex =
-            parents.indexOf(roleId);
+                setParentUsers(
+                    (prev) => ({
+                        ...prev,
+                        [nextRole]:
+                            users,
+                    })
+                );
+            } catch (error) {
+                console.error(
+                    `LOAD ${getRoleName(
+                        nextRole
+                    )} ERROR:`,
+                    error
+                );
 
-        const updatedSelected = {
-            ...selectedParents,
+                setParentUsers(
+                    (prev) => ({
+                        ...prev,
+                        [nextRole]:
+                            [],
+                    })
+                );
+            } finally {
+                setSearchLoading(
+                    (prev) => ({
+                        ...prev,
+                        [nextRole]:
+                            false,
+                    })
+                );
+            }
         };
 
-        if (selectedId) {
-            updatedSelected[roleId] =
-                selectedId;
-        } else {
-            delete updatedSelected[
-                roleId
-            ];
-        }
+    const handleParentChange =
+        async (
+            parentRoleId,
+            parentId
+        ) => {
+            const roleId =
+                Number(
+                    parentRoleId
+                );
 
-        parents
-            .slice(currentIndex + 1)
-            .forEach((childRoleId) => {
+            const selectedId =
+                parentId
+                    ? Number(
+                          parentId
+                      )
+                    : null;
+
+            const parents =
+                visibleParentRoles;
+
+            const currentIndex =
+                parents.indexOf(
+                    roleId
+                );
+
+            const updatedSelected =
+                {
+                    ...selectedParents,
+                };
+
+            if (selectedId) {
+                updatedSelected[
+                    roleId
+                ] = selectedId;
+            } else {
                 delete updatedSelected[
-                    Number(childRoleId)
+                    roleId
                 ];
-            });
+            }
 
-        setSelectedParents(
-            updatedSelected
-        );
+            parents
+                .slice(
+                    currentIndex + 1
+                )
+                .forEach(
+                    (
+                        childRoleId
+                    ) => {
+                        delete updatedSelected[
+                            Number(
+                                childRoleId
+                            )
+                        ];
+                    }
+                );
 
-        setFormData((prev) => ({
-            ...prev,
-            parent_id: selectedId,
-        }));
-
-        const updatedUsers = {
-            ...parentUsers,
-        };
-
-        parents
-            .slice(currentIndex + 1)
-            .forEach((childRoleId) => {
-                updatedUsers[
-                    Number(childRoleId)
-                ] = [];
-            });
-
-        setParentUsers(updatedUsers);
-
-        if (!selectedId) {
-            return;
-        }
-
-        const nextRole =
-            parents[
-                currentIndex + 1
-            ];
-
-        if (nextRole) {
-            await loadNextParentUsers(
-                selectedId,
-                Number(nextRole)
+            setSelectedParents(
+                updatedSelected
             );
-        }
-    };
+
+            setFormData((prev) => ({
+                ...prev,
+                parent_id:
+                    selectedId,
+            }));
+
+            const updatedUsers = {
+                ...parentUsers,
+            };
+
+            parents
+                .slice(
+                    currentIndex + 1
+                )
+                .forEach(
+                    (
+                        childRoleId
+                    ) => {
+                        updatedUsers[
+                            Number(
+                                childRoleId
+                            )
+                        ] = [];
+                    }
+                );
+
+            setParentUsers(
+                updatedUsers
+            );
+
+            if (!selectedId) {
+                return;
+            }
+
+            const nextRole =
+                parents[
+                    currentIndex + 1
+                ];
+
+            if (nextRole) {
+                await loadNextParentUsers(
+                    selectedId,
+                    Number(
+                        nextRole
+                    )
+                );
+            }
+        };
 
     const handleChange = (e) => {
-        const { name, value } =
-            e.target;
+        const {
+            name,
+            value,
+        } = e.target;
 
         setFormData((prev) => ({
             ...prev,
@@ -1754,248 +2183,349 @@ export default function Page() {
         }));
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit =
+        async (e) => {
+            e.preventDefault();
 
-        if (
-            isEditMode &&
-            !hasChanges
-        ) {
-            toast.info(
-                "No changes to update"
-            );
-            return;
-        }
+            if (
+                isEditMode &&
+                !hasChanges
+            ) {
+                toast.info(
+                    "No changes to update"
+                );
+                return;
+            }
 
-        const roleId = Number(
-            formData.role_id
-        );
+            const roleId =
+                Number(
+                    formData.role_id
+                );
 
-        if (!roleId) {
-            toast.error(
-                "Role ID missing. Please select role again"
-            );
-            return;
-        }
+            if (!roleId) {
+                toast.error(
+                    "Role ID missing. Please select role again"
+                );
+                return;
+            }
 
-        if (!loggedInUser?.id) {
-            toast.error(
-                "Logged-in user not found"
-            );
-            return;
-        }
+            if (
+                !loggedInUser?.id
+            ) {
+                toast.error(
+                    "Logged-in user not found"
+                );
+                return;
+            }
 
-        if (!formData.phone) {
-            toast.error(
-                "Phone number is required"
-            );
-            return;
-        }
+            const phoneNumber =
+                getDigits(
+                    formData.phone
+                );
 
-        if (
-            !isEditMode &&
-            formData.password !==
-                formData.confirm_password
-        ) {
-            toast.error(
-                "Password and Confirm Password do not match!"
-            );
-            return;
-        }
+            if (!phoneNumber) {
+                toast.error(
+                    "Phone number is required"
+                );
+                return;
+            }
 
-        if (
-            isEditMode &&
-            (formData.password ||
-                formData.confirm_password) &&
-            formData.password !==
-                formData.confirm_password
-        ) {
-            toast.error(
-                "Password and Confirm Password do not match!"
-            );
-            return;
-        }
+            const phoneCountry =
+                selectedPhoneCountry;
 
-        if (
-            formData.password &&
-            !/^[A-Z]/.test(
-                formData.password
-            )
-        ) {
-            toast.error(
-                "Password must start with a capital letter"
-            );
-            return;
-        }
+            if (!phoneCountry) {
+                toast.error(
+                    "Please select phone country"
+                );
+                return;
+            }
 
-        let finalParentId =
-            formData.parent_id
-                ? Number(formData.parent_id)
-                : null;
+            const phoneCode =
+                getCountryCode(
+                    phoneCountry
+                );
 
-        if (
-            !finalParentId &&
-            roleId > 1 &&
-            loggedInRoleId > 0 &&
-            loggedInRoleId < roleId
-        ) {
-            finalParentId =
-                loggedInUserId;
-        }
+            if (!phoneCode) {
+                toast.error(
+                    "Phone country code not found"
+                );
+                return;
+            }
 
-        const selectedCountry =
-            countries.find(
-                (country) =>
-                    String(
-                        country.country_id
-                    ) ===
-                    String(
-                        selectedCountryId
-                    )
-            );
+            if (
+                !isEditMode &&
+                formData.password !==
+                    formData.confirm_password
+            ) {
+                toast.error(
+                    "Password and Confirm Password do not match!"
+                );
+                return;
+            }
 
-        const finalCountryCode =
-            getCountryIsoCode(
-                selectedCountry
-            ) ||
-            String(
-                formData.country_code || ""
-            )
-                .trim()
-                .toUpperCase();
+            if (
+                isEditMode &&
+                (formData.password ||
+                    formData.confirm_password) &&
+                formData.password !==
+                    formData.confirm_password
+            ) {
+                toast.error(
+                    "Password and Confirm Password do not match!"
+                );
+                return;
+            }
 
-        const payload = {
-            ...formData,
-            role_id: roleId,
-            parent_id: finalParentId,
-            country:
-                selectedCountry?.country_name ||
+            if (
+                formData.password &&
+                !/^[A-Z]/.test(
+                    formData.password
+                )
+            ) {
+                toast.error(
+                    "Password must start with a capital letter"
+                );
+                return;
+            }
+
+            let finalParentId =
+                formData.parent_id
+                    ? Number(
+                          formData.parent_id
+                      )
+                    : null;
+
+            if (
+                !finalParentId &&
+                roleId > 1 &&
+                loggedInRoleId > 0 &&
+                loggedInRoleId <
+                    roleId
+            ) {
+                finalParentId =
+                    loggedInUserId;
+            }
+
+            const country =
+                selectedCountry;
+
+            const finalCountryCode =
+                getCountryIsoCode(
+                    country
+                ) ||
                 String(
-                    formData.country || ""
-                ).trim(),
-            country_code:
-                finalCountryCode,
-            state: formData.state
-                ? String(
-                      formData.state
-                  ).trim()
-                : null,
-            city: formData.city
-                ? String(
-                      formData.city
-                  ).trim()
-                : null,
-            phone: String(
-                formData.phone || ""
-            ).trim(),
-        };
+                    formData.country_code ||
+                        ""
+                )
+                    .trim()
+                    .toUpperCase();
 
-        if (roleId === 9) {
-            if (formData.profile_id) {
-                payload.profile_id =
-                    Number(
-                        formData.profile_id
-                    );
+            if (!country) {
+                toast.error(
+                    "Please select country"
+                );
+                return;
+            }
+
+            const payload = {
+                ...formData,
+
+                role_id:
+                    roleId,
+
+                parent_id:
+                    finalParentId,
+
+                country:
+                    country.country_name ||
+                    String(
+                        formData.country ||
+                            ""
+                    ).trim(),
+
+                country_code:
+                    finalCountryCode,
+
+                state: formData.state
+                    ? String(
+                          formData.state
+                      ).trim()
+                    : null,
+
+                city: formData.city
+                    ? String(
+                          formData.city
+                      ).trim()
+                    : null,
+
+                phone:
+                    getInternationalPhone(
+                        phoneNumber,
+                        phoneCountry
+                    ),
+            };
+
+            if (
+                roleId === 9
+            ) {
+                if (
+                    formData.profile_id
+                ) {
+                    payload.profile_id =
+                        Number(
+                            formData.profile_id
+                        );
+                } else {
+                    delete payload.profile_id;
+                }
+
+                delete payload.organization_name;
             } else {
                 delete payload.profile_id;
             }
 
-            delete payload.organization_name;
-        } else {
-            delete payload.profile_id;
-        }
+            if (isEditMode) {
+                delete payload.confirm_password;
 
-        if (isEditMode) {
-            delete payload.confirm_password;
-
-            if (!payload.password) {
-                delete payload.password;
+                if (!payload.password) {
+                    delete payload.password;
+                }
             }
-        }
 
-        try {
-            setSubmitLoading(true);
-
-            const response = isEditMode
-                ? await updateStaffData(
-                      editId,
-                      payload
-                  )
-                : await addStaff(
-                      payload
-                  );
-
-            toast.success(
-                response?.message ||
-                    (isEditMode
-                        ? "Updated Successfully"
-                        : "Registered Successfully")
-            );
-
-            if (!isEditMode) {
-                setFormData({
-                    ...initialFormData,
-                    role_id: roleId,
-                });
-
-                setSelectedCountryId("");
-                setPhoneCountryId("");
-                setSelectedStateId("");
-                setSelectedCityId("");
-
-                setStates([]);
-                setCities([]);
-
-                setSelectedParents({});
-                setParentUsers({});
-                setParentSearch({});
-                setOpenDropdown(null);
-
-                setShowPassword(false);
-                setShowConfirmPassword(false);
-            } else {
-                const updatedOriginal = {
-                    ...formData,
-                    password: "",
-                    confirm_password: "",
-                };
-
-                setOriginalFormData(
-                    updatedOriginal
+            try {
+                setSubmitLoading(
+                    true
                 );
 
-                setOriginalSelectedParents({
-                    ...selectedParents,
-                });
+                const response =
+                    isEditMode
+                        ? await updateStaffData(
+                              editId,
+                              payload
+                          )
+                        : await addStaff(
+                              payload
+                          );
 
-                setFormData((prev) => ({
-                    ...prev,
-                    password: "",
-                    confirm_password: "",
-                }));
+                toast.success(
+                    response?.message ||
+                        (isEditMode
+                            ? "Updated Successfully"
+                            : "Registered Successfully")
+                );
+
+                if (!isEditMode) {
+                    setFormData({
+                        ...initialFormData,
+                        role_id:
+                            roleId,
+                    });
+
+                    setSelectedCountryId(
+                        ""
+                    );
+
+                    setPhoneCountryId(
+                        ""
+                    );
+
+                    setSelectedStateId(
+                        ""
+                    );
+
+                    setSelectedCityId(
+                        ""
+                    );
+
+                    setStates([]);
+                    setCities([]);
+
+                    setSelectedParents(
+                        {}
+                    );
+
+                    setParentUsers(
+                        {}
+                    );
+
+                    setParentSearch(
+                        {}
+                    );
+
+                    setOpenDropdown(
+                        null
+                    );
+
+                    setShowPassword(
+                        false
+                    );
+
+                    setShowConfirmPassword(
+                        false
+                    );
+                } else {
+                    const updatedForm =
+                        {
+                            ...formData,
+                            phone:
+                                phoneNumber,
+                            password:
+                                "",
+                            confirm_password:
+                                "",
+                            parent_id:
+                                finalParentId,
+                            country:
+                                country.country_name ||
+                                formData.country,
+                            country_code:
+                                finalCountryCode,
+                            state:
+                                formData.state ||
+                                "",
+                            city:
+                                formData.city ||
+                                "",
+                        };
+
+                    setFormData(
+                        updatedForm
+                    );
+
+                    setOriginalFormData(
+                        updatedForm
+                    );
+
+                    setOriginalSelectedParents(
+                        {
+                            ...selectedParents,
+                        }
+                    );
+                }
+            } catch (error) {
+                console.error(
+                    isEditMode
+                        ? "UPDATE USER ERROR:"
+                        : "REGISTER ERROR:",
+                    error
+                );
+
+                toast.error(
+                    error?.response
+                        ?.data?.message ||
+                        error?.response
+                            ?.data?.error ||
+                        error?.message ||
+                        (isEditMode
+                            ? "Failed to update user"
+                            : "Something went wrong")
+                );
+            } finally {
+                setSubmitLoading(
+                    false
+                );
             }
-        } catch (error) {
-            console.error(
-                isEditMode
-                    ? "UPDATE USER ERROR:"
-                    : "REGISTER ERROR:",
-                error
-            );
-
-            toast.error(
-                error?.response?.data
-                    ?.message ||
-                    error?.response?.data
-                        ?.error ||
-                    error?.message ||
-                    (isEditMode
-                        ? "Failed to update user"
-                        : "Something went wrong")
-            );
-        } finally {
-            setSubmitLoading(false);
-        }
-    };
+        };
 
     if (
         isEditMode &&
@@ -2033,10 +2563,13 @@ export default function Page() {
 
                 {isMounted &&
                     selectedRole > 1 &&
-                    visibleParentRoles.length > 0 && (
+                    visibleParentRoles.length >
+                        0 && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
                             {visibleParentRoles.map(
-                                (parentRoleId) => {
+                                (
+                                    parentRoleId
+                                ) => {
                                     const role =
                                         Number(
                                             parentRoleId
@@ -2049,7 +2582,9 @@ export default function Page() {
 
                                     const selectedUser =
                                         users.find(
-                                            (user) =>
+                                            (
+                                                user
+                                            ) =>
                                                 Number(
                                                     user?.id
                                                 ) ===
@@ -2062,7 +2597,9 @@ export default function Page() {
 
                                     return (
                                         <div
-                                            key={role}
+                                            key={
+                                                role
+                                            }
                                             className="space-y-1.5"
                                         >
                                             <label className="text-sm font-medium text-slate-700">
@@ -2092,7 +2629,9 @@ export default function Page() {
                                                     </span>
 
                                                     <RiArrowDownSLine
-                                                        size={22}
+                                                        size={
+                                                            22
+                                                        }
                                                         className={`shrink-0 transition-transform text-slate-500 ${
                                                             openDropdown ===
                                                             role
@@ -2264,7 +2803,9 @@ export default function Page() {
                             <input
                                 type="text"
                                 name="name"
-                                value={formData.name}
+                                value={
+                                    formData.name
+                                }
                                 onChange={
                                     handleChange
                                 }
@@ -2374,7 +2915,7 @@ export default function Page() {
                                     autoComplete="new-password"
                                     placeholder={
                                         isEditMode
-                                            ? "Leave blank to keep current password"
+                                            ? "password"
                                             : "Enter password"
                                     }
                                     className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2384,7 +2925,9 @@ export default function Page() {
                                     type="button"
                                     onClick={() =>
                                         setShowPassword(
-                                            (prev) =>
+                                            (
+                                                prev
+                                            ) =>
                                                 !prev
                                         )
                                     }
@@ -2392,11 +2935,15 @@ export default function Page() {
                                 >
                                     {showPassword ? (
                                         <RiEyeOffLine
-                                            size={20}
+                                            size={
+                                                20
+                                            }
                                         />
                                     ) : (
                                         <RiEyeLine
-                                            size={20}
+                                            size={
+                                                20
+                                            }
                                         />
                                     )}
                                 </button>
@@ -2432,7 +2979,7 @@ export default function Page() {
                                     }
                                     placeholder={
                                         isEditMode
-                                            ? "Leave blank to keep current password"
+                                            ? "confirm password"
                                             : "Re-enter password"
                                     }
                                     className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2442,7 +2989,9 @@ export default function Page() {
                                     type="button"
                                     onClick={() =>
                                         setShowConfirmPassword(
-                                            (prev) =>
+                                            (
+                                                prev
+                                            ) =>
                                                 !prev
                                         )
                                     }
@@ -2450,11 +2999,15 @@ export default function Page() {
                                 >
                                     {showConfirmPassword ? (
                                         <RiEyeOffLine
-                                            size={20}
+                                            size={
+                                                20
+                                            }
                                         />
                                     ) : (
                                         <RiEyeLine
-                                            size={20}
+                                            size={
+                                                20
+                                            }
                                         />
                                     )}
                                 </button>
@@ -2616,7 +3169,9 @@ export default function Page() {
                                     </select>
 
                                     <RiArrowDownSLine
-                                        size={22}
+                                        size={
+                                            22
+                                        }
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
                                     />
                                 </div>
@@ -2633,7 +3188,9 @@ export default function Page() {
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                     {devicePermissions.map(
-                                        (item) => (
+                                        (
+                                            item
+                                        ) => (
                                             <label
                                                 key={
                                                     item.name
