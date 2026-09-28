@@ -1337,211 +1337,173 @@ export default function TransferPoint() {
     }
   };
 
-  const resetAllFields = () => {
-    setSelectedKey("");
-    setWalletBalance(0);
-    setAvailableBalance(0);
-    setTransferPoint("");
+const resetAllFields = () => {
+  setAvailableBalance(0);
+  setTransferPoint("");
 
-    setSelectedTransferUser("");
-    setTransferUserSearch("");
-    setTransferUserDropdownOpen(false);
+  setSelectedTransferUser("");
+  setTransferUserSearch("");
+  setTransferUserDropdownOpen(false);
 
-    setSelectedSchemaRole("");
-    setSelectedSchemaUser("");
-    setSchemaUserSearch("");
-    setSchemaRoleDropdownOpen(false);
-    setSchemaUserDropdownOpen(false);
-    setSchemaUsers([]);
-    setSchemaKeyDropdownOpen(false);
+  setSelectedSchemaRole("");
+  setSelectedSchemaUser("");
+  setSchemaUserSearch("");
+  setSchemaRoleDropdownOpen(false);
+  setSchemaUserDropdownOpen(false);
+  setSchemaUsers([]);
+  setSchemaKeyDropdownOpen(false);
 
-    setSelectedFromRole("");
-    setSelectedRevertUser("");
-    setRevertUserSearch("");
-    setFromRoleDropdownOpen(false);
-    setRevertUserDropdownOpen(false);
-    setRevertUsers([]);
-  };
+  setSelectedFromRole("");
+  setSelectedRevertUser("");
+  setRevertUserSearch("");
+  setFromRoleDropdownOpen(false);
+  setRevertUserDropdownOpen(false);
+  setRevertUsers([]);
+};
 
-  const handleTransfer = async () => {
-    if (!selectedKey) {
-      toast.error(
-        "Please select a key setting"
-      );
+const handleTransfer = async () => {
+  if (!selectedKey) {
+    toast.error("Please select a key setting");
+    return;
+  }
+
+  if (isRevert) {
+    if (!selectedFromRole) {
+      toast.error("Please select a role");
       return;
     }
+
+    if (!selectedRevertUser) {
+      toast.error("Please select a user");
+      return;
+    }
+  } else if (isSchemaTransfer) {
+    if (!selectedSchemaRole) {
+      toast.error("Please select a role");
+      return;
+    }
+
+    if (!selectedSchemaUser) {
+      toast.error("Please select a user");
+      return;
+    }
+  } else if (!selectedTransferUser) {
+    toast.error("Please select a user");
+    return;
+  }
+
+  const points = Number(transferPoint);
+
+  if (!Number.isFinite(points) || points <= 0) {
+    toast.error(
+      isRevert
+        ? "Please enter valid revert points"
+        : "Please enter valid transfer points"
+    );
+    return;
+  }
+
+  const balance = isRevert
+    ? availableBalance
+    : walletBalance;
+
+  if (points > balance) {
+    toast.error(
+      `Insufficient balance. Available balance is ${Number(
+        balance || 0
+      ).toLocaleString("en-IN")}`
+    );
+    return;
+  }
+
+  try {
+    setTransferLoading(true);
+
+    let targetUserId = "";
 
     if (isRevert) {
-      if (!selectedFromRole) {
-        toast.error(
-          "Please select a role"
-        );
-        return;
-      }
-
-      if (!selectedRevertUser) {
-        toast.error(
-          "Please select a user"
-        );
-        return;
-      }
+      targetUserId = selectedRevertUser;
     } else if (isSchemaTransfer) {
-      if (!selectedSchemaRole) {
-        toast.error(
-          "Please select a role"
-        );
-        return;
-      }
-
-      if (!selectedSchemaUser) {
-        toast.error(
-          "Please select a user"
-        );
-        return;
-      }
-    } else if (!selectedTransferUser) {
-      toast.error(
-        "Please select a user"
-      );
-      return;
+      targetUserId = selectedSchemaUser;
+    } else {
+      targetUserId = selectedTransferUser;
     }
 
-    const points =
-      Number(transferPoint);
+    const response = await transferWalletPoints(
+      targetUserId,
+      selectedKey,
+      points,
+      transactionType
+    );
 
-    if (
-      !Number.isFinite(points) ||
-      points <= 0
-    ) {
+    if (!response?.success) {
       toast.error(
-        isRevert
-          ? "Please enter valid revert points"
-          : "Please enter valid transfer points"
-      );
-      return;
-    }
-
-    const balance = isRevert
-      ? availableBalance
-      : walletBalance;
-
-    if (points > balance) {
-      toast.error(
-        `Insufficient balance. Available balance is ${Number(
-          balance || 0
-        ).toLocaleString("en-IN")}`
-      );
-      return;
-    }
-
-    try {
-      setTransferLoading(true);
-
-      let targetUserId = "";
-
-      if (isRevert) {
-        targetUserId =
-          selectedRevertUser;
-      } else if (isSchemaTransfer) {
-        targetUserId =
-          selectedSchemaUser;
-      } else {
-        targetUserId =
-          selectedTransferUser;
-      }
-
-      const response =
-        await transferWalletPoints(
-          targetUserId,
-          selectedKey,
-          points,
-          transactionType
-        );
-
-      if (!response?.success) {
-        toast.error(
-          response?.message ||
-            "Failed to transfer points"
-        );
-        return;
-      }
-
-      const successMessage =
         response?.message ||
-        (isRevert
-          ? "Points reverted successfully"
-          : isSchemaTransfer
-          ? "Schema transferred successfully"
-          : "Points transferred successfully");
-
-      const currentRole =
-        Number(getRoleId());
-
-      const previousFromRole =
-        selectedFromRole;
-
-      const previousSchemaRole =
-        selectedSchemaRole;
-
-      resetAllFields();
-
-      toast.success(
-        successMessage
-      );
-
-      if (
-        typeof window !== "undefined"
-      ) {
-        window.dispatchEvent(
-          new Event(
-            "wallet_balance_updated"
-          )
-        );
-      }
-
-      await loadKeySettings();
-
-      if (
-        Number.isFinite(currentRole)
-      ) {
-        if (isRevert) {
-          if (previousFromRole) {
-            await loadRevertUsers(
-              Number(previousFromRole)
-            );
-          }
-        } else if (
-          isSchemaTransfer
-        ) {
-          if (previousSchemaRole) {
-            await loadSchemaUsers(
-              Number(previousSchemaRole)
-            );
-          }
-        } else {
-          await loadTransferUsers(
-            currentRole,
-            roles
-          );
-        }
-      }
-
-      resetAllFields();
-    } catch (error) {
-      console.error(
-        "TRANSFER WALLET POINTS ERROR:",
-        error
-      );
-
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
           "Failed to transfer points"
       );
-    } finally {
-      setTransferLoading(false);
+      return;
     }
-  };
+
+    const successMessage =
+      response?.message ||
+      (isRevert
+        ? "Points reverted successfully"
+        : isSchemaTransfer
+        ? "Schema transferred successfully"
+        : "Points transferred successfully");
+
+    const currentRole = Number(getRoleId());
+
+    const previousFromRole = selectedFromRole;
+    const previousSchemaRole = selectedSchemaRole;
+
+    resetAllFields();
+
+    toast.success(successMessage);
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new Event("wallet_balance_updated")
+      );
+    }
+
+    await loadKeySettings();
+
+    if (Number.isFinite(currentRole)) {
+      if (isRevert) {
+        if (previousFromRole) {
+          await loadRevertUsers(
+            Number(previousFromRole)
+          );
+        }
+      } else if (isSchemaTransfer) {
+        if (previousSchemaRole) {
+          await loadSchemaUsers(
+            Number(previousSchemaRole)
+          );
+        }
+      } else {
+        await loadTransferUsers(
+          currentRole,
+          roles
+        );
+      }
+    }
+  } catch (error) {
+    console.error(
+      "TRANSFER WALLET POINTS ERROR:",
+      error
+    );
+
+    toast.error(
+      error?.response?.data?.message ||
+        error?.message ||
+        "Failed to transfer points"
+    );
+  } finally {
+    setTransferLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen">

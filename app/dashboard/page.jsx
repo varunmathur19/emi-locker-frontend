@@ -1265,24 +1265,15 @@ export default function Dashboard() {
     );
   }
 
-  
-
   return (
     <div className="bg-gray-100">
       <main className="pt-0 p-0">
-
-        
-
-        <h1 className="md:text-3xl font-bold md:mb-6 mb-0 text-[20px]">
+        <h1 className="md:text-3xl font-bold md:mb-5 mb-0 text-[20px]">
           Welcome Dashboard
         </h1>
 
-       
-
         {isDashboardHome && (
           <>
-           
-
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
               {visibleCards.map(
                 (card) => (
@@ -1304,9 +1295,6 @@ export default function Dashboard() {
                 )
               )}
             </div>
-
-          
-
             <div className="mt-6">
               <div className="bg-white p-5 rounded-xl shadow">
 
@@ -1445,9 +1433,7 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              {/* =========================================
-                  PIE CHART
-              ========================================= */}
+          
 
               <div className="bg-white p-5 rounded-xl shadow">
                 <h3 className="text-gray-700 font-semibold mb-4">

@@ -37,7 +37,7 @@ export default function DashboardLayout({
         />
 
 
-        <main className="flex-1 min-w-0 overflow-y-auto p-8 pt-22">
+        <main className="flex-1 min-w-0 overflow-y-auto p-8 pt-20">
           <AuthGuard>
           {children}
           </AuthGuard>

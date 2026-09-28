@@ -129,10 +129,7 @@ const getSingleUserFromResponse = (response) => {
                 item &&
                 typeof item === "object" &&
                 !Array.isArray(item) &&
-                (item.id ||
-                    item.user_id ||
-                    item.name ||
-                    item.email)
+                (item.id || item.user_id || item.name || item.email)
         ) || null
     );
 };
@@ -142,17 +139,13 @@ const normalizeCountryCode = (value) => {
         return "";
     }
 
-    let code = String(value).trim();
+    const code = String(value).trim();
 
     if (!code) {
         return "";
     }
 
-    if (!code.startsWith("+")) {
-        code = `+${code}`;
-    }
-
-    return code;
+    return code.startsWith("+") ? code : `+${code}`;
 };
 
 const getCountryCode = (country) => {
@@ -175,21 +168,73 @@ const getCountryIsoCode = (country) => {
         .toUpperCase();
 };
 
+const getDigits = (value) => {
+    return String(value || "").replace(/\D/g, "");
+};
+
 const removeCountryCode = (phone, country) => {
-    const value = String(phone || "").trim();
-    const code = getCountryCode(country);
+    const rawPhone = String(phone || "").trim();
 
-    if (!value || !code) {
-        return value;
+    if (!rawPhone) {
+        return "";
     }
 
-    const cleanValue = value.replace(/[\s()-]/g, "");
+    const digits = getDigits(rawPhone);
+    const countryCode = getDigits(getCountryCode(country));
 
-    if (cleanValue.startsWith(code)) {
-        return cleanValue.slice(code.length);
+    if (!digits || !countryCode) {
+        return digits;
     }
 
-    return value;
+    const hasInternationalPrefix =
+        rawPhone.startsWith("+") || rawPhone.startsWith("00");
+
+    if (hasInternationalPrefix && digits.startsWith(countryCode)) {
+        return digits.slice(countryCode.length);
+    }
+
+    return digits;
+};
+
+const getInternationalPhone = (phone, country) => {
+    const localNumber = getDigits(phone);
+    const countryCode = getDigits(getCountryCode(country));
+
+    if (!localNumber) {
+        return "";
+    }
+
+    if (!countryCode) {
+        return localNumber;
+    }
+
+    return `+${countryCode}${localNumber}`;
+};
+
+const normalizeFormData = (data) => {
+    return {
+        organization_name: String(data?.organization_name || "").trim(),
+        role_id: String(data?.role_id || ""),
+        profile_id: String(data?.profile_id || ""),
+        name: String(data?.name || "").trim(),
+        email: String(data?.email || "").trim(),
+        phone: getDigits(data?.phone),
+        company_address: String(data?.company_address || "").trim(),
+        country: String(data?.country || "").trim(),
+        country_code: String(data?.country_code || "")
+            .trim()
+            .toUpperCase(),
+        state: String(data?.state || "").trim(),
+        city: String(data?.city || "").trim(),
+        parent_id: data?.parent_id ? Number(data.parent_id) : null,
+        new_device: Number(data?.new_device || 0),
+        old_device: Number(data?.old_device || 0),
+        supreme_device: Number(data?.supreme_device || 0),
+        pro_star: Number(data?.pro_star || 0),
+        lite: Number(data?.lite || 0),
+        google_tv: Number(data?.google_tv || 0),
+        supreme_lock: Number(data?.supreme_lock || 0),
+    };
 };
 
 const SearchableCountryDropdown = ({
@@ -206,8 +251,7 @@ const SearchableCountryDropdown = ({
     const selectedCountry = useMemo(() => {
         return countries.find(
             (country) =>
-                String(country.country_id) ===
-                String(selectedCountryId)
+                String(country.country_id) === String(selectedCountryId)
         );
     }, [countries, selectedCountryId]);
 
@@ -219,16 +263,11 @@ const SearchableCountryDropdown = ({
         }
 
         return countries.filter((country) => {
-            const name = String(
-                country?.country_name || ""
-            ).toLowerCase();
-
+            const name = String(country?.country_name || "").toLowerCase();
             const countryCode = String(
                 country?.country_code || ""
             ).toLowerCase();
-
-            const mobileCode =
-                getCountryCode(country).toLowerCase();
+            const mobileCode = getCountryCode(country).toLowerCase();
 
             return (
                 name.includes(value) ||
@@ -248,12 +287,12 @@ const SearchableCountryDropdown = ({
         <div className="relative w-full">
             <button
                 type="button"
+                disabled={loading}
                 onClick={() => {
                     if (!loading) {
                         setOpen((prev) => !prev);
                     }
                 }}
-                disabled={loading}
                 className="w-full h-[42px] flex items-center border border-slate-300 rounded-l-lg px-3 text-sm bg-white text-slate-700 disabled:bg-slate-50 disabled:cursor-not-allowed"
             >
                 <span className="flex items-center gap-2 min-w-0 flex-1">
@@ -266,9 +305,7 @@ const SearchableCountryDropdown = ({
                     <span className="truncate">
                         {selectedCountry
                             ? showCode
-                                ? getCountryCode(
-                                      selectedCountry
-                                  )
+                                ? getCountryCode(selectedCountry)
                                 : selectedCountry.country_name
                             : loading
                             ? "Loading..."
@@ -296,11 +333,7 @@ const SearchableCountryDropdown = ({
                             <input
                                 type="text"
                                 value={search}
-                                onChange={(e) =>
-                                    setSearch(
-                                        e.target.value
-                                    )
-                                }
+                                onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Search country..."
                                 autoFocus
                                 className="w-full border border-slate-300 rounded-md pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -310,51 +343,33 @@ const SearchableCountryDropdown = ({
 
                     <div className="max-h-60 overflow-y-auto">
                         {filteredCountries.length > 0 ? (
-                            filteredCountries.map(
-                                (country) => (
-                                    <button
-                                        key={
-                                            country.country_id
-                                        }
-                                        type="button"
-                                        onClick={() =>
-                                            handleSelect(
-                                                country
-                                            )
-                                        }
-                                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50 ${
-                                            String(
-                                                selectedCountryId
-                                            ) ===
-                                            String(
-                                                country.country_id
-                                            )
-                                                ? "bg-blue-50 text-blue-700"
-                                                : "text-slate-700"
-                                        }`}
-                                    >
-                                        <span className="text-lg shrink-0">
-                                            {
-                                                country.emoji
-                                            }
-                                        </span>
+                            filteredCountries.map((country) => (
+                                <button
+                                    key={country.country_id}
+                                    type="button"
+                                    onClick={() => handleSelect(country)}
+                                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50 ${
+                                        String(selectedCountryId) ===
+                                        String(country.country_id)
+                                            ? "bg-blue-50 text-blue-700"
+                                            : "text-slate-700"
+                                    }`}
+                                >
+                                    <span className="text-lg shrink-0">
+                                        {country.emoji}
+                                    </span>
 
-                                        <span className="flex-1 truncate">
-                                            {
-                                                country.country_name
-                                            }
-                                        </span>
+                                    <span className="flex-1 truncate">
+                                        {country.country_name}
+                                    </span>
 
-                                        {showCode && (
-                                            <span className="text-slate-500 shrink-0">
-                                                {getCountryCode(
-                                                    country
-                                                )}
-                                            </span>
-                                        )}
-                                    </button>
-                                )
-                            )
+                                    {showCode && (
+                                        <span className="text-slate-500 shrink-0">
+                                            {getCountryCode(country)}
+                                        </span>
+                                    )}
+                                </button>
+                            ))
                         ) : (
                             <div className="px-4 py-4 text-center text-sm text-slate-400">
                                 No country found
@@ -382,9 +397,7 @@ const SearchableLocationDropdown = ({
 
     const selectedItem = useMemo(() => {
         return items.find(
-            (item) =>
-                String(item.id) ===
-                String(selectedId)
+            (item) => String(item.id) === String(selectedId)
         );
     }, [items, selectedId]);
 
@@ -429,9 +442,7 @@ const SearchableLocationDropdown = ({
             >
                 <span className="truncate">
                     {selectedItem?.name ||
-                        (loading
-                            ? "Loading..."
-                            : placeholder)}
+                        (loading ? "Loading..." : placeholder)}
                 </span>
 
                 <RiArrowDownSLine
@@ -454,14 +465,8 @@ const SearchableLocationDropdown = ({
                             <input
                                 type="text"
                                 value={search}
-                                onChange={(e) =>
-                                    setSearch(
-                                        e.target.value
-                                    )
-                                }
-                                placeholder={
-                                    searchPlaceholder
-                                }
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder={searchPlaceholder}
                                 autoFocus
                                 className="w-full border border-slate-300 rounded-md pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
@@ -470,33 +475,22 @@ const SearchableLocationDropdown = ({
 
                     <div className="max-h-60 overflow-y-auto">
                         {filteredItems.length > 0 ? (
-                            filteredItems.map(
-                                (item) => (
-                                    <button
-                                        key={item.id}
-                                        type="button"
-                                        onClick={() =>
-                                            handleSelect(
-                                                item
-                                            )
-                                        }
-                                        className={`w-full flex items-center px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${
-                                            String(
-                                                selectedId
-                                            ) ===
-                                            String(
-                                                item.id
-                                            )
-                                                ? "bg-blue-50 text-blue-700"
-                                                : "text-slate-700"
-                                        }`}
-                                    >
-                                        <span className="truncate">
-                                            {item.name}
-                                        </span>
-                                    </button>
-                                )
-                            )
+                            filteredItems.map((item) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => handleSelect(item)}
+                                    className={`w-full flex items-center px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${
+                                        String(selectedId) === String(item.id)
+                                            ? "bg-blue-50 text-blue-700"
+                                            : "text-slate-700"
+                                    }`}
+                                >
+                                    <span className="truncate">
+                                        {item.name}
+                                    </span>
+                                </button>
+                            ))
                         ) : (
                             <div className="px-4 py-4 text-center text-sm text-slate-400">
                                 {emptyText}
@@ -515,101 +509,54 @@ export default function Page() {
     const editId = searchParams.get("id");
     const isEditMode = Boolean(editId);
 
-    const selectedRoleFromUrl = Number(
-        searchParams.get("role_id")
-    );
+    const selectedRoleFromUrl = Number(searchParams.get("role_id"));
 
     const loggedInUser = getUserFromToken();
 
-    const loggedInRoleId = Number(
-        loggedInUser?.role_id
-    );
+    const loggedInRoleId = Number(loggedInUser?.role_id);
+    const loggedInUserId = Number(loggedInUser?.id);
 
-    const loggedInUserId = Number(
-        loggedInUser?.id
-    );
-
-    const [formData, setFormData] = useState(
-        initialFormData
-    );
-
-    const [originalFormData, setOriginalFormData] =
-        useState(null);
+    const [formData, setFormData] = useState(initialFormData);
+    const [originalFormData, setOriginalFormData] = useState(null);
 
     const [profiles, setProfiles] = useState([]);
-    const [profileLoading, setProfileLoading] =
-        useState(false);
+    const [profileLoading, setProfileLoading] = useState(false);
 
     const [countries, setCountries] = useState([]);
     const [states, setStates] = useState([]);
     const [cities, setCities] = useState([]);
 
-    const [countryLoading, setCountryLoading] =
-        useState(false);
+    const [countryLoading, setCountryLoading] = useState(false);
+    const [stateLoading, setStateLoading] = useState(false);
+    const [cityLoading, setCityLoading] = useState(false);
 
-    const [stateLoading, setStateLoading] =
-        useState(false);
-
-    const [cityLoading, setCityLoading] =
-        useState(false);
-
-    const [selectedCountryId, setSelectedCountryId] =
-        useState("");
-
-    const [selectedStateId, setSelectedStateId] =
-        useState("");
-
-    const [selectedCityId, setSelectedCityId] =
-        useState("");
-
-    const [phoneCountryId, setPhoneCountryId] =
-        useState("");
+    const [selectedCountryId, setSelectedCountryId] = useState("");
+    const [selectedStateId, setSelectedStateId] = useState("");
+    const [selectedCityId, setSelectedCityId] = useState("");
+    const [phoneCountryId, setPhoneCountryId] = useState("");
 
     const [parentUsers, setParentUsers] = useState({});
-    const [selectedParents, setSelectedParents] =
-        useState({});
+    const [selectedParents, setSelectedParents] = useState({});
+    const [originalSelectedParents, setOriginalSelectedParents] = useState({});
 
-    const [
-        originalSelectedParents,
-        setOriginalSelectedParents,
-    ] = useState({});
+    const [openDropdown, setOpenDropdown] = useState(null);
+    const [parentSearch, setParentSearch] = useState({});
+    const [searchLoading, setSearchLoading] = useState({});
 
-    const [openDropdown, setOpenDropdown] =
-        useState(null);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    const [parentSearch, setParentSearch] =
-        useState({});
-
-    const [searchLoading, setSearchLoading] =
-        useState({});
-
-    const [showPassword, setShowPassword] =
-        useState(false);
-
-    const [
-        showConfirmPassword,
-        setShowConfirmPassword,
-    ] = useState(false);
-
-    const [editLoading, setEditLoading] =
-        useState(false);
-
-    const [editUserLoaded, setEditUserLoaded] =
-        useState(false);
-
-    const [submitLoading, setSubmitLoading] =
-        useState(false);
-
-    const [isMounted, setIsMounted] =
-        useState(false);
+    const [editLoading, setEditLoading] = useState(false);
+    const [editUserLoaded, setEditUserLoaded] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
 
     const selectedRole =
-        Number(formData.role_id) ||
-        selectedRoleFromUrl;
+        Number(formData.role_id) || selectedRoleFromUrl;
 
     const getRoleName = (roleId) =>
         roleNames[Number(roleId)] || "User";
@@ -617,38 +564,40 @@ export default function Page() {
     const selectedPhoneCountry = useMemo(() => {
         return countries.find(
             (country) =>
-                String(country.country_id) ===
-                String(phoneCountryId)
+                String(country.country_id) === String(phoneCountryId)
         );
     }, [countries, phoneCountryId]);
 
-    const visibleParentRoles = useMemo(() => {
-        const requiredParentRoles =
-            parentRoles[selectedRole] || [];
+    const selectedCountry = useMemo(() => {
+        return countries.find(
+            (country) =>
+                String(country.country_id) === String(selectedCountryId)
+        );
+    }, [countries, selectedCountryId]);
 
-       
+    const visibleParentRoles = useMemo(() => {
+        const requiredParentRoles = parentRoles[selectedRole] || [];
+
         if (loggedInRoleId === 9) {
             return requiredParentRoles;
         }
 
-        return requiredParentRoles.filter(
-            (roleId) => {
-                const role = Number(roleId);
+        return requiredParentRoles.filter((roleId) => {
+            const role = Number(roleId);
 
-                if (role >= Number(selectedRole)) {
-                    return false;
-                }
-
-                if (loggedInRoleId === 0) {
-                    return true;
-                }
-
-                return (
-                    role > loggedInRoleId &&
-                    role < Number(selectedRole)
-                );
+            if (role >= Number(selectedRole)) {
+                return false;
             }
-        );
+
+            if (loggedInRoleId === 0) {
+                return true;
+            }
+
+            return (
+                role > loggedInRoleId &&
+                role < Number(selectedRole)
+            );
+        });
     }, [selectedRole, loggedInRoleId]);
 
     const hasChanges = useMemo(() => {
@@ -656,28 +605,21 @@ export default function Page() {
             return true;
         }
 
-        const currentForm = {
-            ...formData,
-            password: formData.password || "",
-            confirm_password:
-                formData.confirm_password || "",
-        };
+        const currentForm = normalizeFormData(formData);
+        const originalForm = normalizeFormData(originalFormData);
 
-        const originalForm = {
-            ...originalFormData,
-            password: "",
-            confirm_password: "",
-        };
+        const formChanged = !isEqual(currentForm, originalForm);
 
-        return (
-            !isEqual(currentForm, originalForm) ||
-            !isEqual(
-                selectedParents,
-                originalSelectedParents
-            ) ||
-            Boolean(formData.password) ||
-            Boolean(formData.confirm_password)
+        const parentsChanged = !isEqual(
+            selectedParents || {},
+            originalSelectedParents || {}
         );
+
+        const passwordChanged =
+            Boolean(formData.password) ||
+            Boolean(formData.confirm_password);
+
+        return formChanged || parentsChanged || passwordChanged;
     }, [
         isEditMode,
         formData,
@@ -692,15 +634,9 @@ export default function Page() {
 
             const response = await getProfiles();
 
-            setProfiles(
-                getProfilesFromResponse(response)
-            );
+            setProfiles(getProfilesFromResponse(response));
         } catch (error) {
-            console.error(
-                "GET PROFILES ERROR:",
-                error
-            );
-
+            console.error("GET PROFILES ERROR:", error);
             setProfiles([]);
 
             toast.error(
@@ -719,19 +655,14 @@ export default function Page() {
 
             const response = await getCountries();
 
-            const countryList =
-                getArrayFromResponse(
-                    response,
-                    "countries"
-                );
+            const countryList = getArrayFromResponse(
+                response,
+                "countries"
+            );
 
             setCountries(countryList);
         } catch (error) {
-            console.error(
-                "GET COUNTRIES ERROR:",
-                error
-            );
-
+            console.error("GET COUNTRIES ERROR:", error);
             setCountries([]);
 
             toast.error(
@@ -750,10 +681,7 @@ export default function Page() {
     }, []);
 
     useEffect(() => {
-        if (
-            !selectedRoleFromUrl ||
-            isEditMode
-        ) {
+        if (!selectedRoleFromUrl || isEditMode) {
             return;
         }
 
@@ -767,10 +695,7 @@ export default function Page() {
         setParentUsers({});
         setParentSearch({});
         setOpenDropdown(null);
-    }, [
-        selectedRoleFromUrl,
-        isEditMode,
-    ]);
+    }, [selectedRoleFromUrl, isEditMode]);
 
     const getParentValue = (user, roleId) => {
         const roleFields = {
@@ -781,38 +706,24 @@ export default function Page() {
                 "parent_superdistributor_id",
                 "super_distributor_id",
             ],
-            4: [
-                "parent_distributor_id",
-                "distributor_id",
-            ],
+            4: ["parent_distributor_id", "distributor_id"],
             5: ["parent_fos_id", "fos_id"],
-            6: [
-                "parent_retailer_id",
-                "retailer_id",
-            ],
+            6: ["parent_retailer_id", "retailer_id"],
             7: [
                 "parent_sub_retailer_id",
                 "parent_subretailer_id",
                 "sub_retailer_id",
             ],
-            8: [
-                "parent_employee_id",
-                "employee_id",
-            ],
+            8: ["parent_employee_id", "employee_id"],
             9: ["parent_staff_id", "staff_id"],
         };
 
-        const fields =
-            roleFields[Number(roleId)] || [];
+        const fields = roleFields[Number(roleId)] || [];
 
         for (const field of fields) {
             const value = user?.[field];
 
-            if (
-                value !== undefined &&
-                value !== null &&
-                value !== ""
-            ) {
+            if (value !== undefined && value !== null && value !== "") {
                 return Number(value);
             }
         }
@@ -856,9 +767,7 @@ export default function Page() {
             typeof possibleChain === "object" &&
             !Array.isArray(possibleChain)
         ) {
-            Object.entries(
-                possibleChain
-            ).forEach(([key, value]) => {
+            Object.entries(possibleChain).forEach(([key, value]) => {
                 const roleId = Number(key);
 
                 const id = Number(
@@ -874,56 +783,38 @@ export default function Page() {
             });
         }
 
-        Object.keys(roleNames).forEach(
-            (roleId) => {
-                const role = Number(roleId);
+        Object.keys(roleNames).forEach((roleId) => {
+            const role = Number(roleId);
 
-                if (!result[role]) {
-                    const value =
-                        getParentValue(
-                            user,
-                            role
-                        );
+            if (!result[role]) {
+                const value = getParentValue(user, role);
 
-                    if (value) {
-                        result[role] = value;
-                    }
+                if (value) {
+                    result[role] = value;
                 }
             }
-        );
+        });
 
         return result;
     };
 
-    const loadStatesForCountry = async (
-        countryId
-    ) => {
+    const loadStatesForCountry = async (countryId) => {
         if (!countryId) {
-            return;
+            return [];
         }
 
         try {
             setStateLoading(true);
 
-            const response = await getStates(
-                Number(countryId)
-            );
+            const response = await getStates(Number(countryId));
 
-            const stateList =
-                getArrayFromResponse(
-                    response,
-                    "states"
-                );
+            const stateList = getArrayFromResponse(response, "states");
 
             setStates(stateList);
 
             return stateList;
         } catch (error) {
-            console.error(
-                "GET STATES ERROR:",
-                error
-            );
-
+            console.error("GET STATES ERROR:", error);
             setStates([]);
 
             toast.error(
@@ -943,15 +834,12 @@ export default function Page() {
             return;
         }
 
-        const countryId = String(
-            country.country_id
-        );
+        const countryId = String(country.country_id);
+        const countryName = country.country_name || "";
+        const countryCode = getCountryIsoCode(country);
 
-        const countryName =
-            country.country_name || "";
-
-        const countryCode =
-            getCountryIsoCode(country);
+        const countryChanged =
+            String(selectedCountryId) !== countryId;
 
         setSelectedCountryId(countryId);
         setPhoneCountryId(countryId);
@@ -968,32 +856,23 @@ export default function Page() {
             country_code: countryCode,
             state: "",
             city: "",
-            phone: removeCountryCode(
-                prev.phone,
-                country
-            ),
+            phone: countryChanged
+                ? ""
+                : removeCountryCode(prev.phone, country),
         }));
 
-        await loadStatesForCountry(
-            country.country_id
-        );
+        await loadStatesForCountry(country.country_id);
     };
 
-    const handleCountrySelect = async (
-        country
-    ) => {
+    const handleCountrySelect = async (country) => {
         await syncCountrySelection(country);
     };
 
-    const handlePhoneCountrySelect = async (
-        country
-    ) => {
+    const handlePhoneCountrySelect = async (country) => {
         await syncCountrySelection(country);
     };
 
-    const handleStateSelect = async (
-        state
-    ) => {
+    const handleStateSelect = async (state) => {
         if (!state) {
             return;
         }
@@ -1013,23 +892,13 @@ export default function Page() {
         try {
             setCityLoading(true);
 
-            const response = await getCities(
-                Number(state.id)
-            );
+            const response = await getCities(Number(state.id));
 
-            const cityList =
-                getArrayFromResponse(
-                    response,
-                    "cities"
-                );
+            const cityList = getArrayFromResponse(response, "cities");
 
             setCities(cityList);
         } catch (error) {
-            console.error(
-                "GET CITIES ERROR:",
-                error
-            );
-
+            console.error("GET CITIES ERROR:", error);
             setCities([]);
 
             toast.error(
@@ -1047,9 +916,7 @@ export default function Page() {
             return;
         }
 
-        setSelectedCityId(
-            String(city.id)
-        );
+        setSelectedCityId(String(city.id));
 
         setFormData((prev) => ({
             ...prev,
@@ -1058,35 +925,7 @@ export default function Page() {
     };
 
     const handlePhoneChange = (e) => {
-        let value = e.target.value;
-
-        value = value.replace(
-            /[^\d\s()-]/g,
-            ""
-        );
-
-        const currentCountry =
-            countries.find(
-                (country) =>
-                    String(
-                        country.country_id
-                    ) ===
-                    String(phoneCountryId)
-            );
-
-        const currentCode =
-            getCountryCode(
-                currentCountry
-            );
-
-        if (
-            currentCode &&
-            value.startsWith(currentCode)
-        ) {
-            value = value
-                .slice(currentCode.length)
-                .trim();
-        }
+        const value = getDigits(e.target.value);
 
         setFormData((prev) => ({
             ...prev,
@@ -1094,141 +933,106 @@ export default function Page() {
         }));
     };
 
-    const loadLocationForEdit = async (
-        user
-    ) => {
+    const loadLocationForEdit = async (user, baseFormData) => {
         try {
-            const countryName = String(
-                user?.country || ""
-            ).trim();
-
-            const stateName = String(
-                user?.state || ""
-            ).trim();
-
-            const cityName = String(
-                user?.city || ""
-            ).trim();
+            const countryName = String(user?.country || "").trim();
+            const stateName = String(user?.state || "").trim();
+            const cityName = String(user?.city || "").trim();
 
             const country =
                 countries.find(
                     (item) =>
-                        String(
-                            item?.country_name ||
-                                ""
-                        )
+                        String(item?.country_name || "")
                             .trim()
-                            .toLowerCase() ===
-                        countryName.toLowerCase()
+                            .toLowerCase() === countryName.toLowerCase()
                 ) ||
                 countries.find(
                     (item) =>
-                        String(
-                            item?.country_id
-                        ) === countryName
+                        String(item?.country_id) === countryName
                 );
 
             if (!country) {
+                setOriginalFormData(normalizeFormData(baseFormData));
                 return;
             }
 
-            const countryId = String(
-                country.country_id
-            );
+            const countryId = String(country.country_id);
+            const countryCode = getCountryIsoCode(country);
 
-            const countryCode =
-                getCountryIsoCode(country);
+            const localPhone = removeCountryCode(
+                user?.phone || "",
+                country
+            );
 
             setSelectedCountryId(countryId);
             setPhoneCountryId(countryId);
 
-            const stateResponse =
-                await getStates(
-                    Number(countryId)
-                );
+            const stateResponse = await getStates(Number(countryId));
 
-            const stateList =
-                getArrayFromResponse(
-                    stateResponse,
-                    "states"
-                );
+            const stateList = getArrayFromResponse(
+                stateResponse,
+                "states"
+            );
 
             setStates(stateList);
 
             const state = stateList.find(
                 (item) =>
-                    String(
-                        item?.name || ""
-                    )
+                    String(item?.name || "")
                         .trim()
-                        .toLowerCase() ===
-                    stateName.toLowerCase()
+                        .toLowerCase() === stateName.toLowerCase()
             );
 
-            if (!state) {
-                setFormData((prev) => ({
-                    ...prev,
-                    country:
-                        country.country_name,
-                    country_code:
-                        countryCode,
-                    phone: removeCountryCode(
-                        prev.phone,
-                        country
-                    ),
-                }));
+            let finalState = stateName;
+            let finalCity = cityName;
 
-                return;
-            }
+            if (state) {
+                const stateId = Number(state.id);
 
-            const stateId = Number(state.id);
+                setSelectedStateId(String(stateId));
 
-            setSelectedStateId(
-                String(stateId)
-            );
+                const cityResponse = await getCities(stateId);
 
-            const cityResponse =
-                await getCities(stateId);
-
-            const cityList =
-                getArrayFromResponse(
+                const cityList = getArrayFromResponse(
                     cityResponse,
                     "cities"
                 );
 
-            setCities(cityList);
+                setCities(cityList);
 
-            const city = cityList.find(
-                (item) =>
-                    String(
-                        item?.name || ""
-                    )
-                        .trim()
-                        .toLowerCase() ===
-                    cityName.toLowerCase()
-            );
+                const city = cityList.find(
+                    (item) =>
+                        String(item?.name || "")
+                            .trim()
+                            .toLowerCase() === cityName.toLowerCase()
+                );
 
-            setSelectedCityId(
-                city ? String(city.id) : ""
-            );
+                setSelectedCityId(city ? String(city.id) : "");
 
-            setFormData((prev) => ({
-                ...prev,
-                country:
-                    country.country_name,
-                country_code:
-                    countryCode,
-                state: state.name,
-                city: city?.name || cityName,
-                phone: removeCountryCode(
-                    prev.phone,
-                    country
-                ),
-            }));
+                finalState = state.name || stateName;
+                finalCity = city?.name || cityName;
+            } else {
+                setSelectedStateId("");
+                setSelectedCityId("");
+                setCities([]);
+            }
+
+            const normalizedForm = {
+                ...baseFormData,
+                country: country.country_name || "",
+                country_code: countryCode,
+                state: finalState,
+                city: finalCity,
+                phone: localPhone,
+            };
+
+            setFormData(normalizedForm);
+            setOriginalFormData(normalizedForm);
         } catch (error) {
-            console.error(
-                "LOAD EDIT LOCATION ERROR:",
-                error
+            console.error("LOAD EDIT LOCATION ERROR:", error);
+
+            setOriginalFormData(
+                normalizeFormData(baseFormData)
             );
         }
     };
@@ -1242,161 +1046,81 @@ export default function Page() {
             setEditLoading(true);
             setEditUserLoaded(false);
 
-            const response =
-                await getStaffDataById(editId);
+            const response = await getStaffDataById(editId);
 
-            const user =
-                getSingleUserFromResponse(
-                    response
-                );
+            const user = getSingleUserFromResponse(response);
 
             if (!user) {
-                toast.error(
-                    "User data not found"
-                );
+                toast.error("User data not found");
                 return;
             }
 
             const roleId = Number(
-                user?.role_id ??
-                    searchParams.get(
-                        "role_id"
-                    )
+                user?.role_id ?? searchParams.get("role_id")
             );
 
             const editFormData = {
                 ...initialFormData,
-
-                organization_name:
-                    user?.organization_name ||
-                    "",
-
+                organization_name: user?.organization_name || "",
                 role_id: roleId || "",
-
                 profile_id:
                     user?.profile_id ??
                     user?.profileId ??
-                    user?.role_permission
-                        ?.profile_id ??
+                    user?.role_permission?.profile_id ??
                     "",
-
                 name: user?.name || "",
                 email: user?.email || "",
                 phone: user?.phone || "",
-
-                company_address:
-                    user?.company_address || "",
-
+                company_address: user?.company_address || "",
                 country: user?.country || "",
-                country_code:
-                    user?.country_code || "",
+                country_code: user?.country_code || "",
                 state: user?.state || "",
                 city: user?.city || "",
-
                 parent_id: user?.parent_id
-                    ? Number(
-                          user.parent_id
-                      )
+                    ? Number(user.parent_id)
                     : null,
-
                 new_device:
-                    Number(
-                        user?.new_device
-                    ) === 1
-                        ? 1
-                        : 0,
-
+                    Number(user?.new_device) === 1 ? 1 : 0,
                 old_device:
-                    Number(
-                        user?.old_device
-                    ) === 1
-                        ? 1
-                        : 0,
-
+                    Number(user?.old_device) === 1 ? 1 : 0,
                 supreme_device:
-                    Number(
-                        user?.supreme_device
-                    ) === 1
-                        ? 1
-                        : 0,
-
+                    Number(user?.supreme_device) === 1 ? 1 : 0,
                 pro_star:
-                    Number(
-                        user?.pro_star
-                    ) === 1
-                        ? 1
-                        : 0,
-
+                    Number(user?.pro_star) === 1 ? 1 : 0,
                 lite:
-                    Number(
-                        user?.lite
-                    ) === 1
-                        ? 1
-                        : 0,
-
+                    Number(user?.lite) === 1 ? 1 : 0,
                 google_tv:
-                    Number(
-                        user?.google_tv
-                    ) === 1
-                        ? 1
-                        : 0,
-
+                    Number(user?.google_tv) === 1 ? 1 : 0,
                 supreme_lock:
-                    Number(
-                        user?.supreme_lock
-                    ) === 1
-                        ? 1
-                        : 0,
+                    Number(user?.supreme_lock) === 1 ? 1 : 0,
             };
 
             setFormData(editFormData);
 
-            const parentChain =
-                getParentChainFromUser(user);
+            const parentChain = getParentChainFromUser(user);
 
             if (user?.parent_id) {
                 const lastParentRole =
-                    (
-                        parentRoles[
-                            roleId
-                        ] || []
-                    ).slice(-1)[0];
+                    (parentRoles[roleId] || []).slice(-1)[0];
 
                 if (lastParentRole) {
-                    parentChain[
-                        Number(
-                            lastParentRole
-                        )
-                    ] = Number(
-                        user.parent_id
-                    );
+                    parentChain[Number(lastParentRole)] =
+                        Number(user.parent_id);
                 }
             }
 
-            setSelectedParents(
-                parentChain
-            );
-
-            setOriginalFormData(
-                editFormData
-            );
-
-            setOriginalSelectedParents(
-                parentChain
-            );
-
-            setEditUserLoaded(true);
+            setSelectedParents(parentChain);
+            setOriginalSelectedParents(parentChain);
 
             if (countries.length) {
-                await loadLocationForEdit(
-                    user
-                );
+                await loadLocationForEdit(user, editFormData);
+            } else {
+                setOriginalFormData(editFormData);
             }
+
+            setEditUserLoaded(true);
         } catch (error) {
-            console.error(
-                "GET STAFF DATA ERROR:",
-                error
-            );
+            console.error("GET STAFF DATA ERROR:", error);
 
             toast.error(
                 error?.response?.data?.message ||
@@ -1409,36 +1133,21 @@ export default function Page() {
     };
 
     useEffect(() => {
-        if (
-            isEditMode &&
-            countries.length
-        ) {
+        if (isEditMode && countries.length) {
             loadEditUser();
         }
-    }, [
-        editId,
-        isEditMode,
-        countries,
-    ]);
+    }, [editId, isEditMode, countries]);
 
     useEffect(() => {
-        if (
-            !selectedRole ||
-            selectedRole <= 1 ||
-            !loggedInUserId
-        ) {
+        if (!selectedRole || selectedRole <= 1 || !loggedInUserId) {
             return;
         }
 
-        if (
-            isEditMode &&
-            !editUserLoaded
-        ) {
+        if (isEditMode && !editUserLoaded) {
             return;
         }
 
-        const parents =
-            visibleParentRoles;
+        const parents = visibleParentRoles;
 
         if (!parents.length) {
             setParentUsers({});
@@ -1454,94 +1163,55 @@ export default function Page() {
                     ...selectedParents,
                 };
 
-                for (
-                    let index = 0;
-                    index < parents.length;
-                    index++
-                ) {
+                for (let index = 0; index < parents.length; index++) {
                     if (cancelled) {
                         return;
                     }
 
-                    const currentRole =
-                        Number(
-                            parents[index]
-                        );
+                    const currentRole = Number(parents[index]);
 
                     let parentId = null;
 
                     if (index === 0) {
-                        if (
-                            currentRole ===
-                            loggedInRoleId
-                        ) {
-                            parentId =
-                                loggedInUserId;
+                        if (currentRole === loggedInRoleId) {
+                            parentId = loggedInUserId;
                         }
                     } else {
-                        const previousRole =
-                            Number(
-                                parents[
-                                    index - 1
-                                ]
-                            );
+                        const previousRole = Number(
+                            parents[index - 1]
+                        );
 
-                        parentId =
-                            updatedSelected[
-                                previousRole
-                            ]
-                                ? Number(
-                                      updatedSelected[
-                                          previousRole
-                                      ]
-                                  )
-                                : null;
+                        parentId = updatedSelected[previousRole]
+                            ? Number(updatedSelected[previousRole])
+                            : null;
                     }
 
-                    const response =
-                        await getDropdownUsers(
-                            currentRole,
-                            parentId
-                        );
+                    const response = await getDropdownUsers(
+                        currentRole,
+                        parentId
+                    );
 
-                    let users =
-                        getUsersFromResponse(
-                            response
-                        );
+                    let users = getUsersFromResponse(response);
 
                     if (currentRole === 5) {
-                        users =
-                            users.filter(
-                                (user) =>
-                                    Number(
-                                        user?.role_id
-                                    ) === 5 &&
-                                    (parentId ===
-                                        null ||
-                                        Number(
-                                            user?.parent_id
-                                        ) ===
-                                            Number(
-                                                parentId
-                                            ))
-                            );
+                        users = users.filter(
+                            (user) =>
+                                Number(user?.role_id) === 5 &&
+                                (parentId === null ||
+                                    Number(user?.parent_id) ===
+                                        Number(parentId))
+                        );
                     }
 
                     const selectedId =
-                        updatedSelected[
-                            currentRole
-                        ];
+                        updatedSelected[currentRole];
 
                     if (
                         selectedId &&
                         !users.some(
                             (user) =>
-                                Number(
-                                    user?.id
-                                ) ===
-                                Number(
-                                    selectedId
-                                )
+                                Number(user?.id) ===
+                                Number(selectedId)
                         )
                     ) {
                         const responseById =
@@ -1552,71 +1222,43 @@ export default function Page() {
                             );
 
                         const allUsers =
-                            getUsersFromResponse(
-                                responseById
-                            );
+                            getUsersFromResponse(responseById);
 
-                        const selectedUser =
-                            allUsers.find(
-                                (user) =>
-                                    Number(
-                                        user?.id
-                                    ) ===
-                                    Number(
-                                        selectedId
-                                    )
-                            );
+                        const selectedUser = allUsers.find(
+                            (user) =>
+                                Number(user?.id) ===
+                                Number(selectedId)
+                        );
 
                         if (selectedUser) {
-                            users = [
-                                ...users,
-                                selectedUser,
-                            ];
+                            users = [...users, selectedUser];
                         }
                     }
 
-                    updatedUsers[
-                        currentRole
-                    ] = users;
+                    updatedUsers[currentRole] = users;
                 }
 
                 if (cancelled) {
                     return;
                 }
 
-                setParentUsers(
-                    updatedUsers
-                );
+                setParentUsers(updatedUsers);
+                setSelectedParents(updatedSelected);
 
-                setSelectedParents(
-                    updatedSelected
-                );
-
-                const lastRole =
-                    parents[
-                        parents.length - 1
-                    ];
+                const lastRole = parents[parents.length - 1];
 
                 const lastParentId =
-                    updatedSelected[
-                        Number(lastRole)
-                    ];
+                    updatedSelected[Number(lastRole)];
 
                 if (lastParentId) {
                     setFormData((prev) => ({
                         ...prev,
-                        parent_id:
-                            Number(
-                                lastParentId
-                            ),
+                        parent_id: Number(lastParentId),
                     }));
                 }
             } catch (error) {
                 if (!cancelled) {
-                    console.error(
-                        "LOAD PARENTS ERROR:",
-                        error
-                    );
+                    console.error("LOAD PARENTS ERROR:", error);
                 }
             }
         };
@@ -1638,16 +1280,11 @@ export default function Page() {
         selectedParentId,
         nextRoleId
     ) => {
-        if (
-            !selectedParentId ||
-            !nextRoleId
-        ) {
+        if (!selectedParentId || !nextRoleId) {
             return;
         }
 
-        const nextRole = Number(
-            nextRoleId
-        );
+        const nextRole = Number(nextRoleId);
 
         try {
             setSearchLoading((prev) => ({
@@ -1655,29 +1292,19 @@ export default function Page() {
                 [nextRole]: true,
             }));
 
-            const response =
-                await getDropdownUsers(
-                    nextRole,
-                    Number(selectedParentId)
-                );
+            const response = await getDropdownUsers(
+                nextRole,
+                Number(selectedParentId)
+            );
 
-            let users =
-                getUsersFromResponse(
-                    response
-                );
+            let users = getUsersFromResponse(response);
 
             if (nextRole === 5) {
                 users = users.filter(
                     (user) =>
-                        Number(
-                            user?.role_id
-                        ) === 5 &&
-                        Number(
-                            user?.parent_id
-                        ) ===
-                            Number(
-                                selectedParentId
-                            )
+                        Number(user?.role_id) === 5 &&
+                        Number(user?.parent_id) ===
+                            Number(selectedParentId)
                 );
             }
 
@@ -1687,9 +1314,7 @@ export default function Page() {
             }));
         } catch (error) {
             console.error(
-                `LOAD ${getRoleName(
-                    nextRole
-                )} ERROR:`,
+                `LOAD ${getRoleName(nextRole)} ERROR:`,
                 error
             );
 
@@ -1709,44 +1334,32 @@ export default function Page() {
         parentRoleId,
         parentId
     ) => {
-        const roleId = Number(
-            parentRoleId
-        );
+        const roleId = Number(parentRoleId);
 
         const selectedId = parentId
             ? Number(parentId)
             : null;
 
-        const parents =
-            visibleParentRoles;
-
-        const currentIndex =
-            parents.indexOf(roleId);
+        const parents = visibleParentRoles;
+        const currentIndex = parents.indexOf(roleId);
 
         const updatedSelected = {
             ...selectedParents,
         };
 
         if (selectedId) {
-            updatedSelected[roleId] =
-                selectedId;
+            updatedSelected[roleId] = selectedId;
         } else {
-            delete updatedSelected[
-                roleId
-            ];
+            delete updatedSelected[roleId];
         }
 
         parents
             .slice(currentIndex + 1)
             .forEach((childRoleId) => {
-                delete updatedSelected[
-                    Number(childRoleId)
-                ];
+                delete updatedSelected[Number(childRoleId)];
             });
 
-        setSelectedParents(
-            updatedSelected
-        );
+        setSelectedParents(updatedSelected);
 
         setFormData((prev) => ({
             ...prev,
@@ -1760,9 +1373,7 @@ export default function Page() {
         parents
             .slice(currentIndex + 1)
             .forEach((childRoleId) => {
-                updatedUsers[
-                    Number(childRoleId)
-                ] = [];
+                updatedUsers[Number(childRoleId)] = [];
             });
 
         setParentUsers(updatedUsers);
@@ -1771,10 +1382,7 @@ export default function Page() {
             return;
         }
 
-        const nextRole =
-            parents[
-                currentIndex + 1
-            ];
+        const nextRole = parents[currentIndex + 1];
 
         if (nextRole) {
             await loadNextParentUsers(
@@ -1785,8 +1393,7 @@ export default function Page() {
     };
 
     const handleChange = (e) => {
-        const { name, value } =
-            e.target;
+        const { name, value } = e.target;
 
         setFormData((prev) => ({
             ...prev,
@@ -1797,19 +1404,12 @@ export default function Page() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (
-            isEditMode &&
-            !hasChanges
-        ) {
-            toast.info(
-                "No changes to update"
-            );
+        if (isEditMode && !hasChanges) {
+            toast.info("No changes to update");
             return;
         }
 
-        const roleId = Number(
-            formData.role_id
-        );
+        const roleId = Number(formData.role_id);
 
         if (!roleId) {
             toast.error(
@@ -1818,34 +1418,35 @@ export default function Page() {
             return;
         }
 
-        if (
-            roleId === 9 &&
-            !formData.profile_id
-        ) {
-            toast.error(
-                "Please select a profile"
-            );
-            return;
-        }
-
         if (!loggedInUser?.id) {
-            toast.error(
-                "Logged-in user not found"
-            );
+            toast.error("Logged-in user not found");
             return;
         }
 
-        if (!formData.phone) {
-            toast.error(
-                "Phone number is required"
-            );
+        const phoneNumber = getDigits(formData.phone);
+
+        if (!phoneNumber) {
+            toast.error("Phone number is required");
+            return;
+        }
+
+        const phoneCountry = selectedPhoneCountry;
+
+        if (!phoneCountry) {
+            toast.error("Please select phone country");
+            return;
+        }
+
+        const phoneCode = getCountryCode(phoneCountry);
+
+        if (!phoneCode) {
+            toast.error("Phone country code not found");
             return;
         }
 
         if (
             !isEditMode &&
-            formData.password !==
-                formData.confirm_password
+            formData.password !== formData.confirm_password
         ) {
             toast.error(
                 "Password and Confirm Password do not match!"
@@ -1857,8 +1458,7 @@ export default function Page() {
             isEditMode &&
             (formData.password ||
                 formData.confirm_password) &&
-            formData.password !==
-                formData.confirm_password
+            formData.password !== formData.confirm_password
         ) {
             toast.error(
                 "Password and Confirm Password do not match!"
@@ -1868,9 +1468,7 @@ export default function Page() {
 
         if (
             formData.password &&
-            !/^[A-Z]/.test(
-                formData.password
-            )
+            !/^[A-Z]/.test(formData.password)
         ) {
             toast.error(
                 "Password must start with a capital letter"
@@ -1878,10 +1476,9 @@ export default function Page() {
             return;
         }
 
-        let finalParentId =
-            formData.parent_id
-                ? Number(formData.parent_id)
-                : null;
+        let finalParentId = formData.parent_id
+            ? Number(formData.parent_id)
+            : null;
 
         if (
             !finalParentId &&
@@ -1889,70 +1486,48 @@ export default function Page() {
             loggedInRoleId > 0 &&
             loggedInRoleId < roleId
         ) {
-            finalParentId =
-                loggedInUserId;
+            finalParentId = loggedInUserId;
         }
 
-        const selectedCountry =
-            countries.find(
-                (country) =>
-                    String(
-                        country.country_id
-                    ) ===
-                    String(
-                        selectedCountryId
-                    )
-            );
+        const country = selectedCountry;
+
+        if (!country) {
+            toast.error("Please select country");
+            return;
+        }
 
         const finalCountryCode =
-            getCountryIsoCode(
-                selectedCountry
-            ) ||
-            String(
-                formData.country_code || ""
-            )
+            getCountryIsoCode(country) ||
+            String(formData.country_code || "")
                 .trim()
                 .toUpperCase();
 
         const payload = {
             ...formData,
-
             role_id: roleId,
-
-            parent_id:
-                finalParentId,
-
+            parent_id: finalParentId,
             country:
-                selectedCountry?.country_name ||
-                String(
-                    formData.country || ""
-                ).trim(),
-
-            country_code:
-                finalCountryCode,
-
+                country.country_name ||
+                String(formData.country || "").trim(),
+            country_code: finalCountryCode,
             state: formData.state
-                ? String(
-                      formData.state
-                  ).trim()
+                ? String(formData.state).trim()
                 : null,
-
             city: formData.city
-                ? String(
-                      formData.city
-                  ).trim()
+                ? String(formData.city).trim()
                 : null,
-
-            phone: String(
-                formData.phone || ""
-            ).trim(),
+            phone: getInternationalPhone(
+                phoneNumber,
+                phoneCountry
+            ),
         };
 
         if (roleId === 9) {
-            payload.profile_id =
-                Number(
-                    formData.profile_id
-                );
+            if (formData.profile_id) {
+                payload.profile_id = Number(formData.profile_id);
+            } else {
+                delete payload.profile_id;
+            }
 
             delete payload.organization_name;
         } else {
@@ -1971,13 +1546,8 @@ export default function Page() {
             setSubmitLoading(true);
 
             const response = isEditMode
-                ? await updateStaffData(
-                      editId,
-                      payload
-                  )
-                : await addStaff(
-                      payload
-                  );
+                ? await updateStaffData(editId, payload)
+                : await addStaff(payload);
 
             toast.success(
                 response?.message ||
@@ -2008,27 +1578,26 @@ export default function Page() {
                 setShowPassword(false);
                 setShowConfirmPassword(false);
             } else {
-                const updatedOriginal = {
+                const updatedForm = {
                     ...formData,
+                    phone: phoneNumber,
                     password: "",
                     confirm_password: "",
+                    parent_id: finalParentId,
+                    country:
+                        country.country_name ||
+                        formData.country,
+                    country_code: finalCountryCode,
+                    state: formData.state || "",
+                    city: formData.city || "",
                 };
 
-                setOriginalFormData(
-                    updatedOriginal
-                );
+                setFormData(updatedForm);
+                setOriginalFormData(updatedForm);
 
-                setOriginalSelectedParents(
-                    {
-                        ...selectedParents,
-                    }
-                );
-
-                setFormData((prev) => ({
-                    ...prev,
-                    password: "",
-                    confirm_password: "",
-                }));
+                setOriginalSelectedParents({
+                    ...selectedParents,
+                });
             }
         } catch (error) {
             console.error(
@@ -2039,10 +1608,8 @@ export default function Page() {
             );
 
             toast.error(
-                error?.response?.data
-                    ?.message ||
-                    error?.response?.data
-                        ?.error ||
+                error?.response?.data?.message ||
+                    error?.response?.data?.error ||
                     error?.message ||
                     (isEditMode
                         ? "Failed to update user"
@@ -2053,10 +1620,7 @@ export default function Page() {
         }
     };
 
-    if (
-        isEditMode &&
-        editLoading
-    ) {
+    if (isEditMode && editLoading) {
         return (
             <div className="max-w-5xl mx-auto">
                 <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-10">
@@ -2080,208 +1644,163 @@ export default function Page() {
                         href={`/dashboard?role=${selectedRole}`}
                         className="bg-gray-700 text-white px-4 py-2 rounded-sm hover:bg-gray-800 whitespace-nowrap"
                     >
-                        {getRoleName(
-                            selectedRole
-                        )}{" "}
-                        List
+                        {getRoleName(selectedRole)} List
                     </Link>
                 </div>
 
                 {isMounted &&
                     selectedRole > 1 &&
-                    visibleParentRoles.length >
-                        0 && (
+                    visibleParentRoles.length > 0 && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
-                            {visibleParentRoles.map(
-                                (
-                                    parentRoleId
-                                ) => {
-                                    const role =
-                                        Number(
-                                            parentRoleId
-                                        );
+                            {visibleParentRoles.map((parentRoleId) => {
+                                const role = Number(parentRoleId);
+                                const users = parentUsers[role] || [];
 
-                                    const users =
-                                        parentUsers[
-                                            role
-                                        ] || [];
+                                const selectedUser = users.find(
+                                    (user) =>
+                                        Number(user?.id) ===
+                                        Number(selectedParents[role])
+                                );
 
-                                    const selectedUser =
-                                        users.find(
-                                            (
-                                                user
-                                            ) =>
-                                                Number(
-                                                    user?.id
-                                                ) ===
-                                                Number(
-                                                    selectedParents[
-                                                        role
-                                                    ]
-                                                )
-                                        );
+                                return (
+                                    <div
+                                        key={role}
+                                        className="space-y-1.5"
+                                    >
+                                        <label className="text-sm font-medium text-slate-700">
+                                            {getRoleName(role)}
+                                        </label>
 
-                                    return (
-                                        <div
-                                            key={
-                                                role
-                                            }
-                                            className="space-y-1.5"
-                                        >
-                                            <label className="text-sm font-medium text-slate-700">
-                                                {getRoleName(
-                                                    role
-                                                )}
-                                            </label>
-
-                                            <div className="relative">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setOpenDropdown(
-                                                            openDropdown ===
-                                                                role
-                                                                ? null
-                                                                : role
-                                                        )
-                                                    }
-                                                    className="w-full flex items-center justify-between border border-slate-300 rounded-lg px-4 py-2.5 text-sm text-left bg-white text-slate-700"
-                                                >
-                                                    <span className="truncate">
-                                                        {selectedUser?.name ||
-                                                            `Select ${getRoleName(
-                                                                role
-                                                            )}`}
-                                                    </span>
-
-                                                    <RiArrowDownSLine
-                                                        size={
-                                                            22
-                                                        }
-                                                        className={`shrink-0 transition-transform text-slate-500 ${
-                                                            openDropdown ===
+                                        <div className="relative">
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setOpenDropdown(
+                                                        openDropdown === role
+                                                            ? null
+                                                            : role
+                                                    )
+                                                }
+                                                className="w-full flex items-center justify-between border border-slate-300 rounded-lg px-4 py-2.5 text-sm text-left bg-white text-slate-700"
+                                            >
+                                                <span className="truncate">
+                                                    {selectedUser?.name ||
+                                                        `Select ${getRoleName(
                                                             role
-                                                                ? "rotate-180"
-                                                                : ""
-                                                        }`}
-                                                    />
-                                                </button>
+                                                        )}`}
+                                                </span>
 
-                                                {openDropdown ===
-                                                    role && (
-                                                    <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
-                                                        <div className="p-2 border-b border-slate-200">
-                                                            <input
-                                                                type="text"
-                                                                value={
-                                                                    parentSearch[
-                                                                        role
-                                                                    ] ||
-                                                                    ""
-                                                                }
-                                                                onChange={(
-                                                                    e
-                                                                ) =>
-                                                                    setParentSearch(
-                                                                        (
-                                                                            prev
-                                                                        ) => ({
-                                                                            ...prev,
-                                                                            [role]: e
-                                                                                .target
-                                                                                .value,
-                                                                        })
-                                                                    )
-                                                                }
-                                                                placeholder={`Search ${getRoleName(
+                                                <RiArrowDownSLine
+                                                    size={22}
+                                                    className={`shrink-0 transition-transform text-slate-500 ${
+                                                        openDropdown === role
+                                                            ? "rotate-180"
+                                                            : ""
+                                                    }`}
+                                                />
+                                            </button>
+
+                                            {openDropdown === role && (
+                                                <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
+                                                    <div className="p-2 border-b border-slate-200">
+                                                        <input
+                                                            type="text"
+                                                            value={
+                                                                parentSearch[
                                                                     role
-                                                                )}...`}
-                                                                autoFocus
-                                                                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                            />
-                                                        </div>
-
-                                                        <div className="max-h-60 overflow-y-auto">
-                                                            {searchLoading[
+                                                                ] || ""
+                                                            }
+                                                            onChange={(e) =>
+                                                                setParentSearch(
+                                                                    (prev) => ({
+                                                                        ...prev,
+                                                                        [role]: e
+                                                                            .target
+                                                                            .value,
+                                                                    })
+                                                                )
+                                                            }
+                                                            placeholder={`Search ${getRoleName(
                                                                 role
-                                                            ] ? (
-                                                                <div className="px-4 py-4 text-center text-sm text-slate-400">
-                                                                    Loading...
-                                                                </div>
-                                                            ) : users.length >
-                                                              0 ? (
-                                                                users
-                                                                    .filter(
-                                                                        (
-                                                                            user
-                                                                        ) =>
-                                                                            String(
-                                                                                user?.name ||
-                                                                                    ""
-                                                                            )
-                                                                                .toLowerCase()
-                                                                                .includes(
-                                                                                    String(
-                                                                                        parentSearch[
-                                                                                            role
-                                                                                        ] ||
-                                                                                            ""
-                                                                                    ).toLowerCase()
-                                                                                )
-                                                                    )
-                                                                    .map(
-                                                                        (
-                                                                            user
-                                                                        ) => (
-                                                                            <button
-                                                                                key={
-                                                                                    user.id
-                                                                                }
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    handleParentChange(
-                                                                                        role,
-                                                                                        user.id
-                                                                                    );
-
-                                                                                    setOpenDropdown(
-                                                                                        null
-                                                                                    );
-
-                                                                                    setParentSearch(
-                                                                                        (
-                                                                                            prev
-                                                                                        ) => ({
-                                                                                            ...prev,
-                                                                                            [role]: "",
-                                                                                        })
-                                                                                    );
-                                                                                }}
-                                                                                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                                                                            >
-                                                                                {
-                                                                                    user.name
-                                                                                }
-                                                                            </button>
-                                                                        )
-                                                                    )
-                                                            ) : (
-                                                                <div className="px-4 py-4 text-center text-sm text-slate-400">
-                                                                    No{" "}
-                                                                    {getRoleName(
-                                                                        role
-                                                                    )}{" "}
-                                                                    found
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                            )}...`}
+                                                            autoFocus
+                                                            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        />
                                                     </div>
-                                                )}
-                                            </div>
+
+                                                    <div className="max-h-60 overflow-y-auto">
+                                                        {searchLoading[
+                                                            role
+                                                        ] ? (
+                                                            <div className="px-4 py-4 text-center text-sm text-slate-400">
+                                                                Loading...
+                                                            </div>
+                                                        ) : users.length > 0 ? (
+                                                            users
+                                                                .filter(
+                                                                    (user) =>
+                                                                        String(
+                                                                            user?.name ||
+                                                                                ""
+                                                                        )
+                                                                            .toLowerCase()
+                                                                            .includes(
+                                                                                String(
+                                                                                    parentSearch[
+                                                                                        role
+                                                                                    ] ||
+                                                                                        ""
+                                                                                ).toLowerCase()
+                                                                            )
+                                                                )
+                                                                .map((user) => (
+                                                                    <button
+                                                                        key={
+                                                                            user.id
+                                                                        }
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            handleParentChange(
+                                                                                role,
+                                                                                user.id
+                                                                            );
+
+                                                                            setOpenDropdown(
+                                                                                null
+                                                                            );
+
+                                                                            setParentSearch(
+                                                                                (
+                                                                                    prev
+                                                                                ) => ({
+                                                                                    ...prev,
+                                                                                    [role]: "",
+                                                                                })
+                                                                            );
+                                                                        }}
+                                                                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                                                                    >
+                                                                        {
+                                                                            user.name
+                                                                        }
+                                                                    </button>
+                                                                ))
+                                                        ) : (
+                                                            <div className="px-4 py-4 text-center text-sm text-slate-400">
+                                                                No{" "}
+                                                                {getRoleName(
+                                                                    role
+                                                                )}{" "}
+                                                                found
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    );
-                                }
-                            )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
 
@@ -2291,15 +1810,11 @@ export default function Page() {
                     autoComplete="off"
                 >
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {Number(
-                            formData.role_id
-                        ) !== 9 && (
+                        {Number(formData.role_id) !== 9 && (
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-700">
                                     Organization Name{" "}
-                                    <span className="text-red-500">
-                                        *
-                                    </span>
+                                    <span className="text-red-500">*</span>
                                 </label>
 
                                 <input
@@ -2308,9 +1823,7 @@ export default function Page() {
                                     value={
                                         formData.organization_name
                                     }
-                                    onChange={
-                                        handleChange
-                                    }
+                                    onChange={handleChange}
                                     required
                                     placeholder="Enter organization name"
                                     className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2321,18 +1834,14 @@ export default function Page() {
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Full Name{" "}
-                                <span className="text-red-500">
-                                    *
-                                </span>
+                                <span className="text-red-500">*</span>
                             </label>
 
                             <input
                                 type="text"
                                 name="name"
                                 value={formData.name}
-                                onChange={
-                                    handleChange
-                                }
+                                onChange={handleChange}
                                 required
                                 placeholder="Enter full name"
                                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2342,21 +1851,15 @@ export default function Page() {
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Email Address{" "}
-                                <span className="text-red-500">
-                                    *
-                                </span>
+                                <span className="text-red-500">*</span>
                             </label>
 
                             <input
                                 type="email"
                                 name="email"
-                                value={
-                                    formData.email
-                                }
-                                onChange={
-                                    handleChange
-                                }
-                                 autoComplete="new-email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                autoComplete="new-email"
                                 required
                                 placeholder="staff@example.com"
                                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2366,26 +1869,20 @@ export default function Page() {
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Phone Number{" "}
-                                <span className="text-red-500">
-                                    *
-                                </span>
+                                <span className="text-red-500">*</span>
                             </label>
 
                             <div className="flex w-full">
                                 <div className="w-[100px] shrink-0">
                                     <SearchableCountryDropdown
-                                        countries={
-                                            countries
-                                        }
+                                        countries={countries}
                                         selectedCountryId={
                                             phoneCountryId
                                         }
                                         onChange={
                                             handlePhoneCountrySelect
                                         }
-                                        loading={
-                                            countryLoading
-                                        }
+                                        loading={countryLoading}
                                         placeholder="Code"
                                         showCode
                                     />
@@ -2395,12 +1892,8 @@ export default function Page() {
                                     <input
                                         type="tel"
                                         name="phone"
-                                        value={
-                                            formData.phone
-                                        }
-                                        onChange={
-                                            handlePhoneChange
-                                        }
+                                        value={formData.phone}
+                                        onChange={handlePhoneChange}
                                         required
                                         placeholder="Enter phone number"
                                         className="w-full h-[42px] border border-slate-300 border-l-0 rounded-r-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2413,9 +1906,7 @@ export default function Page() {
                             <label className="text-sm font-medium text-slate-700">
                                 Password{" "}
                                 {!isEditMode && (
-                                    <span className="text-red-500">
-                                        *
-                                    </span>
+                                    <span className="text-red-500">*</span>
                                 )}
                             </label>
 
@@ -2427,19 +1918,13 @@ export default function Page() {
                                             : "password"
                                     }
                                     name="password"
-                                    value={
-                                        formData.password
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    required={
-                                        !isEditMode
-                                    }
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    required={!isEditMode}
                                     autoComplete="new-password"
                                     placeholder={
                                         isEditMode
-                                            ? "Leave blank to keep current password"
+                                            ? "password"
                                             : "Enter password"
                                     }
                                     className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2449,20 +1934,15 @@ export default function Page() {
                                     type="button"
                                     onClick={() =>
                                         setShowPassword(
-                                            (prev) =>
-                                                !prev
+                                            (prev) => !prev
                                         )
                                     }
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                                 >
                                     {showPassword ? (
-                                        <RiEyeOffLine
-                                            size={20}
-                                        />
+                                        <RiEyeOffLine size={20} />
                                     ) : (
-                                        <RiEyeLine
-                                            size={20}
-                                        />
+                                        <RiEyeLine size={20} />
                                     )}
                                 </button>
                             </div>
@@ -2472,9 +1952,7 @@ export default function Page() {
                             <label className="text-sm font-medium text-slate-700">
                                 Confirm Password{" "}
                                 {!isEditMode && (
-                                    <span className="text-red-500">
-                                        *
-                                    </span>
+                                    <span className="text-red-500">*</span>
                                 )}
                             </label>
 
@@ -2489,15 +1967,11 @@ export default function Page() {
                                     value={
                                         formData.confirm_password
                                     }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    required={
-                                        !isEditMode
-                                    }
+                                    onChange={handleChange}
+                                    required={!isEditMode}
                                     placeholder={
                                         isEditMode
-                                            ? "Leave blank to keep current password"
+                                            ? "confirm password"
                                             : "Re-enter password"
                                     }
                                     className="w-full border border-slate-300 rounded-lg px-4 py-2.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2507,20 +1981,15 @@ export default function Page() {
                                     type="button"
                                     onClick={() =>
                                         setShowConfirmPassword(
-                                            (prev) =>
-                                                !prev
+                                            (prev) => !prev
                                         )
                                     }
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                                 >
                                     {showConfirmPassword ? (
-                                        <RiEyeOffLine
-                                            size={20}
-                                        />
+                                        <RiEyeOffLine size={20} />
                                     ) : (
-                                        <RiEyeLine
-                                            size={20}
-                                        />
+                                        <RiEyeLine size={20} />
                                     )}
                                 </button>
                             </div>
@@ -2529,9 +1998,7 @@ export default function Page() {
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Company Address{" "}
-                                <span className="text-red-500">
-                                    *
-                                </span>
+                                <span className="text-red-500">*</span>
                             </label>
 
                             <input
@@ -2540,9 +2007,7 @@ export default function Page() {
                                 value={
                                     formData.company_address
                                 }
-                                onChange={
-                                    handleChange
-                                }
+                                onChange={handleChange}
                                 required
                                 placeholder="Street, Building, Area"
                                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2552,24 +2017,16 @@ export default function Page() {
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700">
                                 Country{" "}
-                                <span className="text-red-500">
-                                    *
-                                </span>
+                                <span className="text-red-500">*</span>
                             </label>
 
                             <SearchableCountryDropdown
-                                countries={
-                                    countries
-                                }
+                                countries={countries}
                                 selectedCountryId={
                                     selectedCountryId
                                 }
-                                onChange={
-                                    handleCountrySelect
-                                }
-                                loading={
-                                    countryLoading
-                                }
+                                onChange={handleCountrySelect}
+                                loading={countryLoading}
                                 placeholder="Select Country"
                             />
                         </div>
@@ -2581,18 +2038,10 @@ export default function Page() {
 
                             <SearchableLocationDropdown
                                 items={states}
-                                selectedId={
-                                    selectedStateId
-                                }
-                                onChange={
-                                    handleStateSelect
-                                }
-                                loading={
-                                    stateLoading
-                                }
-                                disabled={
-                                    !selectedCountryId
-                                }
+                                selectedId={selectedStateId}
+                                onChange={handleStateSelect}
+                                loading={stateLoading}
+                                disabled={!selectedCountryId}
                                 placeholder={
                                     !selectedCountryId
                                         ? "Select Country First"
@@ -2610,18 +2059,10 @@ export default function Page() {
 
                             <SearchableLocationDropdown
                                 items={cities}
-                                selectedId={
-                                    selectedCityId
-                                }
-                                onChange={
-                                    handleCitySelect
-                                }
-                                loading={
-                                    cityLoading
-                                }
-                                disabled={
-                                    !selectedStateId
-                                }
+                                selectedId={selectedCityId}
+                                onChange={handleCitySelect}
+                                loading={cityLoading}
+                                disabled={!selectedStateId}
                                 placeholder={
                                     !selectedStateId
                                         ? "Select State First"
@@ -2632,9 +2073,7 @@ export default function Page() {
                             />
                         </div>
 
-                        {Number(
-                            formData.role_id
-                        ) === 9 && (
+                        {Number(formData.role_id) === 9 && (
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-700">
                                     Assigned Role{" "}
@@ -2649,13 +2088,11 @@ export default function Page() {
                                         value={
                                             formData.profile_id
                                         }
-                                        onChange={
-                                            handleChange
-                                        }
-                                        required
+                                        onChange={handleChange}
                                         disabled={
                                             profileLoading
                                         }
+                                        required
                                         className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-2.5 pr-10 text-sm bg-white cursor-pointer disabled:bg-slate-50"
                                     >
                                         <option value="">
@@ -2665,9 +2102,7 @@ export default function Page() {
                                         </option>
 
                                         {profiles.map(
-                                            (
-                                                profile
-                                            ) => (
+                                            (profile) => (
                                                 <option
                                                     key={
                                                         profile.id
@@ -2692,9 +2127,7 @@ export default function Page() {
                             </div>
                         )}
 
-                        {Number(
-                            formData.role_id
-                        ) === 6 && (
+                        {Number(formData.role_id) === 6 && (
                             <div className="md:col-span-3 space-y-4">
                                 <h3 className="text-lg font-semibold text-slate-700">
                                     Device Permissions
@@ -2702,26 +2135,19 @@ export default function Page() {
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                     {devicePermissions.map(
-                                        (
-                                            item
-                                        ) => (
+                                        (item) => (
                                             <label
-                                                key={
-                                                    item.name
-                                                }
+                                                key={item.name}
                                                 className={`flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer ${
                                                     formData[
                                                         item.name
-                                                    ] ===
-                                                    1
+                                                    ] === 1
                                                         ? "border-blue-500 bg-blue-50"
                                                         : "border-slate-300 bg-white"
                                                 }`}
                                             >
                                                 <span className="text-sm font-medium text-slate-700">
-                                                    {
-                                                        item.label
-                                                    }
+                                                    {item.label}
                                                 </span>
 
                                                 <input
@@ -2729,8 +2155,7 @@ export default function Page() {
                                                     checked={
                                                         formData[
                                                             item.name
-                                                        ] ===
-                                                        1
+                                                        ] === 1
                                                     }
                                                     onChange={(
                                                         e
