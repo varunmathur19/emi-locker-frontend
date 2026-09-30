@@ -426,7 +426,8 @@ export const transferWalletPoints = async (
   to_user_id,
   key_setting_id,
   points_sent,
-  transaction_type
+  transaction_type,
+  transaction_pin
 ) => {
   try {
     const response = await api.post("/wallet/transfer", {
@@ -434,6 +435,7 @@ export const transferWalletPoints = async (
       key_setting_id: Number(key_setting_id),
       points_sent: Number(points_sent),
       transaction_type: Number(transaction_type),
+      transaction_pin: String(transaction_pin).trim(),
     });
 
     return response.data;

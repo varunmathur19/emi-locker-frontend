@@ -1,9 +1,11 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { IoMdArrowDropdown } from "react-icons/io";
-import { RiSearchLine } from "react-icons/ri";
+import { RiSearchLine, RiEyeLine,
+  RiEyeOffLine,} from "react-icons/ri";
 import { toast } from "react-toastify";
 
 import {
@@ -12,6 +14,7 @@ import {
   getRoles,
   getWalletTransactions,
   transferWalletPoints,
+  getStaffDataById,
 } from "@/services/api";
 
 import { getRoleId, getUser } from "@/utils/token";
@@ -636,6 +639,8 @@ export default function TransferPoint() {
 
   const [keySettings, setKeySettings] =
     useState([]);
+    const [showTransactionPin, setShowTransactionPin] =
+  useState(false);
 
   const [
     schemaKeyDropdownOpen,
@@ -668,6 +673,15 @@ export default function TransferPoint() {
 
   const [transferLoading, setTransferLoading] =
     useState(false);
+
+  const [transactionPin, setTransactionPin] =
+    useState("");
+
+  const [transactionPinLoading, setTransactionPinLoading] =
+    useState(false);
+
+  const [transactionPinEntry, setTransactionPinEntry] =
+    useState("");
 
   const [transferUsers, setTransferUsers] =
     useState([]);
@@ -898,6 +912,63 @@ export default function TransferPoint() {
     roleNames[Number(selectedSchemaRole)] ||
     "";
 
+  const loadTransactionPin = async () => {
+    try {
+      setTransactionPinLoading(true);
+      setTransactionPin("");
+
+      const user = getUser();
+      const userId = Number(user?.id);
+
+      if (
+        !Number.isFinite(userId) ||
+        userId <= 0
+      ) {
+        return;
+      }
+
+      const response =
+        await getStaffDataById(userId);
+
+      const data =
+        response?.data ?? response;
+
+      let staffData = data;
+
+      if (Array.isArray(data)) {
+        staffData = data[0] || {};
+      } else if (
+        data?.data &&
+        typeof data.data === "object"
+      ) {
+        staffData = Array.isArray(data.data)
+          ? data.data[0] || {}
+          : data.data;
+      }
+
+      const pin =
+        staffData?.transaction_pin ??
+        response?.transaction_pin ??
+        "";
+
+      setTransactionPin(
+        pin === null ||
+          pin === undefined
+          ? ""
+          : String(pin)
+      );
+    } catch (error) {
+      console.error(
+        "GET TRANSACTION PIN ERROR:",
+        error
+      );
+
+      setTransactionPin("");
+    } finally {
+      setTransactionPinLoading(false);
+    }
+  };
+
   const loadRecentTransactions = async () => {
     try {
       setRecentTransactionsLoading(true);
@@ -936,6 +1007,7 @@ export default function TransferPoint() {
         Number(getRoleId());
 
       const currentUser = getUser();
+
       const currentUserId =
         Number(currentUser?.id);
 
@@ -1369,8 +1441,13 @@ export default function TransferPoint() {
       }
 
       setRoleId(currentRole);
+      setTransactionPin("");
+      setTransactionPinEntry("");
 
-      await loadKeySettings();
+      await Promise.all([
+        loadTransactionPin(),
+        loadKeySettings(),
+      ]);
 
       const activeRoles =
         await loadRoles();
@@ -1479,6 +1556,7 @@ export default function TransferPoint() {
     );
 
     setAvailableBalance(0);
+    setTransactionPinEntry("");
 
     if (isSchemaTransfer) {
       setSelectedSchemaRole("");
@@ -1500,6 +1578,7 @@ export default function TransferPoint() {
     setTransferUserSearch("");
     setTransferUserDropdownOpen(false);
     setAvailableBalance(0);
+    setTransactionPinEntry("");
   };
 
   const handleSchemaRoleSelect = async (
@@ -1521,6 +1600,7 @@ export default function TransferPoint() {
     setSchemaUserSearch("");
     setSchemaUserDropdownOpen(false);
     setAvailableBalance(0);
+    setTransactionPinEntry("");
     setSchemaRoleDropdownOpen(false);
 
     await loadSchemaUsers(
@@ -1538,6 +1618,7 @@ export default function TransferPoint() {
     setSchemaUserSearch("");
     setSchemaUserDropdownOpen(false);
     setAvailableBalance(0);
+    setTransactionPinEntry("");
   };
 
   const handleFromRoleSelect = async (
@@ -1559,6 +1640,7 @@ export default function TransferPoint() {
     setRevertUserSearch("");
     setAvailableBalance(0);
     setTransferPoint("");
+    setTransactionPinEntry("");
     setFromRoleDropdownOpen(false);
 
     await loadRevertUsers(
@@ -1576,6 +1658,7 @@ export default function TransferPoint() {
     setRevertUserSearch("");
     setRevertUserDropdownOpen(false);
     setAvailableBalance(0);
+    setTransactionPinEntry("");
   };
 
   const handleTransferPointChange = (
@@ -1592,9 +1675,20 @@ export default function TransferPoint() {
     }
   };
 
+  const handleTransactionPinChange = (
+    event
+  ) => {
+    const value = event.target.value
+      .replace(/\D/g, "")
+      .slice(0, 4);
+
+    setTransactionPinEntry(value);
+  };
+
   const resetAllFields = () => {
     setAvailableBalance(0);
     setTransferPoint("");
+    setTransactionPinEntry("");
 
     setSelectedTransferUser("");
     setTransferUserSearch("");
@@ -1620,6 +1714,20 @@ export default function TransferPoint() {
     if (!selectedKey) {
       toast.error(
         "Please select a key setting"
+      );
+      return;
+    }
+
+    if (!transactionPinEntry.trim()) {
+      toast.error(
+        "Please enter transaction PIN"
+      );
+      return;
+    }
+
+    if (transactionPinEntry.length !== 4) {
+      toast.error(
+        "Transaction PIN must be 4 digits"
       );
       return;
     }
@@ -1698,7 +1806,8 @@ export default function TransferPoint() {
           targetUserId,
           selectedKey,
           points,
-          transactionType
+          transactionType,
+          transactionPinEntry
         );
 
       if (!response?.success) {
@@ -1762,6 +1871,7 @@ export default function TransferPoint() {
       }
 
       await loadRecentTransactions();
+      await loadTransactionPin();
     } catch (error) {
       console.error(
         "TRANSFER WALLET POINTS ERROR:",
@@ -1778,9 +1888,95 @@ export default function TransferPoint() {
     }
   };
 
+  const transactionPinField = (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-gray-700">
+        Transaction PIN
+      </label>
+
+      <input
+        type="text"
+        value={
+          transactionPinLoading
+            ? ""
+            : transactionPin
+        }
+        readOnly
+        placeholder="Transaction PIN"
+        className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none"
+      />
+    </div>
+  );
+
+const transactionPinEntryField = (
+  <div>
+    <label className="mb-2 block text-sm font-semibold text-gray-700">
+      Transaction PIN
+    </label>
+
+    <div className="relative">
+      <input
+        type={showTransactionPin ? "text" : "password"}
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={4}
+        value={transactionPinEntry}
+        onChange={handleTransactionPinChange}
+        placeholder="Enter 4 digit PIN"
+        disabled={transferLoading}
+        className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 pr-12 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
+      />
+
+      <button
+        type="button"
+        onClick={() =>
+          setShowTransactionPin(
+            (previous) => !previous
+          )
+        }
+        disabled={
+          transferLoading ||
+          !transactionPinEntry
+        }
+        className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 transition hover:text-gray-700 disabled:cursor-not-allowed disabled:text-gray-300"
+        aria-label={
+          showTransactionPin
+            ? "Hide transaction PIN"
+            : "Show transaction PIN"
+        }
+      >
+        {showTransactionPin ? (
+          <RiEyeOffLine size={20} />
+        ) : (
+          <RiEyeLine size={20} />
+        )}
+      </button>
+    </div>
+  </div>
+);
+
+  const isSubmitDisabled =
+    transferLoading ||
+    loading ||
+    !selectedKey ||
+    !transferPoint ||
+    transactionPinEntry.length !== 4 ||
+    (isRevert
+      ? !selectedRevertUser
+      : isSchemaTransfer
+      ? !selectedSchemaRole ||
+        !selectedSchemaUser
+      : !selectedTransferUser);
+
   return (
     <div className="min-h-screen">
       <div className="rounded-xl bg-white p-6 shadow-sm">
+        <div className="mb-6">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 ">
+            {transactionPinField}
+          </div>
+        </div>
+
         {isSchemaTransfer ? (
           <div className="mb-6">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -2001,7 +2197,7 @@ export default function TransferPoint() {
         )}
 
         {isRevert ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 From Role
@@ -2074,6 +2270,8 @@ export default function TransferPoint() {
               />
             </div>
 
+            {transactionPinEntryField}
+
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Revert Point
@@ -2097,7 +2295,7 @@ export default function TransferPoint() {
             </div>
           </div>
         ) : isSchemaTransfer ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Role
@@ -2176,9 +2374,11 @@ export default function TransferPoint() {
                 className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none"
               />
             </div>
+
+            {transactionPinEntryField}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Transfer Point
@@ -2248,6 +2448,8 @@ export default function TransferPoint() {
                 className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none"
               />
             </div>
+
+            {transactionPinEntryField}
           </div>
         )}
 
@@ -2255,18 +2457,7 @@ export default function TransferPoint() {
           <button
             type="button"
             onClick={handleTransfer}
-            disabled={
-              transferLoading ||
-              loading ||
-              !selectedKey ||
-              !transferPoint ||
-              (isRevert
-                ? !selectedRevertUser
-                : isSchemaTransfer
-                ? !selectedSchemaRole ||
-                  !selectedSchemaUser
-                : !selectedTransferUser)
-            }
+            disabled={isSubmitDisabled}
             className="cursor-pointer rounded-lg bg-blue-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-gray-400"
           >
             {transferLoading
