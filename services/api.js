@@ -503,3 +503,98 @@ export const getWalletTransactions = async (params = {}) => {
         throw error;
     }
 };
+
+
+//company setting get data
+export const getCompanySetting = async () => {
+  const response = await api.get("/get-company-setting");
+
+  return response.data;
+};
+//company setting get data
+export const addCompanySetting = async (req, res) => {
+  try {
+    const { key, value } = req.body;
+
+    if (!key || !key.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Key is required",
+      });
+    }
+
+    const cleanKey = key.trim().toLowerCase();
+
+    let cleanValue = value;
+
+    if (req.file) {
+      cleanValue = `/uploads/modules/${req.file.filename}`;
+    }
+
+    if (
+      cleanValue === undefined ||
+      cleanValue === null ||
+      !String(cleanValue).trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Value is required",
+      });
+    }
+
+    cleanValue = String(cleanValue).trim();
+
+    const existingSetting = await db("companysetting")
+      .where("key", cleanKey)
+      .first();
+
+    if (existingSetting) {
+      await db("companysetting")
+        .where("key", cleanKey)
+        .update({
+          value: cleanValue,
+        });
+    } else {
+      await db("companysetting").insert({
+        key: cleanKey,
+        value: cleanValue,
+      });
+    }
+
+    const companySetting = await db("companysetting")
+      .where("key", cleanKey)
+      .select("id", "key", "value")
+      .first();
+
+    return res.status(200).json({
+      success: true,
+      message: "Company setting saved successfully",
+      data: companySetting,
+    });
+  } catch (error) {
+    console.error(
+      "Company Setting Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save company setting",
+      error: error.message,
+    });
+  }
+};
+//company setting update data
+export const updateCompanySetting = async (formData) => {
+  const response = await api.put(
+    "/edit-company-setting",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return response.data;
+};
