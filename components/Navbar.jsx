@@ -8,7 +8,7 @@ import {
   RiMenuLine,
 } from "react-icons/ri";
 
-import { getCompanySetting } from "@/services/api";
+import { getNormalCompanySetting } from "@/services/api";
 import { getRoleId } from "@/utils/token";
 
 export default function Navbar({
@@ -23,7 +23,7 @@ export default function Navbar({
 
   const loadCompanyName = async () => {
     try {
-      const response = await getCompanySetting();
+      const response = await getNormalCompanySetting();
 
       if (response?.success) {
         setCompanyName(

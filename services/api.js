@@ -511,6 +511,11 @@ export const getCompanySetting = async () => {
 
   return response.data;
 };
+export const getNormalCompanySetting = async () => {
+  const response = await api.get("/normal-company-setting");
+
+  return response.data;
+};
 //company setting get data
 export const addCompanySetting = async (req, res) => {
   try {

@@ -1,19 +1,15 @@
-
 "use client";
 
 import Link from "next/link";
-
 import {
   useCallback,
   useEffect,
   useState,
 } from "react";
-
 import {
   usePathname,
   useSearchParams,
 } from "next/navigation";
-
 import * as RiIcons from "react-icons/ri";
 
 import {
@@ -27,7 +23,7 @@ import {
   getModules,
   getRoles,
   getKeySettings,
-  getCompanySetting,
+  getNormalCompanySetting,
 } from "@/services/api";
 
 const allowedRolesByRole = {
@@ -67,7 +63,6 @@ const pointTransactionSlugs = [
 
 const getRoleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -84,7 +79,6 @@ const getRoleIcon = (iconName, size = 20) => {
 
 const getModuleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -261,6 +255,7 @@ export default function Sidebar({
 
         setRoleId(null);
         setPermissions(null);
+
         removeInvalidPermissionKeys();
       }
     }, [
@@ -374,7 +369,7 @@ export default function Sidebar({
     useCallback(async () => {
       try {
         const response =
-          await getCompanySetting();
+          await getNormalCompanySetting();
 
         if (response?.success) {
           setCompanyLogo(
@@ -830,6 +825,7 @@ export default function Sidebar({
       );
     } finally {
       removeToken();
+
       localStorage.removeItem("user");
       localStorage.removeItem("original_token");
       localStorage.removeItem("original_user");
@@ -915,6 +911,16 @@ export default function Sidebar({
               "/dashboard/company-setting" ||
             pathname.startsWith(
               "/dashboard/company-setting/"
+            )
+          );
+        }
+
+        if (slug === "system-control") {
+          return (
+            pathname ===
+              "/dashboard/system-controll" ||
+            pathname.startsWith(
+              "/dashboard/system-controll/"
             )
           );
         }
@@ -1039,6 +1045,10 @@ export default function Sidebar({
 
     if (slug === "company-setting") {
       href = "/dashboard/company-setting";
+    }
+
+    if (slug === "system-control") {
+      href = "/dashboard/system-controll";
     }
 
     if (slug === "transaction") {
@@ -1168,6 +1178,20 @@ export default function Sidebar({
         )
           .trim()
           .toLowerCase();
+
+        if (
+          slug === "company-setting" &&
+          Number(roleId) !== 1
+        ) {
+          return false;
+        }
+
+        if (
+          slug === "system-control" &&
+          Number(roleId) !== 0
+        ) {
+          return false;
+        }
 
         if (
           slug === "schema-transfer-point" &&
