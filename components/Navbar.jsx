@@ -1,10 +1,14 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-import { RiUserLine, RiMenuLine } from "react-icons/ri";
+import {
+  RiUserLine,
+  RiMenuLine,
+} from "react-icons/ri";
 
+import { getNormalCompanySetting } from "@/services/api";
 import { getRoleId } from "@/utils/token";
 
 export default function Navbar({
@@ -15,29 +19,75 @@ export default function Navbar({
 
   const [user, setUser] = useState(null);
   const [roleId, setRoleId] = useState(null);
+  const [companyName, setCompanyName] = useState("");
+
+  const loadCompanyName = async () => {
+    try {
+      const response = await getNormalCompanySetting();
+
+      if (response?.success) {
+        setCompanyName(
+          response?.data?.company_name || ""
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Failed to fetch company setting:",
+        error
+      );
+    }
+  };
 
   useEffect(() => {
-    // localStorage se logged-in user lena
-    const storedUser = localStorage.getItem("user");
+    const loadNavbarData = async () => {
+      const storedUser = localStorage.getItem("user");
 
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      } catch (error) {
-        console.error("Invalid user data:", error);
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+        } catch (error) {
+          console.error("Invalid user data:", error);
+        }
       }
-    }
 
-    // Token se role ID lena
-    const currentRoleId = getRoleId();
+      const currentRoleId = getRoleId();
 
-    if (currentRoleId !== null && currentRoleId !== undefined) {
-      setRoleId(Number(currentRoleId));
-    }
+      if (
+        currentRoleId !== null &&
+        currentRoleId !== undefined
+      ) {
+        setRoleId(Number(currentRoleId));
+      }
+
+      await loadCompanyName();
+    };
+
+    loadNavbarData();
   }, []);
 
-  // Logout
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleCompanySettingUpdated = () => {
+      loadCompanyName();
+    };
+
+    window.addEventListener(
+      "company_setting_updated",
+      handleCompanySettingUpdated
+    );
+
+    return () => {
+      window.removeEventListener(
+        "company_setting_updated",
+        handleCompanySettingUpdated
+      );
+    };
+  }, []);
+
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -45,7 +95,6 @@ export default function Navbar({
     router.push("/login");
   };
 
-  // Role names
   const roleNames = {
     0: "Master Admin",
     1: "Admin",
@@ -63,34 +112,34 @@ export default function Navbar({
 
   return (
     <nav
-      className={`fixed top-0 right-0 z-50 h-16  bg-gradient-to-r from-white via-white to-blue-200 shadow flex items-center justify-between pl-3 pr-8 transition-all duration-300 ${
+      className={`fixed top-0 right-0 z-50 flex h-16 items-center justify-between bg-gradient-to-r from-white via-white to-blue-200 pl-3 pr-8 shadow transition-all duration-300 ${
         sidebarOpen ? "left-68" : "left-0"
       }`}
     >
-      {/* LEFT SIDE */}
-      <div className="flex items-center md:gap-4 gap-1">
+      <div className="flex items-center gap-1 md:gap-4">
         <button
           type="button"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="text-3xl cursor-pointer"
+          onClick={() =>
+            setSidebarOpen(!sidebarOpen)
+          }
+          className="cursor-pointer text-3xl"
         >
           <RiMenuLine />
         </button>
 
         <div>
-          <h1 className="md:text-2xl font-bold text-blue-500 text-[20px]">
-            EMI LOCKER
+          <h1 className="text-[20px] font-bold text-blue-500 md:text-2xl">
+            {companyName || "Company"}
           </h1>
         </div>
       </div>
 
-      {/* RIGHT SIDE */}
       <div className="flex items-center gap-5">
-        <div className="flex items-center md:gap-2 gap-1">
+        <div className="flex items-center gap-1 md:gap-2">
           <RiUserLine size={22} />
 
           <div>
-            <p className="font-semibold md:text-2xl text-[15px]">
+            <p className="text-[15px] font-semibold md:text-2xl">
               {user?.name || roleName}
             </p>
           </div>

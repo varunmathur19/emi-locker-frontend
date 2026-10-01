@@ -1,16 +1,20 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { IoMdArrowDropdown } from "react-icons/io";
-import { RiSearchLine } from "react-icons/ri";
+import { RiSearchLine, RiEyeLine,
+  RiEyeOffLine,} from "react-icons/ri";
 import { toast } from "react-toastify";
 
 import {
   getKeySettings,
   getAllStaffData,
   getRoles,
+  getWalletTransactions,
   transferWalletPoints,
+  getStaffDataById,
 } from "@/services/api";
 
 import { getRoleId, getUser } from "@/utils/token";
@@ -230,6 +234,144 @@ const getUserKeyBalance = (user, key) => {
   }
 
   return 0;
+};
+
+const getTransactionTypeName = (type) => {
+  const value = Number(type);
+
+  if (value === TRANSACTION_TYPES.TRANSFER) {
+    return "Transfer Point";
+  }
+
+  if (
+    value ===
+    TRANSACTION_TYPES.SCHEMA_TRANSFER
+  ) {
+    return "Schema Transfer";
+  }
+
+  if (value === TRANSACTION_TYPES.REVERT) {
+    return "Revert Point";
+  }
+
+  return "Transaction";
+};
+
+const getTransactionUserName = (
+  transaction,
+  side
+) => {
+  if (side === "from") {
+    return (
+      transaction?.from_user_name ||
+      transaction?.from_name ||
+      transaction?.sender_name ||
+      transaction?.from_user?.name ||
+      transaction?.from_user?.organization_name ||
+      transaction?.from_email ||
+      transaction?.sender_email ||
+      transaction?.from_user_id ||
+      "-"
+    );
+  }
+
+  return (
+    transaction?.to_user_name ||
+    transaction?.to_name ||
+    transaction?.receiver_name ||
+    transaction?.to_user?.name ||
+    transaction?.to_user?.organization_name ||
+    transaction?.to_email ||
+    transaction?.receiver_email ||
+    transaction?.to_user_id ||
+    "-"
+  );
+};
+
+const getTransactionUserEmail = (
+  transaction,
+  side
+) => {
+  if (side === "from") {
+    return (
+      transaction?.from_user_email ||
+      transaction?.from_email ||
+      transaction?.sender_email ||
+      transaction?.from_user?.email ||
+      ""
+    );
+  }
+
+  return (
+    transaction?.to_user_email ||
+    transaction?.to_email ||
+    transaction?.receiver_email ||
+    transaction?.to_user?.email ||
+    ""
+  );
+};
+
+const getTransactionUserId = (
+  transaction,
+  side
+) => {
+  if (side === "from") {
+    return (
+      transaction?.from_user_id ??
+      transaction?.sender_id ??
+      transaction?.from_id ??
+      "-"
+    );
+  }
+
+  return (
+    transaction?.to_user_id ??
+    transaction?.receiver_id ??
+    transaction?.to_id ??
+    "-"
+  );
+};
+
+const getTransactionKeyName = (
+  transaction
+) =>
+  transaction?.key_setting_name ||
+  transaction?.key_name ||
+  transaction?.keySetting?.name ||
+  transaction?.key_setting?.name ||
+  "-";
+
+const getTransactionPoints = (
+  transaction
+) =>
+  Number(
+    transaction?.points ??
+      transaction?.points_sent ??
+      transaction?.amount ??
+      transaction?.transfer_points ??
+      0
+  );
+
+const formatTransactionDate = (
+  value
+) => {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 function UserDropdown({
@@ -497,6 +639,8 @@ export default function TransferPoint() {
 
   const [keySettings, setKeySettings] =
     useState([]);
+    const [showTransactionPin, setShowTransactionPin] =
+  useState(false);
 
   const [
     schemaKeyDropdownOpen,
@@ -529,6 +673,15 @@ export default function TransferPoint() {
 
   const [transferLoading, setTransferLoading] =
     useState(false);
+
+  const [transactionPin, setTransactionPin] =
+    useState("");
+
+  const [transactionPinLoading, setTransactionPinLoading] =
+    useState(false);
+
+  const [transactionPinEntry, setTransactionPinEntry] =
+    useState("");
 
   const [transferUsers, setTransferUsers] =
     useState([]);
@@ -617,6 +770,16 @@ export default function TransferPoint() {
   const [
     loadingRevertUsers,
     setLoadingRevertUsers,
+  ] = useState(false);
+
+  const [
+    recentTransactions,
+    setRecentTransactions,
+  ] = useState([]);
+
+  const [
+    recentTransactionsLoading,
+    setRecentTransactionsLoading,
   ] = useState(false);
 
   const selectedKeyData = useMemo(
@@ -748,6 +911,160 @@ export default function TransferPoint() {
     selectedSchemaRoleData?.name ||
     roleNames[Number(selectedSchemaRole)] ||
     "";
+
+  const loadTransactionPin = async () => {
+    try {
+      setTransactionPinLoading(true);
+      setTransactionPin("");
+
+      const user = getUser();
+      const userId = Number(user?.id);
+
+      if (
+        !Number.isFinite(userId) ||
+        userId <= 0
+      ) {
+        return;
+      }
+
+      const response =
+        await getStaffDataById(userId);
+
+      const data =
+        response?.data ?? response;
+
+      let staffData = data;
+
+      if (Array.isArray(data)) {
+        staffData = data[0] || {};
+      } else if (
+        data?.data &&
+        typeof data.data === "object"
+      ) {
+        staffData = Array.isArray(data.data)
+          ? data.data[0] || {}
+          : data.data;
+      }
+
+      const pin =
+        staffData?.transaction_pin ??
+        response?.transaction_pin ??
+        "";
+
+      setTransactionPin(
+        pin === null ||
+          pin === undefined
+          ? ""
+          : String(pin)
+      );
+    } catch (error) {
+      console.error(
+        "GET TRANSACTION PIN ERROR:",
+        error
+      );
+
+      setTransactionPin("");
+    } finally {
+      setTransactionPinLoading(false);
+    }
+  };
+
+  const loadRecentTransactions = async () => {
+    try {
+      setRecentTransactionsLoading(true);
+
+      const response =
+        await getWalletTransactions({
+          page: 1,
+          limit: 100,
+          transaction_type: transactionType,
+        });
+
+      let transactions = [];
+
+      if (
+        response?.success &&
+        Array.isArray(response?.data)
+      ) {
+        transactions = response.data;
+      } else if (
+        response?.success &&
+        Array.isArray(response?.data?.data)
+      ) {
+        transactions =
+          response.data.data;
+      } else if (
+        response?.success &&
+        Array.isArray(
+          response?.data?.transactions
+        )
+      ) {
+        transactions =
+          response.data.transactions;
+      }
+
+      const currentRoleId =
+        Number(getRoleId());
+
+      const currentUser = getUser();
+
+      const currentUserId =
+        Number(currentUser?.id);
+
+      const isAdminRole =
+        currentRoleId === 0 ||
+        currentRoleId === 1;
+
+      if (!isAdminRole) {
+        transactions =
+          transactions.filter(
+            (transaction) => {
+              const fromUserId = Number(
+                transaction?.from_user_id ??
+                  transaction?.sender_id ??
+                  transaction?.from_id
+              );
+
+              const toUserId = Number(
+                transaction?.to_user_id ??
+                  transaction?.receiver_id ??
+                  transaction?.to_id
+              );
+
+              return (
+                fromUserId ===
+                  currentUserId ||
+                toUserId ===
+                  currentUserId
+              );
+            }
+          );
+      }
+
+      transactions.sort(
+        (a, b) =>
+          new Date(
+            b?.created_at || 0
+          ).getTime() -
+          new Date(
+            a?.created_at || 0
+          ).getTime()
+      );
+
+      setRecentTransactions(
+        transactions.slice(0, 5)
+      );
+    } catch (error) {
+      console.error(
+        "GET RECENT TRANSACTIONS ERROR:",
+        error
+      );
+
+      setRecentTransactions([]);
+    } finally {
+      setRecentTransactionsLoading(false);
+    }
+  };
 
   const loadKeySettings = async () => {
     try {
@@ -959,7 +1276,9 @@ export default function TransferPoint() {
         users = response.data.data;
       } else if (
         response?.success &&
-        Array.isArray(response?.data?.users)
+        Array.isArray(
+          response?.data?.users
+        )
       ) {
         users = response.data.users;
       }
@@ -968,7 +1287,7 @@ export default function TransferPoint() {
         users.filter(
           (item) =>
             Number(item?.role_id) ===
-            Number(targetRoleId) &&
+              Number(targetRoleId) &&
             Number(item?.id) !==
               Number(currentUserId)
         );
@@ -1028,7 +1347,9 @@ export default function TransferPoint() {
         users = response.data.data;
       } else if (
         response?.success &&
-        Array.isArray(response?.data?.users)
+        Array.isArray(
+          response?.data?.users
+        )
       ) {
         users = response.data.users;
       }
@@ -1086,7 +1407,9 @@ export default function TransferPoint() {
         );
       } else if (
         response?.success &&
-        Array.isArray(response?.data?.users)
+        Array.isArray(
+          response?.data?.users
+        )
       ) {
         setRevertUsers(
           response.data.users
@@ -1118,8 +1441,13 @@ export default function TransferPoint() {
       }
 
       setRoleId(currentRole);
+      setTransactionPin("");
+      setTransactionPinEntry("");
 
-      await loadKeySettings();
+      await Promise.all([
+        loadTransactionPin(),
+        loadKeySettings(),
+      ]);
 
       const activeRoles =
         await loadRoles();
@@ -1165,6 +1493,10 @@ export default function TransferPoint() {
     isSchemaTransfer,
     isRevert,
   ]);
+
+  useEffect(() => {
+    loadRecentTransactions();
+  }, [transactionType, roleId]);
 
   useEffect(() => {
     let selectedUser = null;
@@ -1224,6 +1556,7 @@ export default function TransferPoint() {
     );
 
     setAvailableBalance(0);
+    setTransactionPinEntry("");
 
     if (isSchemaTransfer) {
       setSelectedSchemaRole("");
@@ -1245,6 +1578,7 @@ export default function TransferPoint() {
     setTransferUserSearch("");
     setTransferUserDropdownOpen(false);
     setAvailableBalance(0);
+    setTransactionPinEntry("");
   };
 
   const handleSchemaRoleSelect = async (
@@ -1266,6 +1600,7 @@ export default function TransferPoint() {
     setSchemaUserSearch("");
     setSchemaUserDropdownOpen(false);
     setAvailableBalance(0);
+    setTransactionPinEntry("");
     setSchemaRoleDropdownOpen(false);
 
     await loadSchemaUsers(
@@ -1283,6 +1618,7 @@ export default function TransferPoint() {
     setSchemaUserSearch("");
     setSchemaUserDropdownOpen(false);
     setAvailableBalance(0);
+    setTransactionPinEntry("");
   };
 
   const handleFromRoleSelect = async (
@@ -1304,6 +1640,7 @@ export default function TransferPoint() {
     setRevertUserSearch("");
     setAvailableBalance(0);
     setTransferPoint("");
+    setTransactionPinEntry("");
     setFromRoleDropdownOpen(false);
 
     await loadRevertUsers(
@@ -1321,6 +1658,7 @@ export default function TransferPoint() {
     setRevertUserSearch("");
     setRevertUserDropdownOpen(false);
     setAvailableBalance(0);
+    setTransactionPinEntry("");
   };
 
   const handleTransferPointChange = (
@@ -1337,177 +1675,308 @@ export default function TransferPoint() {
     }
   };
 
-const resetAllFields = () => {
-  setAvailableBalance(0);
-  setTransferPoint("");
+  const handleTransactionPinChange = (
+    event
+  ) => {
+    const value = event.target.value
+      .replace(/\D/g, "")
+      .slice(0, 4);
 
-  setSelectedTransferUser("");
-  setTransferUserSearch("");
-  setTransferUserDropdownOpen(false);
+    setTransactionPinEntry(value);
+  };
 
-  setSelectedSchemaRole("");
-  setSelectedSchemaUser("");
-  setSchemaUserSearch("");
-  setSchemaRoleDropdownOpen(false);
-  setSchemaUserDropdownOpen(false);
-  setSchemaUsers([]);
-  setSchemaKeyDropdownOpen(false);
+  const resetAllFields = () => {
+    setAvailableBalance(0);
+    setTransferPoint("");
+    setTransactionPinEntry("");
 
-  setSelectedFromRole("");
-  setSelectedRevertUser("");
-  setRevertUserSearch("");
-  setFromRoleDropdownOpen(false);
-  setRevertUserDropdownOpen(false);
-  setRevertUsers([]);
-};
+    setSelectedTransferUser("");
+    setTransferUserSearch("");
+    setTransferUserDropdownOpen(false);
 
-const handleTransfer = async () => {
-  if (!selectedKey) {
-    toast.error("Please select a key setting");
-    return;
-  }
+    setSelectedSchemaRole("");
+    setSelectedSchemaUser("");
+    setSchemaUserSearch("");
+    setSchemaRoleDropdownOpen(false);
+    setSchemaUserDropdownOpen(false);
+    setSchemaUsers([]);
+    setSchemaKeyDropdownOpen(false);
 
-  if (isRevert) {
-    if (!selectedFromRole) {
-      toast.error("Please select a role");
+    setSelectedFromRole("");
+    setSelectedRevertUser("");
+    setRevertUserSearch("");
+    setFromRoleDropdownOpen(false);
+    setRevertUserDropdownOpen(false);
+    setRevertUsers([]);
+  };
+
+  const handleTransfer = async () => {
+    if (!selectedKey) {
+      toast.error(
+        "Please select a key setting"
+      );
       return;
     }
 
-    if (!selectedRevertUser) {
-      toast.error("Please select a user");
-      return;
-    }
-  } else if (isSchemaTransfer) {
-    if (!selectedSchemaRole) {
-      toast.error("Please select a role");
+    if (!transactionPinEntry.trim()) {
+      toast.error(
+        "Please enter transaction PIN"
+      );
       return;
     }
 
-    if (!selectedSchemaUser) {
-      toast.error("Please select a user");
+    if (transactionPinEntry.length !== 4) {
+      toast.error(
+        "Transaction PIN must be 4 digits"
+      );
       return;
     }
-  } else if (!selectedTransferUser) {
-    toast.error("Please select a user");
-    return;
-  }
-
-  const points = Number(transferPoint);
-
-  if (!Number.isFinite(points) || points <= 0) {
-    toast.error(
-      isRevert
-        ? "Please enter valid revert points"
-        : "Please enter valid transfer points"
-    );
-    return;
-  }
-
-  const balance = isRevert
-    ? availableBalance
-    : walletBalance;
-
-  if (points > balance) {
-    toast.error(
-      `Insufficient balance. Available balance is ${Number(
-        balance || 0
-      ).toLocaleString("en-IN")}`
-    );
-    return;
-  }
-
-  try {
-    setTransferLoading(true);
-
-    let targetUserId = "";
 
     if (isRevert) {
-      targetUserId = selectedRevertUser;
+      if (!selectedFromRole) {
+        toast.error("Please select a role");
+        return;
+      }
+
+      if (!selectedRevertUser) {
+        toast.error("Please select a user");
+        return;
+      }
     } else if (isSchemaTransfer) {
-      targetUserId = selectedSchemaUser;
-    } else {
-      targetUserId = selectedTransferUser;
+      if (!selectedSchemaRole) {
+        toast.error("Please select a role");
+        return;
+      }
+
+      if (!selectedSchemaUser) {
+        toast.error("Please select a user");
+        return;
+      }
+    } else if (!selectedTransferUser) {
+      toast.error("Please select a user");
+      return;
     }
 
-    const response = await transferWalletPoints(
-      targetUserId,
-      selectedKey,
-      points,
-      transactionType
-    );
+    const points =
+      Number(transferPoint);
 
-    if (!response?.success) {
+    if (
+      !Number.isFinite(points) ||
+      points <= 0
+    ) {
       toast.error(
-        response?.message ||
-          "Failed to transfer points"
+        isRevert
+          ? "Please enter valid revert points"
+          : "Please enter valid transfer points"
       );
       return;
     }
 
-    const successMessage =
-      response?.message ||
-      (isRevert
-        ? "Points reverted successfully"
-        : isSchemaTransfer
-        ? "Schema transferred successfully"
-        : "Points transferred successfully");
+    const balance = isRevert
+      ? availableBalance
+      : walletBalance;
 
-    const currentRole = Number(getRoleId());
-
-    const previousFromRole = selectedFromRole;
-    const previousSchemaRole = selectedSchemaRole;
-
-    resetAllFields();
-
-    toast.success(successMessage);
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new Event("wallet_balance_updated")
+    if (points > balance) {
+      toast.error(
+        `Insufficient balance. Available balance is ${Number(
+          balance || 0
+        ).toLocaleString("en-IN")}`
       );
+      return;
     }
 
-    await loadKeySettings();
+    try {
+      setTransferLoading(true);
 
-    if (Number.isFinite(currentRole)) {
+      let targetUserId = "";
+
       if (isRevert) {
-        if (previousFromRole) {
-          await loadRevertUsers(
-            Number(previousFromRole)
-          );
-        }
+        targetUserId =
+          selectedRevertUser;
       } else if (isSchemaTransfer) {
-        if (previousSchemaRole) {
-          await loadSchemaUsers(
-            Number(previousSchemaRole)
-          );
-        }
+        targetUserId =
+          selectedSchemaUser;
       } else {
-        await loadTransferUsers(
-          currentRole,
-          roles
+        targetUserId =
+          selectedTransferUser;
+      }
+
+      const response =
+        await transferWalletPoints(
+          targetUserId,
+          selectedKey,
+          points,
+          transactionType,
+          transactionPinEntry
+        );
+
+      if (!response?.success) {
+        toast.error(
+          response?.message ||
+            "Failed to transfer points"
+        );
+        return;
+      }
+
+      const successMessage =
+        response?.message ||
+        (isRevert
+          ? "Points reverted successfully"
+          : isSchemaTransfer
+          ? "Schema transferred successfully"
+          : "Points transferred successfully");
+
+      const currentRole =
+        Number(getRoleId());
+
+      const previousFromRole =
+        selectedFromRole;
+
+      const previousSchemaRole =
+        selectedSchemaRole;
+
+      resetAllFields();
+
+      toast.success(successMessage);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new Event(
+            "wallet_balance_updated"
+          )
         );
       }
-    }
-  } catch (error) {
-    console.error(
-      "TRANSFER WALLET POINTS ERROR:",
-      error
-    );
 
-    toast.error(
-      error?.response?.data?.message ||
-        error?.message ||
-        "Failed to transfer points"
-    );
-  } finally {
-    setTransferLoading(false);
-  }
-};
+      await loadKeySettings();
+
+      if (Number.isFinite(currentRole)) {
+        if (isRevert) {
+          if (previousFromRole) {
+            await loadRevertUsers(
+              Number(previousFromRole)
+            );
+          }
+        } else if (isSchemaTransfer) {
+          if (previousSchemaRole) {
+            await loadSchemaUsers(
+              Number(previousSchemaRole)
+            );
+          }
+        } else {
+          await loadTransferUsers(
+            currentRole,
+            roles
+          );
+        }
+      }
+
+      await loadRecentTransactions();
+      await loadTransactionPin();
+    } catch (error) {
+      console.error(
+        "TRANSFER WALLET POINTS ERROR:",
+        error
+      );
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to transfer points"
+      );
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  const transactionPinField = (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-gray-700">
+        Transaction PIN
+      </label>
+
+      <input
+        type="text"
+        value={
+          transactionPinLoading
+            ? ""
+            : transactionPin
+        }
+        readOnly
+        placeholder="Transaction PIN"
+        className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none"
+      />
+    </div>
+  );
+
+const transactionPinEntryField = (
+  <div>
+    <label className="mb-2 block text-sm font-semibold text-gray-700">
+      Transaction PIN
+    </label>
+
+    <div className="relative">
+      <input
+        type={showTransactionPin ? "text" : "password"}
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={4}
+        value={transactionPinEntry}
+        onChange={handleTransactionPinChange}
+        placeholder="Enter 4 digit PIN"
+        disabled={transferLoading}
+        className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 pr-12 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
+      />
+
+      <button
+        type="button"
+        onClick={() =>
+          setShowTransactionPin(
+            (previous) => !previous
+          )
+        }
+        disabled={
+          transferLoading ||
+          !transactionPinEntry
+        }
+        className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 transition hover:text-gray-700 disabled:cursor-not-allowed disabled:text-gray-300"
+        aria-label={
+          showTransactionPin
+            ? "Hide transaction PIN"
+            : "Show transaction PIN"
+        }
+      >
+        {showTransactionPin ? (
+          <RiEyeOffLine size={20} />
+        ) : (
+          <RiEyeLine size={20} />
+        )}
+      </button>
+    </div>
+  </div>
+);
+
+  const isSubmitDisabled =
+    transferLoading ||
+    loading ||
+    !selectedKey ||
+    !transferPoint ||
+    transactionPinEntry.length !== 4 ||
+    (isRevert
+      ? !selectedRevertUser
+      : isSchemaTransfer
+      ? !selectedSchemaRole ||
+        !selectedSchemaUser
+      : !selectedTransferUser);
 
   return (
     <div className="min-h-screen">
       <div className="rounded-xl bg-white p-6 shadow-sm">
+        <div className="mb-6">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 ">
+            {transactionPinField}
+          </div>
+        </div>
+
         {isSchemaTransfer ? (
           <div className="mb-6">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -1728,7 +2197,7 @@ const handleTransfer = async () => {
         )}
 
         {isRevert ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 From Role
@@ -1801,6 +2270,8 @@ const handleTransfer = async () => {
               />
             </div>
 
+            {transactionPinEntryField}
+
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Revert Point
@@ -1824,7 +2295,7 @@ const handleTransfer = async () => {
             </div>
           </div>
         ) : isSchemaTransfer ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Role
@@ -1900,12 +2371,14 @@ const handleTransfer = async () => {
                 type="number"
                 value={availableBalance}
                 readOnly
-                className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none"
+                className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none"
               />
             </div>
+
+            {transactionPinEntryField}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Transfer Point
@@ -1921,7 +2394,7 @@ const handleTransfer = async () => {
                 }
                 disabled={transferLoading}
                 placeholder="Enter amount"
-                className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
 
@@ -1972,9 +2445,11 @@ const handleTransfer = async () => {
                 type="number"
                 value={availableBalance}
                 readOnly
-                className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none"
+                className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none"
               />
             </div>
+
+            {transactionPinEntryField}
           </div>
         )}
 
@@ -1982,18 +2457,7 @@ const handleTransfer = async () => {
           <button
             type="button"
             onClick={handleTransfer}
-            disabled={
-              transferLoading ||
-              loading ||
-              !selectedKey ||
-              !transferPoint ||
-              (isRevert
-                ? !selectedRevertUser
-                : isSchemaTransfer
-                ? !selectedSchemaRole ||
-                  !selectedSchemaUser
-                : !selectedTransferUser)
-            }
+            disabled={isSubmitDisabled}
             className="cursor-pointer rounded-lg bg-blue-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-gray-400"
           >
             {transferLoading
@@ -2006,6 +2470,174 @@ const handleTransfer = async () => {
               ? "Schema Transfer"
               : "Transfer Points"}
           </button>
+        </div>
+
+        <div className="mt-8">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800">
+                Recent Transactions
+              </h2>
+
+              <p className="mt-1 text-xs text-gray-400">
+                {Number(roleId) === 0 ||
+                Number(roleId) === 1
+                  ? "Latest transactions"
+                  : "Your latest transactions"}
+              </p>
+            </div>
+
+            <span className="rounded-md bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-500">
+              Last 5
+            </span>
+          </div>
+
+          {recentTransactionsLoading ? (
+            <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+              Loading recent transactions...
+            </div>
+          ) : recentTransactions.length === 0 ? (
+            <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+              No recent transactions found.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentTransactions.map(
+                (transaction) => {
+                  const points =
+                    getTransactionPoints(
+                      transaction
+                    );
+
+                  const fromName =
+                    getTransactionUserName(
+                      transaction,
+                      "from"
+                    );
+
+                  const toName =
+                    getTransactionUserName(
+                      transaction,
+                      "to"
+                    );
+
+                  const fromEmail =
+                    getTransactionUserEmail(
+                      transaction,
+                      "from"
+                    );
+
+                  const toEmail =
+                    getTransactionUserEmail(
+                      transaction,
+                      "to"
+                    );
+
+                  const fromUserId =
+                    getTransactionUserId(
+                      transaction,
+                      "from"
+                    );
+
+                  const toUserId =
+                    getTransactionUserId(
+                      transaction,
+                      "to"
+                    );
+
+                  return (
+                    <div
+                      key={
+                        transaction?.id ??
+                        `${fromUserId}-${toUserId}-${transaction?.created_at}`
+                      }
+                      className="rounded-lg border border-gray-200 bg-white p-4"
+                    >
+                      <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-600">
+                                {getTransactionTypeName(
+                                  transaction?.transaction_type
+                                )}
+                              </span>
+
+                              <span className="break-words text-sm font-semibold text-gray-800">
+                                {getTransactionKeyName(
+                                  transaction
+                                )}
+                              </span>
+                            </div>
+
+                            <p className="mt-2 text-xs text-gray-400">
+                              {formatTransactionDate(
+                                transaction?.created_at
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="shrink-0 rounded-lg bg-gray-50 px-4 py-2 text-left sm:text-right">
+                            <p className="text-base font-bold text-gray-800">
+                              {points.toLocaleString(
+                                "en-IN"
+                              )}
+                            </p>
+
+                            <p className="text-xs text-gray-400">
+                              Points
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                              From
+                            </p>
+
+                            <p className="break-words text-sm font-semibold text-gray-700">
+                              {fromName}
+                            </p>
+
+                            {fromEmail && (
+                              <p className="mt-1 break-all text-xs text-gray-400">
+                                {fromEmail}
+                              </p>
+                            )}
+
+                            <p className="mt-1 break-all text-xs text-gray-400">
+                              ID: {fromUserId}
+                            </p>
+                          </div>
+
+                          <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                              To
+                            </p>
+
+                            <p className="break-words text-sm font-semibold text-gray-700">
+                              {toName}
+                            </p>
+
+                            {toEmail && (
+                              <p className="mt-1 break-all text-xs text-gray-400">
+                                {toEmail}
+                              </p>
+                            )}
+
+                            <p className="mt-1 break-all text-xs text-gray-400">
+                              ID: {toUserId}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

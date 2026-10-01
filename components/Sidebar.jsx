@@ -23,6 +23,7 @@ import {
   getModules,
   getRoles,
   getKeySettings,
+  getNormalCompanySetting,
 } from "@/services/api";
 
 const allowedRolesByRole = {
@@ -62,7 +63,6 @@ const pointTransactionSlugs = [
 
 const getRoleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -79,7 +79,6 @@ const getRoleIcon = (iconName, size = 20) => {
 
 const getModuleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -109,6 +108,8 @@ export default function Sidebar({
     useState(null);
   const [totalWalletBalance, setTotalWalletBalance] =
     useState(0);
+  const [companyLogo, setCompanyLogo] =
+    useState(null);
 
   const activeRoleParam =
     searchParams.get("role");
@@ -128,9 +129,6 @@ export default function Sidebar({
       ? Number(activeRoleParam)
       : null;
 
-  // =========================
-  // REMOVE OLD PERMISSION KEYS
-  // =========================
   const removeInvalidPermissionKeys =
     useCallback(() => {
       if (typeof window === "undefined") {
@@ -143,9 +141,6 @@ export default function Sidebar({
       localStorage.removeItem("rolePermission");
     }, []);
 
-  // =========================
-  // LOAD STAFF PERMISSIONS
-  // =========================
   const loadStaffPermissions =
     useCallback(() => {
       if (typeof window === "undefined") {
@@ -220,9 +215,6 @@ export default function Sidebar({
       return null;
     }, []);
 
-  // =========================
-  // LOAD CURRENT USER
-  // =========================
   const loadCurrentUser =
     useCallback(() => {
       try {
@@ -271,9 +263,6 @@ export default function Sidebar({
       removeInvalidPermissionKeys,
     ]);
 
-  // =========================
-  // LOAD ROLES
-  // =========================
   const loadRoles = useCallback(async () => {
     try {
       const response = await getRoles();
@@ -307,9 +296,6 @@ export default function Sidebar({
     }
   }, []);
 
-  // =========================
-  // LOAD MODULES
-  // =========================
   const loadModules = useCallback(async () => {
     try {
       const response = await getModules();
@@ -343,9 +329,6 @@ export default function Sidebar({
     }
   }, []);
 
-  // =========================
-  // LOAD WALLET BALANCE
-  // =========================
   const loadWalletBalance =
     useCallback(async () => {
       try {
@@ -382,26 +365,45 @@ export default function Sidebar({
       }
     }, []);
 
-  // =========================
-  // INITIAL LOAD
-  // =========================
+  const loadCompanySetting =
+    useCallback(async () => {
+      try {
+        const response =
+          await getNormalCompanySetting();
+
+        if (response?.success) {
+          setCompanyLogo(
+            response?.data?.company_logo || null
+          );
+        } else {
+          setCompanyLogo(null);
+        }
+      } catch (error) {
+        console.error(
+          "GET COMPANY SETTING ERROR:",
+          error
+        );
+
+        setCompanyLogo(null);
+      }
+    }, []);
+
   useEffect(() => {
     removeInvalidPermissionKeys();
     loadRoles();
     loadModules();
     loadCurrentUser();
     loadWalletBalance();
+    loadCompanySetting();
   }, [
     removeInvalidPermissionKeys,
     loadRoles,
     loadModules,
     loadCurrentUser,
     loadWalletBalance,
+    loadCompanySetting,
   ]);
 
-  // =========================
-  // FOCUS / VISIBILITY REFRESH
-  // =========================
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -413,6 +415,7 @@ export default function Sidebar({
       loadModules();
       loadCurrentUser();
       loadWalletBalance();
+      loadCompanySetting();
     };
 
     const handleVisibilityChange = () => {
@@ -424,6 +427,7 @@ export default function Sidebar({
         loadModules();
         loadCurrentUser();
         loadWalletBalance();
+        loadCompanySetting();
       }
     };
 
@@ -454,11 +458,31 @@ export default function Sidebar({
     loadModules,
     loadCurrentUser,
     loadWalletBalance,
+    loadCompanySetting,
   ]);
 
-  // =========================
-  // WALLET BALANCE UPDATE
-  // =========================
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleCompanySettingUpdated = () => {
+      loadCompanySetting();
+    };
+
+    window.addEventListener(
+      "company_setting_updated",
+      handleCompanySettingUpdated
+    );
+
+    return () => {
+      window.removeEventListener(
+        "company_setting_updated",
+        handleCompanySettingUpdated
+      );
+    };
+  }, [loadCompanySetting]);
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -481,15 +505,11 @@ export default function Sidebar({
     };
   }, [loadWalletBalance]);
 
-  // =========================
-  // MODULE / ROLE UPDATE
-  // =========================
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    // Same tab event
     const handleModulesUpdated = () => {
       loadModules();
     };
@@ -524,9 +544,6 @@ export default function Sidebar({
     loadRoles,
   ]);
 
-  // =========================
-  // STORAGE EVENT
-  // =========================
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -578,9 +595,6 @@ export default function Sidebar({
     removeInvalidPermissionKeys,
   ]);
 
-  // =========================
-  // CLEAN INVALID PERMISSIONS
-  // =========================
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -603,9 +617,6 @@ export default function Sidebar({
     removeInvalidPermissionKeys,
   ]);
 
-  // =========================
-  // PERMISSION CHECK
-  // =========================
   const isPermissionEnabled =
     useCallback((value) => {
       if (
@@ -786,9 +797,6 @@ export default function Sidebar({
       ]
     );
 
-  // =========================
-  // MY LOGIN
-  // =========================
   const myLogin = () => {
     removeInvalidPermissionKeys();
 
@@ -807,9 +815,6 @@ export default function Sidebar({
     window.location.href = "/dashboard";
   };
 
-  // =========================
-  // LOGOUT
-  // =========================
   const logout = async () => {
     try {
       await logoutStaff();
@@ -834,9 +839,6 @@ export default function Sidebar({
     }
   };
 
-  // =========================
-  // ROLE ACTIVE
-  // =========================
   const isRoleLinkActive =
     useCallback(
       (roleItem) => {
@@ -870,9 +872,6 @@ export default function Sidebar({
       ]
     );
 
-  // =========================
-  // MODULE ACTIVE
-  // =========================
   const isModuleLinkActive =
     useCallback(
       (moduleItem) => {
@@ -902,6 +901,26 @@ export default function Sidebar({
               "/dashboard/role-permission" ||
             pathname.startsWith(
               "/dashboard/role-permission/"
+            )
+          );
+        }
+
+        if (slug === "company-setting") {
+          return (
+            pathname ===
+              "/dashboard/company-setting" ||
+            pathname.startsWith(
+              "/dashboard/company-setting/"
+            )
+          );
+        }
+
+        if (slug === "system-control") {
+          return (
+            pathname ===
+              "/dashboard/system-controll" ||
+            pathname.startsWith(
+              "/dashboard/system-controll/"
             )
           );
         }
@@ -953,9 +972,6 @@ export default function Sidebar({
       ]
     );
 
-  // =========================
-  // ROLE LINK
-  // =========================
   const RoleLink = ({ roleItem }) => {
     const roleSlug = String(
       roleItem?.slug || ""
@@ -1003,99 +1019,100 @@ export default function Sidebar({
     );
   };
 
-  // =========================
-  // MODULE LINK
-  // =========================
-const ModuleLink = ({ moduleItem }) => {
-  const slug = String(
-    moduleItem?.slug || ""
-  )
-    .trim()
-    .toLowerCase();
+  const ModuleLink = ({ moduleItem }) => {
+    const slug = String(
+      moduleItem?.slug || ""
+    )
+      .trim()
+      .toLowerCase();
 
-  const label =
-    moduleItem?.name ||
-    slug ||
-    "Module";
+    const label =
+      moduleItem?.name ||
+      slug ||
+      "Module";
 
-  let href = `/dashboard?module=${encodeURIComponent(
-    slug
-  )}`;
+    let href = `/dashboard?module=${encodeURIComponent(
+      slug
+    )}`;
 
-  if (slug === "key-settings") {
-    href = "/dashboard/key-setting";
-  }
+    if (slug === "key-settings") {
+      href = "/dashboard/key-setting";
+    }
 
-  if (slug === "role-permission") {
-    href = "/dashboard/role-permission";
-  }
+    if (slug === "role-permission") {
+      href = "/dashboard/role-permission";
+    }
 
-  // My Transaction
-  if (slug === "transaction") {
-    href = "/dashboard/my-transaction";
-  }
+    if (slug === "company-setting") {
+      href = "/dashboard/company-setting";
+    }
 
-  if (slug === "my-transaction") {
-    href = "/dashboard/my-transaction";
-  }
+    if (slug === "system-control") {
+      href = "/dashboard/system-controll";
+    }
 
-  if (
-    pointTransactionSlugs.includes(slug)
-  ) {
-    const transactionType =
-      pointTransactionTypes[slug];
+    if (slug === "transaction") {
+      href = "/dashboard/my-transaction";
+    }
 
-    href = `/dashboard/transfer-point?transaction_type=${transactionType}`;
-  }
+    if (slug === "my-transaction") {
+      href = "/dashboard/my-transaction";
+    }
 
-  const isActive =
-    isModuleLinkActive(moduleItem);
+    if (
+      pointTransactionSlugs.includes(slug)
+    ) {
+      const transactionType =
+        pointTransactionTypes[slug];
 
-  return (
-    <Link
-      href={href}
-      className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
-        isActive
-          ? "bg-blue-400 text-black"
-          : "hover:bg-gray-700"
-      }`}
-    >
-      <span
-        className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
+      href = `/dashboard/transfer-point?transaction_type=${transactionType}`;
+    }
+
+    const isActive =
+      isModuleLinkActive(moduleItem);
+
+    return (
+      <Link
+        href={href}
+        className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
           isActive
-            ? "text-black"
-            : "text-white"
+            ? "bg-blue-400 text-black"
+            : "hover:bg-gray-700"
         }`}
       >
-        {getModuleIcon(moduleItem?.icon)}
-      </span>
-
-      <span className="flex min-w-0 flex-1 items-center">
-        <span className="truncate">
-          {label}
+        <span
+          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
+            isActive
+              ? "text-black"
+              : "text-white"
+          }`}
+        >
+          {getModuleIcon(moduleItem?.icon)}
         </span>
 
-        {slug === "transfer-points" && (
-          <span
-            className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${
-              isActive
-                ? "border-red-600 bg-red-600 text-white"
-                : "border-red-500 bg-red-500 text-white"
-            }`}
-          >
-            {totalWalletBalance.toLocaleString(
-              "en-IN"
-            )}
+        <span className="flex min-w-0 flex-1 items-center">
+          <span className="truncate">
+            {label}
           </span>
-        )}
-      </span>
-    </Link>
-  );
-};
 
-  // =========================
-  // ROLE LINKS
-  // =========================
+          {slug === "transfer-points" && (
+            <span
+              className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${
+                isActive
+                  ? "border-red-600 bg-red-600 text-white"
+                  : "border-red-500 bg-red-500 text-white"
+              }`}
+            >
+              {totalWalletBalance.toLocaleString(
+                "en-IN"
+              )}
+            </span>
+          )}
+        </span>
+      </Link>
+    );
+  };
+
   const renderRoleLinks = () => {
     const currentRole = Number(roleId);
 
@@ -1153,9 +1170,6 @@ const ModuleLink = ({ moduleItem }) => {
       ));
   };
 
-  // =========================
-  // MODULE LINKS
-  // =========================
   const renderModuleLinks = () => {
     return modules
       .filter((moduleItem) => {
@@ -1164,6 +1178,20 @@ const ModuleLink = ({ moduleItem }) => {
         )
           .trim()
           .toLowerCase();
+
+        if (
+          slug === "company-setting" &&
+          Number(roleId) !== 1
+        ) {
+          return false;
+        }
+
+        if (
+          slug === "system-control" &&
+          Number(roleId) !== 0
+        ) {
+          return false;
+        }
 
         if (
           slug === "schema-transfer-point" &&
@@ -1194,28 +1222,12 @@ const ModuleLink = ({ moduleItem }) => {
       ));
   };
 
-  // =========================
-  // SIDEBAR LOADING
-  // =========================
-  if (roleId === null) {
-    return (
-      <aside
-        className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
-          sidebarOpen
-            ? "w-68 p-5"
-            : "w-0 p-0"
-        }`}
-      >
-        <h2 className="relative mb-6 text-2xl font-bold after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
-          Dashboard
-        </h2>
-      </aside>
-    );
-  }
+  const companyLogoUrl = companyLogo
+    ? `${(
+        process.env.NEXT_PUBLIC_API_URL || ""
+      ).replace(/\/api$/, "")}${companyLogo}`
+    : null;
 
-  // =========================
-  // SIDEBAR
-  // =========================
   return (
     <aside
       className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
@@ -1224,12 +1236,17 @@ const ModuleLink = ({ moduleItem }) => {
           : "w-0 p-0"
       }`}
     >
-      <h2 className="relative mb-6 flex-shrink-0 text-2xl font-bold after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
-        Dashboard
+      <h2 className="relative mb-6 flex h-8 w-[230px] items-center after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
+        {companyLogoUrl && (
+          <img
+            src={companyLogoUrl}
+            alt="Company Logo"
+            className="h-8 w-[230px]"
+          />
+        )}
       </h2>
 
       <div className="scrollbar-hide flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-5">
-        {/* Dashboard */}
         <Link
           href="/dashboard"
           className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
@@ -1247,12 +1264,10 @@ const ModuleLink = ({ moduleItem }) => {
           <span>Dashboard</span>
         </Link>
 
-        {/* Roles */}
         <div className="space-y-2">
           {renderRoleLinks()}
         </div>
 
-        {/* Master Settings */}
         {Number(roleId) === 0 && (
           <>
             <Link
@@ -1295,12 +1310,10 @@ const ModuleLink = ({ moduleItem }) => {
           </>
         )}
 
-        {/* Modules */}
         <div className="space-y-2">
           {renderModuleLinks()}
         </div>
 
-        {/* My Login */}
         <button
           type="button"
           onClick={myLogin}
@@ -1313,7 +1326,6 @@ const ModuleLink = ({ moduleItem }) => {
           <span>My Login</span>
         </button>
 
-        {/* Logout */}
         <button
           type="button"
           onClick={logout}
