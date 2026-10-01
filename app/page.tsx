@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -27,10 +28,6 @@ import type {
 export default function Page() {
   const router = useRouter();
 
-  // ==========================================
-  // STATES
-  // ==========================================
-
   const [showPassword, setShowPassword] =
     useState(false);
 
@@ -41,10 +38,6 @@ export default function Page() {
 
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
-
-  // ==========================================
-  // LOGIN PAGE PROTECTION
-  // ==========================================
 
   useEffect(() => {
     const token = getToken();
@@ -57,30 +50,20 @@ export default function Page() {
     setMounted(true);
   }, [router]);
 
-  // ==========================================
-  // INPUT CHANGE
-  // ==========================================
-
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement>
+    event: ChangeEvent<HTMLInputElement>
   ) => {
-    const { name, value } = e.target;
+    const { name, value } = event.target;
 
-    setFormData((prev) => ({
-      ...prev,
+    setFormData((previous) => ({
+      ...previous,
       [name]: value,
     }));
   };
 
-  // ==========================================
-  // SAVE STAFF PERMISSIONS
-  // ==========================================
-
   const saveStaffPermissions = (user: any) => {
-    // Remove old staff permission first
     localStorage.removeItem("staff_permissions");
 
-    // Only Staff role can have staff permissions
     if (Number(user?.role_id) !== 9) {
       return;
     }
@@ -88,14 +71,12 @@ export default function Page() {
     const permission =
       user?.staff_permission?.permission;
 
-    // No permission received
     if (!permission) {
       return;
     }
 
     let parsedPermission = permission;
 
-    // If permission comes as JSON string
     if (typeof parsedPermission === "string") {
       try {
         parsedPermission = JSON.parse(
@@ -103,7 +84,7 @@ export default function Page() {
         );
       } catch (error) {
         console.error(
-          "STAFF PERMISSION PARSE ERROR:",
+          "Staff permission parse error:",
           error
         );
 
@@ -111,7 +92,6 @@ export default function Page() {
       }
     }
 
-    // Make sure permission is an object
     if (
       !parsedPermission ||
       typeof parsedPermission !== "object" ||
@@ -120,64 +100,39 @@ export default function Page() {
       parsedPermission = {};
     }
 
-    // ========================================
-    // ONLY LOCAL STORAGE KEY
-    // ========================================
-
     localStorage.setItem(
       "staff_permissions",
       JSON.stringify(parsedPermission)
     );
-
-    console.log(
-      "Staff Permissions Saved:",
-      parsedPermission
-    );
   };
 
-  // ==========================================
-  // LOGIN
-  // ==========================================
-
   const handleSubmit = async (
-    e: FormEvent<HTMLFormElement>
+    event: FormEvent<HTMLFormElement>
   ) => {
-    e.preventDefault();
+    event.preventDefault();
 
-    if (loading) return;
+    if (loading) {
+      return;
+    }
 
     try {
       setLoading(true);
 
-      // ========================================
-      // LOGIN API
-      // ========================================
-
-      const res = await login({
+      const response = await login({
         email: formData.email.trim(),
         password: formData.password,
       });
 
-      console.log("Login Response:", res);
-
-      // ========================================
-      // LOGIN VALIDATION
-      // ========================================
-
-      if (!res?.success || !res?.token) {
+      if (!response?.success) {
         toast.error(
-          res?.message ||
+          response?.message ||
             "Invalid email or password"
         );
 
         return;
       }
 
-      // ========================================
-      // CURRENT USER
-      // ========================================
-
-      const loggedInUser = res?.user;
+      const loggedInUser = response?.user;
 
       if (!loggedInUser) {
         toast.error(
@@ -187,95 +142,64 @@ export default function Page() {
         return;
       }
 
-      // ========================================
-      // DEBUG
-      // ========================================
+      if (!response?.token) {
+        toast.error(
+          "Login token not received"
+        );
 
-      console.log(
-        "Logged In User:",
-        loggedInUser
-      );
-
-      console.log(
-        "Role ID:",
-        loggedInUser?.role_id
-      );
-
-      console.log(
-        "Role Permission ID:",
-        loggedInUser?.role_permission_id
-      );
-
-      console.log(
-        "Staff Permission:",
-        loggedInUser?.staff_permission
-      );
-
-      // ========================================
-      // ORIGINAL LOGIN
-      // ========================================
+        return;
+      }
 
       saveOriginalLogin(
-        res.token,
+        response.token,
         loggedInUser
       );
 
-      // ========================================
-      // SAVE TOKEN
-      // ========================================
-
-      saveToken(res.token);
-
-      // ========================================
-      // SAVE COMPLETE USER
-      // ========================================
+      saveToken(response.token);
 
       saveUser(loggedInUser);
 
-      // ========================================
-      // SAVE STAFF PERMISSION
-      // ========================================
-
       saveStaffPermissions(loggedInUser);
 
-      // ========================================
-      // DEBUG LOCAL STORAGE
-      // ========================================
+      if (response?.maintenance === true) {
+        toast.error(
+          response?.message ||
+            "Application is under maintenance"
+        );
 
-      console.log(
-        "Saved User:",
-        localStorage.getItem("user")
-      );
-
-      console.log(
-        "Saved Staff Permissions:",
-        localStorage.getItem(
-          "staff_permissions"
-        )
-      );
-
-      // ========================================
-      // SUCCESS
-      // ========================================
+        router.replace("/maintenance");
+        return;
+      }
 
       toast.success(
-        res?.message ||
+        response?.message ||
           "Login Successfully"
       );
-
-      // ========================================
-      // REDIRECT
-      // ========================================
 
       router.replace("/dashboard");
     } catch (error: any) {
       console.error(
-        "LOGIN ERROR:",
+        "Login error:",
         error
       );
 
+      const errorResponse =
+        error?.response?.data;
+
+      if (
+        errorResponse?.maintenance === true
+      ) {
+        toast.error(
+          errorResponse?.message ||
+            "Application is under maintenance"
+        );
+
+        router.replace("/maintenance");
+        return;
+      }
+
       toast.error(
-        error?.response?.data?.message ||
+        errorResponse?.message ||
           error?.message ||
           "Invalid email or password"
       );
@@ -284,48 +208,40 @@ export default function Page() {
     }
   };
 
-  // ==========================================
-  // UI
-  // ==========================================
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <form
         onSubmit={handleSubmit}
         className={`
-          bg-white
-          md:p-8
-          p-5
-          rounded-2xl
-          shadow-xl
-          md:w-96
           w-full
+          rounded-2xl
           border
           border-gray-100
+          bg-white
+          p-5
+          shadow-xl
           transition-all
           duration-700
           ease-out
+          md:w-96
+          md:p-8
           ${
             mounted
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-4"
+              ? "translate-y-0 opacity-100"
+              : "translate-y-4 opacity-0"
           }
         `}
       >
-        {/* ======================================
-            ICON
-        ====================================== */}
-
-        <div className="flex justify-center mb-4">
+        <div className="mb-4 flex justify-center">
           <div
             className="
-              w-14
-              h-14
-              rounded-full
-              bg-blue-50
               flex
+              h-14
+              w-14
               items-center
               justify-center
+              rounded-full
+              bg-blue-50
             "
           >
             <RiLockLine
@@ -335,17 +251,13 @@ export default function Page() {
           </div>
         </div>
 
-        {/* ======================================
-            TITLE
-        ====================================== */}
-
         <h2
           className="
+            mb-1
+            text-center
             text-3xl
             font-bold
-            text-center
             text-gray-800
-            mb-1
           "
         >
           Login
@@ -353,24 +265,21 @@ export default function Page() {
 
         <p
           className="
-            text-center
-            text-gray-400
-            text-sm
             mb-6
+            text-center
+            text-sm
+            text-gray-400
           "
         >
           Welcome back, please enter your details
         </p>
 
-        {/* ======================================
-            EMAIL
-        ====================================== */}
-
         <div className="mb-4">
           <label
+            htmlFor="email"
             className="
-              block
               mb-2
+              block
               text-sm
               font-medium
               text-gray-700
@@ -392,6 +301,7 @@ export default function Page() {
             />
 
             <input
+              id="email"
               type="email"
               name="email"
               value={formData.email}
@@ -401,12 +311,12 @@ export default function Page() {
               autoComplete="email"
               className="
                 w-full
+                rounded-md
                 border
                 border-gray-200
-                rounded-md
+                py-2
                 pl-10
                 pr-3
-                py-2
                 outline-none
                 transition-colors
                 duration-200
@@ -418,15 +328,12 @@ export default function Page() {
           </div>
         </div>
 
-        {/* ======================================
-            PASSWORD
-        ====================================== */}
-
         <div className="mb-5">
           <label
+            htmlFor="password"
             className="
-              block
               mb-2
+              block
               text-sm
               font-medium
               text-gray-700
@@ -448,6 +355,7 @@ export default function Page() {
             />
 
             <input
+              id="password"
               type={
                 showPassword
                   ? "text"
@@ -461,12 +369,12 @@ export default function Page() {
               autoComplete="current-password"
               className="
                 w-full
+                rounded-md
                 border
                 border-gray-200
-                rounded-md
+                py-2
                 pl-10
                 pr-10
-                py-2
                 outline-none
                 transition-colors
                 duration-200
@@ -476,13 +384,16 @@ export default function Page() {
               "
             />
 
-            {/* SHOW / HIDE */}
-
             <button
               type="button"
+              aria-label={
+                showPassword
+                  ? "Hide password"
+                  : "Show password"
+              }
               onClick={() =>
                 setShowPassword(
-                  (prev) => !prev
+                  (previous) => !previous
                 )
               }
               className="
@@ -490,10 +401,10 @@ export default function Page() {
                 right-3
                 top-1/2
                 -translate-y-1/2
-                text-gray-500
-                hover:text-blue-700
-                transition-colors
                 cursor-pointer
+                text-gray-500
+                transition-colors
+                hover:text-blue-700
               "
             >
               {showPassword ? (
@@ -505,45 +416,41 @@ export default function Page() {
           </div>
         </div>
 
-        {/* ======================================
-            LOGIN BUTTON
-        ====================================== */}
-
         <button
           type="submit"
           disabled={loading}
           className="
+            flex
             w-full
-            bg-blue-500
-            text-white
-            py-2.5
+            cursor-pointer
+            items-center
+            justify-center
+            gap-2
             rounded-md
+            bg-blue-500
+            py-2.5
+            text-white
+            transition-all
+            duration-200
             hover:bg-blue-700
             hover:shadow-lg
             hover:shadow-blue-200
             active:scale-[0.98]
-            transition-all
-            duration-200
-            cursor-pointer
-            disabled:opacity-50
             disabled:cursor-not-allowed
-            flex
-            items-center
-            justify-center
-            gap-2
+            disabled:opacity-50
           "
         >
           {loading ? (
             <>
               <span
                 className="
-                  w-4
                   h-4
+                  w-4
+                  animate-spin
+                  rounded-full
                   border-2
                   border-white/40
                   border-t-white
-                  rounded-full
-                  animate-spin
                 "
               />
 
