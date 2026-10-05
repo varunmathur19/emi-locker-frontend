@@ -152,33 +152,7 @@ export const getUser = () => {
 };
 
 
-// ==================================================
-// ORIGINAL LOGIN SESSION
-// ==================================================
-//
-// Example:
-//
-// Master Admin login page se login karta hai
-//
-// current token:
-// token = Master Admin token
-//
-// original token:
-// original_token = Master Admin token
-//
-// Phir Master Admin -> Admin -> Distributor
-// ko login karega.
-//
-// current token change hota rahega.
-//
-// Lekin original_token hamesha
-// Master Admin ka hi rahega.
-// ==================================================
 
-
-// ==========================================
-// SAVE ORIGINAL LOGIN
-// ==========================================
 
 export const saveOriginalLogin = (
   token,
@@ -197,10 +171,6 @@ export const saveOriginalLogin = (
 
     return false;
   }
-
-  // IMPORTANT:
-  // Agar original login already saved hai,
-  // toh usko overwrite MAT karo.
 
   const existingOriginalToken =
     localStorage.getItem(
@@ -236,11 +206,6 @@ export const saveOriginalLogin = (
   return true;
 };
 
-
-// ==========================================
-// GET ORIGINAL TOKEN
-// ==========================================
-
 export const getOriginalToken = () => {
   if (
     typeof window === "undefined"
@@ -252,11 +217,6 @@ export const getOriginalToken = () => {
     "original_token"
   );
 };
-
-
-// ==========================================
-// GET ORIGINAL USER
-// ==========================================
 
 export const getOriginalUser = () => {
   if (
@@ -288,11 +248,6 @@ export const getOriginalUser = () => {
   }
 };
 
-
-// ==========================================
-// CHECK ORIGINAL LOGIN EXISTS
-// ==========================================
-
 export const hasOriginalLogin = () => {
   if (
     typeof window === "undefined"
@@ -308,25 +263,6 @@ export const hasOriginalLogin = () => {
   return !!originalToken;
 };
 
-
-// ==========================================
-// RESTORE ORIGINAL LOGIN
-// ==========================================
-//
-// My Login button par ye chalega.
-//
-// Example:
-//
-// Current:
-// Retailer token
-//
-// Restore:
-//
-// Master Admin token
-//
-// Uske baad dashboard Master Admin ka
-// dashboard show karega.
-// ==========================================
 
 export const restoreOriginalLogin = () => {
   if (
@@ -345,10 +281,6 @@ export const restoreOriginalLogin = () => {
       "original_user"
     );
 
-  // ========================================
-  // ORIGINAL SESSION NOT FOUND
-  // ========================================
-
   if (!originalToken) {
 
     console.error(
@@ -358,18 +290,10 @@ export const restoreOriginalLogin = () => {
     return false;
   }
 
-  // ========================================
-  // RESTORE TOKEN
-  // ========================================
-
   localStorage.setItem(
     "token",
     originalToken
   );
-
-  // ========================================
-  // RESTORE USER
-  // ========================================
 
   if (originalUser) {
 
@@ -386,14 +310,6 @@ export const restoreOriginalLogin = () => {
   return true;
 };
 
-
-// ==========================================
-// REMOVE ORIGINAL LOGIN
-// ==========================================
-//
-// Ye ONLY complete logout ke time call karo.
-// My Login ke time isko call MAT karna.
-// ==========================================
 
 export const removeOriginalLogin = () => {
   if (
@@ -415,19 +331,6 @@ export const removeOriginalLogin = () => {
   );
 };
 
-
-// ==========================================
-// COMPLETE LOGOUT
-// ==========================================
-//
-// Normal Logout par:
-//
-// current token remove
-// current user remove
-// original token remove
-// original user remove
-//
-// ==========================================
 
 export const clearAllLoginData = () => {
   if (

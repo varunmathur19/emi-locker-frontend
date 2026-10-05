@@ -386,6 +386,35 @@ export default function UsersTable({
     return false;
   };
 
+ const handleLoginClick = async () => {
+  try {
+    const response = await getCompanySetting();
+
+    const maintenanceSetting = response?.data?.find(
+      (item) =>
+        item.key === "maintenance" &&
+        Number(item.role_id) === 0
+    );
+
+    const isMaintenance =
+      Number(maintenanceSetting?.value) === 1;
+
+    if (isMaintenance) {
+      router.push("/maintenance");
+      return;
+    }
+
+    router.push("/maintenance");
+  } catch (error) {
+    console.error(
+      "Maintenance check error:",
+      error
+    );
+
+    router.push("/maintenance");
+  }
+};
+
   const hasPermission = (slug, action = null) => {
     if (Number(currentRoleId) !== 9) {
       return true;
@@ -795,110 +824,95 @@ export default function UsersTable({
     onSearch?.("");
   };
 
-  const handleLoginAsUser = async (user) => {
-    if (
-      Number(currentRoleId) === 9 &&
-      !hasPermission(
-        selectedRoleSlug,
-        "login"
-      )
-    ) {
-      toast.error(
-        `You don't have login permission for ${selectedRoleName}`
-      );
+const handleLoginAsUser = async (user) => {
+  if (
+    Number(currentRoleId) === 9 &&
+    !hasPermission(
+      selectedRoleSlug,
+      "login"
+    )
+  ) {
+    toast.error(
+      `You don't have login permission for ${selectedRoleName}`
+    );
+    return;
+  }
 
+  try {
+    setLoginLoading(user.id);
+
+    const response = await loginAsUser(user.id);
+
+    if (!response?.success) {
+      if (response?.maintenance === true) {
+        router.push("/maintenance");
+        return;
+      }
+
+      toast.error(
+        response?.message || "Login failed"
+      );
       return;
     }
 
-    try {
-      setLoginLoading(user.id);
+    saveToken(response.token);
+    saveUser(response.user);
 
-      const response = await loginAsUser(
-        user.id
-      );
+    let permissions =
+      response.user?.staff_permission?.permission ||
+      response.user?.role_permission?.permission ||
+      null;
 
-      if (!response?.success) {
-        toast.error(
-          response?.message ||
-            "Login failed"
-        );
-        return;
+    if (typeof permissions === "string") {
+      try {
+        permissions = JSON.parse(permissions);
+      } catch {
+        permissions = null;
       }
-
-      if (!response?.token) {
-        toast.error(
-          "Login token not received"
-        );
-        return;
-      }
-
-      if (!response?.user) {
-        toast.error(
-          "User data not received"
-        );
-        return;
-      }
-
-      saveToken(response.token);
-      saveUser(response.user);
-
-      let permissions =
-        response.user?.staff_permission
-          ?.permission ||
-        response.user?.role_permission
-          ?.permission ||
-        null;
-
-      if (typeof permissions === "string") {
-        try {
-          permissions = JSON.parse(
-            permissions
-          );
-        } catch {
-          permissions = null;
-        }
-      }
-
-      if (
-        Number(
-          response.user?.role_id
-        ) === 9 &&
-        permissions &&
-        typeof permissions ===
-          "object" &&
-        !Array.isArray(permissions)
-      ) {
-        localStorage.setItem(
-          "staff_permissions",
-          JSON.stringify(permissions)
-        );
-      } else {
-        localStorage.removeItem(
-          "staff_permissions"
-        );
-      }
-
-      toast.success(
-        `Logged in as ${response.user.name}`
-      );
-
-      window.location.href =
-        "/dashboard";
-    } catch (error) {
-      console.error(
-        "LOGIN AS USER ERROR:",
-        error
-      );
-
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Unable to login as user"
-      );
-    } finally {
-      setLoginLoading(null);
     }
-  };
+
+    if (
+      Number(response.user?.role_id) === 9 &&
+      permissions &&
+      typeof permissions === "object" &&
+      !Array.isArray(permissions)
+    ) {
+      localStorage.setItem(
+        "staff_permissions",
+        JSON.stringify(permissions)
+      );
+    } else {
+      localStorage.removeItem("staff_permissions");
+    }
+
+    toast.success(
+      `Logged in as ${response.user.name}`
+    );
+
+    window.location.href = "/dashboard";
+  } catch (error) {
+    console.error(
+      "LOGIN AS USER ERROR:",
+      error
+    );
+
+    if (
+      error?.response?.status === 503 &&
+      error?.response?.data?.maintenance === true
+    ) {
+      router.push("/maintenance");
+      return;
+    }
+
+    toast.error(
+      error?.response?.data?.message ||
+        error?.message ||
+        "Unable to login as user"
+    );
+  } finally {
+    setLoginLoading(null);
+  }
+};
 
   const handleStatusToggle = async (user) => {
     if (
@@ -1844,32 +1858,21 @@ export default function UsersTable({
                                 </button>
                               )}
 
-                            {isActive &&
-                              canLoginRow && (
-                                <button
-                                  type="button"
-                                  disabled={
-                                    loginLoading ===
-                                    user.id
-                                  }
-                                  onClick={() =>
-                                    handleLoginAsUser(
-                                      user
-                                    )
-                                  }
-                                  className="inline-flex items-center justify-center p-2 rounded-md text-green-600 hover:bg-green-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={`Login as ${actualRoleName}`}
-                                >
-                                  {loginLoading ===
-                                  user.id ? (
-                                    <span className="h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-                                  ) : (
-                                    <RiLoginBoxLine
-                                      size={20}
-                                    />
-                                  )}
-                                </button>
-                              )}
+     {isActive && canLoginRow && (
+  <button
+    type="button"
+    disabled={loginLoading === user.id}
+    onClick={() => handleLoginAsUser(user)}
+    className="inline-flex items-center justify-center p-2 rounded-md text-green-600 hover:bg-green-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+    title={`Login as ${actualRoleName}`}
+  >
+    {loginLoading === user.id ? (
+      <span className="h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+    ) : (
+      <RiLoginBoxLine size={20} />
+    )}
+  </button>
+)}
                           </div>
                         </td>
 

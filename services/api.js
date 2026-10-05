@@ -4,16 +4,18 @@ import api from "@/utils/axios";
 // LOGIN
 
 export const login = async (data) => {
+  try {
+    const response = await api.post("/login", data);
 
-  const response =
-    await api.post(
-      "/login",
-      data
-    );
+    return response.data;
+  } catch (error) {
+    if (error?.response) {
+      return error.response.data;
+    }
 
-  return response.data;
+    throw error;
+  }
 };
-
 
 // GET ALL STAFF DATA
 
@@ -164,10 +166,7 @@ export const getModules = async () => {
   try {
     const response = await api.get("/modules");
 
-    console.log(
-      "GET MODULES RESPONSE:",
-      response.data
-    );
+
 
     return response.data;
   } catch (error) {

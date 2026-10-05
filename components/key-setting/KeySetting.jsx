@@ -17,7 +17,7 @@ export default function KeySetting() {
     try {
       const response = await getKeySettings();
 
-      console.log("KEY SETTINGS:", response);
+      // console.log("KEY SETTINGS:", response);
 
       if (response?.success) {
         setKeySettings(response.data || []);

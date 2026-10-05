@@ -123,6 +123,16 @@ export default function Page() {
         password: formData.password,
       });
 
+      if (response?.maintenance === true) {
+        toast.error(
+          response?.message ||
+            "Application is under maintenance"
+        );
+
+        router.replace("/maintenance");
+        return;
+      }
+
       if (!response?.success) {
         toast.error(
           response?.message ||
@@ -161,16 +171,6 @@ export default function Page() {
 
       saveStaffPermissions(loggedInUser);
 
-      if (response?.maintenance === true) {
-        toast.error(
-          response?.message ||
-            "Application is under maintenance"
-        );
-
-        router.replace("/maintenance");
-        return;
-      }
-
       toast.success(
         response?.message ||
           "Login Successfully"
@@ -183,10 +183,14 @@ export default function Page() {
         error
       );
 
+      const status =
+        error?.response?.status;
+
       const errorResponse =
         error?.response?.data;
 
       if (
+        status === 503 ||
         errorResponse?.maintenance === true
       ) {
         toast.error(
@@ -212,38 +216,14 @@ export default function Page() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <form
         onSubmit={handleSubmit}
-        className={`
-          w-full
-          rounded-2xl
-          border
-          border-gray-100
-          bg-white
-          p-5
-          shadow-xl
-          transition-all
-          duration-700
-          ease-out
-          md:w-96
-          md:p-8
-          ${
-            mounted
-              ? "translate-y-0 opacity-100"
-              : "translate-y-4 opacity-0"
-          }
-        `}
+        className={`w-full rounded-2xl border border-gray-100 bg-white p-5 shadow-xl transition-all duration-700 ease-out md:w-96 md:p-8 ${
+          mounted
+            ? "translate-y-0 opacity-100"
+            : "translate-y-4 opacity-0"
+        }`}
       >
         <div className="mb-4 flex justify-center">
-          <div
-            className="
-              flex
-              h-14
-              w-14
-              items-center
-              justify-center
-              rounded-full
-              bg-blue-50
-            "
-          >
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50">
             <RiLockLine
               size={28}
               className="text-blue-500"
@@ -251,39 +231,18 @@ export default function Page() {
           </div>
         </div>
 
-        <h2
-          className="
-            mb-1
-            text-center
-            text-3xl
-            font-bold
-            text-gray-800
-          "
-        >
+        <h2 className="mb-1 text-center text-3xl font-bold text-gray-800">
           Login
         </h2>
 
-        <p
-          className="
-            mb-6
-            text-center
-            text-sm
-            text-gray-400
-          "
-        >
+        <p className="mb-6 text-center text-sm text-gray-400">
           Welcome back, please enter your details
         </p>
 
         <div className="mb-4">
           <label
             htmlFor="email"
-            className="
-              mb-2
-              block
-              text-sm
-              font-medium
-              text-gray-700
-            "
+            className="mb-2 block text-sm font-medium text-gray-700"
           >
             Email
           </label>
@@ -291,13 +250,7 @@ export default function Page() {
           <div className="relative">
             <RiMailLine
               size={18}
-              className="
-                absolute
-                left-3
-                top-1/2
-                -translate-y-1/2
-                text-gray-400
-              "
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             />
 
             <input
@@ -309,21 +262,7 @@ export default function Page() {
               placeholder="Enter Email"
               required
               autoComplete="email"
-              className="
-                w-full
-                rounded-md
-                border
-                border-gray-200
-                py-2
-                pl-10
-                pr-3
-                outline-none
-                transition-colors
-                duration-200
-                focus:border-blue-500
-                focus:ring-2
-                focus:ring-blue-100
-              "
+              className="w-full rounded-md border border-gray-200 py-2 pl-10 pr-3 outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
           </div>
         </div>
@@ -331,13 +270,7 @@ export default function Page() {
         <div className="mb-5">
           <label
             htmlFor="password"
-            className="
-              mb-2
-              block
-              text-sm
-              font-medium
-              text-gray-700
-            "
+            className="mb-2 block text-sm font-medium text-gray-700"
           >
             Password
           </label>
@@ -345,13 +278,7 @@ export default function Page() {
           <div className="relative">
             <RiLockLine
               size={18}
-              className="
-                absolute
-                left-3
-                top-1/2
-                -translate-y-1/2
-                text-gray-400
-              "
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             />
 
             <input
@@ -367,21 +294,7 @@ export default function Page() {
               placeholder="Enter Password"
               required
               autoComplete="current-password"
-              className="
-                w-full
-                rounded-md
-                border
-                border-gray-200
-                py-2
-                pl-10
-                pr-10
-                outline-none
-                transition-colors
-                duration-200
-                focus:border-blue-500
-                focus:ring-2
-                focus:ring-blue-100
-              "
+              className="w-full rounded-md border border-gray-200 py-2 pl-10 pr-10 outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
 
             <button
@@ -396,16 +309,7 @@ export default function Page() {
                   (previous) => !previous
                 )
               }
-              className="
-                absolute
-                right-3
-                top-1/2
-                -translate-y-1/2
-                cursor-pointer
-                text-gray-500
-                transition-colors
-                hover:text-blue-700
-              "
+              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 transition-colors hover:text-blue-700"
             >
               {showPassword ? (
                 <RiEyeOffLine size={22} />
@@ -419,41 +323,11 @@ export default function Page() {
         <button
           type="submit"
           disabled={loading}
-          className="
-            flex
-            w-full
-            cursor-pointer
-            items-center
-            justify-center
-            gap-2
-            rounded-md
-            bg-blue-500
-            py-2.5
-            text-white
-            transition-all
-            duration-200
-            hover:bg-blue-700
-            hover:shadow-lg
-            hover:shadow-blue-200
-            active:scale-[0.98]
-            disabled:cursor-not-allowed
-            disabled:opacity-50
-          "
+          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-blue-500 py-2.5 text-white transition-all duration-200 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? (
             <>
-              <span
-                className="
-                  h-4
-                  w-4
-                  animate-spin
-                  rounded-full
-                  border-2
-                  border-white/40
-                  border-t-white
-                "
-              />
-
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
               Logging...
             </>
           ) : (
