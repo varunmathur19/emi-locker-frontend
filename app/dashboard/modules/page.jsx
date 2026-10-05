@@ -1,187 +1,457 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+
 import {
-  getCompanySetting,
-  updateCompanySetting,
+  getModules,
+  updateModule,
+  getRoles,
+  updateRoleStatus,
 } from "@/services/api";
 
-export default function SystemControll() {
-  const [settings, setSettings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [updatingKey, setUpdatingKey] = useState(null);
+const formatModules = (modules = []) => {
+  return modules
+    .map((item, index) => ({
+      id: item?.id ?? index + 1,
+      name: item?.name || "",
+      slug: item?.slug || "",
+      sequence: Number(
+        item?.sequence ?? index + 1
+      ),
+      status: Number(item?.status ?? 1),
+    }))
+    .sort((a, b) => a.sequence - b.sequence);
+};
 
-  const loadCompanySettings = async () => {
+const formatRoles = (roles = []) => {
+  return roles
+    .map((item, index) => ({
+      id: item?.id ?? index + 1,
+      roleId: Number(
+        item?.role_id ?? item?.id ?? 0
+      ),
+      name: item?.name || "User",
+      slug: item?.slug || "",
+      sequence: Number(
+        item?.sequence ?? index + 1
+      ),
+      status: Number(item?.status ?? 1),
+    }))
+    .sort((a, b) => a.sequence - b.sequence);
+};
+
+export default function ModulePage() {
+  const [modules, setModules] = useState([]);
+  const [roles, setRoles] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [loadingRoles, setLoadingRoles] =
+    useState(true);
+
+  const [updatingStatus, setUpdatingStatus] =
+    useState(null);
+
+  const [updatingRoleStatus, setUpdatingRoleStatus] =
+    useState(null);
+
+  const loadModules = async () => {
     try {
       setLoading(true);
 
-      const response = await getCompanySetting();
+      const response = await getModules();
 
-      if (response?.success && Array.isArray(response?.data)) {
-        setSettings(response.data);
+      if (
+        response?.success &&
+        Array.isArray(response?.data)
+      ) {
+        setModules(
+          formatModules(response.data)
+        );
       } else {
-        setSettings([]);
+        setModules([]);
       }
     } catch (error) {
-      console.error("Get Company Setting Error:", error);
-      setSettings([]);
+      console.error(
+        "GET MODULES ERROR:",
+        error
+      );
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to load modules"
+      );
+
+      setModules([]);
     } finally {
       setLoading(false);
     }
   };
 
- const handleToggle = async (setting) => {
-  try {
-    setUpdatingKey(setting.key);
+  const loadRoles = async () => {
+    try {
+      setLoadingRoles(true);
 
-    const isActive = Number(setting.value) === 1;
-    const newValue = !isActive;
+      const response = await getRoles();
 
-    const formData = new FormData();
-
-    formData.append("key", setting.key);
-    formData.append("value", String(newValue));
-
-    const response = await updateCompanySetting(formData);
-
-    if (response?.success) {
-      setSettings((prevSettings) =>
-        prevSettings.map((item) =>
-          item.id === setting.id
-            ? {
-                ...item,
-                value: newValue ? 1 : 0,
-              }
-            : item
-        )
+      if (
+        response?.success &&
+        Array.isArray(response?.data)
+      ) {
+        setRoles(
+          formatRoles(response.data)
+        );
+      } else {
+        setRoles([]);
+      }
+    } catch (error) {
+      console.error(
+        "GET ROLES ERROR:",
+        error
       );
 
-      if (newValue) {
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to load roles"
+      );
+
+      setRoles([]);
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
+
+  useEffect(() => {
+    loadModules();
+    loadRoles();
+  }, []);
+
+  const handleToggleModuleStatus = async (
+    moduleItem
+  ) => {
+    if (
+      !moduleItem?.id ||
+      updatingStatus !== null ||
+      updatingRoleStatus !== null
+    ) {
+      return;
+    }
+
+    const currentStatus = Number(
+      moduleItem?.status ?? 1
+    );
+
+    const newStatus =
+      currentStatus === 1 ? 0 : 1;
+
+    try {
+      setUpdatingStatus(moduleItem.id);
+
+      const response = await updateModule({
+        id: moduleItem.id,
+        status: newStatus,
+      });
+
+      if (response?.success === true) {
+        setModules((prev) =>
+          prev.map((item) =>
+            Number(item.id) ===
+            Number(moduleItem.id)
+              ? {
+                  ...item,
+                  status: newStatus,
+                }
+              : item
+          )
+        );
+
+        if (
+          typeof window !== "undefined"
+        ) {
+          window.dispatchEvent(
+            new Event("modules_updated")
+          );
+        }
+
         toast.success(
-          response.message || "Setting activated successfully"
+          newStatus === 1
+            ? "Module activated successfully"
+            : "Module deactivated successfully"
         );
       } else {
         toast.error(
-          response.message || "Setting deactivated successfully"
+          response?.message ||
+            "Failed to update module status"
         );
       }
-    } else {
-      toast.error(
-        response?.message || "Failed to update setting"
+    } catch (error) {
+      console.error(
+        "UPDATE MODULE STATUS ERROR:",
+        error
       );
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update module status"
+      );
+    } finally {
+      setUpdatingStatus(null);
     }
-  } catch (error) {
-    console.error("Update Company Setting Error:", error);
+  };
 
-    toast.error(
-      error?.response?.data?.message ||
-        "Failed to update setting"
+  const handleToggleRoleStatus = async (
+    roleItem
+  ) => {
+    if (
+      !roleItem?.id ||
+      updatingStatus !== null ||
+      updatingRoleStatus !== null
+    ) {
+      return;
+    }
+
+    const currentStatus = Number(
+      roleItem?.status ?? 1
     );
-  } finally {
-    setUpdatingKey(null);
-  }
-};
 
-  useEffect(() => {
-    loadCompanySettings();
-  }, []);
+    const newStatus =
+      currentStatus === 1 ? 0 : 1;
+
+    try {
+      setUpdatingRoleStatus(roleItem.id);
+
+      const response =
+        await updateRoleStatus(
+          roleItem.id,
+          newStatus
+        );
+
+      if (response?.success === true) {
+        setRoles((prev) =>
+          prev.map((item) =>
+            Number(item.id) ===
+            Number(roleItem.id)
+              ? {
+                  ...item,
+                  status: newStatus,
+                }
+              : item
+          )
+        );
+
+        toast.success(
+          newStatus === 1
+            ? "Role activated successfully"
+            : "Role deactivated successfully"
+        );
+      } else {
+        toast.error(
+          response?.message ||
+            "Failed to update role status"
+        );
+      }
+    } catch (error) {
+      console.error(
+        "UPDATE ROLE STATUS ERROR:",
+        error
+      );
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update role status"
+      );
+    } finally {
+      setUpdatingRoleStatus(null);
+    }
+  };
+
+  const renderToggle = (
+    isActive,
+    isUpdating,
+    onClick,
+    title
+  ) => {
+    const isDisabled =
+      isUpdating ||
+      updatingStatus !== null ||
+      updatingRoleStatus !== null;
+
+    return (
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={isDisabled}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+            isActive
+              ? "bg-green-500"
+              : "bg-slate-300"
+          } ${
+            isDisabled
+              ? "cursor-not-allowed opacity-50"
+              : "cursor-pointer"
+          }`}
+          title={title}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+              isActive
+                ? "translate-x-5"
+                : "translate-x-0.5"
+            }`}
+          />
+        </button>
+
+        <span
+          className={`min-w-[58px] text-xs font-semibold ${
+            isActive
+              ? "text-green-600"
+              : "text-red-500"
+          }`}
+        >
+          {isActive
+            ? "Active"
+            : "Inactive"}
+        </span>
+      </div>
+    );
+  };
 
   return (
-    <div className="p-6">
-      <h1 className="mb-6 text-2xl font-semibold text-gray-800">
-        System Control
-      </h1>
+    <div className="mx-auto max-w-7xl">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xl">
+          <h2 className="mb-4 text-lg font-semibold text-slate-700">
+            Module List
+          </h2>
 
-      {loading ? (
-        <div className="flex min-h-[200px] items-center justify-center">
-          <p className="text-sm text-gray-500">
-            Loading...
-          </p>
-        </div>
-      ) : settings.length > 0 ? (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-5 py-4 text-left text-sm font-semibold text-gray-700">
-                  Name
-                </th>
+          {loading ? (
+            <div className="rounded-xl border border-slate-200 p-8 text-center text-slate-500">
+              Loading modules...
+            </div>
+          ) : modules.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
+              No modules found
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {modules.map(
+                (module, index) => {
+                  const isActive =
+                    Number(
+                      module?.status ?? 1
+                    ) === 1;
 
-                <th className="px-5 py-4 text-left text-sm font-semibold text-gray-700">
-                  Action
-                </th>
-              </tr>
-            </thead>
+                  const isUpdating =
+                    updatingStatus ===
+                    module.id;
 
-            <tbody>
-              {settings.map((setting) => {
-                const isActive = Number(setting.value) === 1;
-                const isUpdating = updatingKey === setting.key;
+                  return (
+                    <div
+                      key={module.id}
+                      className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:shadow-sm"
+                    >
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 font-bold text-blue-600">
+                          {module.sequence ||
+                            index + 1}
+                        </div>
 
-                return (
-                  <tr
-                    key={setting.id}
-                    className="border-b border-gray-200 last:border-b-0"
-                  >
-                    <td className="px-5 py-4 text-sm font-medium capitalize text-gray-800">
-                      {setting.key?.replaceAll("_", " ")}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <div className="flex shrink-0 items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleToggle(setting)}
-                          disabled={isUpdating || updatingKey !== null}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                            isActive
-                              ? "bg-green-500"
-                              : "bg-slate-300"
-                          } ${
-                            isUpdating || updatingKey !== null
-                              ? "cursor-not-allowed opacity-50"
-                              : "cursor-pointer"
-                          }`}
-                          title={
-                            isActive
-                              ? "Deactivate"
-                              : "Activate"
-                          }
-                        >
-                          <span
-                            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
-                              isActive
-                                ? "translate-x-5"
-                                : "translate-x-0.5"
-                            }`}
-                          />
-                        </button>
-
-                        <span
-                          className={`min-w-[58px] text-xs font-semibold ${
-                            isActive
-                              ? "text-green-600"
-                              : "text-red-500"
-                          }`}
-                        >
-                          {isActive ? "Active" : "Inactive"}
-                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-800">
+                            {module.name}
+                          </p>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+
+                      {renderToggle(
+                        isActive,
+                        isUpdating,
+                        () =>
+                          handleToggleModuleStatus(
+                            module
+                          ),
+                        isActive
+                          ? "Deactivate Module"
+                          : "Activate Module"
+                      )}
+                    </div>
+                  );
+                }
+              )}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <p className="text-sm text-gray-500">
-            No system settings found.
-          </p>
+
+        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xl">
+          <h2 className="mb-4 text-lg font-semibold text-slate-700">
+            Role List
+          </h2>
+
+          {loadingRoles ? (
+            <div className="rounded-xl border border-slate-200 p-8 text-center text-slate-500">
+              Loading roles...
+            </div>
+          ) : roles.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
+              No roles found
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {roles.map(
+                (role, index) => {
+                  const isActive =
+                    Number(
+                      role?.status ?? 1
+                    ) === 1;
+
+                  const isUpdating =
+                    updatingRoleStatus ===
+                    role.id;
+
+                  return (
+                    <div
+                      key={role.id}
+                      className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:shadow-sm"
+                    >
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 font-bold text-blue-600">
+                          {role.sequence ||
+                            index + 1}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-800">
+                            {role.name}
+                          </p>
+                        </div>
+                      </div>
+
+                      {renderToggle(
+                        isActive,
+                        isUpdating,
+                        () =>
+                          handleToggleRoleStatus(
+                            role
+                          ),
+                        isActive
+                          ? "Deactivate Role"
+                          : "Activate Role"
+                      )}
+                    </div>
+                  );
+                }
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
+

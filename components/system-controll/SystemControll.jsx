@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -18,13 +19,20 @@ export default function SystemControll() {
 
       const response = await getCompanySetting();
 
-      if (response?.success && Array.isArray(response?.data)) {
+      if (
+        response?.success &&
+        Array.isArray(response?.data)
+      ) {
         setSettings(response.data);
       } else {
         setSettings([]);
       }
     } catch (error) {
-      console.error("Get Company Setting Error:", error);
+      console.error(
+        "Get Company Setting Error:",
+        error
+      );
+
       setSettings([]);
     } finally {
       setLoading(false);
@@ -35,33 +43,53 @@ export default function SystemControll() {
     try {
       setUpdatingKey(setting.key);
 
-      const currentValue = Number(setting.value) === 1;
+      const currentValue =
+        Number(setting.value) === 1;
+
       const newValue = !currentValue;
 
       const formData = new FormData();
+
       formData.append("key", setting.key);
       formData.append("value", String(newValue));
 
-      const response = await updateCompanySetting(formData);
+      const response =
+        await updateCompanySetting(formData);
 
-      if (response?.success) {
-        setSettings((prevSettings) =>
-          prevSettings.map((item) =>
-            item.id === setting.id
-              ? {
-                  ...item,
-                  value: newValue ? 1 : 0,
-                }
-              : item
-          )
+      if (!response?.success) {
+        toast.error(
+          response?.message ||
+            "Failed to update setting"
         );
 
-        toast.success(response.message || "Setting updated successfully");
+        return;
+      }
+
+      setSettings((prevSettings) =>
+        prevSettings.map((item) =>
+          item.id === setting.id
+            ? {
+                ...item,
+                value: newValue ? 1 : 0,
+              }
+            : item
+        )
+      );
+
+      if (newValue) {
+        toast.success(
+          "Setting activated successfully"
+        );
       } else {
-        toast.error(response?.message || "Failed to update setting");
+        toast.error(
+          "Setting deactivated successfully"
+        );
       }
     } catch (error) {
-      console.error("Update Company Setting Error:", error);
+      console.error(
+        "Update Company Setting Error:",
+        error
+      );
 
       toast.error(
         error?.response?.data?.message ||
@@ -105,8 +133,11 @@ export default function SystemControll() {
 
             <tbody>
               {settings.map((setting) => {
-                const isActive = Number(setting.value) === 1;
-                const isUpdating = updatingKey === setting.key;
+                const isActive =
+                  Number(setting.value) === 1;
+
+                const isUpdating =
+                  updatingKey === setting.key;
 
                 return (
                   <tr
@@ -114,50 +145,57 @@ export default function SystemControll() {
                     className="border-b border-gray-200 last:border-b-0"
                   >
                     <td className="px-5 py-4 text-sm font-medium capitalize text-gray-800">
-                      {setting.key?.replaceAll("_", " ")}
+                      {setting.key?.replaceAll(
+                        "_",
+                        " "
+                      )}
                     </td>
 
-                   <td className="px-5 py-4">
-  <div className="flex shrink-0 items-center gap-2">
-    <button
-      type="button"
-      onClick={() => handleToggle(setting)}
-      disabled={isUpdating}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-        isActive
-          ? "bg-green-500"
-          : "bg-slate-300"
-      } ${
-        isUpdating
-          ? "cursor-not-allowed opacity-50"
-          : "cursor-pointer"
-      }`}
-      title={
-        isActive
-          ? "Deactivate"
-          : "Activate"
-      }
-    >
-      <span
-        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
-          isActive
-            ? "translate-x-5"
-            : "translate-x-0.5"
-        }`}
-      />
-    </button>
+                    <td className="px-5 py-4">
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleToggle(setting)
+                          }
+                          disabled={isUpdating}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                            isActive
+                              ? "bg-green-500"
+                              : "bg-gray-300"
+                          } ${
+                            isUpdating
+                              ? "cursor-not-allowed opacity-50"
+                              : "cursor-pointer"
+                          }`}
+                          title={
+                            isActive
+                              ? "Deactivate"
+                              : "Activate"
+                          }
+                        >
+                          <span
+                            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                              isActive
+                                ? "translate-x-5"
+                                : "translate-x-0.5"
+                            }`}
+                          />
+                        </button>
 
-    <span
-      className={`min-w-[58px] text-xs font-semibold ${
-        isActive
-          ? "text-green-600"
-          : "text-red-500"
-      }`}
-    >
-      {isActive ? "Active" : "Inactive"}
-    </span>
-  </div>
-</td>
+                        <span
+                          className={`min-w-[58px] text-xs font-semibold ${
+                            isActive
+                              ? "text-green-600"
+                              : "text-red-500"
+                          }`}
+                        >
+                          {isActive
+                            ? "Active"
+                            : "Inactive"}
+                        </span>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
