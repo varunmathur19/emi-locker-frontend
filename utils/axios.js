@@ -34,15 +34,39 @@ api.interceptors.response.use(
   },
   (error) => {
     const status = error?.response?.status;
+
     const maintenance =
       error?.response?.data?.maintenance;
 
+    const code =
+      error?.response?.data?.code;
+
     console.log("API ERROR:", {
       status,
+      code,
       maintenance,
       skipMaintenanceRedirect:
         error?.config?.skipMaintenanceRedirect,
     });
+
+    // ==========================================
+    // Suspend Mode
+    // ==========================================
+    if (
+      status === 404 &&
+      code === "ACCOUNT_SUSPENDED" &&
+      typeof window !== "undefined"
+    ) {
+      // Already not-found page par hai
+      // toh redirect dobara mat karo
+      if (
+        window.location.pathname !== "/not-found"
+      ) {
+        window.location.replace("/not-found");
+      }
+
+      return Promise.reject(error);
+    }
 
     // ==========================================
     // Maintenance status check ko redirect
