@@ -562,7 +562,7 @@ export default function CompanySetting() {
           })}
         </div>
 
-        <div className="mt-8 border-t border-gray-200 pt-8">
+        {/* <div className="mt-8 border-t border-gray-200 pt-8">
           <h2 className="mb-5 text-lg font-semibold text-gray-800">
             Add New Setting
           </h2>
@@ -623,7 +623,7 @@ export default function CompanySetting() {
               {saving ? "Saving..." : "Add Setting"}
             </button>
           </form>
-        </div>
+        </div> */}
       </div>
     </div>
   );
