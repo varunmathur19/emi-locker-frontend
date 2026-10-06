@@ -506,12 +506,27 @@ export const getWalletTransactions = async (params = {}) => {
 
 //company setting get data
 export const getCompanySetting = async () => {
-  return api.get("/get-company-setting", {
-    skipMaintenanceRedirect: true,
-  });
+  const response = await api.get(
+    "/get-company-setting",
+    {
+      skipMaintenanceRedirect: true,
+    }
+  );
+
+  console.log(
+    "GET COMPANY SETTING API:",
+    response.data
+  );
+
+  return response.data;
 };
 export const getNormalCompanySetting = async () => {
-  const response = await api.get("/normal-company-setting");
+  const response = await api.get(
+    "/normal-company-setting",
+    {
+      skipMaintenanceRedirect: true,
+    }
+  );
 
   return response.data;
 };

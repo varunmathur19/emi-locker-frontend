@@ -2,6 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import {
+  RiArrowLeftLine,
+  RiHome4Line,
+} from "react-icons/ri";
+
 import { getCompanySetting } from "@/services/api";
 
 export default function NotFoundPage() {
@@ -14,7 +19,9 @@ export default function NotFoundPage() {
       try {
         const response = await getCompanySetting();
 
-        if (!isMounted) return;
+        if (!isMounted) {
+          return;
+        }
 
         let settings = [];
 
@@ -37,14 +44,9 @@ export default function NotFoundPage() {
         const isSuspended =
           String(suspendSetting?.value) === "1";
 
-        // -----------------------------------
-        // Suspend OFF
-        // Login page par redirect
-        // -----------------------------------
+        // Suspend OFF → user ko login page par bhejo
         if (!isSuspended) {
-          // Auth/session data remove
           localStorage.clear();
-
           router.replace("/");
         }
       } catch (error) {
@@ -55,10 +57,8 @@ export default function NotFoundPage() {
       }
     };
 
-    // Page open hote hi ek baar check
     checkSuspendStatus();
 
-    // Har 10 seconds mein check
     const interval = setInterval(() => {
       checkSuspendStatus();
     }, 10000);
@@ -70,15 +70,19 @@ export default function NotFoundPage() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-6xl font-bold text-gray-800">
-          404
-        </h1>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
+      <div className="w-full max-w-2xl text-center">
 
-        <p className="mt-4 text-xl text-gray-600">
-          Page Not Found
-        </p>
+        {/* Not Found Image */}
+        <div className="mb-6 flex justify-center">
+          <img
+            src="/not-found/not-found.svg"
+            alt="Page Not Found"
+            className="h-auto w-full max-w-[420px]"
+          />
+        </div>
+
+        
       </div>
     </div>
   );
