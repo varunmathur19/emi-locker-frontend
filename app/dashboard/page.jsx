@@ -26,8 +26,6 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  LineChart,
-  Line,
 } from "recharts";
 
 import {
@@ -42,6 +40,10 @@ import UsersTable from "../../components/dashboard/UsersTable";
 
 
 
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
 const PIE_COLORS = [
   "#6366f1",
   "#22c55e",
@@ -54,20 +56,57 @@ const PIE_COLORS = [
 ];
 
 
+/*
+  Role Visibility Rules
+
+  0 = Master Admin
+  1 = Admin
+  2 = CNF
+  3 = Super Distributor
+  4 = Distributor
+  5 = FOS
+  6 = Retailer
+  7 = Sub Retailer
+  8 = Employee
+  9 = Staff
+
+  Rules:
+  - Admin => Employee + Staff
+  - Retailer => Employee, NOT Staff
+  - Sub Retailer => Employee, NOT Staff
+  - Other roles => Staff, NOT Employee
+*/
 const allowedRoles = {
   0: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+
   1: [2, 3, 4, 5, 6, 7, 8, 9],
-  2: [3, 4, 5, 6, 7, 8, 9],
-  3: [4, 5, 6, 7, 8, 9],
-  4: [5, 6, 7, 8, 9],
-  5: [6, 7, 8, 9],
-  6: [7, 8, 9],
-  7: [8, 9],
+
+  2: [3, 4, 5, 6, 7, 9],
+
+  3: [4, 5, 6, 7, 9],
+
+  4: [5, 6, 7, 9],
+
+  5: [6, 7, 9],
+
+  // Retailer => Employee only
+  6: [7, 8],
+
+  // Sub Retailer => Employee only
+  7: [8],
+
+  // Employee => Staff
   8: [9],
+
+  // Staff => no child roles
   9: [],
 };
 
 
+
+/* =========================================================
+   PERMISSION HELPERS
+========================================================= */
 
 const isPermissionEnabled = (value) => {
   if (typeof value === "boolean") {
@@ -120,6 +159,7 @@ const isPermissionEnabled = (value) => {
 };
 
 
+
 const normalizePermissions = (
   permissions
 ) => {
@@ -127,9 +167,7 @@ const normalizePermissions = (
     return {};
   }
 
-  if (
-    typeof permissions === "string"
-  ) {
+  if (typeof permissions === "string") {
     try {
       const parsed =
         JSON.parse(permissions);
@@ -157,6 +195,7 @@ const normalizePermissions = (
 
   return {};
 };
+
 
 
 const getPermissionObject = (
@@ -220,6 +259,9 @@ const hasRolePermission = (
     .toLowerCase()
     .replace(/_/g, "-");
 
+  /*
+    Check permission using role ID
+  */
   const roleIdKeys = [
     String(roleId),
     `role.${roleId}`,
@@ -246,6 +288,9 @@ const hasRolePermission = (
     }
   }
 
+  /*
+    Check permission using role name / slug
+  */
   const roleKeys = [
     roleName,
     roleSlug,
@@ -288,6 +333,9 @@ const hasRolePermission = (
     }
   }
 
+  /*
+    Check nested permission object
+  */
   for (
     const roleKey of roleKeys
   ) {
@@ -317,13 +365,15 @@ const hasRolePermission = (
 
 
 
+/* =========================================================
+   DASHBOARD
+========================================================= */
+
 export default function Dashboard() {
   const router = useRouter();
 
   const searchParams =
     useSearchParams();
-
- 
 
   const [roleId, setRoleId] =
     useState(null);
@@ -361,6 +411,10 @@ export default function Dashboard() {
 
 
 
+  /* =========================================================
+     URL PARAMS
+  ========================================================= */
+
   const urlRoleParam =
     searchParams.get("role");
 
@@ -377,6 +431,11 @@ export default function Dashboard() {
     !hasRoleParam &&
     !hasModuleParam;
 
+
+
+  /* =========================================================
+     CURRENT USER ROLE
+  ========================================================= */
 
   useEffect(() => {
     const currentRoleId =
@@ -395,6 +454,10 @@ export default function Dashboard() {
   }, []);
 
 
+
+  /* =========================================================
+     LOAD KEY SETTINGS
+  ========================================================= */
 
   useEffect(() => {
     const loadKeySettings =
@@ -446,6 +509,10 @@ export default function Dashboard() {
 
 
 
+  /* =========================================================
+     LOAD STAFF PERMISSIONS
+  ========================================================= */
+
   useEffect(() => {
     if (roleId !== 9) {
       setStaffPermissions({});
@@ -492,6 +559,7 @@ export default function Dashboard() {
             break;
           }
         } catch {
+          // Ignore invalid JSON
         }
       }
 
@@ -499,11 +567,6 @@ export default function Dashboard() {
         normalizePermissions(
           permissions
         );
-
-      console.log(
-        "STAFF PERMISSIONS:",
-        normalized
-      );
 
       setStaffPermissions(
         normalized
@@ -523,6 +586,10 @@ export default function Dashboard() {
   }, [roleId]);
 
 
+
+  /* =========================================================
+     LOAD ROLES
+  ========================================================= */
 
   useEffect(() => {
     const loadRoles =
@@ -574,6 +641,10 @@ export default function Dashboard() {
 
 
 
+  /* =========================================================
+     ROLE HELPERS
+  ========================================================= */
+
   const normalizeRoleValue =
     useCallback(
       (value) => {
@@ -588,6 +659,8 @@ export default function Dashboard() {
       },
       []
     );
+
+
 
   const getRoleIdFromValue =
     useCallback(
@@ -665,6 +738,8 @@ export default function Dashboard() {
     ]
   );
 
+
+
   const moduleRole =
     useMemo(
       () =>
@@ -677,12 +752,18 @@ export default function Dashboard() {
       ]
     );
 
+
+
   const requestedRole =
     urlRole !== null
       ? urlRole
       : moduleRole;
 
- 
+
+
+  /* =========================================================
+     ROLE ACCESS CHECK
+  ========================================================= */
 
   const isRoleAllowed =
     useMemo(() => {
@@ -690,12 +771,18 @@ export default function Dashboard() {
         return false;
       }
 
+      /*
+        No role selected
+      */
       if (
         requestedRole === null
       ) {
         return true;
       }
 
+      /*
+        Staff uses permission system
+      */
       if (roleId === 9) {
         if (
           !staffPermissionsLoaded
@@ -724,10 +811,16 @@ export default function Dashboard() {
         );
       }
 
+      /*
+        Master Admin can access all roles
+      */
       if (roleId === 0) {
         return true;
       }
 
+      /*
+        Current role can access itself
+      */
       if (
         requestedRole ===
         roleId
@@ -735,6 +828,9 @@ export default function Dashboard() {
         return true;
       }
 
+      /*
+        Other roles follow allowedRoles
+      */
       return (
         allowedRoles[
           roleId
@@ -760,6 +856,10 @@ export default function Dashboard() {
 
 
 
+  /* =========================================================
+     ROLE NAVIGATION
+  ========================================================= */
+
   const handleRoleList =
     useCallback(
       (role) => {
@@ -771,6 +871,7 @@ export default function Dashboard() {
       },
       [router]
     );
+
 
 
   const getRoleName =
@@ -804,6 +905,10 @@ export default function Dashboard() {
 
 
 
+  /* =========================================================
+     ROLE URL ACCESS REDIRECT
+  ========================================================= */
+
   useEffect(() => {
     if (
       roleId === null ||
@@ -829,15 +934,6 @@ export default function Dashboard() {
       urlRole === null ||
       !isRoleAllowed
     ) {
-      console.log(
-        "ROLE ACCESS DENIED:",
-        {
-          roleId,
-          requestedRole: urlRole,
-          staffPermissions,
-        }
-      );
-
       toast.error(
         "You are not allowed to access this role"
       );
@@ -853,11 +949,14 @@ export default function Dashboard() {
     isRoleAllowed,
     staffPermissionsLoaded,
     roles.length,
-    staffPermissions,
     router,
   ]);
 
- 
+
+
+  /* =========================================================
+     MODULE URL ACCESS REDIRECT
+  ========================================================= */
 
   useEffect(() => {
     if (
@@ -902,6 +1001,10 @@ export default function Dashboard() {
 
 
 
+  /* =========================================================
+     RESET PAGE WHEN ROLE/MODULE CHANGES
+  ========================================================= */
+
   useEffect(() => {
     setPage(1);
   }, [
@@ -910,6 +1013,10 @@ export default function Dashboard() {
   ]);
 
 
+
+  /* =========================================================
+     DASHBOARD CARDS
+  ========================================================= */
 
   const cards = useMemo(() => {
     return roles.map(
@@ -957,17 +1064,27 @@ export default function Dashboard() {
 
 
 
+  /* =========================================================
+     VISIBLE DASHBOARD CARDS
+  ========================================================= */
+
   const visibleCards =
     useMemo(() => {
       const currentRole =
         Number(roleId);
 
+      /*
+        Master Admin sees everything
+      */
       if (
         currentRole === 0
       ) {
         return cards;
       }
 
+      /*
+        Staff uses permission based access
+      */
       if (
         currentRole === 9
       ) {
@@ -998,6 +1115,9 @@ export default function Dashboard() {
         );
       }
 
+      /*
+        Normal roles use allowedRoles
+      */
       const roleIds =
         allowedRoles[
           currentRole
@@ -1021,6 +1141,10 @@ export default function Dashboard() {
 
 
 
+  /* =========================================================
+     FETCH USERS + COUNTS
+  ========================================================= */
+
   const fetchUsers =
     useCallback(async () => {
       try {
@@ -1034,6 +1158,9 @@ export default function Dashboard() {
         const roleCounts =
           {};
 
+        /*
+          Initialize all role counts
+        */
         roles.forEach(
           (role) => {
             const numericRoleId =
@@ -1053,6 +1180,11 @@ export default function Dashboard() {
           }
         );
 
+
+
+        /* -----------------------------------------
+           STAFF
+        ------------------------------------------ */
 
         if (
           roleId === 9
@@ -1103,6 +1235,12 @@ export default function Dashboard() {
           );
         }
 
+
+
+        /* -----------------------------------------
+           OTHER ROLES
+        ------------------------------------------ */
+
         else {
           const countResponse =
             await getAllStaffData(
@@ -1139,11 +1277,17 @@ export default function Dashboard() {
           );
         }
 
+
+
         setCounts(
           roleCounts
         );
 
-      
+
+
+        /* -----------------------------------------
+           DASHBOARD HOME
+        ------------------------------------------ */
 
         if (
           isDashboardHome
@@ -1153,7 +1297,11 @@ export default function Dashboard() {
           return;
         }
 
-       
+
+
+        /* -----------------------------------------
+           NO SELECTED ROLE
+        ------------------------------------------ */
 
         if (
           selectedRole === null
@@ -1162,6 +1310,12 @@ export default function Dashboard() {
           setPagination({});
           return;
         }
+
+
+
+        /* -----------------------------------------
+           SELECTED ROLE USERS
+        ------------------------------------------ */
 
         const response =
           await getAllStaffData(
@@ -1203,6 +1357,10 @@ export default function Dashboard() {
 
 
 
+  /* =========================================================
+     FETCH USERS EFFECT
+  ========================================================= */
+
   useEffect(() => {
     if (
       roleId === null
@@ -1236,6 +1394,10 @@ export default function Dashboard() {
 
 
 
+  /* =========================================================
+     TOTAL KEY BALANCE
+  ========================================================= */
+
   const totalKeyBalance =
     useMemo(() => {
       return keySettings.reduce(
@@ -1249,6 +1411,10 @@ export default function Dashboard() {
     }, [keySettings]);
 
 
+
+  /* =========================================================
+     STAFF PERMISSION LOADING
+  ========================================================= */
 
   if (
     roleId === 9 &&
@@ -1265,16 +1431,33 @@ export default function Dashboard() {
     );
   }
 
+
+
+  /* =========================================================
+     UI
+  ========================================================= */
+
   return (
     <div className="bg-gray-100">
       <main className="pt-0 p-0">
+
         <h1 className="md:text-3xl font-bold md:mb-5 mb-0 text-[20px]">
           Welcome Dashboard
         </h1>
 
+
+
+        {/* =====================================================
+            DASHBOARD HOME
+        ===================================================== */}
+
         {isDashboardHome && (
           <>
+
+            {/* ROLE CARDS */}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
+
               {visibleCards.map(
                 (card) => (
                   <div
@@ -1294,11 +1477,20 @@ export default function Dashboard() {
                   </div>
                 )
               )}
+
             </div>
+
+
+
+            {/* =================================================
+                KEY SETTINGS
+            ================================================= */}
+
             <div className="mt-6">
               <div className="bg-white p-5 rounded-xl shadow">
 
                 <div className="flex items-center justify-between mb-5">
+
                   <div>
                     <h2 className="text-lg font-semibold text-gray-800">
                       Key Settings
@@ -1310,6 +1502,7 @@ export default function Dashboard() {
                   </div>
 
                   <div className="rounded-lg bg-blue-50 px-4 py-2">
+
                     <p className="text-xs text-blue-500">
                       Total Balance
                     </p>
@@ -1319,8 +1512,12 @@ export default function Dashboard() {
                         "en-IN"
                       )}
                     </p>
+
                   </div>
+
                 </div>
+
+
 
                 {keySettingsLoading ? (
                   <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
@@ -1332,6 +1529,7 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+
                     {keySettings.map(
                       (item) => {
                         const balance =
@@ -1347,7 +1545,9 @@ export default function Dashboard() {
                             }
                             className="rounded-xl border border-gray-200 bg-gray-50 p-5"
                           >
+
                             <div className="flex items-center justify-between gap-3">
+
                               <div>
                                 <h3 className="text-sm font-semibold text-gray-700">
                                   {item.name ||
@@ -1366,23 +1566,32 @@ export default function Dashboard() {
                                   )}
                                 </span>
                               </div>
+
                             </div>
+
                           </div>
                         );
                       }
                     )}
+
                   </div>
                 )}
+
               </div>
             </div>
 
-            
+
+
+            {/* =================================================
+                CHARTS
+            ================================================= */}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
 
-             
+              {/* BAR CHART */}
 
               <div className="bg-white p-5 rounded-xl shadow">
+
                 <h3 className="text-gray-700 font-semibold mb-4">
                   Role-wise Users (Bar Chart)
                 </h3>
@@ -1396,6 +1605,7 @@ export default function Dashboard() {
                       visibleCards
                     }
                   >
+
                     <CartesianGrid
                       strokeDasharray="3 3"
                     />
@@ -1429,13 +1639,18 @@ export default function Dashboard() {
                         0,
                       ]}
                     />
+
                   </BarChart>
                 </ResponsiveContainer>
+
               </div>
 
-          
+
+
+              {/* PIE CHART */}
 
               <div className="bg-white p-5 rounded-xl shadow">
+
                 <h3 className="text-gray-700 font-semibold mb-4">
                   Role Distribution (Pie Chart)
                 </h3>
@@ -1445,6 +1660,7 @@ export default function Dashboard() {
                   height={300}
                 >
                   <PieChart>
+
                     <Pie
                       data={
                         visibleCards
@@ -1458,6 +1674,7 @@ export default function Dashboard() {
                       }
                       label
                     >
+
                       {visibleCards.map(
                         (
                           entry,
@@ -1474,17 +1691,28 @@ export default function Dashboard() {
                           />
                         )
                       )}
+
                     </Pie>
 
                     <Tooltip />
 
                     <Legend />
+
                   </PieChart>
                 </ResponsiveContainer>
+
               </div>
+
             </div>
+
           </>
         )}
+
+
+
+        {/* =====================================================
+            USERS TABLE
+        ===================================================== */}
 
         {!isDashboardHome &&
           selectedRole !== null && (
@@ -1506,6 +1734,7 @@ export default function Dashboard() {
               }
             />
           )}
+
       </main>
     </div>
   );

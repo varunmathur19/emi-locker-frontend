@@ -390,7 +390,7 @@ export default function ModulePage() {
 
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xl">
           <h2 className="mb-4 text-lg font-semibold text-slate-700">
-            Role List
+             List
           </h2>
 
           {loadingRoles ? (
