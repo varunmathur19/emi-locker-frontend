@@ -506,9 +506,9 @@ export const getWalletTransactions = async (params = {}) => {
 
 //company setting get data
 export const getCompanySetting = async () => {
-  const response = await api.get("/get-company-setting");
-
-  return response.data;
+  return api.get("/get-company-setting", {
+    skipMaintenanceRedirect: true,
+  });
 };
 export const getNormalCompanySetting = async () => {
   const response = await api.get("/normal-company-setting");

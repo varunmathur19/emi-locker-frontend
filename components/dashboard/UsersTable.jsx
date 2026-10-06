@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -214,7 +215,10 @@ export default function UsersTable({
           setTotalUsers(total);
         }
       } catch (error) {
-        console.error("LOAD TOTAL USERS ERROR:", error);
+        console.error(
+          "LOAD TOTAL USERS ERROR:",
+          error
+        );
 
         if (!cancelled) {
           const backendTotal =
@@ -227,7 +231,9 @@ export default function UsersTable({
             setTotalUsers(backendTotal);
           } else {
             setTotalUsers(
-              Array.isArray(users) ? users.length : 0
+              Array.isArray(users)
+                ? users.length
+                : 0
             );
           }
         }
@@ -254,16 +260,22 @@ export default function UsersTable({
 
         if (roleId !== 9) {
           setStaffPermissions(null);
-          localStorage.removeItem("staff_permissions");
+          localStorage.removeItem(
+            "staff_permissions"
+          );
           return;
         }
 
         const savedStaffPermissions =
-          localStorage.getItem("staff_permissions");
+          localStorage.getItem(
+            "staff_permissions"
+          );
 
         if (savedStaffPermissions) {
           try {
-            const parsed = JSON.parse(savedStaffPermissions);
+            const parsed = JSON.parse(
+              savedStaffPermissions
+            );
 
             if (
               parsed &&
@@ -274,11 +286,14 @@ export default function UsersTable({
               return;
             }
           } catch {
-            localStorage.removeItem("staff_permissions");
+            localStorage.removeItem(
+              "staff_permissions"
+            );
           }
         }
 
-        const savedUser = localStorage.getItem("user");
+        const savedUser =
+          localStorage.getItem("user");
 
         if (!savedUser) {
           setStaffPermissions(null);
@@ -337,7 +352,10 @@ export default function UsersTable({
       }
     };
 
-    window.addEventListener("storage", handleStorage);
+    window.addEventListener(
+      "storage",
+      handleStorage
+    );
 
     return () => {
       window.removeEventListener(
@@ -348,7 +366,10 @@ export default function UsersTable({
   }, []);
 
   const isPermissionEnabled = (value) => {
-    if (value === undefined || value === null) {
+    if (
+      value === undefined ||
+      value === null
+    ) {
       return false;
     }
 
@@ -386,36 +407,10 @@ export default function UsersTable({
     return false;
   };
 
- const handleLoginClick = async () => {
-  try {
-    const response = await getCompanySetting();
-
-    const maintenanceSetting = response?.data?.find(
-      (item) =>
-        item.key === "maintenance" &&
-        Number(item.role_id) === 0
-    );
-
-    const isMaintenance =
-      Number(maintenanceSetting?.value) === 1;
-
-    if (isMaintenance) {
-      router.push("/maintenance");
-      return;
-    }
-
-    router.push("/maintenance");
-  } catch (error) {
-    console.error(
-      "Maintenance check error:",
-      error
-    );
-
-    router.push("/maintenance");
-  }
-};
-
-  const hasPermission = (slug, action = null) => {
+  const hasPermission = (
+    slug,
+    action = null
+  ) => {
     if (Number(currentRoleId) !== 9) {
       return true;
     }
@@ -437,7 +432,8 @@ export default function UsersTable({
       const manageKey = `${cleanSlug}.manage`;
 
       if (
-        staffPermissions[actionKey] !== undefined &&
+        staffPermissions[actionKey] !==
+          undefined &&
         isPermissionEnabled(
           staffPermissions[actionKey]
         )
@@ -446,7 +442,8 @@ export default function UsersTable({
       }
 
       if (
-        staffPermissions[manageKey] !== undefined &&
+        staffPermissions[manageKey] !==
+          undefined &&
         isPermissionEnabled(
           staffPermissions[manageKey]
         )
@@ -455,7 +452,8 @@ export default function UsersTable({
       }
 
       if (
-        staffPermissions[cleanSlug] !== undefined
+        staffPermissions[cleanSlug] !==
+        undefined
       ) {
         return isPermissionEnabled(
           staffPermissions[cleanSlug]
@@ -466,7 +464,8 @@ export default function UsersTable({
     }
 
     if (
-      staffPermissions[cleanSlug] !== undefined
+      staffPermissions[cleanSlug] !==
+      undefined
     ) {
       return isPermissionEnabled(
         staffPermissions[cleanSlug]
@@ -495,14 +494,14 @@ export default function UsersTable({
     );
   };
 
-  const canViewSelectedRole = hasPermission(
-    selectedRoleSlug
-  );
+  const canViewSelectedRole =
+    hasPermission(selectedRoleSlug);
 
-  const canAddSelectedRole = hasPermission(
-    selectedRoleSlug,
-    "add"
-  );
+  const canAddSelectedRole =
+    hasPermission(
+      selectedRoleSlug,
+      "add"
+    );
 
   const getSearchLimit = () => {
     const total =
@@ -514,7 +513,10 @@ export default function UsersTable({
     return total > 0 ? total : 10000;
   };
 
-  const handleFilterChange = (field, value) => {
+  const handleFilterChange = (
+    field,
+    value
+  ) => {
     setFilters((previous) => {
       const updated = {
         ...previous,
@@ -560,7 +562,9 @@ export default function UsersTable({
       return [];
     }
 
-    const parts = filters.state.split("-");
+    const parts =
+      filters.state.split("-");
+
     const countryCode = parts[0];
     const stateCode = parts[1];
 
@@ -569,20 +573,24 @@ export default function UsersTable({
     }
 
     try {
-      const cities = City.getCitiesOfState(
-        countryCode.toUpperCase(),
-        stateCode.toUpperCase()
-      );
+      const cities =
+        City.getCitiesOfState(
+          countryCode.toUpperCase(),
+          stateCode.toUpperCase()
+        );
 
-      return Array.isArray(cities) ? cities : [];
+      return Array.isArray(cities)
+        ? cities
+        : [];
     } catch {
       return [];
     }
   })();
 
-  const selectedStateParts = filters.state
-    ? filters.state.split("-")
-    : [];
+  const selectedStateParts =
+    filters.state
+      ? filters.state.split("-")
+      : [];
 
   const selectedCountryCode =
     selectedStateParts[0] || "";
@@ -605,7 +613,8 @@ export default function UsersTable({
       .toLowerCase() || "";
 
   useEffect(() => {
-    const searchValue = filterSearch.trim();
+    const searchValue =
+      filterSearch.trim();
 
     if (!searchValue) {
       setSearchSuggestions([]);
@@ -616,36 +625,41 @@ export default function UsersTable({
 
     let cancelled = false;
 
-    const timer = setTimeout(async () => {
-      try {
-        setSearchLoading(true);
+    const timer = setTimeout(
+      async () => {
+        try {
+          setSearchLoading(true);
 
-        const response = await getAllStaffData(
-          1,
-          getSearchLimit(),
-          selectedRoleId || "",
-          searchValue
-        );
+          const response =
+            await getAllStaffData(
+              1,
+              getSearchLimit(),
+              selectedRoleId || "",
+              searchValue
+            );
 
-        if (cancelled) {
-          return;
+          if (cancelled) {
+            return;
+          }
+
+          const data =
+            getResponseUsers(response);
+
+          setSearchSuggestions(data);
+          setShowSuggestions(true);
+        } catch {
+          if (!cancelled) {
+            setSearchSuggestions([]);
+            setShowSuggestions(false);
+          }
+        } finally {
+          if (!cancelled) {
+            setSearchLoading(false);
+          }
         }
-
-        const data = getResponseUsers(response);
-
-        setSearchSuggestions(data);
-        setShowSuggestions(true);
-      } catch {
-        if (!cancelled) {
-          setSearchSuggestions([]);
-          setShowSuggestions(false);
-        }
-      } finally {
-        if (!cancelled) {
-          setSearchLoading(false);
-        }
-      }
-    }, 400);
+      },
+      400
+    );
 
     return () => {
       cancelled = true;
@@ -659,10 +673,13 @@ export default function UsersTable({
     pagination?.count,
   ]);
 
-  const getSuggestionValue = (user) => {
-    const query = filterSearch
-      .trim()
-      .toLowerCase();
+  const getSuggestionValue = (
+    user
+  ) => {
+    const query =
+      filterSearch
+        .trim()
+        .toLowerCase();
 
     const fields = [
       {
@@ -691,13 +708,14 @@ export default function UsersTable({
       },
     ];
 
-    const matchedField = fields.find(
-      (field) =>
-        field.value &&
-        String(field.value)
-          .toLowerCase()
-          .includes(query)
-    );
+    const matchedField =
+      fields.find(
+        (field) =>
+          field.value &&
+          String(field.value)
+            .toLowerCase()
+            .includes(query)
+      );
 
     if (matchedField) {
       return matchedField;
@@ -715,7 +733,9 @@ export default function UsersTable({
     };
   };
 
-  const handleSuggestionClick = (user) => {
+  const handleSuggestionClick = (
+    user
+  ) => {
     const suggestion =
       getSuggestionValue(user);
 
@@ -757,7 +777,8 @@ export default function UsersTable({
   };
 
   const handleSearch = async () => {
-    const trimmedSearch = search.trim();
+    const trimmedSearch =
+      search.trim();
 
     setShowSuggestions(false);
     setSearchSuggestions([]);
@@ -774,15 +795,17 @@ export default function UsersTable({
       setSearchLoading(true);
       setPage?.(1);
 
-      const response = await getAllStaffData(
-        1,
-        getSearchLimit(),
-        selectedRoleId || "",
-        trimmedSearch,
-        filters.status
-      );
+      const response =
+        await getAllStaffData(
+          1,
+          getSearchLimit(),
+          selectedRoleId || "",
+          trimmedSearch,
+          filters.status
+        );
 
-      const data = getResponseUsers(response);
+      const data =
+        getResponseUsers(response);
 
       setSearchResults(data);
       setSearchApplied(true);
@@ -807,7 +830,9 @@ export default function UsersTable({
     }
   };
 
-  const handleSearchKeyDown = (event) => {
+  const handleSearchKeyDown = (
+    event
+  ) => {
     if (event.key === "Enter") {
       event.preventDefault();
       handleSearch();
@@ -824,97 +849,106 @@ export default function UsersTable({
     onSearch?.("");
   };
 
-const handleLoginAsUser = async (user) => {
-  if (
-    Number(currentRoleId) === 9 &&
-    !hasPermission(
-      selectedRoleSlug,
-      "login"
-    )
-  ) {
-    toast.error(
-      `You don't have login permission for ${selectedRoleName}`
-    );
-    return;
-  }
+  const handleLoginAsUser = async (
+    user
+  ) => {
+    if (
+      Number(currentRoleId) === 9 &&
+      !hasPermission(
+        selectedRoleSlug,
+        "login"
+      )
+    ) {
+      toast.error(
+        `You don't have login permission for ${selectedRoleName}`
+      );
+      return;
+    }
 
-  try {
-    setLoginLoading(user.id);
+    try {
+      setLoginLoading(user.id);
 
-    const response = await loginAsUser(user.id);
+      const response =
+        await loginAsUser(user.id);
 
-    if (!response?.success) {
-      if (response?.maintenance === true) {
-        router.push("/maintenance");
+      if (!response?.success) {
+        toast.error(
+          response?.message ||
+            "Login failed"
+        );
         return;
       }
 
-      toast.error(
-        response?.message || "Login failed"
-      );
-      return;
-    }
+      saveToken(response.token);
+      saveUser(response.user);
 
-    saveToken(response.token);
-    saveUser(response.user);
+      let permissions =
+        response.user
+          ?.staff_permission
+          ?.permission ||
+        response.user
+          ?.role_permission
+          ?.permission ||
+        null;
 
-    let permissions =
-      response.user?.staff_permission?.permission ||
-      response.user?.role_permission?.permission ||
-      null;
-
-    if (typeof permissions === "string") {
-      try {
-        permissions = JSON.parse(permissions);
-      } catch {
-        permissions = null;
+      if (typeof permissions === "string") {
+        try {
+          permissions =
+            JSON.parse(permissions);
+        } catch {
+          permissions = null;
+        }
       }
-    }
 
-    if (
-      Number(response.user?.role_id) === 9 &&
-      permissions &&
-      typeof permissions === "object" &&
-      !Array.isArray(permissions)
-    ) {
-      localStorage.setItem(
-        "staff_permissions",
-        JSON.stringify(permissions)
+      if (
+        Number(
+          response.user?.role_id
+        ) === 9 &&
+        permissions &&
+        typeof permissions ===
+          "object" &&
+        !Array.isArray(
+          permissions
+        )
+      ) {
+        localStorage.setItem(
+          "staff_permissions",
+          JSON.stringify(
+            permissions
+          )
+        );
+      } else {
+        localStorage.removeItem(
+          "staff_permissions"
+        );
+      }
+
+      toast.success(
+        `Logged in as ${response.user.name}`
       );
-    } else {
-      localStorage.removeItem("staff_permissions");
+
+      window.location.href =
+        "/dashboard";
+    } catch (error) {
+      console.error(
+        "LOGIN AS USER ERROR:",
+        error
+      );
+
+      toast.error(
+        error?.response?.data
+          ?.message ||
+          error?.message ||
+          "Unable to login as user"
+      );
+    } finally {
+      setLoginLoading(null);
     }
+  };
 
-    toast.success(
-      `Logged in as ${response.user.name}`
-    );
-
-    window.location.href = "/dashboard";
-  } catch (error) {
-    console.error(
-      "LOGIN AS USER ERROR:",
-      error
-    );
-
-    if (
-      error?.response?.status === 503 &&
-      error?.response?.data?.maintenance === true
-    ) {
-      router.push("/maintenance");
-      return;
-    }
-
-    toast.error(
-      error?.response?.data?.message ||
-        error?.message ||
-        "Unable to login as user"
-    );
-  } finally {
-    setLoginLoading(null);
-  }
-};
-
-  const handleStatusToggle = async (user) => {
+  const handleStatusToggle = async (
+    user
+  ) => {
     if (
       Number(currentRoleId) === 9 &&
       !hasPermission(
@@ -955,26 +989,30 @@ const handleLoginAsUser = async (user) => {
 
       user.userStatus = newStatus;
 
-      setSearchResults((previous) =>
-        previous.map((item) =>
-          item.id === user.id
-            ? {
-                ...item,
-                userStatus: newStatus,
-              }
-            : item
-        )
+      setSearchResults(
+        (previous) =>
+          previous.map((item) =>
+            item.id === user.id
+              ? {
+                  ...item,
+                  userStatus:
+                    newStatus,
+                }
+              : item
+          )
       );
 
-      setFilterSearchResults((previous) =>
-        previous.map((item) =>
-          item.id === user.id
-            ? {
-                ...item,
-                userStatus: newStatus,
-              }
-            : item
-        )
+      setFilterSearchResults(
+        (previous) =>
+          previous.map((item) =>
+            item.id === user.id
+              ? {
+                  ...item,
+                  userStatus:
+                    newStatus,
+                }
+              : item
+          )
       );
 
       toast.success(
@@ -998,50 +1036,55 @@ const handleLoginAsUser = async (user) => {
     }
   };
 
-  const handlePreviousPage = async () => {
-    if (page <= 1) {
-      return;
-    }
+  const handlePreviousPage =
+    async () => {
+      if (page <= 1) {
+        return;
+      }
 
-    const previousPage = page - 1;
+      const previousPage =
+        page - 1;
 
-    if (!filters.status) {
-      setPage(previousPage);
-      return;
-    }
+      if (!filters.status) {
+        setPage(previousPage);
+        return;
+      }
 
-    try {
-      setSearchLoading(true);
+      try {
+        setSearchLoading(true);
 
-      const response =
-        await getAllStaffData(
-          previousPage,
-          getSearchLimit(),
-          selectedRoleId || "",
-          "",
-          filters.status
+        const response =
+          await getAllStaffData(
+            previousPage,
+            getSearchLimit(),
+            selectedRoleId || "",
+            "",
+            filters.status
+          );
+
+        setSearchResults(
+          getResponseUsers(response)
         );
 
-      setSearchResults(
-        getResponseUsers(response)
-      );
-
-      setSearchApplied(true);
-      setPage(previousPage);
-    } catch (error) {
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Failed to load users"
-      );
-    } finally {
-      setSearchLoading(false);
-    }
-  };
+        setSearchApplied(true);
+        setPage(previousPage);
+      } catch (error) {
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            error?.message ||
+            "Failed to load users"
+        );
+      } finally {
+        setSearchLoading(false);
+      }
+    };
 
   const handleNextPage = async () => {
     const totalPages =
-      Number(pagination?.totalPages) || 1;
+      Number(
+        pagination?.totalPages
+      ) || 1;
 
     if (page >= totalPages) {
       return;
@@ -1074,7 +1117,8 @@ const handleLoginAsUser = async (user) => {
       setPage(nextPage);
     } catch (error) {
       toast.error(
-        error?.response?.data?.message ||
+        error?.response?.data
+          ?.message ||
           error?.message ||
           "Failed to load users"
       );
@@ -1091,117 +1135,143 @@ const handleLoginAsUser = async (user) => {
     tableUsers = searchResults;
   }
 
-  const filteredUsers = tableUsers.filter(
-    (user) => {
-      const searchValue = search
-        .trim()
-        .toLowerCase();
-
-      const userName = String(
-        user?.name || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const organizationName =
-        String(
-          user?.organization_name || ""
-        )
-          .trim()
-          .toLowerCase();
-
-      const userPhone = String(
-        user?.phone || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const userCity = String(
-        user?.city || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const userState = String(
-        user?.state || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const userCountry = String(
-        user?.country || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const matchesSearch =
-        !searchValue ||
-        userName.includes(searchValue) ||
-        organizationName.includes(
-          searchValue
-        ) ||
-        userPhone.includes(searchValue) ||
-        userCity.includes(searchValue) ||
-        userState.includes(searchValue) ||
-        userCountry.includes(searchValue);
-
-      const selectedCountry =
-        filters.country
-          .trim()
-          .toLowerCase();
-
-      const selectedCountryName =
-        countryOptions.find(
-          (country) =>
-            country.isoCode.toLowerCase() ===
-            selectedCountry
-        )?.name
-          ?.trim()
-          .toLowerCase() || "";
-
-      const matchesCountry =
-        !selectedCountry ||
-        userCountry === selectedCountry ||
-        userCountry === selectedCountryName;
-
-      const matchesState =
-        !selectedStateCode ||
-        userState ===
-          selectedStateCode
+  const filteredUsers =
+    tableUsers.filter(
+      (user) => {
+        const searchValue =
+          search
             .trim()
-            .toLowerCase() ||
-        userState === selectedStateName;
+            .toLowerCase();
 
-      const selectedCity = String(
-        filters.city || ""
-      )
-        .trim()
-        .toLowerCase();
+        const userName =
+          String(
+            user?.name || ""
+          )
+            .trim()
+            .toLowerCase();
 
-      const matchesCity =
-        !selectedCity ||
-        userCity === selectedCity;
+        const organizationName =
+          String(
+            user?.organization_name ||
+              ""
+          )
+            .trim()
+            .toLowerCase();
 
-      const userStatus = Number(
-        user?.userStatus ?? 1
-      );
+        const userPhone =
+          String(
+            user?.phone || ""
+          )
+            .trim()
+            .toLowerCase();
 
-      const matchesStatus =
-        !filters.status ||
-        (filters.status === "active" &&
-          userStatus === 1) ||
-        (filters.status === "inactive" &&
-          userStatus === 0);
+        const userCity =
+          String(
+            user?.city || ""
+          )
+            .trim()
+            .toLowerCase();
 
-      return (
-        matchesSearch &&
-        matchesCountry &&
-        matchesState &&
-        matchesCity &&
-        matchesStatus
-      );
-    }
-  );
+        const userState =
+          String(
+            user?.state || ""
+          )
+            .trim()
+            .toLowerCase();
+
+        const userCountry =
+          String(
+            user?.country || ""
+          )
+            .trim()
+            .toLowerCase();
+
+        const matchesSearch =
+          !searchValue ||
+          userName.includes(
+            searchValue
+          ) ||
+          organizationName.includes(
+            searchValue
+          ) ||
+          userPhone.includes(
+            searchValue
+          ) ||
+          userCity.includes(
+            searchValue
+          ) ||
+          userState.includes(
+            searchValue
+          ) ||
+          userCountry.includes(
+            searchValue
+          );
+
+        const selectedCountry =
+          filters.country
+            .trim()
+            .toLowerCase();
+
+        const selectedCountryName =
+          countryOptions.find(
+            (country) =>
+              country.isoCode.toLowerCase() ===
+              selectedCountry
+          )?.name
+            ?.trim()
+            .toLowerCase() || "";
+
+        const matchesCountry =
+          !selectedCountry ||
+          userCountry ===
+            selectedCountry ||
+          userCountry ===
+            selectedCountryName;
+
+        const matchesState =
+          !selectedStateCode ||
+          userState ===
+            selectedStateCode
+              .trim()
+              .toLowerCase() ||
+          userState ===
+            selectedStateName;
+
+        const selectedCity =
+          String(
+            filters.city || ""
+          )
+            .trim()
+            .toLowerCase();
+
+        const matchesCity =
+          !selectedCity ||
+          userCity ===
+            selectedCity;
+
+        const userStatus =
+          Number(
+            user?.userStatus ?? 1
+          );
+
+        const matchesStatus =
+          !filters.status ||
+          (filters.status ===
+            "active" &&
+            userStatus === 1) ||
+          (filters.status ===
+            "inactive" &&
+            userStatus === 0);
+
+        return (
+          matchesSearch &&
+          matchesCountry &&
+          matchesState &&
+          matchesCity &&
+          matchesStatus
+        );
+      }
+    );
 
   const addPageUrl =
     `/dashboard/form?role=${selectedRoleId}` +
@@ -1210,13 +1280,15 @@ const handleLoginAsUser = async (user) => {
       selectedRoleSlug
     )}`;
 
-  const getEditFormUrl = (user) => {
-    const actualRoleId = Number(
-      user?.role_id
-    );
+  const getEditFormUrl = (
+    user
+  ) => {
+    const actualRoleId =
+      Number(user?.role_id);
 
     const actualRoleSlug =
-      roleSlugMap[actualRoleId] || "";
+      roleSlugMap[actualRoleId] ||
+      "";
 
     return (
       `/dashboard/form?id=${encodeURIComponent(
@@ -1298,7 +1370,9 @@ const handleLoginAsUser = async (user) => {
               href={addPageUrl}
               className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 cursor-pointer whitespace-nowrap inline-block"
             >
-              {roleButtons[selectedRoleId] ||
+              {roleButtons[
+                selectedRoleId
+              ] ||
                 `Add ${selectedRoleName}`}
             </Link>
           )}
@@ -1327,16 +1401,19 @@ const handleLoginAsUser = async (user) => {
             type="button"
             onClick={() =>
               setFilterOpen(
-                (previous) => !previous
+                (previous) =>
+                  !previous
               )
             }
             className={`flex items-center justify-center text-white cursor-pointer gap-2 border px-4 py-2 rounded-md transition-all ${
               filterOpen
                 ? "bg-blue-700 border-blue-700"
-                : "bg-blue-400 border-white hover:bg-blue-500  hover:border-blue-500"
+                : "bg-blue-400 border-white hover:bg-blue-500 hover:border-blue-500"
             }`}
           >
-            <RiFilterLine size={18} />
+            <RiFilterLine
+              size={18}
+            />
             Filter
           </button>
 
@@ -1346,7 +1423,9 @@ const handleLoginAsUser = async (user) => {
               placeholder="Search by name, city, state, phone..."
               value={search}
               onChange={(e) =>
-                setSearch(e.target.value)
+                setSearch(
+                  e.target.value
+                )
               }
               onKeyDown={
                 handleSearchKeyDown
@@ -1388,7 +1467,9 @@ const handleLoginAsUser = async (user) => {
                     setFilterSearchApplied(
                       false
                     );
-                    setShowSuggestions(true);
+                    setShowSuggestions(
+                      true
+                    );
                   }}
                   onFocus={() => {
                     if (
@@ -1416,7 +1497,10 @@ const handleLoginAsUser = async (user) => {
                     ) : searchSuggestions.length >
                       0 ? (
                       searchSuggestions.map(
-                        (user, index) => {
+                        (
+                          user,
+                          index
+                        ) => {
                           const suggestion =
                             getSuggestionValue(
                               user
@@ -1482,7 +1566,9 @@ const handleLoginAsUser = async (user) => {
 
               <div className="relative">
                 <select
-                  value={filters.country}
+                  value={
+                    filters.country
+                  }
                   onChange={(e) =>
                     handleFilterChange(
                       "country",
@@ -1525,14 +1611,18 @@ const handleLoginAsUser = async (user) => {
 
               <div className="relative">
                 <select
-                  value={filters.state}
+                  value={
+                    filters.state
+                  }
                   onChange={(e) =>
                     handleFilterChange(
                       "state",
                       e.target.value
                     )
                   }
-                  disabled={!filters.country}
+                  disabled={
+                    !filters.country
+                  }
                   className="w-full appearance-none border border-gray-300 rounded-md px-3 py-2 pr-10 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
                   <option value="">
@@ -1565,7 +1655,9 @@ const handleLoginAsUser = async (user) => {
 
               <div className="relative">
                 <select
-                  value={filters.city}
+                  value={
+                    filters.city
+                  }
                   onChange={(e) =>
                     handleFilterChange(
                       "city",
@@ -1583,10 +1675,15 @@ const handleLoginAsUser = async (user) => {
                   </option>
 
                   {cityOptions.map(
-                    (city, index) => (
+                    (
+                      city,
+                      index
+                    ) => (
                       <option
                         key={`${city.name}-${index}`}
-                        value={city.name}
+                        value={
+                          city.name
+                        }
                       >
                         {city.name}
                       </option>
@@ -1608,7 +1705,9 @@ const handleLoginAsUser = async (user) => {
 
               <div className="relative">
                 <select
-                  value={filters.status}
+                  value={
+                    filters.status
+                  }
                   onChange={(e) =>
                     handleFilterChange(
                       "status",
@@ -1704,10 +1803,14 @@ const handleLoginAsUser = async (user) => {
                 filteredUsers.map(
                   (user, index) => {
                     const actualRoleId =
-                      Number(user?.role_id);
+                      Number(
+                        user?.role_id
+                      );
 
                     const actualRoleName =
-                      roleMap[actualRoleId] ||
+                      roleMap[
+                        actualRoleId
+                      ] ||
                       getRoleName?.(
                         actualRoleId
                       ) ||
@@ -1720,7 +1823,8 @@ const handleLoginAsUser = async (user) => {
 
                     const isActive =
                       Number(
-                        user?.userStatus ?? 1
+                        user?.userStatus ??
+                          1
                       ) === 1;
 
                     const canEditRow =
@@ -1777,7 +1881,8 @@ const handleLoginAsUser = async (user) => {
 
                         <td className="p-3 py-1">
                           <div className="font-semibold">
-                            {user.name || "-"}
+                            {user.name ||
+                              "-"}
                           </div>
 
                           <div className="text-sm text-gray-500">
@@ -1858,21 +1963,32 @@ const handleLoginAsUser = async (user) => {
                                 </button>
                               )}
 
-     {isActive && canLoginRow && (
-  <button
-    type="button"
-    disabled={loginLoading === user.id}
-    onClick={() => handleLoginAsUser(user)}
-    className="inline-flex items-center justify-center p-2 rounded-md text-green-600 hover:bg-green-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-    title={`Login as ${actualRoleName}`}
-  >
-    {loginLoading === user.id ? (
-      <span className="h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-    ) : (
-      <RiLoginBoxLine size={20} />
-    )}
-  </button>
-)}
+                            {isActive &&
+                              canLoginRow && (
+                                <button
+                                  type="button"
+                                  disabled={
+                                    loginLoading ===
+                                    user.id
+                                  }
+                                  onClick={() =>
+                                    handleLoginAsUser(
+                                      user
+                                    )
+                                  }
+                                  className="inline-flex items-center justify-center p-2 rounded-md text-green-600 hover:bg-green-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={`Login as ${actualRoleName}`}
+                                >
+                                  {loginLoading ===
+                                  user.id ? (
+                                    <span className="h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <RiLoginBoxLine
+                                      size={20}
+                                    />
+                                  )}
+                                </button>
+                              )}
                           </div>
                         </td>
 
@@ -1969,14 +2085,16 @@ const handleLoginAsUser = async (user) => {
           type="button"
           disabled={
             page >=
-            (pagination?.totalPages || 1)
+            (pagination?.totalPages ||
+              1)
           }
           onClick={
             handleNextPage
           }
           className={`px-4 py-2 rounded cursor-pointer ${
             page >=
-            (pagination?.totalPages || 1)
+            (pagination?.totalPages ||
+              1)
               ? "bg-gray-200 cursor-not-allowed"
               : "bg-blue-500 text-white hover:bg-blue-600"
           }`}

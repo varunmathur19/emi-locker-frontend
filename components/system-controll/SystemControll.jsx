@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -19,11 +18,25 @@ export default function SystemControll() {
 
       const response = await getCompanySetting();
 
+      console.log(
+        "Get Company Setting Response:",
+        response
+      );
+
+      const responseData =
+        response?.data?.data ||
+        response?.data ||
+        [];
+
+      const success =
+        response?.success ??
+        response?.data?.success;
+
       if (
-        response?.success &&
-        Array.isArray(response?.data)
+        success &&
+        Array.isArray(responseData)
       ) {
-        setSettings(response.data);
+        setSettings(responseData);
       } else {
         setSettings([]);
       }

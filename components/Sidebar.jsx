@@ -63,6 +63,7 @@ const pointTransactionSlugs = [
 
 const getRoleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
+
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -79,6 +80,7 @@ const getRoleIcon = (iconName, size = 20) => {
 
 const getModuleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
+
   const IconComponent = iconKey
     ? RiIcons[iconKey]
     : null;
@@ -163,6 +165,7 @@ export default function Sidebar({
             !Array.isArray(parsedPermissions)
           ) {
             setPermissions(parsedPermissions);
+
             return parsedPermissions;
           }
         }
@@ -179,6 +182,7 @@ export default function Sidebar({
 
         if (!savedUser) {
           setPermissions(null);
+
           return null;
         }
 
@@ -228,6 +232,7 @@ export default function Sidebar({
           setRoleId(null);
           setPermissions(null);
           removeInvalidPermissionKeys();
+
           return;
         }
 
@@ -237,6 +242,7 @@ export default function Sidebar({
 
         if (numericRole === 9) {
           loadStaffPermissions();
+
           return;
         }
 
@@ -396,63 +402,7 @@ export default function Sidebar({
     loadWalletBalance();
     loadCompanySetting();
   }, [
-    removeInvalidPermissionKeys,
-    loadRoles,
-    loadModules,
-    loadCurrentUser,
-    loadWalletBalance,
-    loadCompanySetting,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const handleFocus = () => {
-      removeInvalidPermissionKeys();
-      loadRoles();
-      loadModules();
-      loadCurrentUser();
-      loadWalletBalance();
-      loadCompanySetting();
-    };
-
-    const handleVisibilityChange = () => {
-      if (
-        document.visibilityState === "visible"
-      ) {
-        removeInvalidPermissionKeys();
-        loadRoles();
-        loadModules();
-        loadCurrentUser();
-        loadWalletBalance();
-        loadCompanySetting();
-      }
-    };
-
-    window.addEventListener(
-      "focus",
-      handleFocus
-    );
-
-    document.addEventListener(
-      "visibilitychange",
-      handleVisibilityChange
-    );
-
-    return () => {
-      window.removeEventListener(
-        "focus",
-        handleFocus
-      );
-
-      document.removeEventListener(
-        "visibilitychange",
-        handleVisibilityChange
-      );
-    };
-  }, [
+    pathname,
     removeInvalidPermissionKeys,
     loadRoles,
     loadModules,
@@ -807,6 +757,7 @@ export default function Sidebar({
       alert(
         "Original login session not found"
       );
+
       return;
     }
 
