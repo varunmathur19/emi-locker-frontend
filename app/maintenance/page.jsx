@@ -39,38 +39,85 @@ export default function MaintenancePage() {
         response
       );
 
-      const settings =
-        response?.data?.data || [];
+      // ==========================================
+      // BACKEND RESPONSE
+      // ==========================================
+      // {
+      //   success: true,
+      //   message: "Company setting fetched successfully",
+      //   data: [
+      //     {
+      //       id: 5,
+      //       key: "maintenance",
+      //       value: "1",
+      //       role_id: 0
+      //     }
+      //   ]
+      // }
+      //
+      // So settings are directly in response.data
+      // ==========================================
+
+      const settings = Array.isArray(
+        response?.data
+      )
+        ? response.data
+        : [];
+
+      console.log(
+        "Company Settings:",
+        settings
+      );
+
+      // ==========================================
+      // FIND MASTER ADMIN MAINTENANCE SETTING
+      // ==========================================
 
       const maintenanceSetting =
         settings.find(
           (item) =>
-            item?.key === "maintenance" &&
+            String(item?.key || "")
+              .trim()
+              .toLowerCase() ===
+              "maintenance" &&
             Number(item?.role_id) === 0
         );
 
-      const maintenanceStatus = Number(
-        maintenanceSetting?.value || 0
+      console.log(
+        "Maintenance Setting:",
+        maintenanceSetting
       );
 
-      // console.log(
-      //   "Maintenance Status:",
-      //   maintenanceStatus
-      // );
+      const maintenanceStatus = Number(
+        maintenanceSetting?.value ?? 0
+      );
+
+      console.log(
+        "Maintenance Status:",
+        maintenanceStatus
+      );
 
       // ==========================================
-      // Maintenance OFF
+      // MAINTENANCE OFF
       // ==========================================
       if (maintenanceStatus === 0) {
+        console.log(
+          "Maintenance is OFF. Redirecting to dashboard."
+        );
+
         router.replace("/dashboard");
+
         return;
       }
 
       // ==========================================
-      // Maintenance ON
-      // Stay on maintenance page
+      // MAINTENANCE ON
       // ==========================================
       if (maintenanceStatus === 1) {
+        console.log(
+          "Maintenance is ON. Staying on maintenance page."
+        );
+
         return;
       }
     } catch (error) {
@@ -84,7 +131,8 @@ export default function MaintenancePage() {
   };
 
   // ==========================================
-  // CHECK STATUS ON PAGE LOAD + EVERY 5 SEC
+  // CHECK STATUS ON PAGE LOAD
+  // + EVERY 5 SECONDS
   // ==========================================
   useEffect(() => {
     checkMaintenanceStatus();
@@ -132,7 +180,9 @@ export default function MaintenancePage() {
         response
       );
 
-      // Clear all local storage
+      // ==========================================
+      // CLEAR LOCAL STORAGE
+      // ==========================================
       localStorage.clear();
 
       toast.success(
@@ -163,6 +213,9 @@ export default function MaintenancePage() {
     }
   };
 
+  // ==========================================
+  // UI
+  // ==========================================
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
       <div className="w-full max-w-lg rounded-2xl bg-white p-10 text-center shadow-sm">
