@@ -118,7 +118,7 @@ export default function SystemControll() {
   }, []);
 
   return (
-    <div className="p-6">
+    <div className="">
       <h1 className="mb-6 text-2xl font-semibold text-gray-800">
         System Control
       </h1>
