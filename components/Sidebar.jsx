@@ -507,52 +507,55 @@ export default function Sidebar({ sidebarOpen }) {
     removeInvalidPermissionKeys,
   ]);
 
-  const isPermissionEnabled = useCallback((value) => {
-    if (
-      value === undefined ||
-      value === null
-    ) {
+  const isPermissionEnabled = useCallback(
+    (value) => {
+      if (
+        value === undefined ||
+        value === null
+      ) {
+        return false;
+      }
+
+      if (typeof value === "boolean") {
+        return value;
+      }
+
+      if (typeof value === "number") {
+        return value === 1;
+      }
+
+      if (typeof value === "string") {
+        const normalized = value
+          .trim()
+          .toLowerCase();
+
+        return (
+          normalized === "1" ||
+          normalized === "true" ||
+          normalized === "yes"
+        );
+      }
+
+      if (typeof value === "object") {
+        if (value.status !== undefined) {
+          return Number(value.status) === 1;
+        }
+
+        if (value.view !== undefined) {
+          return Number(value.view) === 1;
+        }
+
+        if (value.access !== undefined) {
+          return Number(value.access) === 1;
+        }
+
+        return true;
+      }
+
       return false;
-    }
-
-    if (typeof value === "boolean") {
-      return value;
-    }
-
-    if (typeof value === "number") {
-      return value === 1;
-    }
-
-    if (typeof value === "string") {
-      const normalized = value
-        .trim()
-        .toLowerCase();
-
-      return (
-        normalized === "1" ||
-        normalized === "true" ||
-        normalized === "yes"
-      );
-    }
-
-    if (typeof value === "object") {
-      if (value.status !== undefined) {
-        return Number(value.status) === 1;
-      }
-
-      if (value.view !== undefined) {
-        return Number(value.view) === 1;
-      }
-
-      if (value.access !== undefined) {
-        return Number(value.access) === 1;
-      }
-
-      return true;
-    }
-
-    return false;
-  }, []);
+    },
+    []
+  );
 
   const hasPermissionForSlug = useCallback(
     (slug) => {
@@ -687,6 +690,7 @@ export default function Sidebar({ sidebarOpen }) {
     }
 
     removeInvalidPermissionKeys();
+
     window.location.href = "/dashboard";
   };
 
@@ -794,9 +798,7 @@ export default function Sidebar({ sidebarOpen }) {
       }
 
       if (
-        pointTransactionSlugs.includes(
-          slug
-        )
+        pointTransactionSlugs.includes(slug)
       ) {
         if (
           pathname !==
@@ -812,9 +814,8 @@ export default function Sidebar({ sidebarOpen }) {
           pointTransactionTypes[slug];
 
         return (
-          Number(
-            activeTransactionType
-          ) === expectedType
+          Number(activeTransactionType) ===
+          expectedType
         );
       }
 
@@ -919,18 +920,15 @@ export default function Sidebar({ sidebarOpen }) {
       href = "/dashboard/system-controll";
     }
 
-    if (slug === "transaction") {
-      href = "/dashboard/my-transaction";
-    }
-
-    if (slug === "my-transaction") {
+    if (
+      slug === "transaction" ||
+      slug === "my-transaction"
+    ) {
       href = "/dashboard/my-transaction";
     }
 
     if (
-      pointTransactionSlugs.includes(
-        slug
-      )
+      pointTransactionSlugs.includes(slug)
     ) {
       const transactionType =
         pointTransactionTypes[slug];
@@ -996,8 +994,7 @@ export default function Sidebar({ sidebarOpen }) {
         <RoleLink
           key="master-admin-admin"
           roleItem={
-            adminFromApi ||
-            defaultAdminRole
+            adminFromApi || defaultAdminRole
           }
         />
       );
@@ -1049,30 +1046,43 @@ export default function Sidebar({ sidebarOpen }) {
           .trim()
           .toLowerCase();
 
+        const currentRole = Number(roleId);
+
+        /*
+         * Revert Point:
+         * Only Master Admin (role 0) can see it.
+         */
+        if (
+          slug === "revert-point" &&
+          currentRole !== 0
+        ) {
+          return false;
+        }
+
         if (
           slug === "company-setting" &&
-          Number(roleId) !== 1
+          currentRole !== 1
         ) {
           return false;
         }
 
         if (
           slug === "system-control" &&
-          Number(roleId) !== 0
+          currentRole !== 0
         ) {
           return false;
         }
 
         if (
           slug === "schema-transfer-point" &&
-          Number(roleId) === 0
+          currentRole === 0
         ) {
           return false;
         }
 
         if (
           slug === "key-settings" &&
-          Number(roleId) !== 0
+          currentRole !== 0
         ) {
           return false;
         }
@@ -1094,12 +1104,8 @@ export default function Sidebar({ sidebarOpen }) {
 
   const companyLogoUrl = companyLogo
     ? `${(
-        process.env
-          .NEXT_PUBLIC_API_URL || ""
-      ).replace(
-        /\/api$/,
-        ""
-      )}${companyLogo}`
+        process.env.NEXT_PUBLIC_API_URL || ""
+      ).replace(/\/api$/, "")}${companyLogo}`
     : null;
 
   return (
@@ -1132,7 +1138,6 @@ export default function Sidebar({ sidebarOpen }) {
           }`}
         >
           <RiIcons.RiDashboardLine size={20} />
-
           <span>Dashboard</span>
         </Link>
 
@@ -1155,7 +1160,6 @@ export default function Sidebar({ sidebarOpen }) {
               }`}
             >
               <RiIcons.RiSettings3Line size={20} />
-
               <span>Master Settings</span>
             </Link>
 
@@ -1172,7 +1176,6 @@ export default function Sidebar({ sidebarOpen }) {
               }`}
             >
               <RiIcons.RiStore2Line size={20} />
-
               <span>Sub Module</span>
             </Link>
           </>
@@ -1188,7 +1191,6 @@ export default function Sidebar({ sidebarOpen }) {
           className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-blue-500 px-4 py-3 font-semibold text-white transition-all hover:bg-blue-600"
         >
           <RiIcons.RiLoginBoxLine size={20} />
-
           <span>My Login</span>
         </button>
 
@@ -1198,7 +1200,6 @@ export default function Sidebar({ sidebarOpen }) {
           className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-red-500 px-4 py-3 font-semibold text-white transition-all hover:bg-red-600"
         >
           <RiIcons.RiLogoutBoxLine size={20} />
-
           <span>Logout</span>
         </button>
       </div>

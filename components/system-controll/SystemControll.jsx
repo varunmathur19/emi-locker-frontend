@@ -18,10 +18,10 @@ export default function SystemControll() {
 
       const response = await getCompanySetting();
 
-      console.log(
-        "Get Company Setting Response:",
-        response
-      );
+      // console.log(
+      //   "Get Company Setting Response:",
+      //   response
+      // );
 
       const responseData =
         response?.data?.data ||

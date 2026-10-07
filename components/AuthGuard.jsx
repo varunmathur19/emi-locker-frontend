@@ -19,7 +19,7 @@ export default function AuthGuard({ children }) {
 
       const roleId = Number(getRoleId());
 
-      console.log("AUTH ROLE ID:", roleId);
+      // console.log("AUTH ROLE ID:", roleId);
 
       setChecking(false);
     };
