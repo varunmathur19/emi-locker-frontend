@@ -1,11 +1,13 @@
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { IoMdArrowDropdown } from "react-icons/io";
-import { RiSearchLine, RiEyeLine,
-  RiEyeOffLine,} from "react-icons/ri";
+import {
+  RiSearchLine,
+  RiEyeLine,
+  RiEyeOffLine,
+} from "react-icons/ri";
 import { toast } from "react-toastify";
 
 import {
@@ -639,8 +641,11 @@ export default function TransferPoint() {
 
   const [keySettings, setKeySettings] =
     useState([]);
-    const [showTransactionPin, setShowTransactionPin] =
-  useState(false);
+
+  const [
+    showTransactionPin,
+    setShowTransactionPin,
+  ] = useState(false);
 
   const [
     schemaKeyDropdownOpen,
@@ -677,11 +682,15 @@ export default function TransferPoint() {
   const [transactionPin, setTransactionPin] =
     useState("");
 
-  const [transactionPinLoading, setTransactionPinLoading] =
-    useState(false);
+  const [
+    transactionPinLoading,
+    setTransactionPinLoading,
+  ] = useState(false);
 
-  const [transactionPinEntry, setTransactionPinEntry] =
-    useState("");
+  const [
+    transactionPinEntry,
+    setTransactionPinEntry,
+  ] = useState("");
 
   const [transferUsers, setTransferUsers] =
     useState([]);
@@ -851,6 +860,50 @@ export default function TransferPoint() {
       ),
     [roles, roleId]
   );
+
+  /*
+   * Schema Transfer role visibility:
+   *
+   * Master Admin / Admin:
+   * - Show all active roles
+   *
+   * CNF / Super Distributor / Distributor / FOS:
+   * - Hide Employee
+   *
+   * Retailer / Sub Retailer:
+   * - Hide Staff
+   */
+  const schemaRoleOptions = useMemo(() => {
+    return availableRoleOptions.filter(
+      (role) => {
+        const currentRole = Number(roleId);
+        const targetRole = Number(
+          role?.role_id
+        );
+
+        if (
+          currentRole === 0 ||
+          currentRole === 1
+        ) {
+          return true;
+        }
+
+        if (
+          [2, 3, 4, 5].includes(currentRole)
+        ) {
+          return targetRole !== 8;
+        }
+
+        if (
+          [6, 7].includes(currentRole)
+        ) {
+          return targetRole !== 9;
+        }
+
+        return true;
+      }
+    );
+  }, [availableRoleOptions, roleId]);
 
   const nextRoleId = useMemo(() => {
     if (
@@ -1908,52 +1961,58 @@ export default function TransferPoint() {
     </div>
   );
 
-const transactionPinEntryField = (
-  <div>
-    <label className="mb-2 block text-sm font-semibold text-gray-700">
-      Transaction PIN
-    </label>
+  const transactionPinEntryField = (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-gray-700">
+        Transaction PIN
+      </label>
 
-    <div className="relative">
-      <input
-        type={showTransactionPin ? "text" : "password"}
-        inputMode="numeric"
-        pattern="[0-9]*"
-        maxLength={4}
-        value={transactionPinEntry}
-        onChange={handleTransactionPinChange}
-        placeholder="Enter 4 digit PIN"
-        disabled={transferLoading}
-        className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 pr-12 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
-      />
+      <div className="relative">
+        <input
+          type={
+            showTransactionPin
+              ? "text"
+              : "password"
+          }
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={4}
+          value={transactionPinEntry}
+          onChange={
+            handleTransactionPinChange
+          }
+          placeholder="Enter 4 digit PIN"
+          disabled={transferLoading}
+          className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 pr-12 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
+        />
 
-      <button
-        type="button"
-        onClick={() =>
-          setShowTransactionPin(
-            (previous) => !previous
-          )
-        }
-        disabled={
-          transferLoading ||
-          !transactionPinEntry
-        }
-        className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 transition hover:text-gray-700 disabled:cursor-not-allowed disabled:text-gray-300"
-        aria-label={
-          showTransactionPin
-            ? "Hide transaction PIN"
-            : "Show transaction PIN"
-        }
-      >
-        {showTransactionPin ? (
-          <RiEyeOffLine size={20} />
-        ) : (
-          <RiEyeLine size={20} />
-        )}
-      </button>
+        <button
+          type="button"
+          onClick={() =>
+            setShowTransactionPin(
+              (previous) => !previous
+            )
+          }
+          disabled={
+            transferLoading ||
+            !transactionPinEntry
+          }
+          className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 transition hover:text-gray-700 disabled:cursor-not-allowed disabled:text-gray-300"
+          aria-label={
+            showTransactionPin
+              ? "Hide transaction PIN"
+              : "Show transaction PIN"
+          }
+        >
+          {showTransactionPin ? (
+            <RiEyeOffLine size={20} />
+          ) : (
+            <RiEyeLine size={20} />
+          )}
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
 
   const isSubmitDisabled =
     transferLoading ||
@@ -1972,7 +2031,7 @@ const transactionPinEntryField = (
     <div className="min-h-screen">
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <div className="mb-6">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 ">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
             {transactionPinField}
           </div>
         </div>
@@ -2303,7 +2362,7 @@ const transactionPinEntryField = (
 
               <RoleDropdown
                 value={selectedSchemaRole}
-                roles={availableRoleOptions}
+                roles={schemaRoleOptions}
                 open={schemaRoleDropdownOpen}
                 setOpen={
                   setSchemaRoleDropdownOpen
@@ -2313,7 +2372,7 @@ const transactionPinEntryField = (
                   !selectedKey ||
                   loadingRoles ||
                   transferLoading ||
-                  availableRoleOptions.length === 0
+                  schemaRoleOptions.length === 0
                 }
                 placeholder="Select Role"
                 onSelect={

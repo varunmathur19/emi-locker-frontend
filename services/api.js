@@ -513,10 +513,10 @@ export const getCompanySetting = async () => {
     }
   );
 
-  console.log(
-    "GET COMPANY SETTING API:",
-    response.data
-  );
+  // console.log(
+  //   "GET COMPANY SETTING API:",
+  //   response.data
+  // );
 
   return response.data;
 };
