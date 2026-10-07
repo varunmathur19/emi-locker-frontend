@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -19,6 +18,7 @@ import {
   loginAsUser,
   updateUserStatus,
   getAllStaffData,
+  getModules,
 } from "@/services/api";
 
 import {
@@ -35,6 +35,52 @@ import {
 
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 
+const roleMap = {
+  0: "Master Admin",
+  1: "Admin",
+  2: "CNF",
+  3: "Super Distributor",
+  4: "Distributor",
+  5: "FOS",
+  6: "Retailer",
+  7: "Sub Retailer",
+  8: "Employee",
+  9: "Staff",
+};
+
+const roleSlugMap = {
+  0: "master-admin",
+  1: "admin",
+  2: "cnf",
+  3: "super-distributor",
+  4: "distributor",
+  5: "fos",
+  6: "retailer",
+  7: "sub-retailer",
+  8: "employee",
+  9: "staff",
+};
+
+const roleButtons = {
+  1: "Add Admin",
+  2: "Add CNF",
+  3: "Add Super Distributor",
+  4: "Add Distributor",
+  5: "Add FOS",
+  6: "Add Retailer",
+  7: "Add Sub Retailer",
+  8: "Add Employee",
+  9: "Add Staff",
+};
+
+const subModulePermissionIds = {
+  manage: 3,
+  edit: 4,
+  view: 5,
+  add: 6,
+  delete: 7,
+};
+
 const formatPhoneNumber = (phone) => {
   const value = String(phone || "").trim();
 
@@ -42,9 +88,13 @@ const formatPhoneNumber = (phone) => {
     return "-";
   }
 
-  const parsed = parsePhoneNumberFromString(value);
+  const parsed =
+    parsePhoneNumberFromString(value);
 
-  if (parsed?.countryCallingCode && parsed?.nationalNumber) {
+  if (
+    parsed?.countryCallingCode &&
+    parsed?.nationalNumber
+  ) {
     return `+${parsed.countryCallingCode} ${parsed.nationalNumber}`;
   }
 
@@ -65,26 +115,61 @@ export default function UsersTable({
   const pathname = usePathname();
 
   const [search, setSearch] = useState("");
-  const [filterSearch, setFilterSearch] = useState("");
-  const [filterSearchResults, setFilterSearchResults] = useState([]);
-  const [filterSearchApplied, setFilterSearchApplied] = useState(false);
+  const [filterSearch, setFilterSearch] =
+    useState("");
+  const [
+    filterSearchResults,
+    setFilterSearchResults,
+  ] = useState([]);
+  const [
+    filterSearchApplied,
+    setFilterSearchApplied,
+  ] = useState(false);
 
-  const [loginLoading, setLoginLoading] = useState(null);
-  const [statusLoading, setStatusLoading] = useState(null);
+  const [loginLoading, setLoginLoading] =
+    useState(null);
+  const [statusLoading, setStatusLoading] =
+    useState(null);
 
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterOpen, setFilterOpen] =
+    useState(false);
 
-  const [searchSuggestions, setSearchSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchApplied, setSearchApplied] = useState(false);
+  const [
+    searchSuggestions,
+    setSearchSuggestions,
+  ] = useState([]);
+  const [
+    showSuggestions,
+    setShowSuggestions,
+  ] = useState(false);
+  const [searchLoading, setSearchLoading] =
+    useState(false);
+  const [searchResults, setSearchResults] =
+    useState([]);
+  const [searchApplied, setSearchApplied] =
+    useState(false);
 
-  const [staffPermissions, setStaffPermissions] = useState(null);
-  const [currentRoleId, setCurrentRoleId] = useState(null);
+  const [
+    staffPermissions,
+    setStaffPermissions,
+  ] = useState(null);
 
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [totalUsersLoading, setTotalUsersLoading] = useState(false);
+  const [
+    currentRoleId,
+    setCurrentRoleId,
+  ] = useState(null);
+
+  const [modules, setModules] = useState(
+    []
+  );
+
+  const [totalUsers, setTotalUsers] =
+    useState(0);
+
+  const [
+    totalUsersLoading,
+    setTotalUsersLoading,
+  ] = useState(false);
 
   const [filters, setFilters] = useState({
     country: "",
@@ -93,45 +178,8 @@ export default function UsersTable({
     status: "",
   });
 
-  const roleMap = {
-    0: "Master Admin",
-    1: "Admin",
-    2: "CNF",
-    3: "Super Distributor",
-    4: "Distributor",
-    5: "FOS",
-    6: "Retailer",
-    7: "Sub Retailer",
-    8: "Employee",
-    9: "Staff",
-  };
-
-  const roleSlugMap = {
-    0: "master-admin",
-    1: "admin",
-    2: "cnf",
-    3: "super-distributor",
-    4: "distributor",
-    5: "fos",
-    6: "retailer",
-    7: "sub-retailer",
-    8: "employee",
-    9: "staff",
-  };
-
-  const roleButtons = {
-    1: "Add Admin",
-    2: "Add CNF",
-    3: "Add Super Distributor",
-    4: "Add Distributor",
-    5: "Add FOS",
-    6: "Add Retailer",
-    7: "Add Sub Retailer",
-    8: "Add Employee",
-    9: "Add Staff",
-  };
-
-  const selectedRoleId = Number(selectedRole);
+  const selectedRoleId =
+    Number(selectedRole);
 
   const selectedRoleName =
     roleMap[selectedRoleId] ||
@@ -147,7 +195,9 @@ export default function UsersTable({
       : `Total ${selectedRoleName}`;
 
   const isFormPage =
-    pathname?.startsWith("/dashboard/form");
+    pathname?.startsWith(
+      "/dashboard/form"
+    );
 
   const isUsersListPage = !isFormPage;
 
@@ -164,12 +214,101 @@ export default function UsersTable({
       return response.users;
     }
 
-    if (Array.isArray(response?.data?.users)) {
+    if (
+      Array.isArray(
+        response?.data?.users
+      )
+    ) {
       return response.data.users;
     }
 
     return [];
   };
+
+  const parsePermissions = (value) => {
+    if (!value) {
+      return null;
+    }
+
+    try {
+      const parsed =
+        typeof value === "string"
+          ? JSON.parse(value)
+          : value;
+
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        !Array.isArray(parsed)
+      ) {
+        return parsed;
+      }
+    } catch (error) {
+      console.error(
+        "PERMISSION PARSE ERROR:",
+        error
+      );
+    }
+
+    return null;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadModules = async () => {
+      try {
+        const response =
+          await getModules();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (
+          response?.success &&
+          Array.isArray(response?.data)
+        ) {
+          const activeModules =
+            response.data
+              .filter(
+                (moduleItem) =>
+                  Number(
+                    moduleItem?.status ?? 1
+                  ) === 1
+              )
+              .sort(
+                (a, b) =>
+                  Number(
+                    a?.sequence ?? 0
+                  ) -
+                  Number(
+                    b?.sequence ?? 0
+                  )
+              );
+
+          setModules(activeModules);
+        } else {
+          setModules([]);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            "GET MODULES ERROR:",
+            error
+          );
+
+          setModules([]);
+        }
+      }
+    };
+
+    loadModules();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,16 +327,20 @@ export default function UsersTable({
         const pageLimit = 10;
         const maxPages = 1000;
 
-        while (currentPage <= maxPages) {
-          const response = await getAllStaffData(
-            currentPage,
-            pageLimit,
-            selectedRoleId,
-            "",
-            ""
-          );
+        while (
+          currentPage <= maxPages
+        ) {
+          const response =
+            await getAllStaffData(
+              currentPage,
+              pageLimit,
+              selectedRoleId,
+              "",
+              ""
+            );
 
-          const pageUsers = getResponseUsers(response);
+          const pageUsers =
+            getResponseUsers(response);
 
           total += pageUsers.length;
 
@@ -222,13 +365,23 @@ export default function UsersTable({
 
         if (!cancelled) {
           const backendTotal =
-            Number(pagination?.total) ||
-            Number(pagination?.totalRecords) ||
-            Number(pagination?.totalCount) ||
-            Number(pagination?.count);
+            Number(
+              pagination?.total
+            ) ||
+            Number(
+              pagination?.totalRecords
+            ) ||
+            Number(
+              pagination?.totalCount
+            ) ||
+            Number(
+              pagination?.count
+            );
 
           if (backendTotal > 0) {
-            setTotalUsers(backendTotal);
+            setTotalUsers(
+              backendTotal
+            );
           } else {
             setTotalUsers(
               Array.isArray(users)
@@ -254,15 +407,14 @@ export default function UsersTable({
   useEffect(() => {
     const loadPermissions = () => {
       try {
-        const roleId = Number(getRoleId());
+        const roleId = Number(
+          getRoleId()
+        );
 
         setCurrentRoleId(roleId);
 
         if (roleId !== 9) {
           setStaffPermissions(null);
-          localStorage.removeItem(
-            "staff_permissions"
-          );
           return;
         }
 
@@ -271,25 +423,16 @@ export default function UsersTable({
             "staff_permissions"
           );
 
-        if (savedStaffPermissions) {
-          try {
-            const parsed = JSON.parse(
-              savedStaffPermissions
-            );
+        const parsedPermissions =
+          parsePermissions(
+            savedStaffPermissions
+          );
 
-            if (
-              parsed &&
-              typeof parsed === "object" &&
-              !Array.isArray(parsed)
-            ) {
-              setStaffPermissions(parsed);
-              return;
-            }
-          } catch {
-            localStorage.removeItem(
-              "staff_permissions"
-            );
-          }
+        if (parsedPermissions) {
+          setStaffPermissions(
+            parsedPermissions
+          );
+          return;
         }
 
         const savedUser =
@@ -300,31 +443,31 @@ export default function UsersTable({
           return;
         }
 
-        const user = JSON.parse(savedUser);
+        const user =
+          JSON.parse(savedUser);
 
-        let permission =
-          user?.staff_permission?.permission ||
-          user?.role_permission?.permission ||
+        const permission =
+          user?.staff_permission
+            ?.permission ||
+          user?.role_permission
+            ?.permission ||
           null;
 
-        if (typeof permission === "string") {
-          try {
-            permission = JSON.parse(permission);
-          } catch {
-            permission = null;
-          }
-        }
+        const parsedPermission =
+          parsePermissions(
+            permission
+          );
 
-        if (
-          permission &&
-          typeof permission === "object" &&
-          !Array.isArray(permission)
-        ) {
-          setStaffPermissions(permission);
+        if (parsedPermission) {
+          setStaffPermissions(
+            parsedPermission
+          );
 
           localStorage.setItem(
             "staff_permissions",
-            JSON.stringify(permission)
+            JSON.stringify(
+              parsedPermission
+            )
           );
 
           return;
@@ -343,9 +486,12 @@ export default function UsersTable({
 
     loadPermissions();
 
-    const handleStorage = (event) => {
+    const handleStorage = (
+      event
+    ) => {
       if (
-        event.key === "staff_permissions" ||
+        event.key ===
+          "staff_permissions" ||
         event.key === "user"
       ) {
         loadPermissions();
@@ -365,7 +511,9 @@ export default function UsersTable({
     };
   }, []);
 
-  const isPermissionEnabled = (value) => {
+  const isPermissionEnabled = (
+    value
+  ) => {
     if (
       value === undefined ||
       value === null
@@ -373,32 +521,56 @@ export default function UsersTable({
       return false;
     }
 
-    if (typeof value === "boolean") {
+    if (
+      typeof value === "boolean"
+    ) {
       return value;
     }
 
-    if (typeof value === "number") {
+    if (
+      typeof value === "number"
+    ) {
       return value === 1;
     }
 
-    if (typeof value === "string") {
+    if (
+      typeof value === "string"
+    ) {
+      const normalized =
+        value.trim().toLowerCase();
+
       return (
-        value === "1" ||
-        value.toLowerCase() === "true"
+        normalized === "1" ||
+        normalized === "true" ||
+        normalized === "yes"
       );
     }
 
-    if (typeof value === "object") {
-      if (value.status !== undefined) {
-        return Number(value.status) === 1;
+    if (
+      typeof value === "object"
+    ) {
+      if (
+        value.status !== undefined
+      ) {
+        return (
+          Number(value.status) === 1
+        );
       }
 
-      if (value.access !== undefined) {
-        return Number(value.access) === 1;
+      if (
+        value.access !== undefined
+      ) {
+        return (
+          Number(value.access) === 1
+        );
       }
 
-      if (value.view !== undefined) {
-        return Number(value.view) === 1;
+      if (
+        value.view !== undefined
+      ) {
+        return (
+          Number(value.view) === 1
+        );
       }
 
       return true;
@@ -407,11 +579,61 @@ export default function UsersTable({
     return false;
   };
 
+  const getModuleByRoleSlug = (
+    roleSlug
+  ) => {
+    const cleanSlug = String(
+      roleSlug || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    if (!cleanSlug) {
+      return null;
+    }
+
+    return (
+      modules.find((moduleItem) => {
+        const moduleSlug =
+          String(
+            moduleItem?.slug || ""
+          )
+            .trim()
+            .toLowerCase();
+
+        return (
+          moduleSlug === cleanSlug
+        );
+      }) || null
+    );
+  };
+
+  const getModuleIdByRoleSlug = (
+    roleSlug
+  ) => {
+    const module =
+      getModuleByRoleSlug(
+        roleSlug
+      );
+
+    const moduleId = Number(
+      module?.id
+    );
+
+    return Number.isFinite(
+      moduleId
+    )
+      ? moduleId
+      : null;
+  };
+
   const hasPermission = (
-    slug,
+    roleSlug,
     action = null
   ) => {
-    if (Number(currentRoleId) !== 9) {
+    if (
+      Number(currentRoleId) !== 9
+    ) {
       return true;
     }
 
@@ -419,83 +641,107 @@ export default function UsersTable({
       return false;
     }
 
-    const cleanSlug = String(slug || "")
-      .trim()
-      .toLowerCase();
+    const moduleId =
+      getModuleIdByRoleSlug(
+        roleSlug
+      );
 
-    if (!cleanSlug) {
+    if (
+      moduleId === null
+    ) {
       return false;
     }
 
-    if (action) {
-      const actionKey = `${cleanSlug}.${action}`;
-      const manageKey = `${cleanSlug}.manage`;
+    if (!action) {
+      const modulePrefix =
+        `${moduleId}.`;
 
-      if (
-        staffPermissions[actionKey] !==
-          undefined &&
-        isPermissionEnabled(
-          staffPermissions[actionKey]
-        )
-      ) {
-        return true;
-      }
+      return Object.entries(
+        staffPermissions
+      ).some(
+        ([permissionKey, value]) => {
+          const key = String(
+            permissionKey
+          ).trim();
 
-      if (
-        staffPermissions[manageKey] !==
-          undefined &&
-        isPermissionEnabled(
-          staffPermissions[manageKey]
-        )
-      ) {
-        return true;
-      }
+          if (
+            !key.startsWith(
+              modulePrefix
+            )
+          ) {
+            return false;
+          }
 
+          return isPermissionEnabled(
+            value
+          );
+        }
+      );
+    }
+
+    const normalizedAction =
+      String(action)
+        .trim()
+        .toLowerCase();
+
+    const actionId =
+      subModulePermissionIds[
+        normalizedAction
+      ];
+
+    if (
+      !actionId
+    ) {
       if (
-        staffPermissions[cleanSlug] !==
-        undefined
+        normalizedAction ===
+        "login"
       ) {
-        return isPermissionEnabled(
-          staffPermissions[cleanSlug]
+        return hasPermission(
+          roleSlug,
+          "manage"
         );
       }
 
       return false;
     }
 
+    const permissionKey =
+      `${moduleId}.${actionId}`;
+
     if (
-      staffPermissions[cleanSlug] !==
-      undefined
+      staffPermissions[
+        permissionKey
+      ] !== undefined
     ) {
       return isPermissionEnabled(
-        staffPermissions[cleanSlug]
+        staffPermissions[
+          permissionKey
+        ]
       );
     }
 
-    const matchingKeys = Object.keys(
-      staffPermissions
-    ).filter((key) => {
-      const cleanKey = String(key)
-        .trim()
-        .toLowerCase();
-
-      return (
-        cleanKey === cleanSlug ||
-        cleanKey.startsWith(
-          `${cleanSlug}.`
-        )
+    if (
+      normalizedAction !==
+        "manage" &&
+      staffPermissions[
+        `${moduleId}.${subModulePermissionIds.manage}`
+      ] !== undefined
+    ) {
+      return isPermissionEnabled(
+        staffPermissions[
+          `${moduleId}.${subModulePermissionIds.manage}`
+        ]
       );
-    });
+    }
 
-    return matchingKeys.some((key) =>
-      isPermissionEnabled(
-        staffPermissions[key]
-      )
-    );
+    return false;
   };
 
   const canViewSelectedRole =
-    hasPermission(selectedRoleSlug);
+    hasPermission(
+      selectedRoleSlug,
+      "view"
+    );
 
   const canAddSelectedRole =
     hasPermission(
@@ -505,12 +751,20 @@ export default function UsersTable({
 
   const getSearchLimit = () => {
     const total =
-      Number(pagination?.total) ||
-      Number(pagination?.totalRecords) ||
-      Number(pagination?.count) ||
+      Number(
+        pagination?.total
+      ) ||
+      Number(
+        pagination?.totalRecords
+      ) ||
+      Number(
+        pagination?.count
+      ) ||
       0;
 
-    return total > 0 ? total : 10000;
+    return total > 0
+      ? total
+      : 10000;
   };
 
   const handleFilterChange = (
@@ -523,12 +777,16 @@ export default function UsersTable({
         [field]: value,
       };
 
-      if (field === "country") {
+      if (
+        field === "country"
+      ) {
         updated.state = "";
         updated.city = "";
       }
 
-      if (field === "state") {
+      if (
+        field === "state"
+      ) {
         updated.city = "";
       }
 
@@ -539,7 +797,9 @@ export default function UsersTable({
     setFilterSearchApplied(false);
     setPage?.(1);
 
-    if (field === "status") {
+    if (
+      field === "status"
+    ) {
       setSearchResults([]);
       setSearchApplied(false);
     }
@@ -548,14 +808,16 @@ export default function UsersTable({
   const countryOptions =
     Country.getAllCountries();
 
-  const stateOptions = filters.country
-    ? State.getStatesOfCountry(
-        filters.country
-      ).map((state) => ({
-        ...state,
-        countryCode: filters.country,
-      }))
-    : [];
+  const stateOptions =
+    filters.country
+      ? State.getStatesOfCountry(
+          filters.country
+        ).map((state) => ({
+          ...state,
+          countryCode:
+            filters.country,
+        }))
+      : [];
 
   const cityOptions = (() => {
     if (!filters.state) {
@@ -565,10 +827,16 @@ export default function UsersTable({
     const parts =
       filters.state.split("-");
 
-    const countryCode = parts[0];
-    const stateCode = parts[1];
+    const countryCode =
+      parts[0];
 
-    if (!countryCode || !stateCode) {
+    const stateCode =
+      parts[1];
+
+    if (
+      !countryCode ||
+      !stateCode
+    ) {
       return [];
     }
 
@@ -643,18 +911,32 @@ export default function UsersTable({
           }
 
           const data =
-            getResponseUsers(response);
+            getResponseUsers(
+              response
+            );
 
-          setSearchSuggestions(data);
-          setShowSuggestions(true);
+          setSearchSuggestions(
+            data
+          );
+
+          setShowSuggestions(
+            true
+          );
         } catch {
           if (!cancelled) {
-            setSearchSuggestions([]);
-            setShowSuggestions(false);
+            setSearchSuggestions(
+              []
+            );
+
+            setShowSuggestions(
+              false
+            );
           }
         } finally {
           if (!cancelled) {
-            setSearchLoading(false);
+            setSearchLoading(
+              false
+            );
           }
         }
       },
@@ -687,7 +969,8 @@ export default function UsersTable({
         label: "Name",
       },
       {
-        value: user?.organization_name,
+        value:
+          user?.organization_name,
         label: "Organization",
       },
       {
@@ -712,7 +995,9 @@ export default function UsersTable({
       fields.find(
         (field) =>
           field.value &&
-          String(field.value)
+          String(
+            field.value
+          )
             .toLowerCase()
             .includes(query)
       );
@@ -737,7 +1022,9 @@ export default function UsersTable({
     user
   ) => {
     const suggestion =
-      getSuggestionValue(user);
+      getSuggestionValue(
+        user
+      );
 
     const value = String(
       suggestion?.value || ""
@@ -750,8 +1037,12 @@ export default function UsersTable({
     setFilterSearch(value);
     setShowSuggestions(false);
     setSearchSuggestions([]);
-    setFilterSearchResults([user]);
-    setFilterSearchApplied(true);
+    setFilterSearchResults([
+      user,
+    ]);
+    setFilterSearchApplied(
+      true
+    );
     setPage?.(1);
   };
 
@@ -805,12 +1096,16 @@ export default function UsersTable({
         );
 
       const data =
-        getResponseUsers(response);
+        getResponseUsers(
+          response
+        );
 
       setSearchResults(data);
       setSearchApplied(true);
 
-      onSearch?.(trimmedSearch);
+      onSearch?.(
+        trimmedSearch
+      );
     } catch (error) {
       console.error(
         "BACKEND SEARCH ERROR:",
@@ -821,7 +1116,8 @@ export default function UsersTable({
       setSearchApplied(true);
 
       toast.error(
-        error?.response?.data?.message ||
+        error?.response?.data
+          ?.message ||
           error?.message ||
           "Search failed"
       );
@@ -833,7 +1129,9 @@ export default function UsersTable({
   const handleSearchKeyDown = (
     event
   ) => {
-    if (event.key === "Enter") {
+    if (
+      event.key === "Enter"
+    ) {
       event.preventDefault();
       handleSearch();
     }
@@ -852,16 +1150,30 @@ export default function UsersTable({
   const handleLoginAsUser = async (
     user
   ) => {
+    const userRoleId = Number(
+      user?.role_id
+    );
+
+    const userRoleSlug =
+      roleSlugMap[
+        userRoleId
+      ] || "";
+
     if (
-      Number(currentRoleId) === 9 &&
+      Number(currentRoleId) ===
+        9 &&
       !hasPermission(
-        selectedRoleSlug,
+        userRoleSlug,
         "login"
       )
     ) {
       toast.error(
-        `You don't have login permission for ${selectedRoleName}`
+        `You don't have login permission for ${
+          roleMap[userRoleId] ||
+          "this role"
+        }`
       );
+
       return;
     }
 
@@ -869,18 +1181,26 @@ export default function UsersTable({
       setLoginLoading(user.id);
 
       const response =
-        await loginAsUser(user.id);
+        await loginAsUser(
+          user.id
+        );
 
       if (!response?.success) {
         toast.error(
           response?.message ||
             "Login failed"
         );
+
         return;
       }
 
-      saveToken(response.token);
-      saveUser(response.user);
+      saveToken(
+        response.token
+      );
+
+      saveUser(
+        response.user
+      );
 
       let permissions =
         response.user
@@ -891,25 +1211,16 @@ export default function UsersTable({
           ?.permission ||
         null;
 
-      if (typeof permissions === "string") {
-        try {
-          permissions =
-            JSON.parse(permissions);
-        } catch {
-          permissions = null;
-        }
-      }
+      permissions =
+        parsePermissions(
+          permissions
+        );
 
       if (
         Number(
           response.user?.role_id
         ) === 9 &&
-        permissions &&
-        typeof permissions ===
-          "object" &&
-        !Array.isArray(
-          permissions
-        )
+        permissions
       ) {
         localStorage.setItem(
           "staff_permissions",
@@ -924,7 +1235,10 @@ export default function UsersTable({
       }
 
       toast.success(
-        `Logged in as ${response.user.name}`
+        `Logged in as ${
+          response.user?.name ||
+          "user"
+        }`
       );
 
       window.location.href =
@@ -949,29 +1263,47 @@ export default function UsersTable({
   const handleStatusToggle = async (
     user
   ) => {
+    const userRoleId = Number(
+      user?.role_id
+    );
+
+    const userRoleSlug =
+      roleSlugMap[
+        userRoleId
+      ] || "";
+
     if (
-      Number(currentRoleId) === 9 &&
+      Number(currentRoleId) ===
+        9 &&
       !hasPermission(
-        selectedRoleSlug,
+        userRoleSlug,
         "delete"
       )
     ) {
       toast.error(
-        `You don't have delete permission for ${selectedRoleName}`
+        `You don't have delete permission for ${
+          roleMap[userRoleId] ||
+          "this role"
+        }`
       );
 
       return;
     }
 
     try {
-      setStatusLoading(user.id);
-
-      const currentStatus = Number(
-        user?.userStatus ?? 1
+      setStatusLoading(
+        user.id
       );
 
+      const currentStatus =
+        Number(
+          user?.userStatus ?? 1
+        );
+
       const newStatus =
-        currentStatus === 1 ? 0 : 1;
+        currentStatus === 1
+          ? 0
+          : 1;
 
       const response =
         await updateUserStatus(
@@ -984,34 +1316,40 @@ export default function UsersTable({
           response?.message ||
             "Failed to update user status"
         );
+
         return;
       }
 
-      user.userStatus = newStatus;
+      user.userStatus =
+        newStatus;
 
       setSearchResults(
         (previous) =>
-          previous.map((item) =>
-            item.id === user.id
-              ? {
-                  ...item,
-                  userStatus:
-                    newStatus,
-                }
-              : item
+          previous.map(
+            (item) =>
+              item.id ===
+              user.id
+                ? {
+                    ...item,
+                    userStatus:
+                      newStatus,
+                  }
+                : item
           )
       );
 
       setFilterSearchResults(
         (previous) =>
-          previous.map((item) =>
-            item.id === user.id
-              ? {
-                  ...item,
-                  userStatus:
-                    newStatus,
-                }
-              : item
+          previous.map(
+            (item) =>
+              item.id ===
+              user.id
+                ? {
+                    ...item,
+                    userStatus:
+                      newStatus,
+                  }
+                : item
           )
       );
 
@@ -1027,12 +1365,15 @@ export default function UsersTable({
       );
 
       toast.error(
-        error?.response?.data?.message ||
+        error?.response?.data
+          ?.message ||
           error?.message ||
           "Failed to update user status"
       );
     } finally {
-      setStatusLoading(null);
+      setStatusLoading(
+        null
+      );
     }
   };
 
@@ -1046,7 +1387,9 @@ export default function UsersTable({
         page - 1;
 
       if (!filters.status) {
-        setPage(previousPage);
+        setPage(
+          previousPage
+        );
         return;
       }
 
@@ -1063,7 +1406,9 @@ export default function UsersTable({
           );
 
         setSearchResults(
-          getResponseUsers(response)
+          getResponseUsers(
+            response
+          )
         );
 
         setSearchApplied(true);
@@ -1080,59 +1425,71 @@ export default function UsersTable({
       }
     };
 
-  const handleNextPage = async () => {
-    const totalPages =
-      Number(
-        pagination?.totalPages
-      ) || 1;
+  const handleNextPage =
+    async () => {
+      const totalPages =
+        Number(
+          pagination?.totalPages
+        ) || 1;
 
-    if (page >= totalPages) {
-      return;
-    }
+      if (
+        page >= totalPages
+      ) {
+        return;
+      }
 
-    const nextPage = page + 1;
+      const nextPage =
+        page + 1;
 
-    if (!filters.status) {
-      setPage(nextPage);
-      return;
-    }
+      if (!filters.status) {
+        setPage(nextPage);
+        return;
+      }
 
-    try {
-      setSearchLoading(true);
+      try {
+        setSearchLoading(true);
 
-      const response =
-        await getAllStaffData(
-          nextPage,
-          getSearchLimit(),
-          selectedRoleId || "",
-          "",
-          filters.status
+        const response =
+          await getAllStaffData(
+            nextPage,
+            getSearchLimit(),
+            selectedRoleId || "",
+            "",
+            filters.status
+          );
+
+        setSearchResults(
+          getResponseUsers(
+            response
+          )
         );
 
-      setSearchResults(
-        getResponseUsers(response)
-      );
-
-      setSearchApplied(true);
-      setPage(nextPage);
-    } catch (error) {
-      toast.error(
-        error?.response?.data
-          ?.message ||
-          error?.message ||
-          "Failed to load users"
-      );
-    } finally {
-      setSearchLoading(false);
-    }
-  };
+        setSearchApplied(true);
+        setPage(nextPage);
+      } catch (error) {
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            error?.message ||
+            "Failed to load users"
+        );
+      } finally {
+        setSearchLoading(false);
+      }
+    };
 
   let tableUsers = users;
 
-  if (filterSearchApplied) {
-    tableUsers = filterSearchResults;
-  } else if (searchApplied) {
-    tableUsers = searchResults;
+  if (
+    filterSearchApplied
+  ) {
+    tableUsers =
+      filterSearchResults;
+  } else if (
+    searchApplied
+  ) {
+    tableUsers =
+      searchResults;
   }
 
   const filteredUsers =
@@ -1287,8 +1644,9 @@ export default function UsersTable({
       Number(user?.role_id);
 
     const actualRoleSlug =
-      roleSlugMap[actualRoleId] ||
-      "";
+      roleSlugMap[
+        actualRoleId
+      ] || "";
 
     return (
       `/dashboard/form?id=${encodeURIComponent(
@@ -1302,28 +1660,10 @@ export default function UsersTable({
     );
   };
 
-  const hasExplicitViewPermission =
-    Number(currentRoleId) === 9 &&
-    staffPermissions &&
-    Object.prototype.hasOwnProperty.call(
-      staffPermissions,
-      `${selectedRoleSlug}.view`
-    );
-
-  const canViewRole =
-    Number(currentRoleId) !== 9
-      ? true
-      : hasExplicitViewPermission
-      ? isPermissionEnabled(
-          staffPermissions[
-            `${selectedRoleSlug}.view`
-          ]
-        )
-      : canViewSelectedRole;
-
   if (
-    Number(currentRoleId) === 9 &&
-    !canViewRole
+    Number(currentRoleId) ===
+      9 &&
+    !canViewSelectedRole
   ) {
     return (
       <div className="md:mt-8 mt-5 bg-white rounded-xl shadow p-6">
@@ -1333,8 +1673,9 @@ export default function UsersTable({
           </div>
 
           <p className="mt-2 text-sm text-gray-500">
-            You don't have permission to
-            access {selectedRoleName}.
+            You don't have permission
+            to access{" "}
+            {selectedRoleName}.
           </p>
         </div>
       </div>
@@ -1347,9 +1688,13 @@ export default function UsersTable({
         <div className="flex gap-3 overflow-x-auto whitespace-nowrap w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             type="button"
-            disabled={isUsersListPage}
+            disabled={
+              isUsersListPage
+            }
             onClick={() => {
-              if (!isUsersListPage) {
+              if (
+                !isUsersListPage
+              ) {
                 handleRoleList?.(
                   selectedRoleId,
                   selectedRoleSlug
@@ -1362,7 +1707,8 @@ export default function UsersTable({
                 : "bg-gray-700 text-white hover:bg-gray-800 cursor-pointer"
             }`}
           >
-            {selectedRoleName} List
+            {selectedRoleName}{" "}
+            List
           </button>
 
           {canAddSelectedRole && (
@@ -1799,7 +2145,8 @@ export default function UsersTable({
             </thead>
 
             <tbody>
-              {filteredUsers.length > 0 ? (
+              {filteredUsers.length >
+              0 ? (
                 filteredUsers.map(
                   (user, index) => {
                     const actualRoleId =
@@ -1856,7 +2203,9 @@ export default function UsersTable({
 
                     return (
                       <tr
-                        key={user.id}
+                        key={
+                          user.id
+                        }
                         className="border-b"
                       >
                         <td className="p-3">
@@ -1958,7 +2307,9 @@ export default function UsersTable({
                                   title={`Edit ${actualRoleName}`}
                                 >
                                   <RiEditLine
-                                    size={20}
+                                    size={
+                                      20
+                                    }
                                   />
                                 </button>
                               )}
@@ -1984,7 +2335,9 @@ export default function UsersTable({
                                     <span className="h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
                                   ) : (
                                     <RiLoginBoxLine
-                                      size={20}
+                                      size={
+                                        20
+                                      }
                                     />
                                   )}
                                 </button>

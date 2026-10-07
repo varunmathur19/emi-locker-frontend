@@ -252,6 +252,7 @@ export const getSubModules = async () => {
             "GET SUB MODULES API ERROR:",
             error?.response?.data || error?.message || error
         );
+
         throw error;
     }
 };
