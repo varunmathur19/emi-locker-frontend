@@ -479,6 +479,7 @@ export default function Dashboard() {
       const normalizedValue =
         normalizeRoleValue(valueString);
 
+      // First try the roles array
       const foundRole = roles.find((role) => {
         const roleName =
           normalizeRoleValue(role?.name);
@@ -492,11 +493,27 @@ export default function Dashboard() {
         );
       });
 
-      return foundRole
-        ? Number(foundRole.role_id)
-        : null;
+      if (foundRole) {
+        return Number(foundRole.role_id);
+      }
+
+      // Fall back to modules array (e.g. Admin is in modules but not in roles table)
+      const foundModule = modules.find((mod) => {
+        const modName = normalizeRoleValue(mod?.name);
+        const modSlug = normalizeRoleValue(mod?.slug);
+        return (
+          modName === normalizedValue ||
+          modSlug === normalizedValue
+        );
+      });
+
+      if (foundModule && foundModule.role_id != null) {
+        return Number(foundModule.role_id);
+      }
+
+      return null;
     },
-    [roles, normalizeRoleValue]
+    [roles, modules, normalizeRoleValue]
   );
 
   const urlRole = useMemo(

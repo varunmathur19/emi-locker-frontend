@@ -31,6 +31,19 @@ const allowedRolesByRole = {
   9: [],
 };
 
+const roleMap = {
+  0: "Master Admin",
+  1: "Admin",
+  2: "CNF",
+  3: "Super Distributor",
+  4: "Distributor",
+  5: "FOS",
+  6: "Retailer",
+  7: "Sub Retailer",
+  8: "Employee",
+  9: "Staff",
+};
+
 const pointTransactionTypes = {
   "transfer-points": 0,
   "schema-transfer-point": 1,
@@ -103,7 +116,7 @@ export default function Sidebar({ sidebarOpen }) {
 
   const activeRole =
     activeRoleParam !== null &&
-    activeRoleParam !== ""
+      activeRoleParam !== ""
       ? Number(activeRoleParam)
       : null;
 
@@ -148,16 +161,16 @@ export default function Sidebar({ sidebarOpen }) {
         ) {
           const nestedPermission =
             typeof parsed.permission ===
-            "string"
+              "string"
               ? JSON.parse(
-                  parsed.permission
-                )
+                parsed.permission
+              )
               : parsed.permission;
 
           if (
             nestedPermission &&
             typeof nestedPermission ===
-              "object" &&
+            "object" &&
             !Array.isArray(
               nestedPermission
             )
@@ -538,9 +551,9 @@ export default function Sidebar({ sidebarOpen }) {
       if (
         event.key === "user" ||
         event.key ===
-          "staff_permission" ||
+        "staff_permission" ||
         event.key ===
-          "staff_permissions"
+        "staff_permissions"
       ) {
         loadCurrentUser();
         loadWalletBalance();
@@ -550,9 +563,9 @@ export default function Sidebar({ sidebarOpen }) {
         event.key === "permission" ||
         event.key === "permissions" ||
         event.key ===
-          "role_permission" ||
+        "role_permission" ||
         event.key ===
-          "rolePermission"
+        "rolePermission"
       ) {
         removeInvalidPermissionKeys();
       }
@@ -759,7 +772,7 @@ export default function Sidebar({ sidebarOpen }) {
             currentRoleId
           ) &&
           activeRole ===
-            currentRoleId
+          currentRoleId
         ) {
           return true;
         }
@@ -800,7 +813,7 @@ export default function Sidebar({ sidebarOpen }) {
         ) {
           return (
             pathname ===
-              "/dashboard/key-setting" ||
+            "/dashboard/key-setting" ||
             pathname.startsWith(
               "/dashboard/key-setting/"
             )
@@ -813,7 +826,7 @@ export default function Sidebar({ sidebarOpen }) {
         ) {
           return (
             pathname ===
-              "/dashboard/role-permission" ||
+            "/dashboard/role-permission" ||
             pathname.startsWith(
               "/dashboard/role-permission/"
             )
@@ -826,7 +839,7 @@ export default function Sidebar({ sidebarOpen }) {
         ) {
           return (
             pathname ===
-              "/dashboard/company-setting" ||
+            "/dashboard/company-setting" ||
             pathname.startsWith(
               "/dashboard/company-setting/"
             )
@@ -839,7 +852,7 @@ export default function Sidebar({ sidebarOpen }) {
         ) {
           return (
             pathname ===
-              "/dashboard/system-controll" ||
+            "/dashboard/system-controll" ||
             pathname.startsWith(
               "/dashboard/system-controll/"
             )
@@ -853,7 +866,7 @@ export default function Sidebar({ sidebarOpen }) {
         ) {
           if (
             pathname !==
-              "/dashboard/transfer-point" &&
+            "/dashboard/transfer-point" &&
             !pathname.startsWith(
               "/dashboard/transfer-point/"
             )
@@ -863,7 +876,7 @@ export default function Sidebar({ sidebarOpen }) {
 
           const expectedType =
             pointTransactionTypes[
-              slug
+            slug
             ];
 
           return (
@@ -882,7 +895,7 @@ export default function Sidebar({ sidebarOpen }) {
 
         return (
           pathname ===
-            `/dashboard/${slug}` ||
+          `/dashboard/${slug}` ||
           pathname.startsWith(
             `/dashboard/${slug}/`
           )
@@ -895,35 +908,29 @@ export default function Sidebar({ sidebarOpen }) {
       ]
     );
 
-  const RoleLink = ({
-    roleItem,
-  }) => {
+  const RoleLink = ({ moduleItem }) => {
+    const roleValue = Number(moduleItem?.role_id);
+
     const roleSlug = String(
-      roleItem?.slug || ""
+      moduleItem?.slug || ""
     )
       .trim()
       .toLowerCase();
 
-    const label =
-      roleItem?.name ||
-      roleSlug ||
-      "Role";
-
-    const roleValue = Number(
-      roleItem?.role_id
-    );
-
-    const isActive =
-      isRoleLinkActive(
-        roleItem
-      );
+    if (
+      !Number.isFinite(roleValue) ||
+      roleValue < 1 ||
+      roleValue > 9 ||
+      !roleSlug
+    ) {
+      return null;
+    }
 
     const href =
-      `/dashboard?role=${encodeURIComponent(
-        roleValue
-      )}&module=${encodeURIComponent(
-        roleSlug
-      )}`;
+      `/dashboard?role=${roleValue}` +
+      `&module=${encodeURIComponent(roleSlug)}`;
+
+    const isActive = isRoleLinkActive(moduleItem);
 
     return (
       <Link
@@ -936,17 +943,17 @@ export default function Sidebar({ sidebarOpen }) {
       >
         <span
           className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
-            isActive
-              ? "text-black"
-              : "text-white"
+            isActive ? "text-black" : "text-white"
           }`}
         >
-          {getRoleIcon(
-            roleItem?.icon
-          )}
+          {getModuleIcon(moduleItem?.icon)}
         </span>
 
-        <span>{label}</span>
+        <span className="truncate">
+          {moduleItem?.name ||
+            roleMap[roleValue] ||
+            "Role"}
+        </span>
       </Link>
     );
   };
@@ -1013,7 +1020,7 @@ export default function Sidebar({ sidebarOpen }) {
     ) {
       const transactionType =
         pointTransactionTypes[
-          slug
+        slug
         ];
 
       href =
@@ -1028,18 +1035,16 @@ export default function Sidebar({ sidebarOpen }) {
     return (
       <Link
         href={href}
-        className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
-          isActive
+        className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${isActive
             ? "bg-blue-400 text-black"
             : "hover:bg-gray-700"
-        }`}
+          }`}
       >
         <span
-          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
-            isActive
+          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${isActive
               ? "text-black"
               : "text-white"
-          }`}
+            }`}
         >
           {getModuleIcon(
             moduleItem?.icon
@@ -1053,18 +1058,17 @@ export default function Sidebar({ sidebarOpen }) {
 
           {slug ===
             "transfer-points" && (
-            <span
-              className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${
-                isActive
-                  ? "border-red-600 bg-red-600 text-white"
-                  : "border-red-500 bg-red-500 text-white"
-              }`}
-            >
-              {totalWalletBalance.toLocaleString(
-                "en-IN"
-              )}
-            </span>
-          )}
+              <span
+                className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${isActive
+                    ? "border-red-600 bg-red-600 text-white"
+                    : "border-red-500 bg-red-500 text-white"
+                  }`}
+              >
+                {totalWalletBalance.toLocaleString(
+                  "en-IN"
+                )}
+              </span>
+            )}
         </span>
       </Link>
     );
@@ -1099,42 +1103,42 @@ export default function Sidebar({ sidebarOpen }) {
 
     if (currentRole === 9) {
       return roleModules
-        .filter((roleItem) =>
+        .filter((moduleItem) =>
           hasModulePermission(
-            roleItem
+            moduleItem
           )
         )
-        .map((roleItem) => (
+        .map((moduleItem) => (
           <RoleLink
             key={
-              roleItem?.id ??
-              roleItem?.role_id
+              moduleItem?.id ??
+              moduleItem?.role_id
             }
-            roleItem={roleItem}
+            moduleItem={moduleItem}
           />
         ));
     }
 
     const allowedRoles =
       allowedRolesByRole[
-        currentRole
+      currentRole
       ] || [];
 
     return roleModules
-      .filter((roleItem) =>
+      .filter((moduleItem) =>
         allowedRoles.includes(
           Number(
-            roleItem?.role_id
+            moduleItem?.role_id
           )
         )
       )
-      .map((roleItem) => (
+      .map((moduleItem) => (
         <RoleLink
           key={
-            roleItem?.id ??
-            roleItem?.role_id
+            moduleItem?.id ??
+            moduleItem?.role_id
           }
-          roleItem={roleItem}
+          moduleItem={moduleItem}
         />
       ));
   };
@@ -1165,7 +1169,7 @@ export default function Sidebar({ sidebarOpen }) {
 
         if (
           slug ===
-            "revert-point" &&
+          "revert-point" &&
           currentRole !== 0
         ) {
           return false;
@@ -1173,7 +1177,7 @@ export default function Sidebar({ sidebarOpen }) {
 
         if (
           slug ===
-            "company-setting" &&
+          "company-setting" &&
           currentRole !== 1
         ) {
           return false;
@@ -1181,7 +1185,7 @@ export default function Sidebar({ sidebarOpen }) {
 
         if (
           slug ===
-            "system-control" &&
+          "system-control" &&
           currentRole !== 0
         ) {
           return false;
@@ -1189,7 +1193,7 @@ export default function Sidebar({ sidebarOpen }) {
 
         if (
           slug ===
-            "schema-transfer-point" &&
+          "schema-transfer-point" &&
           currentRole === 0
         ) {
           return false;
@@ -1197,7 +1201,7 @@ export default function Sidebar({ sidebarOpen }) {
 
         if (
           slug ===
-            "key-settings" &&
+          "key-settings" &&
           currentRole !== 0
         ) {
           return false;
@@ -1225,22 +1229,21 @@ export default function Sidebar({ sidebarOpen }) {
   const companyLogoUrl =
     companyLogo
       ? `${(
-          process.env
-            .NEXT_PUBLIC_API_URL ||
-          ""
-        ).replace(
-          /\/api$/,
-          ""
-        )}${companyLogo}`
+        process.env
+          .NEXT_PUBLIC_API_URL ||
+        ""
+      ).replace(
+        /\/api$/,
+        ""
+      )}${companyLogo}`
       : null;
 
   return (
     <aside
-      className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
-        sidebarOpen
+      className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${sidebarOpen
           ? "w-68 p-5"
           : "w-0 p-0"
-      }`}
+        }`}
     >
       <h2 className="relative mb-6 flex h-8 w-[230px] items-center after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
         {companyLogoUrl && (
@@ -1255,14 +1258,13 @@ export default function Sidebar({ sidebarOpen }) {
       <div className="scrollbar-hide flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-5">
         <Link
           href="/dashboard"
-          className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
-            pathname ===
+          className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${pathname ===
               "/dashboard" &&
-            activeRole === null &&
-            !activeModule
+              activeRole === null &&
+              !activeModule
               ? "bg-blue-400 text-black"
               : "hover:bg-gray-700"
-          }`}
+            }`}
         >
           <RiIcons.RiDashboardLine
             size={20}
@@ -1279,15 +1281,14 @@ export default function Sidebar({ sidebarOpen }) {
           <>
             <Link
               href="/dashboard/modules"
-              className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
-                pathname ===
+              className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${pathname ===
                   "/dashboard/modules" ||
-                pathname.startsWith(
-                  "/dashboard/modules/"
-                )
+                  pathname.startsWith(
+                    "/dashboard/modules/"
+                  )
                   ? "bg-blue-400 text-black"
                   : "hover:bg-gray-700"
-              }`}
+                }`}
             >
               <RiIcons.RiSettings3Line
                 size={20}
@@ -1300,15 +1301,14 @@ export default function Sidebar({ sidebarOpen }) {
 
             <Link
               href="/dashboard/sub-modules"
-              className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
-                pathname ===
+              className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${pathname ===
                   "/dashboard/sub-modules" ||
-                pathname.startsWith(
-                  "/dashboard/sub-modules/"
-                )
+                  pathname.startsWith(
+                    "/dashboard/sub-modules/"
+                  )
                   ? "bg-blue-400 text-black"
                   : "hover:bg-gray-700"
-              }`}
+                }`}
             >
               <RiIcons.RiStore2Line
                 size={20}
