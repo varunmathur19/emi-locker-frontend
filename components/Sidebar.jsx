@@ -58,14 +58,9 @@ const pointTransactionSlugs = [
 
 const getRoleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-  const IconComponent = iconKey
-    ? RiIcons[iconKey]
-    : null;
+  const IconComponent = iconKey ? RiIcons[iconKey] : null;
 
-  if (
-    !IconComponent ||
-    typeof IconComponent !== "function"
-  ) {
+  if (!IconComponent || typeof IconComponent !== "function") {
     return <RiIcons.RiUserLine size={size} />;
   }
 
@@ -74,17 +69,10 @@ const getRoleIcon = (iconName, size = 20) => {
 
 const getModuleIcon = (iconName, size = 20) => {
   const iconKey = String(iconName || "").trim();
-  const IconComponent = iconKey
-    ? RiIcons[iconKey]
-    : null;
+  const IconComponent = iconKey ? RiIcons[iconKey] : null;
 
-  if (
-    !IconComponent ||
-    typeof IconComponent !== "function"
-  ) {
-    return (
-      <RiIcons.RiBuilding2Line size={size} />
-    );
+  if (!IconComponent || typeof IconComponent !== "function") {
+    return <RiIcons.RiBuilding2Line size={size} />;
   }
 
   return <IconComponent size={size} />;
@@ -97,13 +85,10 @@ export default function Sidebar({ sidebarOpen }) {
   const [roleId, setRoleId] = useState(null);
   const [modules, setModules] = useState([]);
   const [permissions, setPermissions] = useState(null);
-  const [totalWalletBalance, setTotalWalletBalance] =
-    useState(0);
-  const [companyLogo, setCompanyLogo] =
-    useState(null);
+  const [totalWalletBalance, setTotalWalletBalance] = useState(0);
+  const [companyLogo, setCompanyLogo] = useState(null);
 
-  const activeRoleParam =
-    searchParams.get("role");
+  const activeRoleParam = searchParams.get("role");
 
   const activeModule = String(
     searchParams.get("module") || ""
@@ -115,181 +100,124 @@ export default function Sidebar({ sidebarOpen }) {
     searchParams.get("transaction_type");
 
   const activeRole =
-    activeRoleParam !== null &&
-      activeRoleParam !== ""
+    activeRoleParam !== null && activeRoleParam !== ""
       ? Number(activeRoleParam)
       : null;
 
-  const removeInvalidPermissionKeys =
-    useCallback(() => {
-      if (typeof window === "undefined") {
-        return;
-      }
+  const removeInvalidPermissionKeys = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
 
-      localStorage.removeItem("permission");
-      localStorage.removeItem("permissions");
-      localStorage.removeItem(
-        "role_permission"
-      );
-      localStorage.removeItem(
-        "rolePermission"
-      );
-    }, []);
+    localStorage.removeItem("permission");
+    localStorage.removeItem("permissions");
+    localStorage.removeItem("role_permission");
+    localStorage.removeItem("rolePermission");
+  }, []);
 
-  const parsePermissions = useCallback(
-    (value) => {
-      if (!value) {
+  const parsePermissions = useCallback((value) => {
+    if (!value) {
+      return null;
+    }
+
+    try {
+      const parsed =
+        typeof value === "string"
+          ? JSON.parse(value)
+          : value;
+
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed)
+      ) {
         return null;
       }
 
-      try {
-        const parsed =
-          typeof value === "string"
-            ? JSON.parse(value)
-            : value;
+      if (parsed.permission !== undefined) {
+        const nestedPermission =
+          typeof parsed.permission === "string"
+            ? JSON.parse(parsed.permission)
+            : parsed.permission;
 
         if (
-          !parsed ||
-          typeof parsed !== "object" ||
-          Array.isArray(parsed)
+          nestedPermission &&
+          typeof nestedPermission === "object" &&
+          !Array.isArray(nestedPermission)
         ) {
-          return null;
-        }
-
-        if (
-          parsed.permission !== undefined
-        ) {
-          const nestedPermission =
-            typeof parsed.permission ===
-              "string"
-              ? JSON.parse(
-                parsed.permission
-              )
-              : parsed.permission;
-
-          if (
-            nestedPermission &&
-            typeof nestedPermission ===
-            "object" &&
-            !Array.isArray(
-              nestedPermission
-            )
-          ) {
-            return nestedPermission;
-          }
-        }
-
-        return parsed;
-      } catch (error) {
-        console.error(
-          "PERMISSION PARSE ERROR:",
-          error
-        );
-
-        return null;
-      }
-    },
-    []
-  );
-
-  const loadStaffPermissions =
-    useCallback(() => {
-      if (typeof window === "undefined") {
-        return null;
-      }
-
-      const permissionKeys = [
-        "staff_permission",
-        "staff_permissions",
-      ];
-
-      for (const key of permissionKeys) {
-        try {
-          const storedPermission =
-            localStorage.getItem(key);
-
-          if (!storedPermission) {
-            continue;
-          }
-
-          const parsedPermission =
-            parsePermissions(
-              storedPermission
-            );
-
-          if (parsedPermission) {
-            setPermissions(
-              parsedPermission
-            );
-
-            localStorage.setItem(
-              "staff_permission",
-              JSON.stringify(
-                parsedPermission
-              )
-            );
-
-            return parsedPermission;
-          }
-        } catch (error) {
-          console.error(
-            `STAFF PERMISSION STORAGE ERROR [${key}]:`,
-            error
-          );
+          return nestedPermission;
         }
       }
 
-      try {
-        const savedUser =
-          localStorage.getItem("user");
+      return parsed;
+    } catch (error) {
+      console.error("PERMISSION PARSE ERROR:", error);
+      return null;
+    }
+  }, []);
 
-        if (!savedUser) {
-          setPermissions(null);
-          return null;
-        }
+  const loadStaffPermissions = useCallback(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
 
-        const user =
-          JSON.parse(savedUser);
+    try {
+      const storedPermission =
+        localStorage.getItem("staff_permission");
 
-        const userPermission =
-          user?.staff_permission
-            ?.permission ||
-          user?.staff_permission ||
-          user?.role_permission
-            ?.permission ||
-          user?.role_permission ||
-          null;
-
+      if (storedPermission) {
         const parsedPermission =
-          parsePermissions(
-            userPermission
-          );
+          parsePermissions(storedPermission);
 
         if (parsedPermission) {
-          setPermissions(
-            parsedPermission
-          );
+          setPermissions(parsedPermission);
 
           localStorage.setItem(
             "staff_permission",
-            JSON.stringify(
-              parsedPermission
-            )
+            JSON.stringify(parsedPermission)
           );
 
           return parsedPermission;
         }
-      } catch (error) {
-        console.error(
-          "STAFF USER PERMISSION ERROR:",
-          error
-        );
       }
 
-      setPermissions(null);
+      const savedUser = localStorage.getItem("user");
 
-      return null;
-    }, [parsePermissions]);
+      if (!savedUser) {
+        setPermissions(null);
+        return null;
+      }
+
+      const user = JSON.parse(savedUser);
+
+      const userPermission =
+        user?.staff_permission?.permission ||
+        user?.staff_permission ||
+        null;
+
+      const parsedPermission =
+        parsePermissions(userPermission);
+
+      if (parsedPermission) {
+        setPermissions(parsedPermission);
+
+        localStorage.setItem(
+          "staff_permission",
+          JSON.stringify(parsedPermission)
+        );
+
+        return parsedPermission;
+      }
+    } catch (error) {
+      console.error(
+        "STAFF PERMISSION STORAGE ERROR:",
+        error
+      );
+    }
+
+    setPermissions(null);
+    return null;
+  }, [parsePermissions]);
 
   const loadCurrentUser = useCallback(() => {
     try {
@@ -306,8 +234,7 @@ export default function Sidebar({ sidebarOpen }) {
         return;
       }
 
-      const numericRole =
-        Number(currentRole);
+      const numericRole = Number(currentRole);
 
       setRoleId(numericRole);
 
@@ -318,13 +245,8 @@ export default function Sidebar({ sidebarOpen }) {
 
       setPermissions(null);
 
-      localStorage.removeItem(
-        "staff_permission"
-      );
-
-      localStorage.removeItem(
-        "staff_permissions"
-      );
+      localStorage.removeItem("staff_permission");
+      localStorage.removeItem("staff_permissions");
 
       removeInvalidPermissionKeys();
     } catch (error) {
@@ -335,7 +257,6 @@ export default function Sidebar({ sidebarOpen }) {
 
       setRoleId(null);
       setPermissions(null);
-
       removeInvalidPermissionKeys();
     }
   }, [
@@ -345,111 +266,87 @@ export default function Sidebar({ sidebarOpen }) {
 
   const loadModules = useCallback(async () => {
     try {
-      const response =
-        await getModules();
+      const response = await getModules();
 
       if (
         response?.success &&
         Array.isArray(response?.data)
       ) {
-        const activeModules =
-          response.data
-            .filter(
-              (moduleItem) =>
-                Number(
-                  moduleItem?.status ?? 1
-                ) === 1
-            )
-            .sort(
-              (a, b) =>
-                Number(
-                  a?.sequence ?? 0
-                ) -
-                Number(
-                  b?.sequence ?? 0
-                )
-            );
+        const activeModules = response.data
+          .filter(
+            (moduleItem) =>
+              Number(moduleItem?.status ?? 1) === 1
+          )
+          .sort(
+            (a, b) =>
+              Number(a?.sequence ?? 0) -
+              Number(b?.sequence ?? 0)
+          );
 
         setModules(activeModules);
       } else {
         setModules([]);
       }
     } catch (error) {
-      console.error(
-        "GET MODULES ERROR:",
-        error
-      );
-
+      console.error("GET MODULES ERROR:", error);
       setModules([]);
     }
   }, []);
 
-  const loadWalletBalance =
-    useCallback(async () => {
-      try {
-        const response =
-          await getKeySettings();
+  const loadWalletBalance = useCallback(async () => {
+    try {
+      const response = await getKeySettings();
 
-        if (
-          response?.success &&
-          Array.isArray(response?.data)
-        ) {
-          const total =
-            response.data
-              .filter(
-                (item) =>
-                  Number(
-                    item?.status
-                  ) === 1
-              )
-              .reduce(
-                (sum, item) =>
-                  sum +
-                  Number(
-                    item?.balance || 0
-                  ),
-                0
-              );
-
-          setTotalWalletBalance(
-            total
+      if (
+        response?.success &&
+        Array.isArray(response?.data)
+      ) {
+        const total = response.data
+          .filter(
+            (item) =>
+              Number(item?.status) === 1
+          )
+          .reduce(
+            (sum, item) =>
+              sum + Number(item?.balance || 0),
+            0
           );
-        } else {
-          setTotalWalletBalance(0);
-        }
-      } catch (error) {
-        console.error(
-          "GET WALLET BALANCE ERROR:",
-          error
-        );
 
+        setTotalWalletBalance(total);
+      } else {
         setTotalWalletBalance(0);
       }
-    }, []);
+    } catch (error) {
+      console.error(
+        "GET WALLET BALANCE ERROR:",
+        error
+      );
 
-  const loadCompanySetting =
-    useCallback(async () => {
-      try {
-        const response =
-          await getNormalCompanySetting();
+      setTotalWalletBalance(0);
+    }
+  }, []);
 
-        if (response?.success) {
-          setCompanyLogo(
-            response?.data
-              ?.company_logo || null
-          );
-        } else {
-          setCompanyLogo(null);
-        }
-      } catch (error) {
-        console.error(
-          "GET COMPANY SETTING ERROR:",
-          error
+  const loadCompanySetting = useCallback(async () => {
+    try {
+      const response =
+        await getNormalCompanySetting();
+
+      if (response?.success) {
+        setCompanyLogo(
+          response?.data?.company_logo || null
         );
-
+      } else {
         setCompanyLogo(null);
       }
-    }, []);
+    } catch (error) {
+      console.error(
+        "GET COMPANY SETTING ERROR:",
+        error
+      );
+
+      setCompanyLogo(null);
+    }
+  }, []);
 
   useEffect(() => {
     removeInvalidPermissionKeys();
@@ -471,10 +368,9 @@ export default function Sidebar({ sidebarOpen }) {
       return;
     }
 
-    const handleCompanySettingUpdated =
-      () => {
-        loadCompanySetting();
-      };
+    const handleCompanySettingUpdated = () => {
+      loadCompanySetting();
+    };
 
     window.addEventListener(
       "company_setting_updated",
@@ -494,10 +390,9 @@ export default function Sidebar({ sidebarOpen }) {
       return;
     }
 
-    const handleWalletBalanceUpdate =
-      () => {
-        loadWalletBalance();
-      };
+    const handleWalletBalanceUpdate = () => {
+      loadWalletBalance();
+    };
 
     window.addEventListener(
       "wallet_balance_updated",
@@ -517,10 +412,9 @@ export default function Sidebar({ sidebarOpen }) {
       return;
     }
 
-    const handleModulesUpdated =
-      () => {
-        loadModules();
-      };
+    const handleModulesUpdated = () => {
+      loadModules();
+    };
 
     window.addEventListener(
       "modules_updated",
@@ -541,19 +435,13 @@ export default function Sidebar({ sidebarOpen }) {
     }
 
     const handleStorage = (event) => {
-      if (
-        event.key ===
-        "modules_updated"
-      ) {
+      if (event.key === "modules_updated") {
         loadModules();
       }
 
       if (
         event.key === "user" ||
-        event.key ===
-        "staff_permission" ||
-        event.key ===
-        "staff_permissions"
+        event.key === "staff_permission"
       ) {
         loadCurrentUser();
         loadWalletBalance();
@@ -562,10 +450,8 @@ export default function Sidebar({ sidebarOpen }) {
       if (
         event.key === "permission" ||
         event.key === "permissions" ||
-        event.key ===
-        "role_permission" ||
-        event.key ===
-        "rolePermission"
+        event.key === "role_permission" ||
+        event.key === "rolePermission"
       ) {
         removeInvalidPermissionKeys();
       }
@@ -589,124 +475,97 @@ export default function Sidebar({ sidebarOpen }) {
     removeInvalidPermissionKeys,
   ]);
 
-  const isPermissionEnabled =
-    useCallback((value) => {
-      if (
-        value === undefined ||
-        value === null
-      ) {
-        return false;
+  const isPermissionEnabled = useCallback((value) => {
+    if (value === undefined || value === null) {
+      return false;
+    }
+
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (typeof value === "number") {
+      return value === 1;
+    }
+
+    if (typeof value === "string") {
+      const normalized = value
+        .trim()
+        .toLowerCase();
+
+      return (
+        normalized === "1" ||
+        normalized === "true" ||
+        normalized === "yes"
+      );
+    }
+
+    if (typeof value === "object") {
+      if (value.status !== undefined) {
+        return Number(value.status) === 1;
       }
 
-      if (typeof value === "boolean") {
-        return value;
+      if (value.view !== undefined) {
+        return Number(value.view) === 1;
       }
 
-      if (typeof value === "number") {
-        return value === 1;
+      if (value.access !== undefined) {
+        return Number(value.access) === 1;
       }
 
-      if (typeof value === "string") {
-        const normalized =
-          value.trim().toLowerCase();
+      return true;
+    }
 
-        return (
-          normalized === "1" ||
-          normalized === "true" ||
-          normalized === "yes"
-        );
-      }
+    return false;
+  }, []);
 
-      if (typeof value === "object") {
-        if (
-          value.status !== undefined
-        ) {
-          return (
-            Number(value.status) === 1
-          );
-        }
-
-        if (
-          value.view !== undefined
-        ) {
-          return (
-            Number(value.view) === 1
-          );
-        }
-
-        if (
-          value.access !== undefined
-        ) {
-          return (
-            Number(value.access) === 1
-          );
-        }
-
+  const hasModulePermission = useCallback(
+    (moduleItem) => {
+      if (Number(roleId) !== 9) {
         return true;
       }
 
-      return false;
-    }, []);
+      if (!permissions) {
+        return false;
+      }
 
-  const hasModulePermission =
-    useCallback(
-      (moduleItem) => {
-        if (Number(roleId) !== 9) {
-          return true;
-        }
+      const moduleId = Number(moduleItem?.id);
 
-        if (!permissions) {
-          return false;
-        }
+      if (!Number.isFinite(moduleId)) {
+        return false;
+      }
 
-        const moduleId = Number(
-          moduleItem?.id
-        );
+      const modulePrefix = `${moduleId}.`;
 
-        if (
-          !Number.isFinite(moduleId)
-        ) {
-          return false;
-        }
+      return Object.entries(permissions).some(
+        ([permissionKey, value]) => {
+          const normalizedKey = String(
+            permissionKey
+          ).trim();
 
-        const modulePrefix =
-          `${moduleId}.`;
-
-        return Object.entries(
-          permissions
-        ).some(
-          ([permissionKey, value]) => {
-            const normalizedKey =
-              String(
-                permissionKey
-              ).trim();
-
-            if (
-              !normalizedKey.startsWith(
-                modulePrefix
-              )
-            ) {
-              return false;
-            }
-
-            return isPermissionEnabled(
-              value
-            );
+          if (
+            !normalizedKey.startsWith(
+              modulePrefix
+            )
+          ) {
+            return false;
           }
-        );
-      },
-      [
-        roleId,
-        permissions,
-        isPermissionEnabled,
-      ]
-    );
+
+          return isPermissionEnabled(value);
+        }
+      );
+    },
+    [
+      roleId,
+      permissions,
+      isPermissionEnabled,
+    ]
+  );
 
   const myLogin = () => {
     removeInvalidPermissionKeys();
 
-    const restored =
-      restoreOriginalLogin();
+    const restored = restoreOriginalLogin();
 
     if (!restored) {
       alert(
@@ -716,9 +575,7 @@ export default function Sidebar({ sidebarOpen }) {
     }
 
     removeInvalidPermissionKeys();
-
-    window.location.href =
-      "/dashboard";
+    window.location.href = "/dashboard";
   };
 
   const logout = async () => {
@@ -732,25 +589,11 @@ export default function Sidebar({ sidebarOpen }) {
     } finally {
       removeToken();
 
-      localStorage.removeItem(
-        "user"
-      );
-
-      localStorage.removeItem(
-        "original_token"
-      );
-
-      localStorage.removeItem(
-        "original_user"
-      );
-
-      localStorage.removeItem(
-        "staff_permission"
-      );
-
-      localStorage.removeItem(
-        "staff_permissions"
-      );
+      localStorage.removeItem("user");
+      localStorage.removeItem("original_token");
+      localStorage.removeItem("original_user");
+      localStorage.removeItem("staff_permission");
+      localStorage.removeItem("staff_permissions");
 
       removeInvalidPermissionKeys();
 
@@ -758,158 +601,134 @@ export default function Sidebar({ sidebarOpen }) {
     }
   };
 
-  const isRoleLinkActive =
-    useCallback(
-      (roleItem) => {
-        const currentRoleId =
-          Number(
-            roleItem?.role_id
-          );
+  const isRoleLinkActive = useCallback(
+    (roleItem) => {
+      const currentRoleId = Number(
+        roleItem?.role_id
+      );
 
-        if (
-          activeRole !== null &&
-          Number.isFinite(
-            currentRoleId
-          ) &&
-          activeRole ===
-          currentRoleId
-        ) {
-          return true;
-        }
+      if (
+        activeRole !== null &&
+        Number.isFinite(currentRoleId) &&
+        activeRole === currentRoleId
+      ) {
+        return true;
+      }
 
-        const slug = String(
-          roleItem?.slug || ""
-        )
-          .trim()
-          .toLowerCase();
+      const slug = String(
+        roleItem?.slug || ""
+      )
+        .trim()
+        .toLowerCase();
 
+      return (
+        activeModule &&
+        slug &&
+        activeModule === slug
+      );
+    },
+    [activeRole, activeModule]
+  );
+
+  const isModuleLinkActive = useCallback(
+    (moduleItem) => {
+      const slug = String(
+        moduleItem?.slug || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (!slug) {
+        return false;
+      }
+
+      if (slug === "key-settings") {
         return (
-          activeModule &&
-          slug &&
-          activeModule === slug
+          pathname ===
+            "/dashboard/key-setting" ||
+          pathname.startsWith(
+            "/dashboard/key-setting/"
+          )
         );
-      },
-      [
-        activeRole,
-        activeModule,
-      ]
-    );
+      }
 
-  const isModuleLinkActive =
-    useCallback(
-      (moduleItem) => {
-        const slug = String(
-          moduleItem?.slug || ""
-        )
-          .trim()
-          .toLowerCase();
+      if (slug === "role-permission") {
+        return (
+          pathname ===
+            "/dashboard/role-permission" ||
+          pathname.startsWith(
+            "/dashboard/role-permission/"
+          )
+        );
+      }
 
-        if (!slug) {
+      if (slug === "company-setting") {
+        return (
+          pathname ===
+            "/dashboard/company-setting" ||
+          pathname.startsWith(
+            "/dashboard/company-setting/"
+          )
+        );
+      }
+
+      if (slug === "system-control") {
+        return (
+          pathname ===
+            "/dashboard/system-controll" ||
+          pathname.startsWith(
+            "/dashboard/system-controll/"
+          )
+        );
+      }
+
+      if (
+        pointTransactionSlugs.includes(slug)
+      ) {
+        if (
+          pathname !==
+            "/dashboard/transfer-point" &&
+          !pathname.startsWith(
+            "/dashboard/transfer-point/"
+          )
+        ) {
           return false;
         }
 
-        if (
-          slug === "key-settings"
-        ) {
-          return (
-            pathname ===
-            "/dashboard/key-setting" ||
-            pathname.startsWith(
-              "/dashboard/key-setting/"
-            )
-          );
-        }
-
-        if (
-          slug ===
-          "role-permission"
-        ) {
-          return (
-            pathname ===
-            "/dashboard/role-permission" ||
-            pathname.startsWith(
-              "/dashboard/role-permission/"
-            )
-          );
-        }
-
-        if (
-          slug ===
-          "company-setting"
-        ) {
-          return (
-            pathname ===
-            "/dashboard/company-setting" ||
-            pathname.startsWith(
-              "/dashboard/company-setting/"
-            )
-          );
-        }
-
-        if (
-          slug ===
-          "system-control"
-        ) {
-          return (
-            pathname ===
-            "/dashboard/system-controll" ||
-            pathname.startsWith(
-              "/dashboard/system-controll/"
-            )
-          );
-        }
-
-        if (
-          pointTransactionSlugs.includes(
-            slug
-          )
-        ) {
-          if (
-            pathname !==
-            "/dashboard/transfer-point" &&
-            !pathname.startsWith(
-              "/dashboard/transfer-point/"
-            )
-          ) {
-            return false;
-          }
-
-          const expectedType =
-            pointTransactionTypes[
-            slug
-            ];
-
-          return (
-            Number(
-              activeTransactionType
-            ) === expectedType
-          );
-        }
-
-        if (
-          activeModule &&
-          activeModule === slug
-        ) {
-          return true;
-        }
+        const expectedType =
+          pointTransactionTypes[slug];
 
         return (
-          pathname ===
-          `/dashboard/${slug}` ||
-          pathname.startsWith(
-            `/dashboard/${slug}/`
-          )
+          Number(activeTransactionType) ===
+          expectedType
         );
-      },
-      [
-        pathname,
-        activeModule,
-        activeTransactionType,
-      ]
-    );
+      }
+
+      if (
+        activeModule &&
+        activeModule === slug
+      ) {
+        return true;
+      }
+
+      return (
+        pathname === `/dashboard/${slug}` ||
+        pathname.startsWith(
+          `/dashboard/${slug}/`
+        )
+      );
+    },
+    [
+      pathname,
+      activeModule,
+      activeTransactionType,
+    ]
+  );
 
   const RoleLink = ({ moduleItem }) => {
-    const roleValue = Number(moduleItem?.role_id);
+    const roleValue = Number(
+      moduleItem?.role_id
+    );
 
     const roleSlug = String(
       moduleItem?.slug || ""
@@ -928,9 +747,12 @@ export default function Sidebar({ sidebarOpen }) {
 
     const href =
       `/dashboard?role=${roleValue}` +
-      `&module=${encodeURIComponent(roleSlug)}`;
+      `&module=${encodeURIComponent(
+        roleSlug
+      )}`;
 
-    const isActive = isRoleLinkActive(moduleItem);
+    const isActive =
+      isRoleLinkActive(moduleItem);
 
     return (
       <Link
@@ -943,7 +765,9 @@ export default function Sidebar({ sidebarOpen }) {
       >
         <span
           className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
-            isActive ? "text-black" : "text-white"
+            isActive
+              ? "text-black"
+              : "text-white"
           }`}
         >
           {getModuleIcon(moduleItem?.icon)}
@@ -958,9 +782,7 @@ export default function Sidebar({ sidebarOpen }) {
     );
   };
 
-  const ModuleLink = ({
-    moduleItem,
-  }) => {
+  const ModuleLink = ({ moduleItem }) => {
     const slug = String(
       moduleItem?.slug || ""
     )
@@ -977,30 +799,20 @@ export default function Sidebar({ sidebarOpen }) {
         slug
       )}`;
 
-    if (
-      slug === "key-settings"
-    ) {
-      href =
-        "/dashboard/key-setting";
+    if (slug === "key-settings") {
+      href = "/dashboard/key-setting";
     }
 
-    if (
-      slug === "role-permission"
-    ) {
-      href =
-        "/dashboard/role-permission";
+    if (slug === "role-permission") {
+      href = "/dashboard/role-permission";
     }
 
-    if (
-      slug === "company-setting"
-    ) {
+    if (slug === "company-setting") {
       href =
         "/dashboard/company-setting";
     }
 
-    if (
-      slug === "system-control"
-    ) {
+    if (slug === "system-control") {
       href =
         "/dashboard/system-controll";
     }
@@ -1014,37 +826,33 @@ export default function Sidebar({ sidebarOpen }) {
     }
 
     if (
-      pointTransactionSlugs.includes(
-        slug
-      )
+      pointTransactionSlugs.includes(slug)
     ) {
       const transactionType =
-        pointTransactionTypes[
-        slug
-        ];
+        pointTransactionTypes[slug];
 
       href =
         `/dashboard/transfer-point?transaction_type=${transactionType}`;
     }
 
     const isActive =
-      isModuleLinkActive(
-        moduleItem
-      );
+      isModuleLinkActive(moduleItem);
 
     return (
       <Link
         href={href}
-        className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${isActive
+        className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
+          isActive
             ? "bg-blue-400 text-black"
             : "hover:bg-gray-700"
-          }`}
+        }`}
       >
         <span
-          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${isActive
+          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
+            isActive
               ? "text-black"
               : "text-white"
-            }`}
+          }`}
         >
           {getModuleIcon(
             moduleItem?.icon
@@ -1056,50 +864,43 @@ export default function Sidebar({ sidebarOpen }) {
             {label}
           </span>
 
-          {slug ===
-            "transfer-points" && (
-              <span
-                className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${isActive
-                    ? "border-red-600 bg-red-600 text-white"
-                    : "border-red-500 bg-red-500 text-white"
-                  }`}
-              >
-                {totalWalletBalance.toLocaleString(
-                  "en-IN"
-                )}
-              </span>
-            )}
+          {slug === "transfer-points" && (
+            <span
+              className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${
+                isActive
+                  ? "border-red-600 bg-red-600 text-white"
+                  : "border-red-500 bg-red-500 text-white"
+              }`}
+            >
+              {totalWalletBalance.toLocaleString(
+                "en-IN"
+              )}
+            </span>
+          )}
         </span>
       </Link>
     );
   };
 
   const renderRoleLinks = () => {
-    const currentRole =
-      Number(roleId);
+    const currentRole = Number(roleId);
 
-    if (
-      !Number.isFinite(
-        currentRole
-      )
-    ) {
+    if (!Number.isFinite(currentRole)) {
       return null;
     }
 
-    const roleModules =
-      modules.filter(
-        (moduleItem) => {
-          const moduleRoleId =
-            Number(
-              moduleItem?.role_id
-            );
+    const roleModules = modules.filter(
+      (moduleItem) => {
+        const moduleRoleId = Number(
+          moduleItem?.role_id
+        );
 
-          return (
-            moduleRoleId >= 1 &&
-            moduleRoleId <= 9
-          );
-        }
-      );
+        return (
+          moduleRoleId >= 1 &&
+          moduleRoleId <= 9
+        );
+      }
+    );
 
     if (currentRole === 9) {
       return roleModules
@@ -1120,16 +921,13 @@ export default function Sidebar({ sidebarOpen }) {
     }
 
     const allowedRoles =
-      allowedRolesByRole[
-      currentRole
-      ] || [];
+      allowedRolesByRole[currentRole] ||
+      [];
 
     return roleModules
       .filter((moduleItem) =>
         allowedRoles.includes(
-          Number(
-            moduleItem?.role_id
-          )
+          Number(moduleItem?.role_id)
         )
       )
       .map((moduleItem) => (
@@ -1152,13 +950,11 @@ export default function Sidebar({ sidebarOpen }) {
           .trim()
           .toLowerCase();
 
-        const currentRole =
-          Number(roleId);
+        const currentRole = Number(roleId);
 
-        const moduleRoleId =
-          Number(
-            moduleItem?.role_id
-          );
+        const moduleRoleId = Number(
+          moduleItem?.role_id
+        );
 
         if (
           moduleRoleId >= 1 &&
@@ -1168,40 +964,43 @@ export default function Sidebar({ sidebarOpen }) {
         }
 
         if (
-          slug ===
-          "revert-point" &&
-          currentRole !== 0
-        ) {
-          return false;
-        }
-
-        if (
-          slug ===
-          "company-setting" &&
-          currentRole !== 1
-        ) {
-          return false;
-        }
-
-        if (
-          slug ===
-          "system-control" &&
-          currentRole !== 0
-        ) {
-          return false;
-        }
-
-        if (
-          slug ===
-          "schema-transfer-point" &&
+          slug === "role-permission" &&
           currentRole === 0
         ) {
           return false;
         }
 
         if (
+          slug === "revert-point" &&
+          currentRole !== 0
+        ) {
+          return false;
+        }
+
+        if (
+          slug === "company-setting" &&
+          currentRole !== 1
+        ) {
+          return false;
+        }
+
+        if (
+          slug === "system-control" &&
+          currentRole !== 0
+        ) {
+          return false;
+        }
+
+        if (
           slug ===
-          "key-settings" &&
+            "schema-transfer-point" &&
+          currentRole === 0
+        ) {
+          return false;
+        }
+
+        if (
+          slug === "key-settings" &&
           currentRole !== 0
         ) {
           return false;
@@ -1211,39 +1010,34 @@ export default function Sidebar({ sidebarOpen }) {
           moduleItem
         );
       })
-      .map(
-        (moduleItem, index) => (
-          <ModuleLink
-            key={
-              moduleItem?.id ||
-              `${moduleItem?.slug}-${index}`
-            }
-            moduleItem={
-              moduleItem
-            }
-          />
-        )
-      );
+      .map((moduleItem, index) => (
+        <ModuleLink
+          key={
+            moduleItem?.id ||
+            `${moduleItem?.slug}-${index}`
+          }
+          moduleItem={moduleItem}
+        />
+      ));
   };
 
-  const companyLogoUrl =
-    companyLogo
-      ? `${(
+  const companyLogoUrl = companyLogo
+    ? `${(
         process.env
-          .NEXT_PUBLIC_API_URL ||
-        ""
+          .NEXT_PUBLIC_API_URL || ""
       ).replace(
         /\/api$/,
         ""
       )}${companyLogo}`
-      : null;
+    : null;
 
   return (
     <aside
-      className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${sidebarOpen
+      className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
+        sidebarOpen
           ? "w-68 p-5"
           : "w-0 p-0"
-        }`}
+      }`}
     >
       <h2 className="relative mb-6 flex h-8 w-[230px] items-center after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
         {companyLogoUrl && (
@@ -1258,18 +1052,17 @@ export default function Sidebar({ sidebarOpen }) {
       <div className="scrollbar-hide flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-5">
         <Link
           href="/dashboard"
-          className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${pathname ===
-              "/dashboard" &&
-              activeRole === null &&
-              !activeModule
+          className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
+            pathname === "/dashboard" &&
+            activeRole === null &&
+            !activeModule
               ? "bg-blue-400 text-black"
               : "hover:bg-gray-700"
-            }`}
+          }`}
         >
           <RiIcons.RiDashboardLine
             size={20}
           />
-
           <span>Dashboard</span>
         </Link>
 
@@ -1281,42 +1074,38 @@ export default function Sidebar({ sidebarOpen }) {
           <>
             <Link
               href="/dashboard/modules"
-              className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${pathname ===
+              className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
+                pathname ===
                   "/dashboard/modules" ||
-                  pathname.startsWith(
-                    "/dashboard/modules/"
-                  )
+                pathname.startsWith(
+                  "/dashboard/modules/"
+                )
                   ? "bg-blue-400 text-black"
                   : "hover:bg-gray-700"
-                }`}
+              }`}
             >
               <RiIcons.RiSettings3Line
                 size={20}
               />
-
-              <span>
-                Master Settings
-              </span>
+              <span>Master Settings</span>
             </Link>
 
             <Link
               href="/dashboard/sub-modules"
-              className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${pathname ===
+              className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
+                pathname ===
                   "/dashboard/sub-modules" ||
-                  pathname.startsWith(
-                    "/dashboard/sub-modules/"
-                  )
+                pathname.startsWith(
+                  "/dashboard/sub-modules/"
+                )
                   ? "bg-blue-400 text-black"
                   : "hover:bg-gray-700"
-                }`}
+              }`}
             >
               <RiIcons.RiStore2Line
                 size={20}
               />
-
-              <span>
-                Sub Module
-              </span>
+              <span>Sub Module</span>
             </Link>
           </>
         )}
@@ -1333,7 +1122,6 @@ export default function Sidebar({ sidebarOpen }) {
           <RiIcons.RiLoginBoxLine
             size={20}
           />
-
           <span>My Login</span>
         </button>
 
@@ -1345,7 +1133,6 @@ export default function Sidebar({ sidebarOpen }) {
           <RiIcons.RiLogoutBoxLine
             size={20}
           />
-
           <span>Logout</span>
         </button>
       </div>
