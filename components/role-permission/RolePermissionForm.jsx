@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -14,7 +15,18 @@ import {
   saveRolePermissions,
 } from "@/services/api";
 
-import { getUserId } from "@/utils/token";
+const allowedRolesByRole = {
+  0: [1],
+  1: [2, 3, 4, 5, 6, 7, 8, 9],
+  2: [3, 4, 5, 6, 7, 9],
+  3: [4, 5, 6, 7, 9],
+  4: [5, 6, 7, 9],
+  5: [6, 7, 9],
+  6: [7, 8],
+  7: [8],
+  8: [9],
+  9: [],
+};
 
 const normalizePermissions = (permission) => {
   if (!permission) {
@@ -67,12 +79,33 @@ const getRoleName = (profile) =>
   profile?.slug ||
   `Role ${profile?.id}`;
 
+const getStoredUser = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const savedUser = localStorage.getItem("user");
+
+    if (!savedUser) {
+      return null;
+    }
+
+    return JSON.parse(savedUser);
+  } catch {
+    return null;
+  }
+};
+
 export default function RolePermissionForm() {
   const [profiles, setProfiles] = useState([]);
   const [modules, setModules] = useState([]);
   const [subModules, setSubModules] = useState([]);
 
   const [currentUserId, setCurrentUserId] =
+    useState(null);
+
+  const [currentRoleId, setCurrentRoleId] =
     useState(null);
 
   const [selectedProfile, setSelectedProfile] =
@@ -116,15 +149,47 @@ export default function RolePermissionForm() {
     useState(false);
 
   useEffect(() => {
-    const userId = Number(getUserId());
+    const user = getStoredUser();
 
-    if (Number.isFinite(userId)) {
-      setCurrentUserId(userId);
+    if (!user) {
+      setCurrentUserId(null);
+      setCurrentRoleId(null);
+      return;
     }
+
+    const userId = Number(
+      user?.id ??
+        user?.user_id ??
+        user?.userId
+    );
+
+    const roleId = Number(
+      user?.role_id ??
+        user?.roleId ??
+        user?.role
+    );
+
+    setCurrentUserId(
+      Number.isFinite(userId) ? userId : null
+    );
+
+    setCurrentRoleId(
+      Number.isFinite(roleId) ? roleId : null
+    );
   }, []);
 
+  const allowedRoleIds = useMemo(() => {
+    if (!Number.isFinite(currentRoleId)) {
+      return [];
+    }
+
+    return (
+      allowedRolesByRole[currentRoleId] || []
+    );
+  }, [currentRoleId]);
+
   const manageableProfiles = useMemo(() => {
-    if (currentUserId === null) {
+    if (!Number.isFinite(currentUserId)) {
       return [];
     }
 
@@ -136,15 +201,11 @@ export default function RolePermissionForm() {
         return false;
       }
 
-      if (!Number.isFinite(createdBy)) {
-        return false;
-      }
+      const createdByCurrentUser =
+        Number.isFinite(createdBy) &&
+        createdBy === currentUserId;
 
-      if (profileId === 1) {
-        return false;
-      }
-
-      return createdBy === currentUserId;
+      return createdByCurrentUser;
     });
   }, [profiles, currentUserId]);
 
@@ -158,16 +219,36 @@ export default function RolePermissionForm() {
     [modules]
   );
 
-  const visibleModules = useMemo(
-    () =>
-      activeModules.filter(
-        (module) =>
-          String(module?.name || "")
-            .trim()
-            .toLowerCase() !== "admin"
-      ),
-    [activeModules]
-  );
+  const visibleModules = useMemo(() => {
+    if (!Number.isFinite(currentRoleId)) {
+      return [];
+    }
+
+    const allowedRoles =
+      allowedRolesByRole[currentRoleId] || [];
+
+    return activeModules.filter((module) => {
+      const moduleRoleId = Number(
+        module?.role_id
+      );
+
+      if (
+        Number.isFinite(moduleRoleId) &&
+        moduleRoleId >= 0 &&
+        moduleRoleId <= 9
+      ) {
+        return allowedRoles.includes(
+          moduleRoleId
+        );
+      }
+
+      return (
+        String(module?.name || "")
+          .trim()
+          .toLowerCase() !== "admin"
+      );
+    });
+  }, [activeModules, currentRoleId]);
 
   const activeSubModules = useMemo(
     () => subModules.filter(isActive),
@@ -178,13 +259,36 @@ export default function RolePermissionForm() {
     () =>
       profiles.find(
         (profile) =>
-          Number(profile?.id) === Number(selectedProfile)
+          Number(profile?.id) ===
+          Number(selectedProfile)
       ),
     [profiles, selectedProfile]
   );
 
-  const getModuleSubModules = () => {
-    return activeSubModules;
+  const getModuleSubModules = (moduleId) => {
+    const numericModuleId = Number(moduleId);
+
+    if (!Number.isFinite(numericModuleId)) {
+      return [];
+    }
+
+    const hasModuleRelation = activeSubModules.some(
+      (subModule) =>
+        subModule?.module_id !== undefined ||
+        subModule?.moduleId !== undefined
+    );
+
+    if (!hasModuleRelation) {
+      return activeSubModules;
+    }
+
+    return activeSubModules.filter(
+      (subModule) =>
+        Number(
+          subModule?.module_id ??
+            subModule?.moduleId
+        ) === numericModuleId
+    );
   };
 
   const loadProfiles = async () => {
@@ -300,10 +404,12 @@ export default function RolePermissionForm() {
       return;
     }
 
-    const allowedProfile = manageableProfiles.some(
-      (profile) =>
-        Number(profile?.id) === Number(profileId)
-    );
+    const allowedProfile =
+      manageableProfiles.some(
+        (profile) =>
+          Number(profile?.id) ===
+          Number(profileId)
+      );
 
     if (!allowedProfile) {
       setPermissions({});
@@ -370,7 +476,9 @@ export default function RolePermissionForm() {
     );
 
     if (!selectedExists) {
-      setSelectedProfile(activeProfiles[0].id);
+      setSelectedProfile(
+        activeProfiles[0].id
+      );
     }
   }, [activeProfiles, selectedProfile]);
 
@@ -400,7 +508,8 @@ export default function RolePermissionForm() {
   const handleProfileChange = (profileId) => {
     const allowedProfile = activeProfiles.some(
       (profile) =>
-        Number(profile?.id) === Number(profileId)
+        Number(profile?.id) ===
+        Number(profileId)
     );
 
     if (!allowedProfile) {
@@ -516,12 +625,10 @@ export default function RolePermissionForm() {
     try {
       setSaving(true);
 
-      const payload = {
+      await saveRolePermissions({
         profile_id: Number(selectedProfile),
         permission: permissions,
-      };
-
-      await saveRolePermissions(payload);
+      });
 
       setHasPermissionChanges(false);
 
@@ -595,14 +702,14 @@ export default function RolePermissionForm() {
       return;
     }
 
-    const createdBy = Number(
-      profile?.created_by
-    );
+    const allowedProfile =
+      manageableProfiles.some(
+        (item) =>
+          Number(item?.id) ===
+          Number(profile?.id)
+      );
 
-    if (
-      !Number.isFinite(currentUserId) ||
-      createdBy !== currentUserId
-    ) {
+    if (!allowedProfile) {
       toast.error(
         "You do not have permission to manage this role"
       );

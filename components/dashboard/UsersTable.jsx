@@ -24,7 +24,6 @@ import {
 import {
   saveToken,
   saveUser,
-  getRoleId,
 } from "@/utils/token";
 
 import {
@@ -88,8 +87,7 @@ const formatPhoneNumber = (phone) => {
     return "-";
   }
 
-  const parsed =
-    parsePhoneNumberFromString(value);
+  const parsed = parsePhoneNumberFromString(value);
 
   if (
     parsed?.countryCallingCode &&
@@ -115,61 +113,27 @@ export default function UsersTable({
   const pathname = usePathname();
 
   const [search, setSearch] = useState("");
-  const [filterSearch, setFilterSearch] =
-    useState("");
-  const [
-    filterSearchResults,
-    setFilterSearchResults,
-  ] = useState([]);
-  const [
-    filterSearchApplied,
-    setFilterSearchApplied,
-  ] = useState(false);
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterSearchResults, setFilterSearchResults] = useState([]);
+  const [filterSearchApplied, setFilterSearchApplied] = useState(false);
 
-  const [loginLoading, setLoginLoading] =
-    useState(null);
-  const [statusLoading, setStatusLoading] =
-    useState(null);
+  const [loginLoading, setLoginLoading] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(null);
 
-  const [filterOpen, setFilterOpen] =
-    useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  const [
-    searchSuggestions,
-    setSearchSuggestions,
-  ] = useState([]);
-  const [
-    showSuggestions,
-    setShowSuggestions,
-  ] = useState(false);
-  const [searchLoading, setSearchLoading] =
-    useState(false);
-  const [searchResults, setSearchResults] =
-    useState([]);
-  const [searchApplied, setSearchApplied] =
-    useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchApplied, setSearchApplied] = useState(false);
 
-  const [
-    staffPermissions,
-    setStaffPermissions,
-  ] = useState(null);
+  const [staffPermissions, setStaffPermissions] = useState(null);
+  const [currentRoleId, setCurrentRoleId] = useState(null);
+  const [modules, setModules] = useState([]);
 
-  const [
-    currentRoleId,
-    setCurrentRoleId,
-  ] = useState(null);
-
-  const [modules, setModules] = useState(
-    []
-  );
-
-  const [totalUsers, setTotalUsers] =
-    useState(0);
-
-  const [
-    totalUsersLoading,
-    setTotalUsersLoading,
-  ] = useState(false);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalUsersLoading, setTotalUsersLoading] = useState(false);
 
   const [filters, setFilters] = useState({
     country: "",
@@ -178,8 +142,7 @@ export default function UsersTable({
     status: "",
   });
 
-  const selectedRoleId =
-    Number(selectedRole);
+  const selectedRoleId = Number(selectedRole);
 
   const selectedRoleName =
     roleMap[selectedRoleId] ||
@@ -195,9 +158,7 @@ export default function UsersTable({
       : `Total ${selectedRoleName}`;
 
   const isFormPage =
-    pathname?.startsWith(
-      "/dashboard/form"
-    );
+    pathname?.startsWith("/dashboard/form");
 
   const isUsersListPage = !isFormPage;
 
@@ -214,11 +175,7 @@ export default function UsersTable({
       return response.users;
     }
 
-    if (
-      Array.isArray(
-        response?.data?.users
-      )
-    ) {
+    if (Array.isArray(response?.data?.users)) {
       return response.data.users;
     }
 
@@ -258,8 +215,7 @@ export default function UsersTable({
 
     const loadModules = async () => {
       try {
-        const response =
-          await getModules();
+        const response = await getModules();
 
         if (cancelled) {
           return;
@@ -279,12 +235,8 @@ export default function UsersTable({
               )
               .sort(
                 (a, b) =>
-                  Number(
-                    a?.sequence ?? 0
-                  ) -
-                  Number(
-                    b?.sequence ?? 0
-                  )
+                  Number(a?.sequence ?? 0) -
+                  Number(b?.sequence ?? 0)
               );
 
           setModules(activeModules);
@@ -309,6 +261,337 @@ export default function UsersTable({
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const loadPermissions = () => {
+      try {
+        const savedUser =
+          localStorage.getItem("user");
+
+        if (!savedUser) {
+          setCurrentRoleId(null);
+          setStaffPermissions(null);
+          return;
+        }
+
+        const user = JSON.parse(savedUser);
+
+        const roleId = Number(
+          user?.role_id ??
+            user?.roleId ??
+            user?.role
+        );
+
+        setCurrentRoleId(
+          Number.isFinite(roleId)
+            ? roleId
+            : null
+        );
+
+        if (roleId !== 9) {
+          setStaffPermissions(null);
+          return;
+        }
+
+        const savedStaffPermissions =
+          localStorage.getItem(
+            "staff_permissions"
+          );
+
+        const parsedStaffPermissions =
+          parsePermissions(
+            savedStaffPermissions
+          );
+
+        if (parsedStaffPermissions) {
+          setStaffPermissions(
+            parsedStaffPermissions
+          );
+          return;
+        }
+
+        const permission =
+          user?.staff_permissions?.permission ||
+          user?.role_permissions?.permission ||
+          null;
+
+        const parsedPermission =
+          parsePermissions(permission);
+
+        if (parsedPermission) {
+          setStaffPermissions(
+            parsedPermission
+          );
+
+          localStorage.setItem(
+            "staff_permissions",
+            JSON.stringify(parsedPermission)
+          );
+
+          return;
+        }
+
+        setStaffPermissions(null);
+      } catch (error) {
+        console.error(
+          "LOAD STAFF PERMISSIONS ERROR:",
+          error
+        );
+
+        setCurrentRoleId(null);
+        setStaffPermissions(null);
+      }
+    };
+
+    loadPermissions();
+
+    const handleStorage = (event) => {
+      if (
+        event.key === "staff_permissions" ||
+        event.key === "user"
+      ) {
+        loadPermissions();
+      }
+    };
+
+    window.addEventListener(
+      "storage",
+      handleStorage
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        handleStorage
+      );
+    };
+  }, []);
+
+  const isPermissionEnabled = (value) => {
+    if (
+      value === undefined ||
+      value === null
+    ) {
+      return false;
+    }
+
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (typeof value === "number") {
+      return value === 1;
+    }
+
+    if (typeof value === "string") {
+      const normalized =
+        value.trim().toLowerCase();
+
+      return (
+        normalized === "1" ||
+        normalized === "true" ||
+        normalized === "yes"
+      );
+    }
+
+    if (typeof value === "object") {
+      if (value.status !== undefined) {
+        return Number(value.status) === 1;
+      }
+
+      if (value.access !== undefined) {
+        return Number(value.access) === 1;
+      }
+
+      if (value.view !== undefined) {
+        return Number(value.view) === 1;
+      }
+
+      return true;
+    }
+
+    return false;
+  };
+
+  const getModuleByRoleSlug = (roleSlug) => {
+    const cleanSlug = String(roleSlug || "")
+      .trim()
+      .toLowerCase();
+
+    if (!cleanSlug) {
+      return null;
+    }
+
+    return (
+      modules.find((moduleItem) => {
+        const moduleSlug = String(
+          moduleItem?.slug || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        return moduleSlug === cleanSlug;
+      }) || null
+    );
+  };
+
+  const getModuleIdByRoleSlug = (roleSlug) => {
+    const module =
+      getModuleByRoleSlug(roleSlug);
+
+    const moduleId = Number(module?.id);
+
+    return Number.isFinite(moduleId)
+      ? moduleId
+      : null;
+  };
+
+  const hasPermission = (
+    roleSlug,
+    action = null
+  ) => {
+    if (Number(currentRoleId) !== 9) {
+      return true;
+    }
+
+    if (!staffPermissions) {
+      return false;
+    }
+
+    const moduleId =
+      getModuleIdByRoleSlug(roleSlug);
+
+    if (moduleId === null) {
+      return false;
+    }
+
+    if (!action) {
+      const modulePrefix = `${moduleId}.`;
+
+      return Object.entries(
+        staffPermissions
+      ).some(
+        ([permissionKey, value]) => {
+          const key = String(
+            permissionKey
+          ).trim();
+
+          if (
+            !key.startsWith(
+              modulePrefix
+            )
+          ) {
+            return false;
+          }
+
+          return isPermissionEnabled(
+            value
+          );
+        }
+      );
+    }
+
+    const normalizedAction =
+      String(action)
+        .trim()
+        .toLowerCase();
+
+    const actionId =
+      subModulePermissionIds[
+        normalizedAction
+      ];
+
+    if (!actionId) {
+      if (
+        normalizedAction === "login"
+      ) {
+        return hasPermission(
+          roleSlug,
+          "manage"
+        );
+      }
+
+      return false;
+    }
+
+    const permissionKey =
+      `${moduleId}.${actionId}`;
+
+    if (
+      staffPermissions[
+        permissionKey
+      ] !== undefined
+    ) {
+      return isPermissionEnabled(
+        staffPermissions[
+          permissionKey
+        ]
+      );
+    }
+
+    if (
+      normalizedAction !== "manage" &&
+      staffPermissions[
+        `${moduleId}.${subModulePermissionIds.manage}`
+      ] !== undefined
+    ) {
+      return isPermissionEnabled(
+        staffPermissions[
+          `${moduleId}.${subModulePermissionIds.manage}`
+        ]
+      );
+    }
+
+    return false;
+  };
+
+  const canViewSelectedRole =
+    hasPermission(
+      selectedRoleSlug,
+      "view"
+    );
+
+  const canAddSelectedRole =
+    hasPermission(
+      selectedRoleSlug,
+      "add"
+    );
+
+  const canStaffViewUser = (user) => {
+    if (Number(currentRoleId) !== 9) {
+      return true;
+    }
+
+    const userRoleId = Number(
+      user?.role_id
+    );
+
+    const userRoleSlug =
+      roleSlugMap[userRoleId] || "";
+
+    if (!userRoleSlug) {
+      return false;
+    }
+
+    return hasPermission(
+      userRoleSlug,
+      "view"
+    );
+  };
+
+  const getSearchLimit = () => {
+    const total =
+      Number(pagination?.total) ||
+      Number(
+        pagination?.totalRecords
+      ) ||
+      Number(pagination?.count) ||
+      0;
+
+    return total > 0
+      ? total
+      : 10000;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -342,7 +625,14 @@ export default function UsersTable({
           const pageUsers =
             getResponseUsers(response);
 
-          total += pageUsers.length;
+          const visibleUsers =
+            Number(currentRoleId) === 9
+              ? pageUsers.filter(
+                  canStaffViewUser
+                )
+              : pageUsers;
+
+          total += visibleUsers.length;
 
           if (
             pageUsers.length === 0 ||
@@ -380,13 +670,22 @@ export default function UsersTable({
 
           if (backendTotal > 0) {
             setTotalUsers(
-              backendTotal
+              Number(currentRoleId) === 9
+                ? 0
+                : backendTotal
             );
           } else {
-            setTotalUsers(
+            const fallbackUsers =
               Array.isArray(users)
-                ? users.length
-                : 0
+                ? users
+                : [];
+
+            setTotalUsers(
+              Number(currentRoleId) === 9
+                ? fallbackUsers.filter(
+                    canStaffViewUser
+                  ).length
+                : fallbackUsers.length
             );
           }
         }
@@ -402,370 +701,12 @@ export default function UsersTable({
     return () => {
       cancelled = true;
     };
-  }, [selectedRoleId]);
-
-  useEffect(() => {
-    const loadPermissions = () => {
-      try {
-        const roleId = Number(
-          getRoleId()
-        );
-
-        setCurrentRoleId(roleId);
-
-        if (roleId !== 9) {
-          setStaffPermissions(null);
-          return;
-        }
-
-        const savedStaffPermissions =
-          localStorage.getItem(
-            "staff_permissions"
-          );
-
-        const parsedPermissions =
-          parsePermissions(
-            savedStaffPermissions
-          );
-
-        if (parsedPermissions) {
-          setStaffPermissions(
-            parsedPermissions
-          );
-          return;
-        }
-
-        const savedUser =
-          localStorage.getItem("user");
-
-        if (!savedUser) {
-          setStaffPermissions(null);
-          return;
-        }
-
-        const user =
-          JSON.parse(savedUser);
-
-        const permission =
-          user?.staff_permission
-            ?.permission ||
-          user?.role_permission
-            ?.permission ||
-          null;
-
-        const parsedPermission =
-          parsePermissions(
-            permission
-          );
-
-        if (parsedPermission) {
-          setStaffPermissions(
-            parsedPermission
-          );
-
-          localStorage.setItem(
-            "staff_permissions",
-            JSON.stringify(
-              parsedPermission
-            )
-          );
-
-          return;
-        }
-
-        setStaffPermissions(null);
-      } catch (error) {
-        console.error(
-          "LOAD STAFF PERMISSIONS ERROR:",
-          error
-        );
-
-        setStaffPermissions(null);
-      }
-    };
-
-    loadPermissions();
-
-    const handleStorage = (
-      event
-    ) => {
-      if (
-        event.key ===
-          "staff_permissions" ||
-        event.key === "user"
-      ) {
-        loadPermissions();
-      }
-    };
-
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
-
-    return () => {
-      window.removeEventListener(
-        "storage",
-        handleStorage
-      );
-    };
-  }, []);
-
-  const isPermissionEnabled = (
-    value
-  ) => {
-    if (
-      value === undefined ||
-      value === null
-    ) {
-      return false;
-    }
-
-    if (
-      typeof value === "boolean"
-    ) {
-      return value;
-    }
-
-    if (
-      typeof value === "number"
-    ) {
-      return value === 1;
-    }
-
-    if (
-      typeof value === "string"
-    ) {
-      const normalized =
-        value.trim().toLowerCase();
-
-      return (
-        normalized === "1" ||
-        normalized === "true" ||
-        normalized === "yes"
-      );
-    }
-
-    if (
-      typeof value === "object"
-    ) {
-      if (
-        value.status !== undefined
-      ) {
-        return (
-          Number(value.status) === 1
-        );
-      }
-
-      if (
-        value.access !== undefined
-      ) {
-        return (
-          Number(value.access) === 1
-        );
-      }
-
-      if (
-        value.view !== undefined
-      ) {
-        return (
-          Number(value.view) === 1
-        );
-      }
-
-      return true;
-    }
-
-    return false;
-  };
-
-  const getModuleByRoleSlug = (
-    roleSlug
-  ) => {
-    const cleanSlug = String(
-      roleSlug || ""
-    )
-      .trim()
-      .toLowerCase();
-
-    if (!cleanSlug) {
-      return null;
-    }
-
-    return (
-      modules.find((moduleItem) => {
-        const moduleSlug =
-          String(
-            moduleItem?.slug || ""
-          )
-            .trim()
-            .toLowerCase();
-
-        return (
-          moduleSlug === cleanSlug
-        );
-      }) || null
-    );
-  };
-
-  const getModuleIdByRoleSlug = (
-    roleSlug
-  ) => {
-    const module =
-      getModuleByRoleSlug(
-        roleSlug
-      );
-
-    const moduleId = Number(
-      module?.id
-    );
-
-    return Number.isFinite(
-      moduleId
-    )
-      ? moduleId
-      : null;
-  };
-
-  const hasPermission = (
-    roleSlug,
-    action = null
-  ) => {
-    if (
-      Number(currentRoleId) !== 9
-    ) {
-      return true;
-    }
-
-    if (!staffPermissions) {
-      return false;
-    }
-
-    const moduleId =
-      getModuleIdByRoleSlug(
-        roleSlug
-      );
-
-    if (
-      moduleId === null
-    ) {
-      return false;
-    }
-
-    if (!action) {
-      const modulePrefix =
-        `${moduleId}.`;
-
-      return Object.entries(
-        staffPermissions
-      ).some(
-        ([permissionKey, value]) => {
-          const key = String(
-            permissionKey
-          ).trim();
-
-          if (
-            !key.startsWith(
-              modulePrefix
-            )
-          ) {
-            return false;
-          }
-
-          return isPermissionEnabled(
-            value
-          );
-        }
-      );
-    }
-
-    const normalizedAction =
-      String(action)
-        .trim()
-        .toLowerCase();
-
-    const actionId =
-      subModulePermissionIds[
-        normalizedAction
-      ];
-
-    if (
-      !actionId
-    ) {
-      if (
-        normalizedAction ===
-        "login"
-      ) {
-        return hasPermission(
-          roleSlug,
-          "manage"
-        );
-      }
-
-      return false;
-    }
-
-    const permissionKey =
-      `${moduleId}.${actionId}`;
-
-    if (
-      staffPermissions[
-        permissionKey
-      ] !== undefined
-    ) {
-      return isPermissionEnabled(
-        staffPermissions[
-          permissionKey
-        ]
-      );
-    }
-
-    if (
-      normalizedAction !==
-        "manage" &&
-      staffPermissions[
-        `${moduleId}.${subModulePermissionIds.manage}`
-      ] !== undefined
-    ) {
-      return isPermissionEnabled(
-        staffPermissions[
-          `${moduleId}.${subModulePermissionIds.manage}`
-        ]
-      );
-    }
-
-    return false;
-  };
-
-  const canViewSelectedRole =
-    hasPermission(
-      selectedRoleSlug,
-      "view"
-    );
-
-  const canAddSelectedRole =
-    hasPermission(
-      selectedRoleSlug,
-      "add"
-    );
-
-  const getSearchLimit = () => {
-    const total =
-      Number(
-        pagination?.total
-      ) ||
-      Number(
-        pagination?.totalRecords
-      ) ||
-      Number(
-        pagination?.count
-      ) ||
-      0;
-
-    return total > 0
-      ? total
-      : 10000;
-  };
+  }, [
+    selectedRoleId,
+    currentRoleId,
+    staffPermissions,
+    modules,
+  ]);
 
   const handleFilterChange = (
     field,
@@ -777,16 +718,12 @@ export default function UsersTable({
         [field]: value,
       };
 
-      if (
-        field === "country"
-      ) {
+      if (field === "country") {
         updated.state = "";
         updated.city = "";
       }
 
-      if (
-        field === "state"
-      ) {
+      if (field === "state") {
         updated.city = "";
       }
 
@@ -797,9 +734,7 @@ export default function UsersTable({
     setFilterSearchApplied(false);
     setPage?.(1);
 
-    if (
-      field === "status"
-    ) {
+    if (field === "status") {
       setSearchResults([]);
       setSearchApplied(false);
     }
@@ -827,16 +762,10 @@ export default function UsersTable({
     const parts =
       filters.state.split("-");
 
-    const countryCode =
-      parts[0];
+    const countryCode = parts[0];
+    const stateCode = parts[1];
 
-    const stateCode =
-      parts[1];
-
-    if (
-      !countryCode ||
-      !stateCode
-    ) {
+    if (!countryCode || !stateCode) {
       return [];
     }
 
@@ -911,32 +840,28 @@ export default function UsersTable({
           }
 
           const data =
-            getResponseUsers(
-              response
-            );
+            getResponseUsers(response);
+
+          const visibleData =
+            Number(currentRoleId) === 9
+              ? data.filter(
+                  canStaffViewUser
+                )
+              : data;
 
           setSearchSuggestions(
-            data
+            visibleData
           );
 
-          setShowSuggestions(
-            true
-          );
+          setShowSuggestions(true);
         } catch {
           if (!cancelled) {
-            setSearchSuggestions(
-              []
-            );
-
-            setShowSuggestions(
-              false
-            );
+            setSearchSuggestions([]);
+            setShowSuggestions(false);
           }
         } finally {
           if (!cancelled) {
-            setSearchLoading(
-              false
-            );
+            setSearchLoading(false);
           }
         }
       },
@@ -950,14 +875,15 @@ export default function UsersTable({
   }, [
     filterSearch,
     selectedRoleId,
+    currentRoleId,
+    staffPermissions,
+    modules,
     pagination?.total,
     pagination?.totalRecords,
     pagination?.count,
   ]);
 
-  const getSuggestionValue = (
-    user
-  ) => {
+  const getSuggestionValue = (user) => {
     const query =
       filterSearch
         .trim()
@@ -995,9 +921,7 @@ export default function UsersTable({
       fields.find(
         (field) =>
           field.value &&
-          String(
-            field.value
-          )
+          String(field.value)
             .toLowerCase()
             .includes(query)
       );
@@ -1022,9 +946,7 @@ export default function UsersTable({
     user
   ) => {
     const suggestion =
-      getSuggestionValue(
-        user
-      );
+      getSuggestionValue(user);
 
     const value = String(
       suggestion?.value || ""
@@ -1037,12 +959,8 @@ export default function UsersTable({
     setFilterSearch(value);
     setShowSuggestions(false);
     setSearchSuggestions([]);
-    setFilterSearchResults([
-      user,
-    ]);
-    setFilterSearchApplied(
-      true
-    );
+    setFilterSearchResults([user]);
+    setFilterSearchApplied(true);
     setPage?.(1);
   };
 
@@ -1096,11 +1014,19 @@ export default function UsersTable({
         );
 
       const data =
-        getResponseUsers(
-          response
-        );
+        getResponseUsers(response);
 
-      setSearchResults(data);
+      const visibleData =
+        Number(currentRoleId) === 9
+          ? data.filter(
+              canStaffViewUser
+            )
+          : data;
+
+      setSearchResults(
+        visibleData
+      );
+
       setSearchApplied(true);
 
       onSearch?.(
@@ -1116,8 +1042,7 @@ export default function UsersTable({
       setSearchApplied(true);
 
       toast.error(
-        error?.response?.data
-          ?.message ||
+        error?.response?.data?.message ||
           error?.message ||
           "Search failed"
       );
@@ -1129,9 +1054,7 @@ export default function UsersTable({
   const handleSearchKeyDown = (
     event
   ) => {
-    if (
-      event.key === "Enter"
-    ) {
+    if (event.key === "Enter") {
       event.preventDefault();
       handleSearch();
     }
@@ -1150,18 +1073,14 @@ export default function UsersTable({
   const handleLoginAsUser = async (
     user
   ) => {
-    const userRoleId = Number(
-      user?.role_id
-    );
+    const userRoleId =
+      Number(user?.role_id);
 
     const userRoleSlug =
-      roleSlugMap[
-        userRoleId
-      ] || "";
+      roleSlugMap[userRoleId] || "";
 
     if (
-      Number(currentRoleId) ===
-        9 &&
+      Number(currentRoleId) === 9 &&
       !hasPermission(
         userRoleSlug,
         "login"
@@ -1181,9 +1100,7 @@ export default function UsersTable({
       setLoginLoading(user.id);
 
       const response =
-        await loginAsUser(
-          user.id
-        );
+        await loginAsUser(user.id);
 
       if (!response?.success) {
         toast.error(
@@ -1194,20 +1111,15 @@ export default function UsersTable({
         return;
       }
 
-      saveToken(
-        response.token
-      );
-
-      saveUser(
-        response.user
-      );
+      const responseUser =
+        response?.user || {};
 
       let permissions =
-        response.user
-          ?.staff_permission
+        responseUser
+          ?.staff_permissions
           ?.permission ||
-        response.user
-          ?.role_permission
+        responseUser
+          ?.role_permissions
           ?.permission ||
         null;
 
@@ -1216,9 +1128,13 @@ export default function UsersTable({
           permissions
         );
 
+      localStorage.removeItem(
+        "staff_permission"
+      );
+
       if (
         Number(
-          response.user?.role_id
+          responseUser?.role_id
         ) === 9 &&
         permissions
       ) {
@@ -1234,9 +1150,21 @@ export default function UsersTable({
         );
       }
 
+      const {
+        staff_permissions,
+        role_permissions,
+        ...userWithoutPermissions
+      } = responseUser;
+
+      saveToken(response.token);
+
+      saveUser(
+        userWithoutPermissions
+      );
+
       toast.success(
         `Logged in as ${
-          response.user?.name ||
+          responseUser?.name ||
           "user"
         }`
       );
@@ -1250,8 +1178,7 @@ export default function UsersTable({
       );
 
       toast.error(
-        error?.response?.data
-          ?.message ||
+        error?.response?.data?.message ||
           error?.message ||
           "Unable to login as user"
       );
@@ -1263,18 +1190,14 @@ export default function UsersTable({
   const handleStatusToggle = async (
     user
   ) => {
-    const userRoleId = Number(
-      user?.role_id
-    );
+    const userRoleId =
+      Number(user?.role_id);
 
     const userRoleSlug =
-      roleSlugMap[
-        userRoleId
-      ] || "";
+      roleSlugMap[userRoleId] || "";
 
     if (
-      Number(currentRoleId) ===
-        9 &&
+      Number(currentRoleId) === 9 &&
       !hasPermission(
         userRoleSlug,
         "delete"
@@ -1291,9 +1214,7 @@ export default function UsersTable({
     }
 
     try {
-      setStatusLoading(
-        user.id
-      );
+      setStatusLoading(user.id);
 
       const currentStatus =
         Number(
@@ -1327,8 +1248,7 @@ export default function UsersTable({
         (previous) =>
           previous.map(
             (item) =>
-              item.id ===
-              user.id
+              item.id === user.id
                 ? {
                     ...item,
                     userStatus:
@@ -1342,8 +1262,7 @@ export default function UsersTable({
         (previous) =>
           previous.map(
             (item) =>
-              item.id ===
-              user.id
+              item.id === user.id
                 ? {
                     ...item,
                     userStatus:
@@ -1365,15 +1284,12 @@ export default function UsersTable({
       );
 
       toast.error(
-        error?.response?.data
-          ?.message ||
+        error?.response?.data?.message ||
           error?.message ||
           "Failed to update user status"
       );
     } finally {
-      setStatusLoading(
-        null
-      );
+      setStatusLoading(null);
     }
   };
 
@@ -1387,9 +1303,7 @@ export default function UsersTable({
         page - 1;
 
       if (!filters.status) {
-        setPage(
-          previousPage
-        );
+        setPage(previousPage);
         return;
       }
 
@@ -1405,18 +1319,25 @@ export default function UsersTable({
             filters.status
           );
 
+        const data =
+          getResponseUsers(response);
+
+        const visibleData =
+          Number(currentRoleId) === 9
+            ? data.filter(
+                canStaffViewUser
+              )
+            : data;
+
         setSearchResults(
-          getResponseUsers(
-            response
-          )
+          visibleData
         );
 
         setSearchApplied(true);
         setPage(previousPage);
       } catch (error) {
         toast.error(
-          error?.response?.data
-            ?.message ||
+          error?.response?.data?.message ||
             error?.message ||
             "Failed to load users"
         );
@@ -1432,9 +1353,7 @@ export default function UsersTable({
           pagination?.totalPages
         ) || 1;
 
-      if (
-        page >= totalPages
-      ) {
+      if (page >= totalPages) {
         return;
       }
 
@@ -1458,18 +1377,25 @@ export default function UsersTable({
             filters.status
           );
 
+        const data =
+          getResponseUsers(response);
+
+        const visibleData =
+          Number(currentRoleId) === 9
+            ? data.filter(
+                canStaffViewUser
+              )
+            : data;
+
         setSearchResults(
-          getResponseUsers(
-            response
-          )
+          visibleData
         );
 
         setSearchApplied(true);
         setPage(nextPage);
       } catch (error) {
         toast.error(
-          error?.response?.data
-            ?.message ||
+          error?.response?.data?.message ||
             error?.message ||
             "Failed to load users"
         );
@@ -1480,155 +1406,122 @@ export default function UsersTable({
 
   let tableUsers = users;
 
-  if (
-    filterSearchApplied
-  ) {
+  if (filterSearchApplied) {
     tableUsers =
       filterSearchResults;
-  } else if (
-    searchApplied
-  ) {
+  } else if (searchApplied) {
     tableUsers =
       searchResults;
   }
 
   const filteredUsers =
-    tableUsers.filter(
-      (user) => {
-        const searchValue =
-          search
-            .trim()
-            .toLowerCase();
-
-        const userName =
-          String(
-            user?.name || ""
-          )
-            .trim()
-            .toLowerCase();
-
-        const organizationName =
-          String(
-            user?.organization_name ||
-              ""
-          )
-            .trim()
-            .toLowerCase();
-
-        const userPhone =
-          String(
-            user?.phone || ""
-          )
-            .trim()
-            .toLowerCase();
-
-        const userCity =
-          String(
-            user?.city || ""
-          )
-            .trim()
-            .toLowerCase();
-
-        const userState =
-          String(
-            user?.state || ""
-          )
-            .trim()
-            .toLowerCase();
-
-        const userCountry =
-          String(
-            user?.country || ""
-          )
-            .trim()
-            .toLowerCase();
-
-        const matchesSearch =
-          !searchValue ||
-          userName.includes(
-            searchValue
-          ) ||
-          organizationName.includes(
-            searchValue
-          ) ||
-          userPhone.includes(
-            searchValue
-          ) ||
-          userCity.includes(
-            searchValue
-          ) ||
-          userState.includes(
-            searchValue
-          ) ||
-          userCountry.includes(
-            searchValue
-          );
-
-        const selectedCountry =
-          filters.country
-            .trim()
-            .toLowerCase();
-
-        const selectedCountryName =
-          countryOptions.find(
-            (country) =>
-              country.isoCode.toLowerCase() ===
-              selectedCountry
-          )?.name
-            ?.trim()
-            .toLowerCase() || "";
-
-        const matchesCountry =
-          !selectedCountry ||
-          userCountry ===
-            selectedCountry ||
-          userCountry ===
-            selectedCountryName;
-
-        const matchesState =
-          !selectedStateCode ||
-          userState ===
-            selectedStateCode
-              .trim()
-              .toLowerCase() ||
-          userState ===
-            selectedStateName;
-
-        const selectedCity =
-          String(
-            filters.city || ""
-          )
-            .trim()
-            .toLowerCase();
-
-        const matchesCity =
-          !selectedCity ||
-          userCity ===
-            selectedCity;
-
-        const userStatus =
-          Number(
-            user?.userStatus ?? 1
-          );
-
-        const matchesStatus =
-          !filters.status ||
-          (filters.status ===
-            "active" &&
-            userStatus === 1) ||
-          (filters.status ===
-            "inactive" &&
-            userStatus === 0);
-
-        return (
-          matchesSearch &&
-          matchesCountry &&
-          matchesState &&
-          matchesCity &&
-          matchesStatus
-        );
+    tableUsers.filter((user) => {
+      if (!canStaffViewUser(user)) {
+        return false;
       }
-    );
+
+      const searchValue =
+        search.trim().toLowerCase();
+
+      const userName =
+        String(user?.name || "")
+          .trim()
+          .toLowerCase();
+
+      const organizationName =
+        String(
+          user?.organization_name || ""
+        )
+          .trim()
+          .toLowerCase();
+
+      const userPhone =
+        String(user?.phone || "")
+          .trim()
+          .toLowerCase();
+
+      const userCity =
+        String(user?.city || "")
+          .trim()
+          .toLowerCase();
+
+      const userState =
+        String(user?.state || "")
+          .trim()
+          .toLowerCase();
+
+      const userCountry =
+        String(user?.country || "")
+          .trim()
+          .toLowerCase();
+
+      const matchesSearch =
+        !searchValue ||
+        userName.includes(searchValue) ||
+        organizationName.includes(
+          searchValue
+        ) ||
+        userPhone.includes(searchValue) ||
+        userCity.includes(searchValue) ||
+        userState.includes(searchValue) ||
+        userCountry.includes(searchValue);
+
+      const selectedCountry =
+        filters.country
+          .trim()
+          .toLowerCase();
+
+      const selectedCountryName =
+        countryOptions.find(
+          (country) =>
+            country.isoCode.toLowerCase() ===
+            selectedCountry
+        )?.name
+          ?.trim()
+          .toLowerCase() || "";
+
+      const matchesCountry =
+        !selectedCountry ||
+        userCountry === selectedCountry ||
+        userCountry === selectedCountryName;
+
+      const matchesState =
+        !selectedStateCode ||
+        userState ===
+          selectedStateCode
+            .trim()
+            .toLowerCase() ||
+        userState === selectedStateName;
+
+      const selectedCity =
+        String(filters.city || "")
+          .trim()
+          .toLowerCase();
+
+      const matchesCity =
+        !selectedCity ||
+        userCity === selectedCity;
+
+      const userStatus =
+        Number(
+          user?.userStatus ?? 1
+        );
+
+      const matchesStatus =
+        !filters.status ||
+        (filters.status === "active" &&
+          userStatus === 1) ||
+        (filters.status === "inactive" &&
+          userStatus === 0);
+
+      return (
+        matchesSearch &&
+        matchesCountry &&
+        matchesState &&
+        matchesCity &&
+        matchesStatus
+      );
+    });
 
   const addPageUrl =
     `/dashboard/form?role=${selectedRoleId}` +
@@ -1637,16 +1530,12 @@ export default function UsersTable({
       selectedRoleSlug
     )}`;
 
-  const getEditFormUrl = (
-    user
-  ) => {
+  const getEditFormUrl = (user) => {
     const actualRoleId =
       Number(user?.role_id);
 
     const actualRoleSlug =
-      roleSlugMap[
-        actualRoleId
-      ] || "";
+      roleSlugMap[actualRoleId] || "";
 
     return (
       `/dashboard/form?id=${encodeURIComponent(
@@ -1661,8 +1550,7 @@ export default function UsersTable({
   };
 
   if (
-    Number(currentRoleId) ===
-      9 &&
+    Number(currentRoleId) === 9 &&
     !canViewSelectedRole
   ) {
     return (
@@ -1688,13 +1576,9 @@ export default function UsersTable({
         <div className="flex gap-3 overflow-x-auto whitespace-nowrap w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             type="button"
-            disabled={
-              isUsersListPage
-            }
+            disabled={isUsersListPage}
             onClick={() => {
-              if (
-                !isUsersListPage
-              ) {
+              if (!isUsersListPage) {
                 handleRoleList?.(
                   selectedRoleId,
                   selectedRoleSlug
@@ -1707,8 +1591,7 @@ export default function UsersTable({
                 : "bg-gray-700 text-white hover:bg-gray-800 cursor-pointer"
             }`}
           >
-            {selectedRoleName}{" "}
-            List
+            {selectedRoleName} List
           </button>
 
           {canAddSelectedRole && (
@@ -1716,9 +1599,7 @@ export default function UsersTable({
               href={addPageUrl}
               className="bg-blue-400 text-white px-4 py-2 rounded-sm hover:bg-blue-500 cursor-pointer whitespace-nowrap inline-block"
             >
-              {roleButtons[
-                selectedRoleId
-              ] ||
+              {roleButtons[selectedRoleId] ||
                 `Add ${selectedRoleName}`}
             </Link>
           )}
@@ -1747,8 +1628,7 @@ export default function UsersTable({
             type="button"
             onClick={() =>
               setFilterOpen(
-                (previous) =>
-                  !previous
+                (previous) => !previous
               )
             }
             className={`flex items-center justify-center text-white cursor-pointer gap-2 border px-4 py-2 rounded-md transition-all ${
@@ -1757,9 +1637,7 @@ export default function UsersTable({
                 : "bg-blue-400 border-white hover:bg-blue-500 hover:border-blue-500"
             }`}
           >
-            <RiFilterLine
-              size={18}
-            />
+            <RiFilterLine size={18} />
             Filter
           </button>
 
@@ -1769,9 +1647,7 @@ export default function UsersTable({
               placeholder="Search by name, city, state, phone..."
               value={search}
               onChange={(e) =>
-                setSearch(
-                  e.target.value
-                )
+                setSearch(e.target.value)
               }
               onKeyDown={
                 handleSearchKeyDown
@@ -1813,17 +1689,13 @@ export default function UsersTable({
                     setFilterSearchApplied(
                       false
                     );
-                    setShowSuggestions(
-                      true
-                    );
+                    setShowSuggestions(true);
                   }}
                   onFocus={() => {
                     if (
                       filterSearch.trim()
                     ) {
-                      setShowSuggestions(
-                        true
-                      );
+                      setShowSuggestions(true);
                     }
                   }}
                   placeholder="Search users..."
@@ -1843,10 +1715,7 @@ export default function UsersTable({
                     ) : searchSuggestions.length >
                       0 ? (
                       searchSuggestions.map(
-                        (
-                          user,
-                          index
-                        ) => {
+                        (user, index) => {
                           const suggestion =
                             getSuggestionValue(
                               user
@@ -1867,8 +1736,7 @@ export default function UsersTable({
                               className="w-full text-left px-4 py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer"
                             >
                               <div className="font-semibold text-gray-800">
-                                {user?.name ||
-                                  "-"}
+                                {user?.name || "-"}
                               </div>
 
                               <div className="text-sm text-gray-500 mt-1">
@@ -1878,18 +1746,15 @@ export default function UsersTable({
 
                               <div className="flex gap-3 text-xs text-gray-400 mt-1">
                                 <span>
-                                  {user?.city ||
-                                    "-"}
+                                  {user?.city || "-"}
                                 </span>
 
                                 <span>
-                                  {user?.state ||
-                                    "-"}
+                                  {user?.state || "-"}
                                 </span>
 
                                 <span>
-                                  {user?.phone ||
-                                    "-"}
+                                  {user?.phone || "-"}
                                 </span>
                               </div>
                             </button>
@@ -1912,9 +1777,7 @@ export default function UsersTable({
 
               <div className="relative">
                 <select
-                  value={
-                    filters.country
-                  }
+                  value={filters.country}
                   onChange={(e) =>
                     handleFilterChange(
                       "country",
@@ -1930,12 +1793,8 @@ export default function UsersTable({
                   {countryOptions.map(
                     (country) => (
                       <option
-                        key={
-                          country.isoCode
-                        }
-                        value={
-                          country.isoCode
-                        }
+                        key={country.isoCode}
+                        value={country.isoCode}
                       >
                         {country.name}
                       </option>
@@ -1957,18 +1816,14 @@ export default function UsersTable({
 
               <div className="relative">
                 <select
-                  value={
-                    filters.state
-                  }
+                  value={filters.state}
                   onChange={(e) =>
                     handleFilterChange(
                       "state",
                       e.target.value
                     )
                   }
-                  disabled={
-                    !filters.country
-                  }
+                  disabled={!filters.country}
                   className="w-full appearance-none border border-gray-300 rounded-md px-3 py-2 pr-10 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
                   <option value="">
@@ -2001,9 +1856,7 @@ export default function UsersTable({
 
               <div className="relative">
                 <select
-                  value={
-                    filters.city
-                  }
+                  value={filters.city}
                   onChange={(e) =>
                     handleFilterChange(
                       "city",
@@ -2021,15 +1874,10 @@ export default function UsersTable({
                   </option>
 
                   {cityOptions.map(
-                    (
-                      city,
-                      index
-                    ) => (
+                    (city, index) => (
                       <option
                         key={`${city.name}-${index}`}
-                        value={
-                          city.name
-                        }
+                        value={city.name}
                       >
                         {city.name}
                       </option>
@@ -2051,9 +1899,7 @@ export default function UsersTable({
 
               <div className="relative">
                 <select
-                  value={
-                    filters.status
-                  }
+                  value={filters.status}
                   onChange={(e) =>
                     handleFilterChange(
                       "status",
@@ -2085,9 +1931,7 @@ export default function UsersTable({
             <div className="flex items-end">
               <button
                 type="button"
-                onClick={
-                  clearFilters
-                }
+                onClick={clearFilters}
                 className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 cursor-pointer"
               >
                 Clear Filters
@@ -2145,19 +1989,14 @@ export default function UsersTable({
             </thead>
 
             <tbody>
-              {filteredUsers.length >
-              0 ? (
+              {filteredUsers.length > 0 ? (
                 filteredUsers.map(
                   (user, index) => {
                     const actualRoleId =
-                      Number(
-                        user?.role_id
-                      );
+                      Number(user?.role_id);
 
                     const actualRoleName =
-                      roleMap[
-                        actualRoleId
-                      ] ||
+                      roleMap[actualRoleId] ||
                       getRoleName?.(
                         actualRoleId
                       ) ||
@@ -2170,8 +2009,7 @@ export default function UsersTable({
 
                     const isActive =
                       Number(
-                        user?.userStatus ??
-                          1
+                        user?.userStatus ?? 1
                       ) === 1;
 
                     const canEditRow =
@@ -2203,9 +2041,7 @@ export default function UsersTable({
 
                     return (
                       <tr
-                        key={
-                          user.id
-                        }
+                        key={user.id}
                         className="border-b"
                       >
                         <td className="p-3">
@@ -2230,8 +2066,7 @@ export default function UsersTable({
 
                         <td className="p-3 py-1">
                           <div className="font-semibold">
-                            {user.name ||
-                              "-"}
+                            {user.name || "-"}
                           </div>
 
                           <div className="text-sm text-gray-500">
@@ -2307,9 +2142,7 @@ export default function UsersTable({
                                   title={`Edit ${actualRoleName}`}
                                 >
                                   <RiEditLine
-                                    size={
-                                      20
-                                    }
+                                    size={20}
                                   />
                                 </button>
                               )}
@@ -2335,9 +2168,7 @@ export default function UsersTable({
                                     <span className="h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
                                   ) : (
                                     <RiLoginBoxLine
-                                      size={
-                                        20
-                                      }
+                                      size={20}
                                     />
                                   )}
                                 </button>
@@ -2413,9 +2244,7 @@ export default function UsersTable({
         <button
           type="button"
           disabled={page <= 1}
-          onClick={
-            handlePreviousPage
-          }
+          onClick={handlePreviousPage}
           className={`px-4 py-2 rounded cursor-pointer ${
             page <= 1
               ? "bg-gray-200 cursor-not-allowed"
@@ -2427,27 +2256,21 @@ export default function UsersTable({
 
         <span className="px-4 py-2 font-semibold">
           Page{" "}
-          {pagination?.currentPage ||
-            page}{" "}
+          {pagination?.currentPage || page}{" "}
           /{" "}
-          {pagination?.totalPages ||
-            1}
+          {pagination?.totalPages || 1}
         </span>
 
         <button
           type="button"
           disabled={
             page >=
-            (pagination?.totalPages ||
-              1)
+            (pagination?.totalPages || 1)
           }
-          onClick={
-            handleNextPage
-          }
+          onClick={handleNextPage}
           className={`px-4 py-2 rounded cursor-pointer ${
             page >=
-            (pagination?.totalPages ||
-              1)
+            (pagination?.totalPages || 1)
               ? "bg-gray-200 cursor-not-allowed"
               : "bg-blue-500 text-white hover:bg-blue-600"
           }`}

@@ -43,9 +43,7 @@ export const getUserFromToken = () => {
         .map(
           (char) =>
             "%" +
-            ("00" + char.charCodeAt(0).toString(16)).slice(
-              -2
-            )
+            ("00" + char.charCodeAt(0).toString(16)).slice(-2)
         )
         .join("")
     );
@@ -53,7 +51,6 @@ export const getUserFromToken = () => {
     return JSON.parse(jsonPayload);
   } catch (error) {
     console.error("Invalid Token:", error);
-
     return null;
   }
 };
@@ -61,32 +58,20 @@ export const getUserFromToken = () => {
 export const getUserId = () => {
   const user = getUserFromToken();
 
-  if (!user) {
-    return null;
-  }
-
-  if (
-    user.id === undefined ||
-    user.id === null
-  ) {
+  if (!user || user.id === undefined || user.id === null) {
     return null;
   }
 
   const userId = Number(user.id);
 
-  return Number.isFinite(userId)
-    ? userId
-    : null;
+  return Number.isFinite(userId) ? userId : null;
 };
 
 export const getRoleId = () => {
   const user = getUserFromToken();
 
-  if (!user) {
-    return null;
-  }
-
   if (
+    !user ||
     user.role_id === undefined ||
     user.role_id === null
   ) {
@@ -95,20 +80,12 @@ export const getRoleId = () => {
 
   const roleId = Number(user.role_id);
 
-  return Number.isFinite(roleId)
-    ? roleId
-    : null;
+  return Number.isFinite(roleId) ? roleId : null;
 };
 
 export const saveUser = (user) => {
-  if (
-    typeof window !== "undefined" &&
-    user
-  ) {
-    localStorage.setItem(
-      "user",
-      JSON.stringify(user)
-    );
+  if (typeof window !== "undefined" && user) {
+    localStorage.setItem("user", JSON.stringify(user));
   }
 };
 
@@ -123,11 +100,7 @@ export const getUser = () => {
     try {
       return JSON.parse(user);
     } catch (error) {
-      console.error(
-        "Invalid user data:",
-        error
-      );
-
+      console.error("Invalid user data:", error);
       return null;
     }
   }
@@ -135,34 +108,21 @@ export const getUser = () => {
   return null;
 };
 
-export const saveOriginalLogin = (
-  token,
-  user
-) => {
-  if (
-    typeof window === "undefined"
-  ) {
+export const saveOriginalLogin = (token, user) => {
+  if (typeof window === "undefined") {
     return false;
   }
 
   if (!token) {
-    console.error(
-      "Original login token missing"
-    );
-
+    console.error("Original login token missing");
     return false;
   }
 
   const existingOriginalToken =
-    localStorage.getItem(
-      "original_token"
-    );
+    localStorage.getItem("original_token");
 
   if (!existingOriginalToken) {
-    localStorage.setItem(
-      "original_token",
-      token
-    );
+    localStorage.setItem("original_token", token);
 
     if (user) {
       localStorage.setItem(
@@ -170,43 +130,25 @@ export const saveOriginalLogin = (
         JSON.stringify(user)
       );
     }
-
-    console.log(
-      "Original Login Saved:",
-      user
-    );
-  } else {
-    console.log(
-      "Original Login Already Exists"
-    );
   }
 
   return true;
 };
 
 export const getOriginalToken = () => {
-  if (
-    typeof window === "undefined"
-  ) {
+  if (typeof window === "undefined") {
     return null;
   }
 
-  return localStorage.getItem(
-    "original_token"
-  );
+  return localStorage.getItem("original_token");
 };
 
 export const getOriginalUser = () => {
-  if (
-    typeof window === "undefined"
-  ) {
+  if (typeof window === "undefined") {
     return null;
   }
 
-  const user =
-    localStorage.getItem(
-      "original_user"
-    );
+  const user = localStorage.getItem("original_user");
 
   if (!user) {
     return null;
@@ -215,180 +157,110 @@ export const getOriginalUser = () => {
   try {
     return JSON.parse(user);
   } catch (error) {
-    console.error(
-      "Invalid original user:",
-      error
-    );
-
+    console.error("Invalid original user:", error);
     return null;
   }
 };
 
 export const hasOriginalLogin = () => {
-  if (
-    typeof window === "undefined"
-  ) {
+  if (typeof window === "undefined") {
     return false;
   }
 
-  const originalToken =
-    localStorage.getItem(
-      "original_token"
-    );
-
-  return !!originalToken;
+  return !!localStorage.getItem("original_token");
 };
 
 export const restoreOriginalLogin = () => {
-  if (
-    typeof window === "undefined"
-  ) {
+  if (typeof window === "undefined") {
     return false;
   }
 
   const originalToken =
-    localStorage.getItem(
-      "original_token"
-    );
+    localStorage.getItem("original_token");
 
   const originalUser =
-    localStorage.getItem(
-      "original_user"
-    );
+    localStorage.getItem("original_user");
 
   if (!originalToken) {
-    console.error(
-      "Original login token not found"
-    );
-
+    console.error("Original login token not found");
     return false;
   }
 
-  localStorage.setItem(
-    "token",
-    originalToken
-  );
+  localStorage.setItem("token", originalToken);
 
   if (originalUser) {
-    localStorage.setItem(
-      "user",
-      originalUser
-    );
+    localStorage.setItem("user", originalUser);
   }
-
-  console.log(
-    "Original Login Restored"
-  );
 
   return true;
 };
 
 export const removeOriginalLogin = () => {
-  if (
-    typeof window === "undefined"
-  ) {
+  if (typeof window === "undefined") {
     return;
   }
 
-  localStorage.removeItem(
-    "original_token"
-  );
-
-  localStorage.removeItem(
-    "original_user"
-  );
-
-  console.log(
-    "Original Login Removed"
-  );
+  localStorage.removeItem("original_token");
+  localStorage.removeItem("original_user");
 };
 
 export const clearAllLoginData = () => {
-  if (
-    typeof window === "undefined"
-  ) {
+  if (typeof window === "undefined") {
     return;
   }
 
   localStorage.removeItem("token");
   localStorage.removeItem("user");
-
-  localStorage.removeItem(
-    "original_token"
-  );
-
-  localStorage.removeItem(
-    "original_user"
-  );
-
-  console.log(
-    "All Login Data Cleared"
-  );
+  localStorage.removeItem("original_token");
+  localStorage.removeItem("original_user");
 };
 
 export const getOriginalRoleId = () => {
-  if (
-    typeof window === "undefined"
-  ) {
+  if (typeof window === "undefined") {
     return null;
   }
 
-  const originalUser =
-    getOriginalUser();
+  const originalUser = getOriginalUser();
 
   if (
     originalUser &&
     originalUser.role_id !== undefined &&
     originalUser.role_id !== null
   ) {
-    const roleId = Number(
-      originalUser.role_id
-    );
+    const roleId = Number(originalUser.role_id);
 
-    return Number.isFinite(roleId)
-      ? roleId
-      : null;
+    return Number.isFinite(roleId) ? roleId : null;
   }
 
-  const originalToken =
-    getOriginalToken();
+  const originalToken = getOriginalToken();
 
   if (!originalToken) {
     return null;
   }
 
   try {
-    const payload =
-      originalToken.split(".")[1];
+    const payload = originalToken.split(".")[1];
 
     if (!payload) {
       return null;
     }
 
-    const base64 =
-      payload
-        .replace(/-/g, "+")
-        .replace(/_/g, "/");
+    const base64 = payload
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
 
-    const jsonPayload =
-      decodeURIComponent(
-        atob(base64)
-          .split("")
-          .map(
-            (char) =>
-              "%" +
-              (
-                "00" +
-                char
-                  .charCodeAt(0)
-                  .toString(16)
-              ).slice(-2)
-          )
-          .join("")
-      );
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map(
+          (char) =>
+            "%" +
+            ("00" + char.charCodeAt(0).toString(16)).slice(-2)
+        )
+        .join("")
+    );
 
-    const decoded =
-      JSON.parse(jsonPayload);
+    const decoded = JSON.parse(jsonPayload);
 
     if (
       decoded.role_id === undefined ||
@@ -397,19 +269,11 @@ export const getOriginalRoleId = () => {
       return null;
     }
 
-    const roleId = Number(
-      decoded.role_id
-    );
+    const roleId = Number(decoded.role_id);
 
-    return Number.isFinite(roleId)
-      ? roleId
-      : null;
+    return Number.isFinite(roleId) ? roleId : null;
   } catch (error) {
-    console.error(
-      "Original Role Decode Error:",
-      error
-    );
-
+    console.error("Original Role Decode Error:", error);
     return null;
   }
 };

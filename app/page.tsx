@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -62,6 +61,7 @@ export default function Page() {
   };
 
   const saveStaffPermissions = (user: any) => {
+    localStorage.removeItem("staff_permission");
     localStorage.removeItem("staff_permissions");
 
     if (Number(user?.role_id) !== 9) {
@@ -69,7 +69,9 @@ export default function Page() {
     }
 
     const permission =
-      user?.staff_permission?.permission;
+      user?.staff_permission?.permission ||
+      user?.staff_permissions?.permission ||
+      null;
 
     if (!permission) {
       return;
@@ -79,9 +81,8 @@ export default function Page() {
 
     if (typeof parsedPermission === "string") {
       try {
-        parsedPermission = JSON.parse(
-          parsedPermission
-        );
+        parsedPermission =
+          JSON.parse(parsedPermission);
       } catch (error) {
         console.error(
           "Staff permission parse error:",
@@ -160,14 +161,22 @@ export default function Page() {
         return;
       }
 
+      const {
+        staff_permission,
+        staff_permissions,
+        ...cleanUser
+      } = loggedInUser;
+
+      localStorage.removeItem("staff_permission");
+
       saveOriginalLogin(
         response.token,
-        loggedInUser
+        cleanUser
       );
 
       saveToken(response.token);
 
-      saveUser(loggedInUser);
+      saveUser(cleanUser);
 
       saveStaffPermissions(loggedInUser);
 
