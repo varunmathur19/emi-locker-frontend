@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -24,6 +25,7 @@ export default function MyTransaction() {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedTransaction, setSelectedTransaction] = useState(null);
+    const [currentRole, setCurrentRole] = useState(null);
 
     const [pagination, setPagination] = useState({
         page: 1,
@@ -32,37 +34,91 @@ export default function MyTransaction() {
         totalPages: 0,
     });
 
+    useEffect(() => {
+        const loadCurrentUser = () => {
+            try {
+                const storedUser =
+                    localStorage.getItem("user");
+
+                if (!storedUser) {
+                    setCurrentRole(null);
+                    return;
+                }
+
+                const user = JSON.parse(storedUser);
+
+                const roleId = Number(
+                    user?.role_id ??
+                        user?.roleId ??
+                        user?.role
+                );
+
+                setCurrentRole(
+                    Number.isFinite(roleId)
+                        ? roleId
+                        : null
+                );
+            } catch (error) {
+                console.error(
+                    "GET CURRENT USER ROLE ERROR:",
+                    error
+                );
+
+                setCurrentRole(null);
+            }
+        };
+
+        loadCurrentUser();
+    }, []);
+
+    const isAdminRole =
+        currentRole === 0 ||
+        currentRole === 1;
+
     const getTransactions = async () => {
         try {
             setLoading(true);
 
-            const response = await getWalletTransactions({
-                page: pagination.page,
-                limit: pagination.limit,
-            });
+            const response =
+                await getWalletTransactions({
+                    page: pagination.page,
+                    limit: pagination.limit,
+                });
 
             if (!response?.success) {
                 setTransactions([]);
 
                 toast.error(
-                    response?.message || "Failed to fetch transactions"
+                    response?.message ||
+                        "Failed to fetch transactions"
                 );
 
                 return;
             }
 
             setTransactions(
-                Array.isArray(response?.data) ? response.data : []
+                Array.isArray(response?.data)
+                    ? response.data
+                    : []
             );
 
-            const backendPagination = response?.pagination || {};
+            const backendPagination =
+                response?.pagination || {};
 
             setPagination((prev) => ({
                 ...prev,
-                page: Number(backendPagination?.page) || 1,
+                page:
+                    Number(
+                        backendPagination?.page
+                    ) || 1,
                 limit:
-                    Number(backendPagination?.limit) || prev.limit,
-                total: Number(backendPagination?.total) || 0,
+                    Number(
+                        backendPagination?.limit
+                    ) || prev.limit,
+                total:
+                    Number(
+                        backendPagination?.total
+                    ) || 0,
                 totalPages:
                     Number(
                         backendPagination?.totalPages ??
@@ -70,7 +126,10 @@ export default function MyTransaction() {
                     ) || 0,
             }));
         } catch (error) {
-            console.error("GET TRANSACTIONS ERROR:", error);
+            console.error(
+                "GET TRANSACTIONS ERROR:",
+                error
+            );
 
             setTransactions([]);
 
@@ -102,11 +161,17 @@ export default function MyTransaction() {
             }
         };
 
-        document.addEventListener("keydown", handleEscape);
+        document.addEventListener(
+            "keydown",
+            handleEscape
+        );
 
         return () => {
             document.body.style.overflow = "";
-            document.removeEventListener("keydown", handleEscape);
+            document.removeEventListener(
+                "keydown",
+                handleEscape
+            );
         };
     }, [selectedTransaction]);
 
@@ -190,21 +255,36 @@ export default function MyTransaction() {
 
         const formattedDate = new Date(date);
 
-        if (Number.isNaN(formattedDate.getTime())) {
+        if (
+            Number.isNaN(
+                formattedDate.getTime()
+            )
+        ) {
             return "-";
         }
 
-        return formattedDate.toLocaleString("en-IN", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
+        return formattedDate.toLocaleString(
+            "en-IN",
+            {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            }
+        );
     };
 
-    const getUserDisplayName = (name, email, id) => {
-        return name || email || (id ? `User #${id}` : "-");
+    const getUserDisplayName = (
+        name,
+        email,
+        id
+    ) => {
+        return (
+            name ||
+            email ||
+            (id ? `User #${id}` : "-")
+        );
     };
 
     const handlePrevious = () => {
@@ -219,7 +299,10 @@ export default function MyTransaction() {
     };
 
     const handleNext = () => {
-        if (pagination.page >= pagination.totalPages) {
+        if (
+            pagination.page >=
+            pagination.totalPages
+        ) {
             return;
         }
 
@@ -233,19 +316,24 @@ export default function MyTransaction() {
         setSelectedTransaction(null);
     };
 
-    const isFirstPage = pagination.page <= 1;
+    const isFirstPage =
+        pagination.page <= 1;
 
     const isLastPage =
         pagination.totalPages === 0 ||
-        pagination.page >= pagination.totalPages;
+        pagination.page >=
+            pagination.totalPages;
 
     const startRecord =
         pagination.total === 0
             ? 0
-            : (pagination.page - 1) * pagination.limit + 1;
+            : (pagination.page - 1) *
+                  pagination.limit +
+              1;
 
     const endRecord = Math.min(
-        pagination.page * pagination.limit,
+        pagination.page *
+            pagination.limit,
         pagination.total
     );
 
@@ -256,7 +344,9 @@ export default function MyTransaction() {
                     <div>
                         <div className="flex items-center gap-2">
                             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                                <RiFileList3Line size={20} />
+                                <RiFileList3Line
+                                    size={20}
+                                />
                             </div>
 
                             <h1 className="text-xl font-semibold text-gray-800">
@@ -265,28 +355,34 @@ export default function MyTransaction() {
                         </div>
 
                         <p className="mt-2 text-sm text-gray-500">
-                            Track your wallet transaction history and point
-                            transfers.
+                            Track your wallet transaction
+                            history and point transfers.
                         </p>
                     </div>
 
-                    {!loading && pagination.total > 0 && (
-                        <div className="flex w-fit items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                                <RiWallet3Line size={19} />
-                            </div>
+                    {isAdminRole &&
+                        !loading &&
+                        pagination.total > 0 && (
+                            <div className="flex w-fit items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                                    <RiWallet3Line
+                                        size={19}
+                                    />
+                                </div>
 
-                            <div>
-                                <p className="text-xs text-gray-400">
-                                    Total Transactions
-                                </p>
+                                <div>
+                                    <p className="text-xs text-gray-400">
+                                        Total Transactions
+                                    </p>
 
-                                <p className="mt-0.5 text-base font-semibold text-gray-800">
-                                    {pagination.total.toLocaleString("en-IN")}
-                                </p>
+                                    <p className="mt-0.5 text-base font-semibold text-gray-800">
+                                        {pagination.total.toLocaleString(
+                                            "en-IN"
+                                        )}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
                 </div>
 
                 {loading ? (
@@ -299,8 +395,8 @@ export default function MyTransaction() {
                             </p>
 
                             <p className="mt-1 text-xs text-gray-400">
-                                Please wait while we fetch your transaction
-                                history.
+                                Please wait while we fetch your
+                                transaction history.
                             </p>
                         </div>
                     </div>
@@ -308,7 +404,9 @@ export default function MyTransaction() {
                     <div className="rounded-xl border border-gray-200 bg-white px-5 py-14 shadow-sm">
                         <div className="flex flex-col items-center justify-center text-center">
                             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-500">
-                                <RiFileList3Line size={27} />
+                                <RiFileList3Line
+                                    size={27}
+                                />
                             </div>
 
                             <h2 className="mt-4 text-base font-semibold text-gray-800">
@@ -316,160 +414,178 @@ export default function MyTransaction() {
                             </h2>
 
                             <p className="mt-1 max-w-sm text-sm text-gray-500">
-                                There are no wallet transactions available to
-                                display at the moment.
+                                There are no wallet transactions
+                                available to display at the moment.
                             </p>
                         </div>
                     </div>
                 ) : (
                     <>
                         <div className="space-y-4">
-                            {transactions.map((transaction) => {
-                                const type = Number(
-                                    transaction?.transaction_type
-                                );
+                            {transactions.map(
+                                (transaction) => {
+                                    const type =
+                                        Number(
+                                            transaction?.transaction_type
+                                        );
 
-                                const fromUser = getUserDisplayName(
-                                    transaction?.from_user_name,
-                                    transaction?.from_user_email,
-                                    transaction?.from_user_id
-                                );
+                                    const fromUser =
+                                        getUserDisplayName(
+                                            transaction?.from_user_name,
+                                            transaction?.from_user_email,
+                                            transaction?.from_user_id
+                                        );
 
-                                const toUser = getUserDisplayName(
-                                    transaction?.to_user_name,
-                                    transaction?.to_user_email,
-                                    transaction?.to_user_id
-                                );
+                                    const toUser =
+                                        getUserDisplayName(
+                                            transaction?.to_user_name,
+                                            transaction?.to_user_email,
+                                            transaction?.to_user_id
+                                        );
 
-                                return (
-                                    <div
-                                        key={transaction?.id}
-                                        className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:border-blue-200 hover:shadow-md"
-                                    >
-                                        <div className="p-2 sm:p-3">
-                                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                                <div className="flex min-w-0 items-center gap-3">
-                                                    <div
-                                                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${getTransactionIconClass(
-                                                            type
-                                                        )}`}
-                                                    >
-                                                        {getTransactionIcon(type)}
-                                                    </div>
-
-                                                    <div className="min-w-0">
-                                                        <h3 className="truncate text-sm font-semibold text-gray-800">
-                                                            {transaction?.key_setting_name ||
-                                                                transaction?.key_name ||
-                                                                `Key Setting #${transaction?.key_setting_id}`}
-                                                        </h3>
-
-                                                        <span
-                                                            className={`mt-1.5 inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${getTransactionBadgeClass(
+                                    return (
+                                        <div
+                                            key={
+                                                transaction?.id
+                                            }
+                                            className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:border-blue-200 hover:shadow-md"
+                                        >
+                                            <div className="p-2 sm:p-3">
+                                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                                    <div className="flex min-w-0 items-center gap-3">
+                                                        <div
+                                                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${getTransactionIconClass(
                                                                 type
                                                             )}`}
                                                         >
-                                                            {getTransactionType(
+                                                            {getTransactionIcon(
                                                                 type
                                                             )}
-                                                        </span>
+                                                        </div>
+
+                                                        <div className="min-w-0">
+                                                            <h3 className="truncate text-sm font-semibold text-gray-800">
+                                                                {transaction?.key_setting_name ||
+                                                                    transaction?.key_name ||
+                                                                    `Key Setting #${transaction?.key_setting_id}`}
+                                                            </h3>
+
+                                                            <span
+                                                                className={`mt-1.5 inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${getTransactionBadgeClass(
+                                                                    type
+                                                                )}`}
+                                                            >
+                                                                {getTransactionType(
+                                                                    type
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="rounded-lg bg-gray-50 px-4 py-2.5 text-left sm:min-w-[125px] sm:text-right">
+                                                        <p className="text-[11px] text-gray-400">
+                                                            Points
+                                                        </p>
+
+                                                        <p
+                                                            className={`mt-0.5 text-base font-bold ${getTransactionTextClass(
+                                                                type
+                                                            )}`}
+                                                        >
+                                                            {formatPoints(
+                                                                transaction?.points_sent
+                                                            )}
+                                                        </p>
                                                     </div>
                                                 </div>
 
-                                                <div className="rounded-lg bg-gray-50 px-4 py-2.5 text-left sm:min-w-[125px] sm:text-right">
-                                                    <p className="text-[11px] text-gray-400">
-                                                        Points
-                                                    </p>
+                                                <div className="grid grid-cols-1 gap-3 border-t border-gray-100 pt-2 md:grid-cols-3">
+                                                    <div className="rounded-lg bg-gray-50 p-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <RiArrowUpLine
+                                                                size={15}
+                                                                className="text-gray-400"
+                                                            />
 
-                                                    <p
-                                                        className={`mt-0.5 text-base font-bold ${getTransactionTextClass(
-                                                            type
-                                                        )}`}
-                                                    >
-                                                        {formatPoints(
-                                                            transaction?.points_sent
-                                                        )}
-                                                    </p>
+                                                            <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                                                                From
+                                                            </p>
+                                                        </div>
+
+                                                        <p className="mt-1.5 truncate text-sm font-medium text-gray-700">
+                                                            {
+                                                                fromUser
+                                                            }
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="rounded-lg bg-gray-50 p-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <RiArrowDownLine
+                                                                size={15}
+                                                                className="text-gray-400"
+                                                            />
+
+                                                            <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                                                                To
+                                                            </p>
+                                                        </div>
+
+                                                        <p className="mt-1.5 truncate text-sm font-medium text-gray-700">
+                                                            {
+                                                                toUser
+                                                            }
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="rounded-lg bg-gray-50 p-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <RiTimeLine
+                                                                size={15}
+                                                                className="text-gray-400"
+                                                            />
+
+                                                            <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                                                                Date
+                                                            </p>
+                                                        </div>
+
+                                                        <p className="mt-1.5 text-sm font-medium text-gray-700">
+                                                            {formatDate(
+                                                                transaction?.created_at
+                                                            )}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-3 border-t border-gray-100 pt-2 md:grid-cols-3">
-                                                <div className="rounded-lg bg-gray-50 p-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <RiArrowUpLine
-                                                            size={15}
-                                                            className="text-gray-400"
-                                                        />
+                                            <div className="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50/70 px-4 py-2 sm:px-5">
+                                                <p className="text-xs text-gray-400">
+                                                    Transaction #
+                                                    {
+                                                        transaction?.id
+                                                    }
+                                                </p>
 
-                                                        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
-                                                            From
-                                                        </p>
-                                                    </div>
-
-                                                    <p className="mt-1.5 truncate text-sm font-medium text-gray-700">
-                                                        {fromUser}
-                                                    </p>
-                                                </div>
-
-                                                <div className="rounded-lg bg-gray-50 p-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <RiArrowDownLine
-                                                            size={15}
-                                                            className="text-gray-400"
-                                                        />
-
-                                                        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
-                                                            To
-                                                        </p>
-                                                    </div>
-
-                                                    <p className="mt-1.5 truncate text-sm font-medium text-gray-700">
-                                                        {toUser}
-                                                    </p>
-                                                </div>
-
-                                                <div className="rounded-lg bg-gray-50 p-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <RiTimeLine
-                                                            size={15}
-                                                            className="text-gray-400"
-                                                        />
-
-                                                        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
-                                                            Date
-                                                        </p>
-                                                    </div>
-
-                                                    <p className="mt-1.5 text-sm font-medium text-gray-700">
-                                                        {formatDate(
-                                                            transaction?.created_at
-                                                        )}
-                                                    </p>
-                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setSelectedTransaction(
+                                                            transaction
+                                                        )
+                                                    }
+                                                    className="flex cursor-pointer items-center gap-1 rounded-sm border border-blue-600 bg-blue-600 px-2 py-2 text-[14px] font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                                >
+                                                    <RiEyeLine
+                                                        size={16}
+                                                    />
+                                                    View Details
+                                                </button>
                                             </div>
                                         </div>
-
-                                        <div className="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50/70 px-4 py-2 sm:px-5">
-                                            <p className="text-xs text-gray-400">
-                                                Transaction #{transaction?.id}
-                                            </p>
-
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setSelectedTransaction(
-                                                        transaction
-                                                    )
-                                                }
-                                                className="flex cursor-pointer items-center gap-1 rounded-sm border border-blue-600 bg-blue-600 px-2 py-2 text-[14px] font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                                            >
-                                                <RiEyeLine size={16} />
-                                                View Details
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                }
+                            )}
                         </div>
 
                         <div className="mt-6 rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
@@ -493,32 +609,46 @@ export default function MyTransaction() {
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
-                                        onClick={handlePrevious}
-                                        disabled={isFirstPage}
+                                        onClick={
+                                            handlePrevious
+                                        }
+                                        disabled={
+                                            isFirstPage
+                                        }
                                         className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-medium transition ${
                                             isFirstPage
                                                 ? "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300"
                                                 : "border-gray-200 bg-white text-gray-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
                                         }`}
                                     >
-                                        <span>Previous</span>
+                                        <span>
+                                            Previous
+                                        </span>
                                     </button>
 
                                     <div className="flex h-9 min-w-9 items-center justify-center rounded-sm bg-blue-600 px-3 text-xs font-semibold text-white shadow-sm">
-                                        {pagination.page}
+                                        {
+                                            pagination.page
+                                        }
                                     </div>
 
                                     <button
                                         type="button"
-                                        onClick={handleNext}
-                                        disabled={isLastPage}
+                                        onClick={
+                                            handleNext
+                                        }
+                                        disabled={
+                                            isLastPage
+                                        }
                                         className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-medium transition ${
                                             isLastPage
                                                 ? "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300"
                                                 : "border-gray-200 bg-white text-gray-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
                                         }`}
                                     >
-                                        <span>Next</span>
+                                        <span>
+                                            Next
+                                        </span>
                                     </button>
                                 </div>
                             </div>
@@ -534,10 +664,13 @@ export default function MyTransaction() {
                 >
                     <div
                         className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-                        onClick={(event) => event.stopPropagation()}
+                        onClick={(event) =>
+                            event.stopPropagation()
+                        }
                     >
                         {(() => {
-                            const transaction = selectedTransaction;
+                            const transaction =
+                                selectedTransaction;
 
                             const type = Number(
                                 transaction?.transaction_type
@@ -552,7 +685,9 @@ export default function MyTransaction() {
                                                     type
                                                 )}`}
                                             >
-                                                {getTransactionIcon(type)}
+                                                {getTransactionIcon(
+                                                    type
+                                                )}
                                             </div>
 
                                             <div>
@@ -562,17 +697,23 @@ export default function MyTransaction() {
 
                                                 <p className="mt-0.5 text-xs text-gray-400">
                                                     Transaction #
-                                                    {transaction?.id}
+                                                    {
+                                                        transaction?.id
+                                                    }
                                                 </p>
                                             </div>
                                         </div>
 
                                         <button
                                             type="button"
-                                            onClick={closeModal}
+                                            onClick={
+                                                closeModal
+                                            }
                                             className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
                                         >
-                                            <RiCloseLine size={22} />
+                                            <RiCloseLine
+                                                size={22}
+                                            />
                                         </button>
                                     </div>
 
@@ -693,7 +834,9 @@ export default function MyTransaction() {
                                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                                 <DetailItem
                                                     label="Transaction ID"
-                                                    value={transaction?.id}
+                                                    value={
+                                                        transaction?.id
+                                                    }
                                                 />
 
                                                 <DetailItem
@@ -777,7 +920,9 @@ export default function MyTransaction() {
                                     <div className="flex items-center justify-end border-t border-gray-200 bg-gray-50 px-5 py-3">
                                         <button
                                             type="button"
-                                            onClick={closeModal}
+                                            onClick={
+                                                closeModal
+                                            }
                                             className="cursor-pointer rounded-sm bg-blue-600 px-5 py-2.5 text-xs font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
                                         >
                                             Close
@@ -851,4 +996,4 @@ function BalanceCard({
             </div>
         </div>
     );
-} 
+}
