@@ -1,17 +1,8 @@
-// ==========================================
-// SAVE CURRENT TOKEN
-// ==========================================
-
 export const saveToken = (token) => {
   if (typeof window !== "undefined") {
     localStorage.setItem("token", token);
   }
 };
-
-
-// ==========================================
-// GET CURRENT TOKEN
-// ==========================================
 
 export const getToken = () => {
   if (typeof window !== "undefined") {
@@ -21,24 +12,12 @@ export const getToken = () => {
   return null;
 };
 
-
-// ==========================================
-// REMOVE CURRENT TOKEN
-// IMPORTANT:
-// original_token ko remove nahi karega
-// ==========================================
-
 export const removeToken = () => {
   if (typeof window !== "undefined") {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
   }
 };
-
-
-// ==========================================
-// JWT TOKEN DECODE
-// ==========================================
 
 export const getUserFromToken = () => {
   const token = getToken();
@@ -54,7 +33,6 @@ export const getUserFromToken = () => {
       return null;
     }
 
-    // JWT Base64URL -> Base64
     const base64 = payload
       .replace(/-/g, "+")
       .replace(/_/g, "/");
@@ -65,27 +43,41 @@ export const getUserFromToken = () => {
         .map(
           (char) =>
             "%" +
-            ("00" + char.charCodeAt(0).toString(16)).slice(-2)
+            ("00" + char.charCodeAt(0).toString(16)).slice(
+              -2
+            )
         )
         .join("")
     );
 
     return JSON.parse(jsonPayload);
-
   } catch (error) {
-    console.error(
-      "Invalid Token:",
-      error
-    );
+    console.error("Invalid Token:", error);
 
     return null;
   }
 };
 
+export const getUserId = () => {
+  const user = getUserFromToken();
 
-// ==========================================
-// GET CURRENT ROLE ID
-// ==========================================
+  if (!user) {
+    return null;
+  }
+
+  if (
+    user.id === undefined ||
+    user.id === null
+  ) {
+    return null;
+  }
+
+  const userId = Number(user.id);
+
+  return Number.isFinite(userId)
+    ? userId
+    : null;
+};
 
 export const getRoleId = () => {
   const user = getUserFromToken();
@@ -101,13 +93,12 @@ export const getRoleId = () => {
     return null;
   }
 
-  return Number(user.role_id);
+  const roleId = Number(user.role_id);
+
+  return Number.isFinite(roleId)
+    ? roleId
+    : null;
 };
-
-
-// ==========================================
-// SAVE CURRENT USER
-// ==========================================
 
 export const saveUser = (user) => {
   if (
@@ -121,15 +112,9 @@ export const saveUser = (user) => {
   }
 };
 
-
-// ==========================================
-// GET CURRENT USER
-// ==========================================
-
 export const getUser = () => {
   if (typeof window !== "undefined") {
-    const user =
-      localStorage.getItem("user");
+    const user = localStorage.getItem("user");
 
     if (!user) {
       return null;
@@ -137,7 +122,6 @@ export const getUser = () => {
 
     try {
       return JSON.parse(user);
-
     } catch (error) {
       console.error(
         "Invalid user data:",
@@ -150,9 +134,6 @@ export const getUser = () => {
 
   return null;
 };
-
-
-
 
 export const saveOriginalLogin = (
   token,
@@ -178,7 +159,6 @@ export const saveOriginalLogin = (
     );
 
   if (!existingOriginalToken) {
-
     localStorage.setItem(
       "original_token",
       token
@@ -195,9 +175,7 @@ export const saveOriginalLogin = (
       "Original Login Saved:",
       user
     );
-
   } else {
-
     console.log(
       "Original Login Already Exists"
     );
@@ -236,9 +214,7 @@ export const getOriginalUser = () => {
 
   try {
     return JSON.parse(user);
-
   } catch (error) {
-
     console.error(
       "Invalid original user:",
       error
@@ -263,7 +239,6 @@ export const hasOriginalLogin = () => {
   return !!originalToken;
 };
 
-
 export const restoreOriginalLogin = () => {
   if (
     typeof window === "undefined"
@@ -282,7 +257,6 @@ export const restoreOriginalLogin = () => {
     );
 
   if (!originalToken) {
-
     console.error(
       "Original login token not found"
     );
@@ -296,7 +270,6 @@ export const restoreOriginalLogin = () => {
   );
 
   if (originalUser) {
-
     localStorage.setItem(
       "user",
       originalUser
@@ -309,7 +282,6 @@ export const restoreOriginalLogin = () => {
 
   return true;
 };
-
 
 export const removeOriginalLogin = () => {
   if (
@@ -330,7 +302,6 @@ export const removeOriginalLogin = () => {
     "Original Login Removed"
   );
 };
-
 
 export const clearAllLoginData = () => {
   if (
@@ -355,7 +326,6 @@ export const clearAllLoginData = () => {
   );
 };
 
-
 export const getOriginalRoleId = () => {
   if (
     typeof window === "undefined"
@@ -371,9 +341,13 @@ export const getOriginalRoleId = () => {
     originalUser.role_id !== undefined &&
     originalUser.role_id !== null
   ) {
-    return Number(
+    const roleId = Number(
       originalUser.role_id
     );
+
+    return Number.isFinite(roleId)
+      ? roleId
+      : null;
   }
 
   const originalToken =
@@ -384,7 +358,6 @@ export const getOriginalRoleId = () => {
   }
 
   try {
-
     const payload =
       originalToken.split(".")[1];
 
@@ -417,12 +390,21 @@ export const getOriginalRoleId = () => {
     const decoded =
       JSON.parse(jsonPayload);
 
-    return decoded.role_id !== undefined
-      ? Number(decoded.role_id)
+    if (
+      decoded.role_id === undefined ||
+      decoded.role_id === null
+    ) {
+      return null;
+    }
+
+    const roleId = Number(
+      decoded.role_id
+    );
+
+    return Number.isFinite(roleId)
+      ? roleId
       : null;
-
   } catch (error) {
-
     console.error(
       "Original Role Decode Error:",
       error

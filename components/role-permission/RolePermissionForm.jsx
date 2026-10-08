@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -15,28 +14,36 @@ import {
   saveRolePermissions,
 } from "@/services/api";
 
+import { getUserId } from "@/utils/token";
+
 const normalizePermissions = (permission) => {
   if (!permission) {
     return {};
   }
 
-  if (typeof permission === "object") {
-    return permission;
-  }
+  let parsed = permission;
 
   if (typeof permission === "string") {
     try {
-      const parsed = JSON.parse(permission);
-
-      return parsed && typeof parsed === "object"
-        ? parsed
-        : {};
+      parsed = JSON.parse(permission);
     } catch {
       return {};
     }
   }
 
-  return {};
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    Array.isArray(parsed)
+  ) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(parsed)
+      .filter(([, value]) => Number(value) === 1)
+      .map(([key]) => [key, 1])
+  );
 };
 
 const getPermissionKey = (moduleId, subModuleId) =>
@@ -50,85 +57,135 @@ const getIcon = (iconName) => {
   return RiIcons[String(iconName).trim()] || null;
 };
 
+const isActive = (item) =>
+  Number(item?.status ?? 1) === 1;
+
+const getRoleName = (profile) =>
+  profile?.name ||
+  profile?.role_name ||
+  profile?.title ||
+  profile?.slug ||
+  `Role ${profile?.id}`;
+
 export default function RolePermissionForm() {
   const [profiles, setProfiles] = useState([]);
   const [modules, setModules] = useState([]);
   const [subModules, setSubModules] = useState([]);
 
-  const [selectedProfile, setSelectedProfile] = useState("");
-  const [profileDropdownOpen, setProfileDropdownOpen] =
-    useState(false);
+  const [currentUserId, setCurrentUserId] =
+    useState(null);
+
+  const [selectedProfile, setSelectedProfile] =
+    useState("");
 
   const [permissions, setPermissions] = useState({});
   const [hasPermissionChanges, setHasPermissionChanges] =
     useState(false);
 
-  const [loadingProfiles, setLoadingProfiles] = useState(false);
-  const [loadingModules, setLoadingModules] = useState(false);
+  const [loadingProfiles, setLoadingProfiles] =
+    useState(false);
+
+  const [loadingModules, setLoadingModules] =
+    useState(false);
+
   const [loadingSubModules, setLoadingSubModules] =
     useState(false);
+
   const [loadingPermissions, setLoadingPermissions] =
     useState(false);
 
   const [saving, setSaving] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
 
-  const [roleModalOpen, setRoleModalOpen] = useState(false);
-  const [manageRoleOpen, setManageRoleOpen] = useState(false);
+  const [roleModalOpen, setRoleModalOpen] =
+    useState(false);
+
+  const [manageRoleOpen, setManageRoleOpen] =
+    useState(false);
 
   const [roleName, setRoleName] = useState("");
-  const [roleSubmitting, setRoleSubmitting] = useState(false);
+  const [roleSubmitting, setRoleSubmitting] =
+    useState(false);
 
   const [editingProfileId, setEditingProfileId] =
     useState(null);
+
   const [editingProfileName, setEditingProfileName] =
     useState("");
+
+  const [profileDropdownOpen, setProfileDropdownOpen] =
+    useState(false);
+
+  useEffect(() => {
+    const userId = Number(getUserId());
+
+    if (Number.isFinite(userId)) {
+      setCurrentUserId(userId);
+    }
+  }, []);
+
+  const manageableProfiles = useMemo(() => {
+    if (currentUserId === null) {
+      return [];
+    }
+
+    return profiles.filter((profile) => {
+      const profileId = Number(profile?.id);
+      const createdBy = Number(profile?.created_by);
+
+      if (!Number.isFinite(profileId)) {
+        return false;
+      }
+
+      if (!Number.isFinite(createdBy)) {
+        return false;
+      }
+
+      if (profileId === 1) {
+        return false;
+      }
+
+      return createdBy === currentUserId;
+    });
+  }, [profiles, currentUserId]);
+
+  const activeProfiles = useMemo(
+    () => manageableProfiles.filter(isActive),
+    [manageableProfiles]
+  );
+
+  const activeModules = useMemo(
+    () => modules.filter(isActive),
+    [modules]
+  );
+
+  const visibleModules = useMemo(
+    () =>
+      activeModules.filter(
+        (module) =>
+          String(module?.name || "")
+            .trim()
+            .toLowerCase() !== "admin"
+      ),
+    [activeModules]
+  );
+
+  const activeSubModules = useMemo(
+    () => subModules.filter(isActive),
+    [subModules]
+  );
 
   const selectedProfileData = useMemo(
     () =>
       profiles.find(
         (profile) =>
-          Number(profile.id) === Number(selectedProfile)
+          Number(profile?.id) === Number(selectedProfile)
       ),
     [profiles, selectedProfile]
   );
 
-  const activeProfiles = useMemo(
-    () =>
-      profiles.filter(
-        (profile) => Number(profile.status ?? 1) === 1
-      ),
-    [profiles]
-  );
-
-  const activeModules = useMemo(
-    () =>
-      [...modules]
-        .filter(
-          (module) => Number(module.status ?? 1) === 1
-        )
-        .sort(
-          (a, b) =>
-            Number(a.sequence ?? a.id ?? 0) -
-            Number(b.sequence ?? b.id ?? 0)
-        ),
-    [modules]
-  );
-
-  const activeSubModules = useMemo(
-    () =>
-      [...subModules]
-        .filter(
-          (subModule) =>
-            Number(subModule.status ?? 1) === 1
-        )
-        .sort(
-          (a, b) =>
-            Number(a.sequence ?? a.id ?? 0) -
-            Number(b.sequence ?? b.id ?? 0)
-        ),
-    [subModules]
-  );
+  const getModuleSubModules = () => {
+    return activeSubModules;
+  };
 
   const loadProfiles = async () => {
     try {
@@ -136,34 +193,30 @@ export default function RolePermissionForm() {
 
       const response = await getProfiles();
 
-      if (!response?.success) {
-        setProfiles([]);
-        return;
-      }
+      const profileData = Array.isArray(response)
+        ? response
+        : response?.data ||
+          response?.profiles ||
+          [];
 
-      const allProfiles = response.data || [];
-
-      setProfiles(allProfiles);
-
-      if (!selectedProfile) {
-        const firstActiveProfile = allProfiles.find(
-          (profile) => Number(profile.status ?? 1) === 1
-        );
-
-        if (firstActiveProfile) {
-          setSelectedProfile(firstActiveProfile.id);
-        }
-      }
+      setProfiles(
+        Array.isArray(profileData)
+          ? profileData
+          : []
+      );
     } catch (error) {
-      console.error("GET PROFILES ERROR:", error);
+      console.error(
+        "Failed to load profiles:",
+        error
+      );
+
+      setProfiles([]);
 
       toast.error(
         error?.response?.data?.message ||
           error?.message ||
           "Failed to load profiles"
       );
-
-      setProfiles([]);
     } finally {
       setLoadingProfiles(false);
     }
@@ -175,21 +228,30 @@ export default function RolePermissionForm() {
 
       const response = await getModules();
 
-      if (response?.success) {
-        setModules(response.data || []);
-      } else {
-        setModules([]);
-      }
+      const moduleData = Array.isArray(response)
+        ? response
+        : response?.data ||
+          response?.modules ||
+          [];
+
+      setModules(
+        Array.isArray(moduleData)
+          ? moduleData
+          : []
+      );
     } catch (error) {
-      console.error("GET MODULES ERROR:", error);
+      console.error(
+        "Failed to load modules:",
+        error
+      );
+
+      setModules([]);
 
       toast.error(
         error?.response?.data?.message ||
           error?.message ||
           "Failed to load modules"
       );
-
-      setModules([]);
     } finally {
       setLoadingModules(false);
     }
@@ -201,21 +263,31 @@ export default function RolePermissionForm() {
 
       const response = await getSubModules();
 
-      if (response?.success) {
-        setSubModules(response.data || []);
-      } else {
-        setSubModules([]);
-      }
+      const subModuleData = Array.isArray(response)
+        ? response
+        : response?.data ||
+          response?.subModules ||
+          response?.submodules ||
+          [];
+
+      setSubModules(
+        Array.isArray(subModuleData)
+          ? subModuleData
+          : []
+      );
     } catch (error) {
-      console.error("GET SUB MODULES ERROR:", error);
+      console.error(
+        "Failed to load sub-modules:",
+        error
+      );
+
+      setSubModules([]);
 
       toast.error(
         error?.response?.data?.message ||
           error?.message ||
-          "Failed to load sub modules"
+          "Failed to load sub-modules"
       );
-
-      setSubModules([]);
     } finally {
       setLoadingSubModules(false);
     }
@@ -228,38 +300,50 @@ export default function RolePermissionForm() {
       return;
     }
 
+    const allowedProfile = manageableProfiles.some(
+      (profile) =>
+        Number(profile?.id) === Number(profileId)
+    );
+
+    if (!allowedProfile) {
+      setPermissions({});
+      setHasPermissionChanges(false);
+      return;
+    }
+
     try {
       setLoadingPermissions(true);
-      setHasPermissionChanges(false);
 
-      const response = await getRolePermissions(profileId);
+      const response =
+        await getRolePermissions(profileId);
 
-      if (!response?.success) {
-        setPermissions({});
-        return;
-      }
+      const permissionData =
+        response?.data?.permission ??
+        response?.data?.permissions ??
+        response?.permission ??
+        response?.permissions ??
+        response?.data ??
+        {};
 
-      const permissionData = response?.data?.permission;
+      setPermissions(
+        normalizePermissions(permissionData)
+      );
 
-      const normalizedPermissions =
-        normalizePermissions(permissionData);
-
-      setPermissions(normalizedPermissions);
       setHasPermissionChanges(false);
     } catch (error) {
       console.error(
-        "GET ROLE PERMISSIONS ERROR:",
+        "Failed to load role permissions:",
         error
-      );
-
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Failed to load permissions"
       );
 
       setPermissions({});
       setHasPermissionChanges(false);
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to load role permissions"
+      );
     } finally {
       setLoadingPermissions(false);
     }
@@ -272,27 +356,62 @@ export default function RolePermissionForm() {
   }, []);
 
   useEffect(() => {
-    if (selectedProfile) {
-      loadRolePermissions(selectedProfile);
-    } else {
+    if (!activeProfiles.length) {
+      setSelectedProfile("");
       setPermissions({});
       setHasPermissionChanges(false);
+      return;
     }
-  }, [selectedProfile]);
 
-  const isPermissionEnabled = (
-    moduleId,
-    subModuleId
-  ) => {
-    const key = getPermissionKey(
-      moduleId,
-      subModuleId
+    const selectedExists = activeProfiles.some(
+      (profile) =>
+        Number(profile?.id) ===
+        Number(selectedProfile)
     );
 
-    return Number(permissions?.[key] ?? 0) === 1;
+    if (!selectedExists) {
+      setSelectedProfile(activeProfiles[0].id);
+    }
+  }, [activeProfiles, selectedProfile]);
+
+  useEffect(() => {
+    if (!selectedProfile) {
+      setPermissions({});
+      setHasPermissionChanges(false);
+      return;
+    }
+
+    const selectedIsAllowed =
+      activeProfiles.some(
+        (profile) =>
+          Number(profile?.id) ===
+          Number(selectedProfile)
+      );
+
+    if (!selectedIsAllowed) {
+      setPermissions({});
+      setHasPermissionChanges(false);
+      return;
+    }
+
+    loadRolePermissions(selectedProfile);
+  }, [selectedProfile, activeProfiles]);
+
+  const handleProfileChange = (profileId) => {
+    const allowedProfile = activeProfiles.some(
+      (profile) =>
+        Number(profile?.id) === Number(profileId)
+    );
+
+    if (!allowedProfile) {
+      return;
+    }
+
+    setSelectedProfile(profileId);
+    setProfileDropdownOpen(false);
   };
 
-  const handlePermissionToggle = (
+  const isPermissionChecked = (
     moduleId,
     subModuleId
   ) => {
@@ -301,73 +420,117 @@ export default function RolePermissionForm() {
       subModuleId
     );
 
-    setPermissions((previous) => ({
-      ...previous,
-      [key]:
-        Number(previous?.[key] ?? 0) === 1 ? 0 : 1,
-    }));
+    return Number(permissions?.[key]) === 1;
+  };
+
+  const updatePermission = (
+    moduleId,
+    subModuleId,
+    checked
+  ) => {
+    const key = getPermissionKey(
+      moduleId,
+      subModuleId
+    );
+
+    setPermissions((previous) => {
+      const updated = { ...previous };
+
+      if (checked) {
+        updated[key] = 1;
+      } else {
+        delete updated[key];
+      }
+
+      return updated;
+    });
 
     setHasPermissionChanges(true);
   };
 
-  const getAllPermissions = () => {
-    const result = {};
+  const isModuleFullyChecked = (moduleId) => {
+    const moduleSubModules =
+      getModuleSubModules(moduleId);
 
-    activeModules.forEach((module) => {
-      activeSubModules.forEach((subModule) => {
+    if (!moduleSubModules.length) {
+      return false;
+    }
+
+    return moduleSubModules.every((subModule) =>
+      isPermissionChecked(
+        moduleId,
+        subModule.id
+      )
+    );
+  };
+
+  const toggleModulePermissions = (
+    moduleId,
+    checked
+  ) => {
+    const moduleSubModules =
+      getModuleSubModules(moduleId);
+
+    setPermissions((previous) => {
+      const updated = { ...previous };
+
+      moduleSubModules.forEach((subModule) => {
         const key = getPermissionKey(
-          module.id,
+          moduleId,
           subModule.id
         );
 
-        result[key] =
-          Number(permissions?.[key] ?? 0) === 1
-            ? 1
-            : 0;
+        if (checked) {
+          updated[key] = 1;
+        } else {
+          delete updated[key];
+        }
       });
+
+      return updated;
     });
 
-    return result;
+    setHasPermissionChanges(true);
   };
 
   const handleSavePermissions = async () => {
     if (!selectedProfile) {
-      toast.error("Please select a profile");
+      toast.error("Please select a role");
       return;
     }
 
-    if (!hasPermissionChanges) {
+    const allowedProfile =
+      manageableProfiles.some(
+        (profile) =>
+          Number(profile?.id) ===
+          Number(selectedProfile)
+      );
+
+    if (!allowedProfile) {
+      toast.error(
+        "You do not have permission to manage this role"
+      );
       return;
     }
 
     try {
       setSaving(true);
 
-      const permissionData = getAllPermissions();
-
-      const response = await saveRolePermissions({
+      const payload = {
         profile_id: Number(selectedProfile),
-        permission: permissionData,
-      });
+        permission: permissions,
+      };
 
-      if (!response?.success) {
-        toast.error(
-          response?.message ||
-            "Failed to save permissions"
-        );
-        return;
-      }
+      await saveRolePermissions(payload);
+
+      setHasPermissionChanges(false);
 
       toast.success(
-        response?.message ||
-          "Permissions saved successfully"
+        "Permissions updated successfully"
       );
-
-      setPermissions(permissionData);
-      setHasPermissionChanges(false);
     } catch (error) {
       console.error(
-        "SAVE ROLE PERMISSIONS ERROR:",
+        "Failed to save permissions:",
         error
       );
 
@@ -381,105 +544,113 @@ export default function RolePermissionForm() {
     }
   };
 
-  const handleClearAll = () => {
-    const clearedPermissions = {};
-
-    activeModules.forEach((module) => {
-      activeSubModules.forEach((subModule) => {
-        const key = getPermissionKey(
-          module.id,
-          subModule.id
-        );
-
-        clearedPermissions[key] = 0;
-      });
-    });
-
-    setPermissions(clearedPermissions);
-    setHasPermissionChanges(true);
-  };
-
   const handleCreateProfile = async (event) => {
     event.preventDefault();
 
-    const trimmedName = roleName.trim();
+    const name = roleName.trim();
 
-    if (!trimmedName) {
-      toast.error("Please enter profile name");
+    if (!name) {
+      toast.error("Please enter role name");
+      return;
+    }
+
+    if (!Number.isFinite(currentUserId)) {
+      toast.error("User information not found");
       return;
     }
 
     try {
       setRoleSubmitting(true);
 
-      const response = await createProfile({
-        name: trimmedName,
+      await createProfile({
+        name,
         status: 1,
+        created_by: currentUserId,
       });
 
-      if (!response?.success) {
-        toast.error(
-          response?.message ||
-            "Failed to create profile"
-        );
-        return;
-      }
-
-      toast.success(
-        response?.message ||
-          "Profile created successfully"
-      );
+      toast.success("Role created successfully");
 
       setRoleName("");
       setRoleModalOpen(false);
 
       await loadProfiles();
-
-      if (response?.data?.id) {
-        setSelectedProfile(response.data.id);
-      }
     } catch (error) {
       console.error(
-        "CREATE PROFILE ERROR:",
+        "Failed to create role:",
         error
       );
 
       toast.error(
         error?.response?.data?.message ||
           error?.message ||
-          "Failed to create profile"
+          "Failed to create role"
       );
     } finally {
       setRoleSubmitting(false);
     }
   };
 
-  const handleUpdateProfileName = async (profile) => {
-    const trimmedName = editingProfileName.trim();
+  const openManageRole = (profile) => {
+    if (!profile) {
+      return;
+    }
 
-    if (!trimmedName) {
-      toast.error("Please enter profile name");
+    const createdBy = Number(
+      profile?.created_by
+    );
+
+    if (
+      !Number.isFinite(currentUserId) ||
+      createdBy !== currentUserId
+    ) {
+      toast.error(
+        "You do not have permission to manage this role"
+      );
+      return;
+    }
+
+    setEditingProfileId(profile.id);
+    setEditingProfileName(
+      getRoleName(profile)
+    );
+  };
+
+  const handleUpdateProfile = async (event) => {
+    event.preventDefault();
+
+    if (!editingProfileId) {
+      return;
+    }
+
+    const profile = manageableProfiles.find(
+      (item) =>
+        Number(item?.id) ===
+        Number(editingProfileId)
+    );
+
+    if (!profile) {
+      toast.error(
+        "You do not have permission to update this role"
+      );
+      return;
+    }
+
+    const name = editingProfileName.trim();
+
+    if (!name) {
+      toast.error("Please enter role name");
       return;
     }
 
     try {
-      setSavingProfile(true);
+      setRoleSubmitting(true);
 
-      const response = await updateProfile(profile.id, {
-        name: trimmedName,
+      await updateProfile(editingProfileId, {
+        name,
       });
 
-      if (!response?.success) {
-        toast.error(
-          response?.message ||
-            "Failed to update profile"
-        );
-        return;
-      }
-
       toast.success(
-        response?.message ||
-          "Profile updated successfully"
+        "Role updated successfully"
       );
 
       setEditingProfileId(null);
@@ -488,533 +659,545 @@ export default function RolePermissionForm() {
       await loadProfiles();
     } catch (error) {
       console.error(
-        "UPDATE PROFILE ERROR:",
+        "Failed to update role:",
         error
       );
 
       toast.error(
         error?.response?.data?.message ||
           error?.message ||
-          "Failed to update profile"
+          "Failed to update role"
       );
     } finally {
-      setSavingProfile(false);
+      setRoleSubmitting(false);
     }
   };
 
   const handleProfileStatus = async (profile) => {
+    if (!profile?.id) {
+      return;
+    }
+
+    const allowedProfile =
+      manageableProfiles.some(
+        (item) =>
+          Number(item?.id) ===
+          Number(profile?.id)
+      );
+
+    if (!allowedProfile) {
+      toast.error(
+        "You do not have permission to manage this role"
+      );
+      return;
+    }
+
     const currentStatus = Number(
-      profile.status ?? 1
+      profile?.status ?? 1
     );
 
-    const newStatus = currentStatus === 1 ? 0 : 1;
+    const newStatus =
+      currentStatus === 1 ? 0 : 1;
 
     try {
-      setSavingProfile(true);
-
-      const response = await updateProfile(profile.id, {
+      await updateProfile(profile.id, {
         status: newStatus,
       });
 
-      if (!response?.success) {
-        toast.error(
-          response?.message ||
-            "Failed to update profile status"
-        );
-        return;
-      }
-
       toast.success(
         newStatus === 1
-          ? "Profile activated successfully"
-          : "Profile deactivated successfully"
+          ? "Role activated successfully"
+          : "Role deactivated successfully"
       );
-
-      if (
-        Number(selectedProfile) ===
-          Number(profile.id) &&
-        newStatus === 0
-      ) {
-        setSelectedProfile("");
-        setPermissions({});
-        setHasPermissionChanges(false);
-      }
 
       await loadProfiles();
     } catch (error) {
       console.error(
-        "UPDATE PROFILE STATUS ERROR:",
+        "Failed to update role status:",
         error
       );
 
       toast.error(
         error?.response?.data?.message ||
           error?.message ||
-          "Failed to update profile status"
+          "Failed to update role status"
       );
-    } finally {
-      setSavingProfile(false);
     }
   };
 
-  const renderPermissionTable = () => {
-    if (activeModules.length === 0) {
-      return (
-        <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
-          No active modules found
+  const pageLoading =
+    loadingProfiles ||
+    loadingModules ||
+    loadingSubModules;
+
+  return (
+    <div className="w-full space-y-6">
+      <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-800">
+            Role Permission
+          </h1>
+
+          <p className="mt-1 text-sm text-gray-500">
+            Manage permissions for roles under your
+            account.
+          </p>
         </div>
-      );
-    }
 
-    if (activeSubModules.length === 0) {
-      return (
-        <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
-          No active permissions found
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              setRoleModalOpen(true)
+            }
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+          >
+            Add Role
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setManageRoleOpen(true)
+            }
+            disabled={!manageableProfiles.length}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Manage Role
+          </button>
         </div>
-      );
-    }
+      </div>
 
-    return (
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
-        <table className="w-full min-w-[900px] border-collapse">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50">
-              <th className="sticky left-0 z-10 w-[280px] bg-slate-50 px-5 py-4 text-left text-sm font-semibold text-slate-700">
-                Module
-              </th>
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="w-full md:max-w-md">
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Select Role
+            </label>
 
-              {activeSubModules.map((subModule) => {
-                const Icon = getIcon(subModule.icon);
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() =>
+                  setProfileDropdownOpen(
+                    (previous) => !previous
+                  )
+                }
+                disabled={
+                  loadingProfiles ||
+                  !activeProfiles.length
+                }
+                className="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-left text-sm text-gray-700 disabled:cursor-not-allowed disabled:bg-gray-100"
+              >
+                <span>
+                  {loadingProfiles
+                    ? "Loading roles..."
+                    : selectedProfileData
+                    ? getRoleName(
+                        selectedProfileData
+                      )
+                    : "No role available"}
+                </span>
+
+                <RiIcons.RiArrowDownSLine
+                  className={`text-lg transition ${
+                    profileDropdownOpen
+                      ? "rotate-180"
+                      : ""
+                  }`}
+                />
+              </button>
+
+              {profileDropdownOpen &&
+                activeProfiles.length > 0 && (
+                  <div className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                    {activeProfiles.map(
+                      (profile) => (
+                        <button
+                          key={profile.id}
+                          type="button"
+                          onClick={() =>
+                            handleProfileChange(
+                              profile.id
+                            )
+                          }
+                          className={`block w-full px-4 py-2.5 text-left text-sm transition hover:bg-gray-50 ${
+                            Number(
+                              profile.id
+                            ) ===
+                            Number(
+                              selectedProfile
+                            )
+                              ? "bg-gray-50 font-medium text-blue-600"
+                              : "text-gray-700"
+                          }`}
+                        >
+                          {getRoleName(profile)}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSavePermissions}
+            disabled={
+              saving ||
+              loadingPermissions ||
+              !selectedProfile ||
+              !hasPermissionChanges
+            }
+            className="rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving
+              ? "Saving..."
+              : "Save Permissions"}
+          </button>
+        </div>
+      </div>
+
+      {pageLoading ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
+          Loading...
+        </div>
+      ) : !manageableProfiles.length ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+          <p className="text-sm font-medium text-gray-700">
+            No roles available for your account.
+          </p>
+
+          <p className="mt-1 text-sm text-gray-500">
+            You can only manage roles created by
+            your account.
+          </p>
+        </div>
+      ) : !visibleModules.length ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
+          No modules available.
+        </div>
+      ) : !activeSubModules.length ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
+          No sub-modules available.
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <div className="min-w-[900px]">
+              <div className="grid grid-cols-[220px_1fr] items-center border-b border-gray-200 bg-gray-50 px-5 py-4">
+                <div className="text-sm font-semibold text-gray-700">
+                  Module
+                </div>
+
+                <div className="text-sm font-semibold text-gray-700">
+                  Sub Modules
+                </div>
+              </div>
+
+              {visibleModules.map((module) => {
+                const moduleSubModules =
+                  getModuleSubModules(
+                    module.id
+                  );
+
+                const ModuleIcon = getIcon(
+                  module.icon
+                );
 
                 return (
-                  <th
-                    key={subModule.id}
-                    className="min-w-[120px] px-4 py-4 text-center text-sm font-semibold text-slate-700"
+                  <div
+                    key={module.id}
+                    className="grid grid-cols-[220px_1fr] items-center border-b border-gray-200 px-5 py-4 last:border-b-0"
                   >
-                    <div className="flex items-center justify-center gap-2">
-                      {Icon && (
-                        <Icon className="text-slate-500" />
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isModuleFullyChecked(
+                          module.id
+                        )}
+                        onChange={(event) =>
+                          toggleModulePermissions(
+                            module.id,
+                            event.target.checked
+                          )
+                        }
+                        className="h-4 w-4 cursor-pointer rounded border-gray-300"
+                      />
+
+                      {ModuleIcon ? (
+                        <ModuleIcon className="text-lg text-gray-600" />
+                      ) : (
+                        <RiIcons.RiFolderLine className="text-lg text-gray-600" />
                       )}
 
-                      <span>{subModule.name}</span>
-                    </div>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-
-          <tbody>
-            {activeModules.map((module) => {
-              const ModuleIcon = getIcon(module.icon);
-
-              return (
-                <tr
-                  key={module.id}
-                  className="border-b border-slate-100 transition hover:bg-slate-50"
-                >
-                  <td className="sticky left-0 z-10 bg-white px-5 py-4">
-                    <div className="flex items-center gap-2">
-                      {ModuleIcon && (
-                        <ModuleIcon className="text-slate-500" />
-                      )}
-
-                      <span className="font-semibold text-slate-800">
+                      <span className="text-sm font-semibold text-gray-800">
                         {module.name}
                       </span>
                     </div>
-                  </td>
 
-                  {activeSubModules.map(
-                    (subModule) => {
-                      const enabled =
-                        isPermissionEnabled(
-                          module.id,
-                          subModule.id
-                        );
+                    <div className="flex flex-wrap items-center gap-3">
+                      {moduleSubModules.map(
+                        (subModule) => {
+                          const SubModuleIcon =
+                            getIcon(
+                              subModule.icon
+                            );
 
-                      return (
-                        <td
-                          key={`${module.id}-${subModule.id}`}
-                          className="px-4 py-4 text-center"
-                        >
-                          <label className="inline-flex cursor-pointer items-center justify-center">
-                            <input
-                              type="checkbox"
-                              checked={enabled}
-                              onChange={() =>
-                                handlePermissionToggle(
+                          return (
+                            <label
+                              key={`${module.id}-${subModule.id}`}
+                              className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 transition ${
+                                isPermissionChecked(
                                   module.id,
                                   subModule.id
                                 )
-                              }
-                              className="h-4 w-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                            />
-                          </label>
-                        </td>
-                      );
-                    }
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
+                                  ? "border-blue-200 bg-blue-50"
+                                  : "border-gray-200 bg-white hover:bg-gray-50"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isPermissionChecked(
+                                  module.id,
+                                  subModule.id
+                                )}
+                                onChange={(event) =>
+                                  updatePermission(
+                                    module.id,
+                                    subModule.id,
+                                    event.target.checked
+                                  )
+                                }
+                                className="h-4 w-4 cursor-pointer rounded border-gray-300"
+                              />
 
-  return (
-    <div className="mx-auto w-full max-w-7xl space-y-6">
-      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xl">
-        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-800">
-              Role & Permission
-            </h2>
+                              {SubModuleIcon ? (
+                                <SubModuleIcon className="text-base text-gray-500" />
+                              ) : (
+                                <RiIcons.RiFileListLine className="text-base text-gray-500" />
+                              )}
 
-            <p className="mt-1 text-sm text-slate-500">
-              Manage profile permissions and access.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setRoleModalOpen(true)}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              <RiIcons.RiAddLine className="text-lg" />
-              Add Role
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setManageRoleOpen(true)}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              <RiIcons.RiShieldUserLine className="text-lg" />
-              Manage Role
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="relative w-full max-w-md">
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
-              Select Profile
-            </label>
-
-            <button
-              type="button"
-              onClick={() =>
-                setProfileDropdownOpen(
-                  (previous) => !previous
-                )
-              }
-              className="flex w-full cursor-pointer items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-3 text-left text-sm text-slate-700"
-            >
-              <span>
-                {selectedProfileData?.name ||
-                  "Select Profile"}
-              </span>
-
-              <RiIcons.RiArrowDownSLine
-                className={`text-xl transition-transform ${
-                  profileDropdownOpen
-                    ? "rotate-180"
-                    : ""
-                }`}
-              />
-            </button>
-
-            {profileDropdownOpen && (
-              <div className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                {loadingProfiles ? (
-                  <div className="px-4 py-3 text-sm text-slate-500">
-                    Loading profiles...
+                              <span className="whitespace-nowrap text-sm text-gray-700">
+                                {subModule.name}
+                              </span>
+                            </label>
+                          );
+                        }
+                      )}
+                    </div>
                   </div>
-                ) : activeProfiles.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-slate-500">
-                    No active profiles found
-                  </div>
-                ) : (
-                  activeProfiles.map((profile) => (
-                    <button
-                      key={profile.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedProfile(profile.id);
-                        setProfileDropdownOpen(false);
-                      }}
-                      className={`block w-full px-4 py-3 text-left text-sm transition ${
-                        Number(selectedProfile) ===
-                        Number(profile.id)
-                          ? "bg-blue-50 font-semibold text-blue-600"
-                          : "text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      {profile.name}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex w-full justify-end gap-3 md:w-auto">
-            <button
-              type="button"
-              onClick={handleClearAll}
-              disabled={
-                saving || !selectedProfile
-              }
-              className="cursor-pointer rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Clear All
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSavePermissions}
-              disabled={
-                saving ||
-                loadingPermissions ||
-                !selectedProfile ||
-                !hasPermissionChanges
-              }
-              className="cursor-pointer rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save Permissions"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {selectedProfile && (
-        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xl">
-          <div className="mb-5">
-            <h3 className="text-lg font-semibold text-slate-800">
-              Module & Permission
-            </h3>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Select the permissions that this profile
-              can access.
-            </p>
-          </div>
-
-          {loadingModules ||
-          loadingSubModules ||
-          loadingPermissions ? (
-            <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
-              Loading permissions...
+                );
+              })}
             </div>
-          ) : (
-            renderPermissionTable()
-          )}
+          </div>
         </div>
       )}
 
       {roleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <h2 className="text-lg font-semibold text-gray-800">
                 Add Role
-              </h3>
+              </h2>
 
               <button
                 type="button"
-                onClick={() => setRoleModalOpen(false)}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                onClick={() => {
+                  setRoleModalOpen(false);
+                  setRoleName("");
+                }}
+                className="text-xl text-gray-400 hover:text-gray-600"
               >
-                <RiIcons.RiCloseLine className="text-xl" />
+                ×
               </button>
             </div>
 
             <form
               onSubmit={handleCreateProfile}
-              className="space-y-4"
+              className="p-5"
             >
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Role Name
-                </label>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                Role Name
+              </label>
 
-                <input
-                  type="text"
-                  value={roleName}
-                  onChange={(event) =>
-                    setRoleName(event.target.value)
-                  }
-                  placeholder="Enter role name"
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                />
+              <input
+                type="text"
+                value={roleName}
+                onChange={(event) =>
+                  setRoleName(event.target.value)
+                }
+                placeholder="Enter role name"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+              />
+
+              <div className="mt-5 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRoleModalOpen(false);
+                    setRoleName("");
+                  }}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={roleSubmitting}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {roleSubmitting
+                    ? "Creating..."
+                    : "Create Role"}
+                </button>
               </div>
-
-              <button
-                type="submit"
-                disabled={roleSubmitting}
-                className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {roleSubmitting
-                  ? "Creating..."
-                  : "Create Role"}
-              </button>
             </form>
           </div>
         </div>
       )}
 
       {manageRoleOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-800">
-                  Manage Role
-                </h3>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Edit role name or change active status.
-                </p>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Manage Role
+              </h2>
 
               <button
                 type="button"
-                onClick={() => setManageRoleOpen(false)}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                onClick={() => {
+                  setManageRoleOpen(false);
+                  setEditingProfileId(null);
+                  setEditingProfileName("");
+                }}
+                className="text-xl text-gray-400 hover:text-gray-600"
               >
-                <RiIcons.RiCloseLine className="text-xl" />
+                ×
               </button>
             </div>
 
-            <div className="space-y-3">
-              {profiles.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
-                  No profiles found
-                </div>
-              ) : (
-                profiles.map((profile) => {
-                  const isEditing =
-                    Number(editingProfileId) ===
-                    Number(profile.id);
-
-                  const isActive =
-                    Number(profile.status ?? 1) === 1;
-
-                  return (
-                    <div
-                      key={profile.id}
-                      className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 md:flex-row md:items-center md:justify-between"
-                    >
-                      <div className="min-w-0 flex-1">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={editingProfileName}
-                            onChange={(event) =>
-                              setEditingProfileName(
-                                event.target.value
-                              )
+            <div className="max-h-[70vh] overflow-y-auto p-5">
+              {manageableProfiles.length > 0 ? (
+                <div className="space-y-3">
+                  {manageableProfiles.map(
+                    (profile) => (
+                      <div
+                        key={profile.id}
+                        className="flex items-center justify-between rounded-lg border border-gray-200 p-4"
+                      >
+                        {Number(
+                          editingProfileId
+                        ) ===
+                        Number(profile.id) ? (
+                          <form
+                            onSubmit={
+                              handleUpdateProfile
                             }
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                          />
-                        ) : (
-                          <p
-                            className={`font-semibold ${
-                              isActive
-                                ? "text-slate-800"
-                                : "text-slate-400"
-                            }`}
+                            className="flex w-full flex-col gap-3 md:flex-row md:items-center"
                           >
-                            {profile.name}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {isEditing ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleUpdateProfileName(
-                                  profile
+                            <input
+                              type="text"
+                              value={
+                                editingProfileName
+                              }
+                              onChange={(event) =>
+                                setEditingProfileName(
+                                  event.target.value
                                 )
                               }
-                              disabled={savingProfile}
-                              className="cursor-pointer rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                            >
-                              {savingProfile
-                                ? "Saving..."
-                                : "Save"}
-                            </button>
+                              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                            />
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingProfileId(null);
-                                setEditingProfileName("");
-                              }}
-                              className="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600"
-                            >
-                              Cancel
-                            </button>
-                          </>
+                            <div className="flex gap-2">
+                              <button
+                                type="submit"
+                                disabled={
+                                  roleSubmitting
+                                }
+                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {roleSubmitting
+                                  ? "Saving..."
+                                  : "Save"}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingProfileId(
+                                    null
+                                  );
+                                  setEditingProfileName(
+                                    ""
+                                  );
+                                }}
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingProfileId(profile.id);
-                              setEditingProfileName(
-                                profile.name || ""
-                              );
-                            }}
-                            className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
-                            title="Edit role"
-                          >
-                            <RiIcons.RiEditLine className="text-lg" />
-                          </button>
+                          <>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">
+                                {getRoleName(
+                                  profile
+                                )}
+                              </p>
+
+                              <p className="mt-1 text-xs text-gray-500">
+                                Role ID: {profile.id}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openManageRole(
+                                    profile
+                                  )
+                                }
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                              >
+                                Edit
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleProfileStatus(
+                                    profile
+                                  )
+                                }
+                                className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                                  isActive(profile)
+                                    ? "bg-red-50 text-red-600 hover:bg-red-100"
+                                    : "bg-green-50 text-green-600 hover:bg-green-100"
+                                }`}
+                              >
+                                {isActive(profile)
+                                  ? "Disable"
+                                  : "Enable"}
+                              </button>
+                            </div>
+                          </>
                         )}
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleProfileStatus(profile)
-                          }
-                          disabled={savingProfile}
-                          className={`relative inline-flex h-6 w-11 cursor-pointer items-center rounded-full transition ${
-                            isActive
-                              ? "bg-green-500"
-                              : "bg-slate-300"
-                          } disabled:cursor-not-allowed disabled:opacity-50`}
-                        >
-                          <span
-                            className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                              isActive
-                                ? "translate-x-5"
-                                : "translate-x-0.5"
-                            }`}
-                          />
-                        </button>
-
-                        <span
-                          className={`min-w-[58px] rounded-full px-2.5 py-1 text-center text-xs font-semibold ${
-                            isActive
-                              ? "bg-green-50 text-green-600"
-                              : "bg-red-50 text-red-500"
-                          }`}
-                        >
-                          {isActive
-                            ? "Active"
-                            : "Inactive"}
-                        </span>
                       </div>
-                    </div>
-                  );
-                })
+                    )
+                  )}
+                </div>
+              ) : (
+                <div className="py-10 text-center text-sm text-gray-500">
+                  No roles available for your
+                  account.
+                </div>
               )}
             </div>
           </div>
@@ -1023,4 +1206,3 @@ export default function RolePermissionForm() {
     </div>
   );
 }
-
