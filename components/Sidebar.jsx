@@ -14,7 +14,6 @@ import {
 import {
   logoutStaff,
   getModules,
-  getRoles,
   getKeySettings,
   getNormalCompanySetting,
 } from "@/services/api";
@@ -32,14 +31,17 @@ const allowedRolesByRole = {
   9: [],
 };
 
-const defaultAdminRole = {
-  id: "default-admin",
-  role_id: 1,
-  name: "Admin",
-  slug: "admin",
-  icon: "RiAdminLine",
-  sequence: 1,
-  status: 1,
+const roleMap = {
+  0: "Master Admin",
+  1: "Admin",
+  2: "CNF",
+  3: "Super Distributor",
+  4: "Distributor",
+  5: "FOS",
+  6: "Retailer",
+  7: "Sub Retailer",
+  8: "Employee",
+  9: "Staff",
 };
 
 const pointTransactionTypes = {
@@ -81,7 +83,6 @@ export default function Sidebar({ sidebarOpen }) {
   const searchParams = useSearchParams();
 
   const [roleId, setRoleId] = useState(null);
-  const [roles, setRoles] = useState([]);
   const [modules, setModules] = useState([]);
   const [permissions, setPermissions] = useState(null);
   const [totalWalletBalance, setTotalWalletBalance] = useState(0);
@@ -95,7 +96,8 @@ export default function Sidebar({ sidebarOpen }) {
     .trim()
     .toLowerCase();
 
-  const activeTransactionType = searchParams.get("transaction_type");
+  const activeTransactionType =
+    searchParams.get("transaction_type");
 
   const activeRole =
     activeRoleParam !== null && activeRoleParam !== ""
@@ -113,36 +115,72 @@ export default function Sidebar({ sidebarOpen }) {
     localStorage.removeItem("rolePermission");
   }, []);
 
+  const parsePermissions = useCallback((value) => {
+    if (!value) {
+      return null;
+    }
+
+    try {
+      const parsed =
+        typeof value === "string"
+          ? JSON.parse(value)
+          : value;
+
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed)
+      ) {
+        return null;
+      }
+
+      if (parsed.permission !== undefined) {
+        const nestedPermission =
+          typeof parsed.permission === "string"
+            ? JSON.parse(parsed.permission)
+            : parsed.permission;
+
+        if (
+          nestedPermission &&
+          typeof nestedPermission === "object" &&
+          !Array.isArray(nestedPermission)
+        ) {
+          return nestedPermission;
+        }
+      }
+
+      return parsed;
+    } catch (error) {
+      console.error("PERMISSION PARSE ERROR:", error);
+      return null;
+    }
+  }, []);
+
   const loadStaffPermissions = useCallback(() => {
     if (typeof window === "undefined") {
       return null;
     }
 
     try {
-      const savedPermissions = localStorage.getItem(
-        "staff_permissions"
-      );
+      const storedPermission =
+        localStorage.getItem("staff_permission");
 
-      if (savedPermissions) {
-        const parsedPermissions = JSON.parse(savedPermissions);
+      if (storedPermission) {
+        const parsedPermission =
+          parsePermissions(storedPermission);
 
-        if (
-          parsedPermissions &&
-          typeof parsedPermissions === "object" &&
-          !Array.isArray(parsedPermissions)
-        ) {
-          setPermissions(parsedPermissions);
-          return parsedPermissions;
+        if (parsedPermission) {
+          setPermissions(parsedPermission);
+
+          localStorage.setItem(
+            "staff_permission",
+            JSON.stringify(parsedPermission)
+          );
+
+          return parsedPermission;
         }
       }
-    } catch (error) {
-      console.error(
-        "STAFF PERMISSION STORAGE ERROR:",
-        error
-      );
-    }
 
-    try {
       const savedUser = localStorage.getItem("user");
 
       if (!savedUser) {
@@ -152,35 +190,34 @@ export default function Sidebar({ sidebarOpen }) {
 
       const user = JSON.parse(savedUser);
 
-      const permission =
+      const userPermission =
         user?.staff_permission?.permission ||
-        user?.role_permission?.permission ||
+        user?.staff_permission ||
         null;
 
-      if (
-        permission &&
-        typeof permission === "object" &&
-        !Array.isArray(permission)
-      ) {
-        setPermissions(permission);
+      const parsedPermission =
+        parsePermissions(userPermission);
+
+      if (parsedPermission) {
+        setPermissions(parsedPermission);
 
         localStorage.setItem(
-          "staff_permissions",
-          JSON.stringify(permission)
+          "staff_permission",
+          JSON.stringify(parsedPermission)
         );
 
-        return permission;
+        return parsedPermission;
       }
     } catch (error) {
       console.error(
-        "STAFF USER PERMISSION ERROR:",
+        "STAFF PERMISSION STORAGE ERROR:",
         error
       );
     }
 
     setPermissions(null);
     return null;
-  }, []);
+  }, [parsePermissions]);
 
   const loadCurrentUser = useCallback(() => {
     try {
@@ -207,7 +244,10 @@ export default function Sidebar({ sidebarOpen }) {
       }
 
       setPermissions(null);
+
+      localStorage.removeItem("staff_permission");
       localStorage.removeItem("staff_permissions");
+
       removeInvalidPermissionKeys();
     } catch (error) {
       console.error(
@@ -223,35 +263,6 @@ export default function Sidebar({ sidebarOpen }) {
     loadStaffPermissions,
     removeInvalidPermissionKeys,
   ]);
-
-  const loadRoles = useCallback(async () => {
-    try {
-      const response = await getRoles();
-
-      if (
-        response?.success &&
-        Array.isArray(response?.data)
-      ) {
-        const activeRoles = response.data
-          .filter(
-            (role) =>
-              Number(role?.status ?? 1) === 1
-          )
-          .sort(
-            (a, b) =>
-              Number(a?.sequence ?? 0) -
-              Number(b?.sequence ?? 0)
-          );
-
-        setRoles(activeRoles);
-      } else {
-        setRoles([]);
-      }
-    } catch (error) {
-      console.error("GET ROLES ERROR:", error);
-      setRoles([]);
-    }
-  }, []);
 
   const loadModules = useCallback(async () => {
     try {
@@ -339,7 +350,6 @@ export default function Sidebar({ sidebarOpen }) {
 
   useEffect(() => {
     removeInvalidPermissionKeys();
-    loadRoles();
     loadModules();
     loadCurrentUser();
     loadWalletBalance();
@@ -347,7 +357,6 @@ export default function Sidebar({ sidebarOpen }) {
   }, [
     pathname,
     removeInvalidPermissionKeys,
-    loadRoles,
     loadModules,
     loadCurrentUser,
     loadWalletBalance,
@@ -407,18 +416,9 @@ export default function Sidebar({ sidebarOpen }) {
       loadModules();
     };
 
-    const handleRolesUpdated = () => {
-      loadRoles();
-    };
-
     window.addEventListener(
       "modules_updated",
       handleModulesUpdated
-    );
-
-    window.addEventListener(
-      "roles_updated",
-      handleRolesUpdated
     );
 
     return () => {
@@ -426,13 +426,8 @@ export default function Sidebar({ sidebarOpen }) {
         "modules_updated",
         handleModulesUpdated
       );
-
-      window.removeEventListener(
-        "roles_updated",
-        handleRolesUpdated
-      );
     };
-  }, [loadModules, loadRoles]);
+  }, [loadModules]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -444,13 +439,9 @@ export default function Sidebar({ sidebarOpen }) {
         loadModules();
       }
 
-      if (event.key === "roles_updated") {
-        loadRoles();
-      }
-
       if (
         event.key === "user" ||
-        event.key === "staff_permissions"
+        event.key === "staff_permission"
       ) {
         loadCurrentUser();
         loadWalletBalance();
@@ -479,131 +470,54 @@ export default function Sidebar({ sidebarOpen }) {
     };
   }, [
     loadModules,
-    loadRoles,
     loadCurrentUser,
     loadWalletBalance,
     removeInvalidPermissionKeys,
   ]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
+  const isPermissionEnabled = useCallback((value) => {
+    if (value === undefined || value === null) {
+      return false;
     }
 
-    removeInvalidPermissionKeys();
+    if (typeof value === "boolean") {
+      return value;
+    }
 
-    const timer = setTimeout(() => {
-      removeInvalidPermissionKeys();
-    }, 100);
+    if (typeof value === "number") {
+      return value === 1;
+    }
 
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [
-    pathname,
-    activeRole,
-    activeModule,
-    activeTransactionType,
-    removeInvalidPermissionKeys,
-  ]);
-
-  const isPermissionEnabled = useCallback(
-    (value) => {
-      if (
-        value === undefined ||
-        value === null
-      ) {
-        return false;
-      }
-
-      if (typeof value === "boolean") {
-        return value;
-      }
-
-      if (typeof value === "number") {
-        return value === 1;
-      }
-
-      if (typeof value === "string") {
-        const normalized = value
-          .trim()
-          .toLowerCase();
-
-        return (
-          normalized === "1" ||
-          normalized === "true" ||
-          normalized === "yes"
-        );
-      }
-
-      if (typeof value === "object") {
-        if (value.status !== undefined) {
-          return Number(value.status) === 1;
-        }
-
-        if (value.view !== undefined) {
-          return Number(value.view) === 1;
-        }
-
-        if (value.access !== undefined) {
-          return Number(value.access) === 1;
-        }
-
-        return true;
-      }
-
-      return false;
-    },
-    []
-  );
-
-  const hasPermissionForSlug = useCallback(
-    (slug) => {
-      if (!permissions) {
-        return false;
-      }
-
-      const cleanSlug = String(slug || "")
+    if (typeof value === "string") {
+      const normalized = value
         .trim()
         .toLowerCase();
 
-      if (!cleanSlug) {
-        return false;
-      }
-
-      const permissionKeys =
-        Object.keys(permissions);
-
-      if (
-        permissions[cleanSlug] !== undefined
-      ) {
-        return isPermissionEnabled(
-          permissions[cleanSlug]
-        );
-      }
-
-      const matchingKeys =
-        permissionKeys.filter((key) => {
-          const cleanKey = String(key)
-            .trim()
-            .toLowerCase();
-
-          return (
-            cleanKey === cleanSlug ||
-            cleanKey.startsWith(
-              `${cleanSlug}.`
-            )
-          );
-        });
-
-      return matchingKeys.some((key) =>
-        isPermissionEnabled(
-          permissions[key]
-        )
+      return (
+        normalized === "1" ||
+        normalized === "true" ||
+        normalized === "yes"
       );
-    },
-    [permissions, isPermissionEnabled]
-  );
+    }
+
+    if (typeof value === "object") {
+      if (value.status !== undefined) {
+        return Number(value.status) === 1;
+      }
+
+      if (value.view !== undefined) {
+        return Number(value.view) === 1;
+      }
+
+      if (value.access !== undefined) {
+        return Number(value.access) === 1;
+      }
+
+      return true;
+    }
+
+    return false;
+  }, []);
 
   const hasModulePermission = useCallback(
     (moduleItem) => {
@@ -611,72 +525,41 @@ export default function Sidebar({ sidebarOpen }) {
         return true;
       }
 
-      const slug = String(
-        moduleItem?.slug || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const name = String(
-        moduleItem?.name || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      if (
-        slug &&
-        hasPermissionForSlug(slug)
-      ) {
-        return true;
+      if (!permissions) {
+        return false;
       }
 
-      if (
-        name &&
-        hasPermissionForSlug(name)
-      ) {
-        return true;
+      const moduleId = Number(moduleItem?.id);
+
+      if (!Number.isFinite(moduleId)) {
+        return false;
       }
 
-      return false;
+      const modulePrefix = `${moduleId}.`;
+
+      return Object.entries(permissions).some(
+        ([permissionKey, value]) => {
+          const normalizedKey = String(
+            permissionKey
+          ).trim();
+
+          if (
+            !normalizedKey.startsWith(
+              modulePrefix
+            )
+          ) {
+            return false;
+          }
+
+          return isPermissionEnabled(value);
+        }
+      );
     },
-    [roleId, hasPermissionForSlug]
-  );
-
-  const hasRolePermission = useCallback(
-    (roleItem) => {
-      if (Number(roleId) !== 9) {
-        return true;
-      }
-
-      const roleSlug = String(
-        roleItem?.slug || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const roleName = String(
-        roleItem?.name || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      if (
-        roleSlug &&
-        hasPermissionForSlug(roleSlug)
-      ) {
-        return true;
-      }
-
-      if (
-        roleName &&
-        hasPermissionForSlug(roleName)
-      ) {
-        return true;
-      }
-
-      return false;
-    },
-    [roleId, hasPermissionForSlug]
+    [
+      roleId,
+      permissions,
+      isPermissionEnabled,
+    ]
   );
 
   const myLogin = () => {
@@ -685,12 +568,13 @@ export default function Sidebar({ sidebarOpen }) {
     const restored = restoreOriginalLogin();
 
     if (!restored) {
-      alert("Original login session not found");
+      alert(
+        "Original login session not found"
+      );
       return;
     }
 
     removeInvalidPermissionKeys();
-
     window.location.href = "/dashboard";
   };
 
@@ -708,6 +592,7 @@ export default function Sidebar({ sidebarOpen }) {
       localStorage.removeItem("user");
       localStorage.removeItem("original_token");
       localStorage.removeItem("original_user");
+      localStorage.removeItem("staff_permission");
       localStorage.removeItem("staff_permissions");
 
       removeInvalidPermissionKeys();
@@ -827,8 +712,7 @@ export default function Sidebar({ sidebarOpen }) {
       }
 
       return (
-        pathname ===
-          `/dashboard/${slug}` ||
+        pathname === `/dashboard/${slug}` ||
         pathname.startsWith(
           `/dashboard/${slug}/`
         )
@@ -841,32 +725,38 @@ export default function Sidebar({ sidebarOpen }) {
     ]
   );
 
-  const RoleLink = ({ roleItem }) => {
+  const RoleLink = ({ moduleItem }) => {
+    const roleValue = Number(
+      moduleItem?.role_id
+    );
+
     const roleSlug = String(
-      roleItem?.slug || ""
+      moduleItem?.slug || ""
     )
       .trim()
       .toLowerCase();
 
-    const label =
-      roleItem?.name ||
-      roleSlug ||
-      "Role";
+    if (
+      !Number.isFinite(roleValue) ||
+      roleValue < 1 ||
+      roleValue > 9 ||
+      !roleSlug
+    ) {
+      return null;
+    }
 
-    const roleValue = Number(
-      roleItem?.role_id
-    );
+    const href =
+      `/dashboard?role=${roleValue}` +
+      `&module=${encodeURIComponent(
+        roleSlug
+      )}`;
 
     const isActive =
-      isRoleLinkActive(roleItem);
+      isRoleLinkActive(moduleItem);
 
     return (
       <Link
-        href={`/dashboard?role=${encodeURIComponent(
-          roleValue
-        )}&module=${encodeURIComponent(
-          roleSlug
-        )}`}
+        href={href}
         className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${
           isActive
             ? "bg-blue-400 text-black"
@@ -880,10 +770,14 @@ export default function Sidebar({ sidebarOpen }) {
               : "text-white"
           }`}
         >
-          {getRoleIcon(roleItem?.icon)}
+          {getModuleIcon(moduleItem?.icon)}
         </span>
 
-        <span>{label}</span>
+        <span className="truncate">
+          {moduleItem?.name ||
+            roleMap[roleValue] ||
+            "Role"}
+        </span>
       </Link>
     );
   };
@@ -900,9 +794,10 @@ export default function Sidebar({ sidebarOpen }) {
       slug ||
       "Module";
 
-    let href = `/dashboard?module=${encodeURIComponent(
-      slug
-    )}`;
+    let href =
+      `/dashboard?module=${encodeURIComponent(
+        slug
+      )}`;
 
     if (slug === "key-settings") {
       href = "/dashboard/key-setting";
@@ -913,18 +808,21 @@ export default function Sidebar({ sidebarOpen }) {
     }
 
     if (slug === "company-setting") {
-      href = "/dashboard/company-setting";
+      href =
+        "/dashboard/company-setting";
     }
 
     if (slug === "system-control") {
-      href = "/dashboard/system-controll";
+      href =
+        "/dashboard/system-controll";
     }
 
     if (
       slug === "transaction" ||
       slug === "my-transaction"
     ) {
-      href = "/dashboard/my-transaction";
+      href =
+        "/dashboard/my-transaction";
     }
 
     if (
@@ -933,7 +831,8 @@ export default function Sidebar({ sidebarOpen }) {
       const transactionType =
         pointTransactionTypes[slug];
 
-      href = `/dashboard/transfer-point?transaction_type=${transactionType}`;
+      href =
+        `/dashboard/transfer-point?transaction_type=${transactionType}`;
     }
 
     const isActive =
@@ -955,7 +854,9 @@ export default function Sidebar({ sidebarOpen }) {
               : "text-white"
           }`}
         >
-          {getModuleIcon(moduleItem?.icon)}
+          {getModuleIcon(
+            moduleItem?.icon
+          )}
         </span>
 
         <span className="flex min-w-0 flex-1 items-center">
@@ -984,34 +885,37 @@ export default function Sidebar({ sidebarOpen }) {
   const renderRoleLinks = () => {
     const currentRole = Number(roleId);
 
-    if (currentRole === 0) {
-      const adminFromApi = roles.find(
-        (roleItem) =>
-          Number(roleItem?.role_id) === 1
-      );
-
-      return (
-        <RoleLink
-          key="master-admin-admin"
-          roleItem={
-            adminFromApi || defaultAdminRole
-          }
-        />
-      );
+    if (!Number.isFinite(currentRole)) {
+      return null;
     }
 
+    const roleModules = modules.filter(
+      (moduleItem) => {
+        const moduleRoleId = Number(
+          moduleItem?.role_id
+        );
+
+        return (
+          moduleRoleId >= 1 &&
+          moduleRoleId <= 9
+        );
+      }
+    );
+
     if (currentRole === 9) {
-      return roles
-        .filter((roleItem) =>
-          hasRolePermission(roleItem)
+      return roleModules
+        .filter((moduleItem) =>
+          hasModulePermission(
+            moduleItem
+          )
         )
-        .map((roleItem) => (
+        .map((moduleItem) => (
           <RoleLink
             key={
-              roleItem?.id ??
-              roleItem?.role_id
+              moduleItem?.id ??
+              moduleItem?.role_id
             }
-            roleItem={roleItem}
+            moduleItem={moduleItem}
           />
         ));
     }
@@ -1020,19 +924,19 @@ export default function Sidebar({ sidebarOpen }) {
       allowedRolesByRole[currentRole] ||
       [];
 
-    return roles
-      .filter((roleItem) =>
+    return roleModules
+      .filter((moduleItem) =>
         allowedRoles.includes(
-          Number(roleItem?.role_id)
+          Number(moduleItem?.role_id)
         )
       )
-      .map((roleItem) => (
+      .map((moduleItem) => (
         <RoleLink
           key={
-            roleItem?.id ??
-            roleItem?.role_id
+            moduleItem?.id ??
+            moduleItem?.role_id
           }
-          roleItem={roleItem}
+          moduleItem={moduleItem}
         />
       ));
   };
@@ -1048,10 +952,24 @@ export default function Sidebar({ sidebarOpen }) {
 
         const currentRole = Number(roleId);
 
-        /*
-         * Revert Point:
-         * Only Master Admin (role 0) can see it.
-         */
+        const moduleRoleId = Number(
+          moduleItem?.role_id
+        );
+
+        if (
+          moduleRoleId >= 1 &&
+          moduleRoleId <= 9
+        ) {
+          return false;
+        }
+
+        if (
+          slug === "role-permission" &&
+          currentRole === 0
+        ) {
+          return false;
+        }
+
         if (
           slug === "revert-point" &&
           currentRole !== 0
@@ -1074,7 +992,8 @@ export default function Sidebar({ sidebarOpen }) {
         }
 
         if (
-          slug === "schema-transfer-point" &&
+          slug ===
+            "schema-transfer-point" &&
           currentRole === 0
         ) {
           return false;
@@ -1104,8 +1023,12 @@ export default function Sidebar({ sidebarOpen }) {
 
   const companyLogoUrl = companyLogo
     ? `${(
-        process.env.NEXT_PUBLIC_API_URL || ""
-      ).replace(/\/api$/, "")}${companyLogo}`
+        process.env
+          .NEXT_PUBLIC_API_URL || ""
+      ).replace(
+        /\/api$/,
+        ""
+      )}${companyLogo}`
     : null;
 
   return (
@@ -1137,7 +1060,9 @@ export default function Sidebar({ sidebarOpen }) {
               : "hover:bg-gray-700"
           }`}
         >
-          <RiIcons.RiDashboardLine size={20} />
+          <RiIcons.RiDashboardLine
+            size={20}
+          />
           <span>Dashboard</span>
         </Link>
 
@@ -1159,7 +1084,9 @@ export default function Sidebar({ sidebarOpen }) {
                   : "hover:bg-gray-700"
               }`}
             >
-              <RiIcons.RiSettings3Line size={20} />
+              <RiIcons.RiSettings3Line
+                size={20}
+              />
               <span>Master Settings</span>
             </Link>
 
@@ -1175,7 +1102,9 @@ export default function Sidebar({ sidebarOpen }) {
                   : "hover:bg-gray-700"
               }`}
             >
-              <RiIcons.RiStore2Line size={20} />
+              <RiIcons.RiStore2Line
+                size={20}
+              />
               <span>Sub Module</span>
             </Link>
           </>
@@ -1190,7 +1119,9 @@ export default function Sidebar({ sidebarOpen }) {
           onClick={myLogin}
           className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-blue-500 px-4 py-3 font-semibold text-white transition-all hover:bg-blue-600"
         >
-          <RiIcons.RiLoginBoxLine size={20} />
+          <RiIcons.RiLoginBoxLine
+            size={20}
+          />
           <span>My Login</span>
         </button>
 
@@ -1199,7 +1130,9 @@ export default function Sidebar({ sidebarOpen }) {
           onClick={logout}
           className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-red-500 px-4 py-3 font-semibold text-white transition-all hover:bg-red-600"
         >
-          <RiIcons.RiLogoutBoxLine size={20} />
+          <RiIcons.RiLogoutBoxLine
+            size={20}
+          />
           <span>Logout</span>
         </button>
       </div>

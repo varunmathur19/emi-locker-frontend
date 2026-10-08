@@ -31,18 +31,13 @@ import {
 import {
   getAllStaffData,
   getRoles,
+  getModules,
   getKeySettings,
 } from "@/services/api";
 
 import { getRoleId } from "@/utils/token";
 
 import UsersTable from "../../components/dashboard/UsersTable";
-
-
-
-/* =========================================================
-   CONSTANTS
-========================================================= */
 
 const PIE_COLORS = [
   "#6366f1",
@@ -55,58 +50,26 @@ const PIE_COLORS = [
   "#14b8a6",
 ];
 
-
-/*
-  Role Visibility Rules
-
-  0 = Master Admin
-  1 = Admin
-  2 = CNF
-  3 = Super Distributor
-  4 = Distributor
-  5 = FOS
-  6 = Retailer
-  7 = Sub Retailer
-  8 = Employee
-  9 = Staff
-
-  Rules:
-  - Admin => Employee + Staff
-  - Retailer => Employee, NOT Staff
-  - Sub Retailer => Employee, NOT Staff
-  - Other roles => Staff, NOT Employee
-*/
-const allowedRoles = {
-  0: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-
-  1: [2, 3, 4, 5, 6, 7, 8, 9],
-
-  2: [3, 4, 5, 6, 7, 9],
-
-  3: [4, 5, 6, 7, 9],
-
-  4: [5, 6, 7, 9],
-
-  5: [6, 7, 9],
-
-  // Retailer => Employee only
-  6: [7, 8],
-
-  // Sub Retailer => Employee only
-  7: [8],
-
-  // Employee => Staff
-  8: [9],
-
-  // Staff => no child roles
-  9: [],
+const SUBMODULE_IDS = {
+  manage: 3,
+  edit: 4,
+  view: 5,
+  add: 6,
+  delete: 7,
 };
 
-
-
-/* =========================================================
-   PERMISSION HELPERS
-========================================================= */
+const allowedRoles = {
+  0: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  1: [2, 3, 4, 5, 6, 7, 8, 9],
+  2: [3, 4, 5, 6, 7, 9],
+  3: [4, 5, 6, 7, 9],
+  4: [5, 6, 7, 9],
+  5: [6, 7, 9],
+  6: [7, 8],
+  7: [8],
+  8: [9],
+  9: [],
+};
 
 const isPermissionEnabled = (value) => {
   if (typeof value === "boolean") {
@@ -118,9 +81,7 @@ const isPermissionEnabled = (value) => {
   }
 
   if (typeof value === "string") {
-    const normalized = value
-      .trim()
-      .toLowerCase();
+    const normalized = value.trim().toLowerCase();
 
     return (
       normalized === "1" ||
@@ -147,9 +108,7 @@ const isPermissionEnabled = (value) => {
     }
 
     if (value.enabled !== undefined) {
-      return isPermissionEnabled(
-        value.enabled
-      );
+      return isPermissionEnabled(value.enabled);
     }
 
     return true;
@@ -158,19 +117,14 @@ const isPermissionEnabled = (value) => {
   return false;
 };
 
-
-
-const normalizePermissions = (
-  permissions
-) => {
+const normalizePermissions = (permissions) => {
   if (!permissions) {
     return {};
   }
 
   if (typeof permissions === "string") {
     try {
-      const parsed =
-        JSON.parse(permissions);
+      const parsed = JSON.parse(permissions);
 
       if (
         parsed &&
@@ -196,11 +150,7 @@ const normalizePermissions = (
   return {};
 };
 
-
-
-const getPermissionObject = (
-  permissionData
-) => {
+const getPermissionObject = (permissionData) => {
   if (!permissionData) {
     return {};
   }
@@ -211,235 +161,127 @@ const getPermissionObject = (
   ) {
     if (
       permissionData.permission &&
-      typeof permissionData.permission ===
-        "object"
+      typeof permissionData.permission === "object"
     ) {
       return normalizePermissions(
         permissionData.permission
       );
     }
 
-    return normalizePermissions(
-      permissionData
-    );
+    return normalizePermissions(permissionData);
   }
 
   return {};
 };
 
-
-
-const hasRolePermission = (
+const hasModulePermission = (
   permissions,
-  role
+  moduleId,
+  action = null
 ) => {
-  if (!role) {
+  if (!permissions) {
+    return false;
+  }
+
+  const numericModuleId = Number(moduleId);
+
+  if (
+    !Number.isInteger(numericModuleId) ||
+    numericModuleId <= 0
+  ) {
     return false;
   }
 
   const normalizedPermissions =
-    getPermissionObject(
-      permissions
-    );
+    getPermissionObject(permissions);
 
-  const roleId = Number(
-    role?.role_id
-  );
+  if (!action) {
+    return Object.entries(
+      normalizedPermissions
+    ).some(([key, value]) => {
+      const [permissionModuleId] =
+        String(key).split(".");
 
-  const roleName = String(
-    role?.name || ""
-  )
-    .trim()
-    .toLowerCase();
+      return (
+        Number(permissionModuleId) ===
+          numericModuleId &&
+        isPermissionEnabled(value)
+      );
+    });
+  }
 
-  const roleSlug = String(
-    role?.slug || ""
-  )
-    .trim()
-    .toLowerCase()
-    .replace(/_/g, "-");
+  const requestedSubModuleId =
+    action === "login"
+      ? SUBMODULE_IDS.manage
+      : SUBMODULE_IDS[action];
 
-  /*
-    Check permission using role ID
-  */
-  const roleIdKeys = [
-    String(roleId),
-    `role.${roleId}`,
-    `role_${roleId}`,
-    `role-${roleId}`,
-  ];
+  if (!requestedSubModuleId) {
+    return false;
+  }
 
-  for (
-    const key of roleIdKeys
+  const exactKey = `${numericModuleId}.${requestedSubModuleId}`;
+
+  if (
+    isPermissionEnabled(
+      normalizedPermissions[exactKey]
+    )
   ) {
+    return true;
+  }
+
+  if (
+    requestedSubModuleId !==
+    SUBMODULE_IDS.manage
+  ) {
+    const manageKey = `${numericModuleId}.${SUBMODULE_IDS.manage}`;
+
     if (
-      Object.prototype.hasOwnProperty.call(
-        normalizedPermissions,
-        key
+      isPermissionEnabled(
+        normalizedPermissions[manageKey]
       )
     ) {
-      if (
-        isPermissionEnabled(
-          normalizedPermissions[key]
-        )
-      ) {
-        return true;
-      }
-    }
-  }
-
-  /*
-    Check permission using role name / slug
-  */
-  const roleKeys = [
-    roleName,
-    roleSlug,
-  ].filter(Boolean);
-
-  for (
-    const roleKey of roleKeys
-  ) {
-    const matchingKey =
-      Object.keys(
-        normalizedPermissions
-      ).find(
-        (permissionKey) => {
-          const normalizedKey =
-            String(permissionKey)
-              .trim()
-              .toLowerCase()
-              .replace(/_/g, "-");
-
-          return (
-            normalizedKey ===
-              roleKey ||
-            normalizedKey.startsWith(
-              `${roleKey}.`
-            )
-          );
-        }
-      );
-
-    if (matchingKey) {
-      if (
-        isPermissionEnabled(
-          normalizedPermissions[
-            matchingKey
-          ]
-        )
-      ) {
-        return true;
-      }
-    }
-  }
-
-  /*
-    Check nested permission object
-  */
-  for (
-    const roleKey of roleKeys
-  ) {
-    const nestedValue =
-      normalizedPermissions[
-        roleKey
-      ];
-
-    if (
-      nestedValue &&
-      typeof nestedValue ===
-        "object" &&
-      !Array.isArray(nestedValue)
-    ) {
-      if (
-        isPermissionEnabled(
-          nestedValue
-        )
-      ) {
-        return true;
-      }
+      return true;
     }
   }
 
   return false;
 };
 
-
-
-/* =========================================================
-   DASHBOARD
-========================================================= */
-
 export default function Dashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const searchParams =
-    useSearchParams();
+  const [roleId, setRoleId] = useState(null);
+  const [roles, setRoles] = useState([]);
+  const [modules, setModules] = useState([]);
 
-  const [roleId, setRoleId] =
-    useState(null);
+  const [page, setPage] = useState(1);
 
-  const [roles, setRoles] =
-    useState([]);
+  const [pagination, setPagination] = useState({});
+  const [users, setUsers] = useState([]);
+  const [counts, setCounts] = useState({});
 
-  const [page, setPage] =
-    useState(1);
-
-  const [pagination, setPagination] =
-    useState({});
-
-  const [users, setUsers] =
-    useState([]);
-
-  const [counts, setCounts] =
-    useState({});
-
-  const [keySettings, setKeySettings] =
-    useState([]);
-
+  const [keySettings, setKeySettings] = useState([]);
   const [keySettingsLoading, setKeySettingsLoading] =
     useState(true);
 
-  const [
-    staffPermissions,
-    setStaffPermissions,
-  ] = useState({});
+  const [staffPermissions, setStaffPermissions] =
+    useState({});
 
-  const [
-    staffPermissionsLoaded,
-    setStaffPermissionsLoaded,
-  ] = useState(false);
+  const [staffPermissionsLoaded, setStaffPermissionsLoaded] =
+    useState(false);
 
+  const urlRoleParam = searchParams.get("role");
+  const moduleParam = searchParams.get("module");
 
-
-  /* =========================================================
-     URL PARAMS
-  ========================================================= */
-
-  const urlRoleParam =
-    searchParams.get("role");
-
-  const moduleParam =
-    searchParams.get("module");
-
-  const hasRoleParam =
-    urlRoleParam !== null;
-
-  const hasModuleParam =
-    moduleParam !== null;
+  const hasRoleParam = urlRoleParam !== null;
+  const hasModuleParam = moduleParam !== null;
 
   const isDashboardHome =
-    !hasRoleParam &&
-    !hasModuleParam;
-
-
-
-  /* =========================================================
-     CURRENT USER ROLE
-  ========================================================= */
+    !hasRoleParam && !hasModuleParam;
 
   useEffect(() => {
-    const currentRoleId =
-      getRoleId();
+    const currentRoleId = getRoleId();
 
     if (
       currentRoleId === null ||
@@ -448,84 +290,80 @@ export default function Dashboard() {
       return;
     }
 
-    setRoleId(
-      Number(currentRoleId)
-    );
+    setRoleId(Number(currentRoleId));
   }, []);
 
+  useEffect(() => {
+    const loadModules = async () => {
+      try {
+        const response = await getModules();
 
+        const moduleData = Array.isArray(
+          response?.data
+        )
+          ? response.data
+          : Array.isArray(response)
+          ? response
+          : [];
 
-  /* =========================================================
-     LOAD KEY SETTINGS
-  ========================================================= */
+        setModules(moduleData);
+      } catch (error) {
+        console.error(
+          "GET MODULES ERROR:",
+          error
+        );
+
+        setModules([]);
+      }
+    };
+
+    loadModules();
+  }, []);
 
   useEffect(() => {
-    const loadKeySettings =
-      async () => {
-        try {
-          setKeySettingsLoading(
-            true
-          );
+    const loadKeySettings = async () => {
+      try {
+        setKeySettingsLoading(true);
 
-          const response =
-            await getKeySettings();
+        const response = await getKeySettings();
 
-          if (
-            response?.success &&
-            Array.isArray(
-              response?.data
-            )
-          ) {
-            const activeKeys =
-              response.data.filter(
-                (item) =>
-                  Number(
-                    item?.status
-                  ) === 1
-              );
-
-            setKeySettings(
-              activeKeys
+        if (
+          response?.success &&
+          Array.isArray(response?.data)
+        ) {
+          const activeKeys =
+            response.data.filter(
+              (item) =>
+                Number(item?.status) === 1
             );
-          } else {
-            setKeySettings([]);
-          }
-        } catch (error) {
-          console.error(
-            "GET KEY SETTINGS ERROR:",
-            error
-          );
 
+          setKeySettings(activeKeys);
+        } else {
           setKeySettings([]);
-        } finally {
-          setKeySettingsLoading(
-            false
-          );
         }
-      };
+      } catch (error) {
+        console.error(
+          "GET KEY SETTINGS ERROR:",
+          error
+        );
+
+        setKeySettings([]);
+      } finally {
+        setKeySettingsLoading(false);
+      }
+    };
 
     loadKeySettings();
   }, []);
 
-
-
-  /* =========================================================
-     LOAD STAFF PERMISSIONS
-  ========================================================= */
-
   useEffect(() => {
     if (roleId !== 9) {
       setStaffPermissions({});
-      setStaffPermissionsLoaded(
-        true
-      );
-
+      setStaffPermissionsLoaded(true);
       return;
     }
 
-    setStaffPermissionsLoaded(
-      false
-    );
+    setStaffPermissionsLoaded(false);
 
     try {
       const possibleKeys = [
@@ -535,9 +373,7 @@ export default function Dashboard() {
 
       let permissions = null;
 
-      for (
-        const key of possibleKeys
-      ) {
+      for (const key of possibleKeys) {
         const saved =
           localStorage.getItem(key);
 
@@ -546,30 +382,23 @@ export default function Dashboard() {
         }
 
         try {
-          const parsed =
-            JSON.parse(saved);
+          const parsed = JSON.parse(saved);
 
           if (
             parsed &&
-            typeof parsed ===
-              "object" &&
+            typeof parsed === "object" &&
             !Array.isArray(parsed)
           ) {
             permissions = parsed;
             break;
           }
         } catch {
-          // Ignore invalid JSON
+          continue;
         }
       }
 
-      const normalized =
-        normalizePermissions(
-          permissions
-        );
-
       setStaffPermissions(
-        normalized
+        normalizePermissions(permissions)
       );
     } catch (error) {
       console.error(
@@ -579,153 +408,113 @@ export default function Dashboard() {
 
       setStaffPermissions({});
     } finally {
-      setStaffPermissionsLoaded(
-        true
-      );
+      setStaffPermissionsLoaded(true);
     }
   }, [roleId]);
 
-
-
-  /* =========================================================
-     LOAD ROLES
-  ========================================================= */
-
   useEffect(() => {
-    const loadRoles =
-      async () => {
-        try {
-          const response =
-            await getRoles();
+    const loadRoles = async () => {
+      try {
+        const response = await getRoles();
 
-          const roleData =
-            Array.isArray(
-              response?.data
-            )
-              ? response.data
-              : [];
+        const roleData = Array.isArray(
+          response?.data
+        )
+          ? response.data
+          : [];
 
-          const activeRoles =
-            roleData
-              .filter(
-                (role) =>
-                  Number(
-                    role?.status ?? 1
-                  ) === 1
-              )
-              .sort(
-                (a, b) =>
-                  Number(
-                    a?.sequence ?? 0
-                  ) -
-                  Number(
-                    b?.sequence ?? 0
-                  )
-              );
-
-          setRoles(
-            activeRoles
-          );
-        } catch (error) {
-          console.error(
-            "GET ROLES ERROR:",
-            error
+        const activeRoles = roleData
+          .filter(
+            (role) =>
+              Number(role?.status ?? 1) === 1
+          )
+          .sort(
+            (a, b) =>
+              Number(a?.sequence ?? 0) -
+              Number(b?.sequence ?? 0)
           );
 
-          setRoles([]);
-        }
-      };
+        setRoles(activeRoles);
+      } catch (error) {
+        console.error(
+          "GET ROLES ERROR:",
+          error
+        );
+
+        setRoles([]);
+      }
+    };
 
     loadRoles();
   }, []);
 
+  const normalizeRoleValue = useCallback(
+    (value) => {
+      return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/_/g, " ")
+        .replace(/-/g, " ")
+        .replace(/\s+/g, " ");
+    },
+    []
+  );
 
+  const getRoleIdFromValue = useCallback(
+    (value) => {
+      if (
+        value === null ||
+        value === undefined ||
+        value === ""
+      ) {
+        return null;
+      }
 
-  /* =========================================================
-     ROLE HELPERS
-  ========================================================= */
+      const valueString = String(value).trim();
 
-  const normalizeRoleValue =
-    useCallback(
-      (value) => {
-        return String(
-          value || ""
-        )
-          .trim()
-          .toLowerCase()
-          .replace(/_/g, " ")
-          .replace(/-/g, " ")
-          .replace(/\s+/g, " ");
-      },
-      []
-    );
+      if (/^\d+$/.test(valueString)) {
+        return Number(valueString);
+      }
 
+      const normalizedValue =
+        normalizeRoleValue(valueString);
 
+      // First try the roles array
+      const foundRole = roles.find((role) => {
+        const roleName =
+          normalizeRoleValue(role?.name);
 
-  const getRoleIdFromValue =
-    useCallback(
-      (value) => {
-        if (
-          value === null ||
-          value === undefined ||
-          value === ""
-        ) {
-          return null;
-        }
+        const roleSlug =
+          normalizeRoleValue(role?.slug);
 
-        const valueString =
-          String(value).trim();
+        return (
+          roleName === normalizedValue ||
+          roleSlug === normalizedValue
+        );
+      });
 
-        if (
-          /^\d+$/.test(
-            valueString
-          )
-        ) {
-          return Number(
-            valueString
-          );
-        }
+      if (foundRole) {
+        return Number(foundRole.role_id);
+      }
 
-        const normalizedValue =
-          normalizeRoleValue(
-            valueString
-          );
+      // Fall back to modules array (e.g. Admin is in modules but not in roles table)
+      const foundModule = modules.find((mod) => {
+        const modName = normalizeRoleValue(mod?.name);
+        const modSlug = normalizeRoleValue(mod?.slug);
+        return (
+          modName === normalizedValue ||
+          modSlug === normalizedValue
+        );
+      });
 
-        const foundRole =
-          roles.find(
-            (role) => {
-              const roleName =
-                normalizeRoleValue(
-                  role?.name
-                );
+      if (foundModule && foundModule.role_id != null) {
+        return Number(foundModule.role_id);
+      }
 
-              const roleSlug =
-                normalizeRoleValue(
-                  role?.slug
-                );
-
-              return (
-                roleName ===
-                  normalizedValue ||
-                roleSlug ===
-                  normalizedValue
-              );
-            }
-          );
-
-        return foundRole
-          ? Number(
-              foundRole.role_id
-            )
-          : null;
-      },
-      [
-        roles,
-        normalizeRoleValue,
-      ]
-    );
-
-
+      return null;
+    },
+    [roles, modules, normalizeRoleValue]
+  );
 
   const urlRole = useMemo(
     () =>
@@ -738,115 +527,259 @@ export default function Dashboard() {
     ]
   );
 
-
-
-  const moduleRole =
-    useMemo(
-      () =>
-        getRoleIdFromValue(
-          moduleParam
-        ),
-      [
-        moduleParam,
-        getRoleIdFromValue,
-      ]
-    );
-
-
+  const moduleRole = useMemo(
+    () =>
+      getRoleIdFromValue(
+        moduleParam
+      ),
+    [
+      moduleParam,
+      getRoleIdFromValue,
+    ]
+  );
 
   const requestedRole =
     urlRole !== null
       ? urlRole
       : moduleRole;
 
+  const getModuleForRole = useCallback(
+    (role) => {
+      if (!role) {
+        return null;
+      }
 
+      const roleSlug =
+        normalizeRoleValue(
+          role?.slug
+        );
 
-  /* =========================================================
-     ROLE ACCESS CHECK
-  ========================================================= */
+      const roleName =
+        normalizeRoleValue(
+          role?.name
+        );
 
-  const isRoleAllowed =
-    useMemo(() => {
-      if (roleId === null) {
+      const roleIdValue =
+        Number(role?.role_id);
+
+      const matchedModule =
+        modules.find((moduleItem) => {
+          const moduleSlug =
+            normalizeRoleValue(
+              moduleItem?.slug
+            );
+
+          const moduleName =
+            normalizeRoleValue(
+              moduleItem?.name
+            );
+
+          return (
+            (roleSlug &&
+              moduleSlug ===
+                roleSlug) ||
+            (roleName &&
+              moduleName ===
+                roleName)
+          );
+        });
+
+      if (matchedModule) {
+        return matchedModule;
+      }
+
+      return (
+        modules.find(
+          (moduleItem) =>
+            Number(
+              moduleItem?.role_id
+            ) === roleIdValue
+        ) || null
+      );
+    },
+    [modules, normalizeRoleValue]
+  );
+
+  const getModuleForParam = useCallback(
+    (value) => {
+      if (!value) {
+        return null;
+      }
+
+      const normalizedValue =
+        normalizeRoleValue(value);
+
+      const numericValue =
+        Number(value);
+
+      const matchedModule =
+        modules.find((moduleItem) => {
+          const moduleSlug =
+            normalizeRoleValue(
+              moduleItem?.slug
+            );
+
+          const moduleName =
+            normalizeRoleValue(
+              moduleItem?.name
+            );
+
+          return (
+            moduleSlug ===
+              normalizedValue ||
+            moduleName ===
+              normalizedValue ||
+            Number(moduleItem?.id) ===
+              numericValue
+          );
+        });
+
+      if (matchedModule) {
+        return matchedModule;
+      }
+
+      const matchedRole = roles.find(
+        (role) => {
+          const roleSlug =
+            normalizeRoleValue(
+              role?.slug
+            );
+
+          const roleName =
+            normalizeRoleValue(
+              role?.name
+            );
+
+          return (
+            roleSlug ===
+              normalizedValue ||
+            roleName ===
+              normalizedValue
+          );
+        }
+      );
+
+      return getModuleForRole(
+        matchedRole
+      );
+    },
+    [
+      modules,
+      roles,
+      normalizeRoleValue,
+      getModuleForRole,
+    ]
+  );
+
+  const requestedModule = useMemo(
+    () => {
+      if (!hasModuleParam) {
+        return null;
+      }
+
+      return getModuleForParam(
+        moduleParam
+      );
+    },
+    [
+      hasModuleParam,
+      moduleParam,
+      getModuleForParam,
+    ]
+  );
+
+  const isRoleAllowed = useMemo(() => {
+    if (roleId === null) {
+      return false;
+    }
+
+    if (requestedRole === null) {
+      return true;
+    }
+
+    if (roleId === 9) {
+      if (!staffPermissionsLoaded) {
+        return true;
+      }
+
+      const role = roles.find(
+        (item) =>
+          Number(item?.role_id) ===
+          Number(requestedRole)
+      );
+
+      if (!role) {
         return false;
       }
 
-      /*
-        No role selected
-      */
-      if (
-        requestedRole === null
-      ) {
-        return true;
+      const moduleForRole =
+        getModuleForRole(role);
+
+      if (!moduleForRole) {
+        return false;
       }
 
-      /*
-        Staff uses permission system
-      */
-      if (roleId === 9) {
-        if (
-          !staffPermissionsLoaded
-        ) {
-          return true;
-        }
-
-        const role =
-          roles.find(
-            (item) =>
-              Number(
-                item?.role_id
-              ) ===
-              Number(
-                requestedRole
-              )
-          );
-
-        if (!role) {
-          return false;
-        }
-
-        return hasRolePermission(
-          staffPermissions,
-          role
-        );
-      }
-
-      /*
-        Master Admin can access all roles
-      */
-      if (roleId === 0) {
-        return true;
-      }
-
-      /*
-        Current role can access itself
-      */
-      if (
-        requestedRole ===
-        roleId
-      ) {
-        return true;
-      }
-
-      /*
-        Other roles follow allowedRoles
-      */
-      return (
-        allowedRoles[
-          roleId
-        ]?.includes(
-          requestedRole
-        ) || false
+      return hasModulePermission(
+        staffPermissions,
+        moduleForRole.id
       );
-    }, [
-      roleId,
-      requestedRole,
-      roles,
+    }
+
+    if (roleId === 0) {
+      return true;
+    }
+
+    if (requestedRole === roleId) {
+      return true;
+    }
+
+    return (
+      allowedRoles[roleId]?.includes(
+        requestedRole
+      ) || false
+    );
+  }, [
+    roleId,
+    requestedRole,
+    roles,
+    staffPermissions,
+    staffPermissionsLoaded,
+    getModuleForRole,
+  ]);
+
+  const isModuleAllowed = useMemo(() => {
+    if (roleId === null) {
+      return false;
+    }
+
+    if (!hasModuleParam) {
+      return true;
+    }
+
+    if (!requestedModule) {
+      return false;
+    }
+
+    if (roleId !== 9) {
+      return isRoleAllowed;
+    }
+
+    if (!staffPermissionsLoaded) {
+      return true;
+    }
+
+    return hasModulePermission(
       staffPermissions,
-      staffPermissionsLoaded,
-    ]);
-
-
+      requestedModule.id
+    );
+  }, [
+    roleId,
+    hasModuleParam,
+    requestedModule,
+    staffPermissions,
+    staffPermissionsLoaded,
+    isRoleAllowed,
+  ]);
 
   const selectedRole =
     requestedRole !== null &&
@@ -854,60 +787,38 @@ export default function Dashboard() {
       ? requestedRole
       : null;
 
+  const handleRoleList = useCallback(
+    (role) => {
+      router.push(
+        `/dashboard?role=${encodeURIComponent(
+          role
+        )}`
+      );
+    },
+    [router]
+  );
 
+  const getRoleName = useCallback(
+    (id) => {
+      const numericRoleId = Number(id);
 
-  /* =========================================================
-     ROLE NAVIGATION
-  ========================================================= */
+      if (numericRoleId === 0) {
+        return "Master Admin";
+      }
 
-  const handleRoleList =
-    useCallback(
-      (role) => {
-        router.push(
-          `/dashboard?role=${encodeURIComponent(
-            role
-          )}`
-        );
-      },
-      [router]
-    );
+      const role = roles.find(
+        (item) =>
+          Number(item?.role_id) ===
+          numericRoleId
+      );
 
-
-
-  const getRoleName =
-    useCallback(
-      (id) => {
-        const numericRoleId =
-          Number(id);
-
-        if (
-          numericRoleId === 0
-        ) {
-          return "Master Admin";
-        }
-
-        const role =
-          roles.find(
-            (item) =>
-              Number(
-                item?.role_id
-              ) ===
-              numericRoleId
-          );
-
-        return (
-          role?.name ||
-          "Unknown"
-        );
-      },
-      [roles]
-    );
-
-
-
-  /* =========================================================
-     ROLE URL ACCESS REDIRECT
-  ========================================================= */
+      return (
+        role?.name ||
+        "Unknown"
+      );
+    },
+    [roles]
+  );
 
   useEffect(() => {
     if (
@@ -924,9 +835,7 @@ export default function Dashboard() {
       return;
     }
 
-    if (
-      roles.length === 0
-    ) {
+    if (roles.length === 0) {
       return;
     }
 
@@ -952,17 +861,10 @@ export default function Dashboard() {
     router,
   ]);
 
-
-
-  /* =========================================================
-     MODULE URL ACCESS REDIRECT
-  ========================================================= */
-
   useEffect(() => {
     if (
       roleId === null ||
-      !hasModuleParam ||
-      moduleRole === null
+      !hasModuleParam
     ) {
       return;
     }
@@ -975,12 +877,24 @@ export default function Dashboard() {
     }
 
     if (
-      roles.length === 0
+      modules.length === 0
     ) {
       return;
     }
 
-    if (!isRoleAllowed) {
+    if (!requestedModule) {
+      toast.error(
+        "Module not found"
+      );
+
+      router.replace(
+        "/dashboard"
+      );
+
+      return;
+    }
+
+    if (!isModuleAllowed) {
       toast.error(
         "You are not allowed to access this module"
       );
@@ -992,18 +906,12 @@ export default function Dashboard() {
   }, [
     roleId,
     hasModuleParam,
-    moduleRole,
-    isRoleAllowed,
+    requestedModule,
+    isModuleAllowed,
     staffPermissionsLoaded,
-    roles.length,
+    modules.length,
     router,
   ]);
-
-
-
-  /* =========================================================
-     RESET PAGE WHEN ROLE/MODULE CHANGES
-  ========================================================= */
 
   useEffect(() => {
     setPage(1);
@@ -1012,141 +920,83 @@ export default function Dashboard() {
     moduleParam,
   ]);
 
-
-
-  /* =========================================================
-     DASHBOARD CARDS
-  ========================================================= */
-
   const cards = useMemo(() => {
-    return roles.map(
-      (role) => {
-        const numericRoleId =
-          Number(
-            role?.role_id
-          );
+    return roles.map((role) => {
+      const numericRoleId =
+        Number(role?.role_id);
 
-        return {
-          id: role?.id,
+      return {
+        id: role?.id,
+        roleId: numericRoleId,
+        title:
+          role?.name ||
+          role?.slug ||
+          "Unknown Role",
+        count:
+          counts[numericRoleId] || 0,
+        icon:
+          role?.icon || null,
+        sequence:
+          Number(role?.sequence) || 0,
+        status:
+          Number(role?.status ?? 1),
+      };
+    });
+  }, [roles, counts]);
 
-          roleId:
-            numericRoleId,
+  const visibleCards = useMemo(() => {
+    const currentRole =
+      Number(roleId);
 
-          title:
-            role?.name ||
-            role?.slug ||
-            "Unknown Role",
+    if (currentRole === 0) {
+      return cards;
+    }
 
-          count:
-            counts[
-              numericRoleId
-            ] || 0,
-
-          icon:
-            role?.icon || null,
-
-          sequence:
-            Number(
-              role?.sequence
-            ) || 0,
-
-          status:
-            Number(
-              role?.status ?? 1
-            ),
-        };
-      }
-    );
-  }, [
-    roles,
-    counts,
-  ]);
-
-
-
-  /* =========================================================
-     VISIBLE DASHBOARD CARDS
-  ========================================================= */
-
-  const visibleCards =
-    useMemo(() => {
-      const currentRole =
-        Number(roleId);
-
-      /*
-        Master Admin sees everything
-      */
-      if (
-        currentRole === 0
-      ) {
-        return cards;
+    if (currentRole === 9) {
+      if (!staffPermissionsLoaded) {
+        return [];
       }
 
-      /*
-        Staff uses permission based access
-      */
-      if (
-        currentRole === 9
-      ) {
-        if (
-          !staffPermissionsLoaded
-        ) {
-          return [];
+      return cards.filter((card) => {
+        const role = roles.find(
+          (item) =>
+            Number(item?.role_id) ===
+            Number(card.roleId)
+        );
+
+        const moduleForRole =
+          getModuleForRole(role);
+
+        if (!moduleForRole) {
+          return false;
         }
 
-        return cards.filter(
-          (card) => {
-            const role =
-              roles.find(
-                (item) =>
-                  Number(
-                    item?.role_id
-                  ) ===
-                  Number(
-                    card.roleId
-                  )
-              );
-
-            return hasRolePermission(
-              staffPermissions,
-              role
-            );
-          }
+        return hasModulePermission(
+          staffPermissions,
+          moduleForRole.id
         );
-      }
+      });
+    }
 
-      /*
-        Normal roles use allowedRoles
-      */
-      const roleIds =
-        allowedRoles[
-          currentRole
-        ] || [];
+    const roleIds =
+      allowedRoles[currentRole] || [];
 
-      return cards.filter(
-        (card) =>
-          roleIds.includes(
-            Number(
-              card.roleId
-            )
-          )
-      );
-    }, [
-      cards,
-      roleId,
-      roles,
-      staffPermissions,
-      staffPermissionsLoaded,
-    ]);
+    return cards.filter((card) =>
+      roleIds.includes(
+        Number(card.roleId)
+      )
+    );
+  }, [
+    cards,
+    roleId,
+    roles,
+    staffPermissions,
+    staffPermissionsLoaded,
+    getModuleForRole,
+  ]);
 
-
-
-  /* =========================================================
-     FETCH USERS + COUNTS
-  ========================================================= */
-
-  const fetchUsers =
-    useCallback(async () => {
+  const fetchUsers = useCallback(
+    async () => {
       try {
         if (
           roleId === 9 &&
@@ -1155,48 +1005,40 @@ export default function Dashboard() {
           return;
         }
 
-        const roleCounts =
-          {};
+        const roleCounts = {};
 
-        /*
-          Initialize all role counts
-        */
-        roles.forEach(
-          (role) => {
-            const numericRoleId =
-              Number(
-                role?.role_id
-              );
+        roles.forEach((role) => {
+          const numericRoleId =
+            Number(role?.role_id);
 
-            if (
-              Number.isFinite(
-                numericRoleId
-              )
-            ) {
-              roleCounts[
-                numericRoleId
-              ] = 0;
-            }
+          if (
+            Number.isFinite(
+              numericRoleId
+            )
+          ) {
+            roleCounts[
+              numericRoleId
+            ] = 0;
           }
-        );
+        });
 
-
-
-        /* -----------------------------------------
-           STAFF
-        ------------------------------------------ */
-
-        if (
-          roleId === 9
-        ) {
+        if (roleId === 9) {
           const permittedRoles =
-            roles.filter(
-              (role) =>
-                hasRolePermission(
-                  staffPermissions,
+            roles.filter((role) => {
+              const moduleForRole =
+                getModuleForRole(
                   role
-                )
-            );
+                );
+
+              if (!moduleForRole) {
+                return false;
+              }
+
+              return hasModulePermission(
+                staffPermissions,
+                moduleForRole.id
+              );
+            });
 
           const responses =
             await Promise.all(
@@ -1227,21 +1069,12 @@ export default function Dashboard() {
               roleCounts[
                 currentRoleId
               ] = Number(
-                response
-                  ?.pagination
+                response?.pagination
                   ?.totalUsers || 0
               );
             }
           );
-        }
-
-
-
-        /* -----------------------------------------
-           OTHER ROLES
-        ------------------------------------------ */
-
-        else {
+        } else {
           const countResponse =
             await getAllStaffData(
               1,
@@ -1256,66 +1089,36 @@ export default function Dashboard() {
               ? countResponse.data
               : [];
 
-          allUsers.forEach(
-            (user) => {
-              const userRoleId =
-                Number(
-                  user?.role_id
-                );
+          allUsers.forEach((user) => {
+            const userRoleId =
+              Number(user?.role_id);
 
-              if (
-                Object.prototype.hasOwnProperty.call(
-                  roleCounts,
-                  userRoleId
-                )
-              ) {
-                roleCounts[
-                  userRoleId
-                ] += 1;
-              }
+            if (
+              Object.prototype.hasOwnProperty.call(
+                roleCounts,
+                userRoleId
+              )
+            ) {
+              roleCounts[
+                userRoleId
+              ] += 1;
             }
-          );
+          });
         }
 
+        setCounts(roleCounts);
 
-
-        setCounts(
-          roleCounts
-        );
-
-
-
-        /* -----------------------------------------
-           DASHBOARD HOME
-        ------------------------------------------ */
-
-        if (
-          isDashboardHome
-        ) {
+        if (isDashboardHome) {
           setUsers([]);
           setPagination({});
           return;
         }
 
-
-
-        /* -----------------------------------------
-           NO SELECTED ROLE
-        ------------------------------------------ */
-
-        if (
-          selectedRole === null
-        ) {
+        if (selectedRole === null) {
           setUsers([]);
           setPagination({});
           return;
         }
-
-
-
-        /* -----------------------------------------
-           SELECTED ROLE USERS
-        ------------------------------------------ */
 
         const response =
           await getAllStaffData(
@@ -1333,8 +1136,7 @@ export default function Dashboard() {
         );
 
         setPagination(
-          response?.pagination ||
-            {}
+          response?.pagination || {}
         );
       } catch (error) {
         console.error(
@@ -1345,7 +1147,8 @@ export default function Dashboard() {
         setUsers([]);
         setPagination({});
       }
-    }, [
+    },
+    [
       roles,
       roleId,
       staffPermissions,
@@ -1353,24 +1156,16 @@ export default function Dashboard() {
       page,
       selectedRole,
       isDashboardHome,
-    ]);
-
-
-
-  /* =========================================================
-     FETCH USERS EFFECT
-  ========================================================= */
+      getModuleForRole,
+    ]
+  );
 
   useEffect(() => {
-    if (
-      roleId === null
-    ) {
+    if (roleId === null) {
       return;
     }
 
-    if (
-      roles.length === 0
-    ) {
+    if (roles.length === 0) {
       return;
     }
 
@@ -1392,29 +1187,14 @@ export default function Dashboard() {
     fetchUsers,
   ]);
 
-
-
-  /* =========================================================
-     TOTAL KEY BALANCE
-  ========================================================= */
-
-  const totalKeyBalance =
-    useMemo(() => {
-      return keySettings.reduce(
-        (total, item) =>
-          total +
-          Number(
-            item?.balance || 0
-          ),
-        0
-      );
-    }, [keySettings]);
-
-
-
-  /* =========================================================
-     STAFF PERMISSION LOADING
-  ========================================================= */
+  const totalKeyBalance = useMemo(() => {
+    return keySettings.reduce(
+      (total, item) =>
+        total +
+        Number(item?.balance || 0),
+      0
+    );
+  }, [keySettings]);
 
   if (
     roleId === 9 &&
@@ -1431,12 +1211,6 @@ export default function Dashboard() {
     );
   }
 
-
-
-  /* =========================================================
-     UI
-  ========================================================= */
-
   return (
     <div className="bg-gray-100">
       <main className="pt-0 p-0">
@@ -1445,19 +1219,9 @@ export default function Dashboard() {
           Welcome Dashboard
         </h1>
 
-
-
-        {/* =====================================================
-            DASHBOARD HOME
-        ===================================================== */}
-
         {isDashboardHome && (
           <>
-
-            {/* ROLE CARDS */}
-
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
-
               {visibleCards.map(
                 (card) => (
                   <div
@@ -1477,14 +1241,7 @@ export default function Dashboard() {
                   </div>
                 )
               )}
-
             </div>
-
-
-
-            {/* =================================================
-                KEY SETTINGS
-            ================================================= */}
 
             <div className="mt-6">
               <div className="bg-white p-5 rounded-xl shadow">
@@ -1502,7 +1259,6 @@ export default function Dashboard() {
                   </div>
 
                   <div className="rounded-lg bg-blue-50 px-4 py-2">
-
                     <p className="text-xs text-blue-500">
                       Total Balance
                     </p>
@@ -1512,12 +1268,9 @@ export default function Dashboard() {
                         "en-IN"
                       )}
                     </p>
-
                   </div>
 
                 </div>
-
-
 
                 {keySettingsLoading ? (
                   <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
@@ -1580,15 +1333,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-
-
-            {/* =================================================
-                CHARTS
-            ================================================= */}
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
-
-              {/* BAR CHART */}
 
               <div className="bg-white p-5 rounded-xl shadow">
 
@@ -1645,10 +1390,6 @@ export default function Dashboard() {
 
               </div>
 
-
-
-              {/* PIE CHART */}
-
               <div className="bg-white p-5 rounded-xl shadow">
 
                 <h3 className="text-gray-700 font-semibold mb-4">
@@ -1704,28 +1445,18 @@ export default function Dashboard() {
               </div>
 
             </div>
-
           </>
         )}
 
-
-
-        {/* =====================================================
-            USERS TABLE
-        ===================================================== */}
-
         {!isDashboardHome &&
-          selectedRole !== null && (
+          selectedRole !== null &&
+          isModuleAllowed && (
             <UsersTable
               users={users}
               page={page}
-              pagination={
-                pagination
-              }
+              pagination={pagination}
               setPage={setPage}
-              getRoleName={
-                getRoleName
-              }
+              getRoleName={getRoleName}
               selectedRole={Number(
                 selectedRole
               )}

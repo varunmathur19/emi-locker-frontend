@@ -27,9 +27,7 @@ export const getAllStaffData = async (
   status = ""
 ) => {
   const response = await api.get(
-    `/getAllStaffData?page=${page}&limit=${limit}&role_id=${role_id}&search=${encodeURIComponent(
-      search
-    )}&status=${encodeURIComponent(status)}`
+    `/getAllStaffData?page=${page}&limit=${limit}&role_id=${role_id}&search=${search}&status=${status}`
   );
 
   return response.data;
@@ -252,6 +250,7 @@ export const getSubModules = async () => {
             "GET SUB MODULES API ERROR:",
             error?.response?.data || error?.message || error
         );
+
         throw error;
     }
 };
