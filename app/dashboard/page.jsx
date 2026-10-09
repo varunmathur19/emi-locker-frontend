@@ -356,61 +356,36 @@ export default function Dashboard() {
     loadKeySettings();
   }, []);
 
-  useEffect(() => {
-    if (roleId !== 9) {
-      setStaffPermissions({});
-      setStaffPermissionsLoaded(true);
-      return;
+useEffect(() => {
+  if (roleId !== 9) {
+    setStaffPermissions({});
+    setStaffPermissionsLoaded(true);
+    return;
+  }
+
+  setStaffPermissionsLoaded(false);
+
+  try {
+    const saved =
+      localStorage.getItem("staff_permission");
+
+    let permissions = {};
+
+    if (saved) {
+      permissions = normalizePermissions(saved);
     }
 
-    setStaffPermissionsLoaded(false);
+    setStaffPermissions(permissions);
 
-    try {
-      const possibleKeys = [
-        "staff_permissions",
-        "permissions",
-      ];
+    console.log("Staff permissions loaded:", permissions);
+  } catch (error) {
+    console.error("Staff permission load error:", error);
+    setStaffPermissions({});
+  } finally {
+    setStaffPermissionsLoaded(true);
+  }
+}, [roleId]);
 
-      let permissions = null;
-
-      for (const key of possibleKeys) {
-        const saved =
-          localStorage.getItem(key);
-
-        if (!saved) {
-          continue;
-        }
-
-        try {
-          const parsed = JSON.parse(saved);
-
-          if (
-            parsed &&
-            typeof parsed === "object" &&
-            !Array.isArray(parsed)
-          ) {
-            permissions = parsed;
-            break;
-          }
-        } catch {
-          continue;
-        }
-      }
-
-      setStaffPermissions(
-        normalizePermissions(permissions)
-      );
-    } catch (error) {
-      console.error(
-        "STAFF PERMISSION LOAD ERROR:",
-        error
-      );
-
-      setStaffPermissions({});
-    } finally {
-      setStaffPermissionsLoaded(true);
-    }
-  }, [roleId]);
 
   useEffect(() => {
     const loadRoles = async () => {
@@ -697,33 +672,54 @@ export default function Dashboard() {
       return true;
     }
 
-    if (roleId === 9) {
-      if (!staffPermissionsLoaded) {
-        return true;
-      }
+ if (roleId === 9) {
+if (!staffPermissionsLoaded) {
+console.log("STAFF DEBUG: Permissions not loaded yet");
+return true;
+}
 
-      const role = roles.find(
-        (item) =>
-          Number(item?.role_id) ===
-          Number(requestedRole)
-      );
+const role = roles.find(
+(item) =>
+Number(item?.role_id) === Number(requestedRole)
+);
 
-      if (!role) {
-        return false;
-      }
+console.log("STAFF DEBUG:", {
+roleId,
+requestedRole,
+staffPermissionsLoaded,
+roles,
+matchedRole: role,
+staffPermissions,
+});
 
-      const moduleForRole =
-        getModuleForRole(role);
+if (!role) {
+console.log("FAILED: Requested role not found in roles");
+return false;
+}
 
-      if (!moduleForRole) {
-        return false;
-      }
+const moduleForRole = getModuleForRole(role);
 
-      return hasModulePermission(
-        staffPermissions,
-        moduleForRole.id
-      );
-    }
+console.log("Matched role module:", moduleForRole);
+
+if (!moduleForRole) {
+console.log("FAILED: No module found for requested role");
+return false;
+}
+
+const hasPermission = hasModulePermission(
+staffPermissions,
+moduleForRole.id
+);
+
+console.log("MODULE PERMISSION CHECK:", {
+moduleId: moduleForRole.id,
+hasPermission,
+staffPermissions,
+});
+
+return hasPermission;
+}
+
 
     if (roleId === 0) {
       return true;
@@ -821,45 +817,51 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
-    if (
-      roleId === null ||
-      !hasRoleParam
-    ) {
-      return;
-    }
+console.log("User Role Validation:", {
+roleId,
+hasRoleParam,
+urlRole,
+isRoleAllowed,
+staffPermissionsLoaded,
+roles,
+rolesLength: roles.length,
+});
 
-    if (
-      roleId === 9 &&
-      !staffPermissionsLoaded
-    ) {
-      return;
-    }
+if (roleId === null || !hasRoleParam) {
+console.log("Validation stopped: roleId is null or role param is missing");
+return;
+}
 
-    if (roles.length === 0) {
-      return;
-    }
+if (roleId === 9 && !staffPermissionsLoaded) {
+console.log("Validatin stopped: Staff permissions are not loaded");
+return;
+}
 
-    if (
-      urlRole === null ||
-      !isRoleAllowed
-    ) {
-      toast.error(
-        "You are not allowed to access this role"
-      );
+if (roles.length === 0) {
+console.log("Validation stopped: Roles are not loaded");
+return;
+}
 
-      router.replace(
-        "/dashboard"
-      );
-    }
-  }, [
-    roleId,
-    hasRoleParam,
-    urlRole,
-    isRoleAllowed,
-    staffPermissionsLoaded,
-    roles.length,
-    router,
-  ]);
+if (urlRole === null || !isRoleAllowed) {
+console.log("Access denied:", {
+roleId,
+urlRole,
+isRoleAllowed,
+});
+
+
+
+}
+}, [
+roleId,
+hasRoleParam,
+urlRole,
+isRoleAllowed,
+staffPermissionsLoaded,
+roles.length,
+router,
+]);
+
 
   useEffect(() => {
     if (

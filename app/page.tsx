@@ -62,7 +62,7 @@ export default function Page() {
 
   const saveStaffPermissions = (user: any) => {
     localStorage.removeItem("staff_permission");
-    localStorage.removeItem("staff_permissions");
+    localStorage.removeItem("staff_permission");
 
     if (Number(user?.role_id) !== 9) {
       return;
@@ -70,7 +70,7 @@ export default function Page() {
 
     const permission =
       user?.staff_permission?.permission ||
-      user?.staff_permissions?.permission ||
+      user?.staff_permission?.permission ||
       null;
 
     if (!permission) {

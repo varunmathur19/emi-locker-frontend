@@ -547,11 +547,9 @@ export default function UsersTable({
     return false;
   };
 
-  const canViewSelectedRole =
-    hasPermission(
-      selectedRoleSlug,
-      "view"
-    );
+ const canViewSelectedRole = hasPermission(
+  selectedRoleSlug
+);
 
   const canAddSelectedRole =
     hasPermission(
@@ -559,27 +557,21 @@ export default function UsersTable({
       "add"
     );
 
-  const canStaffViewUser = (user) => {
-    if (Number(currentRoleId) !== 9) {
-      return true;
-    }
+const canStaffViewUser = (user) => {
+  if (Number(currentRoleId) !== 9) {
+    return true;
+  }
 
-    const userRoleId = Number(
-      user?.role_id
-    );
+  const userRoleId = Number(user?.role_id);
+  const userRoleSlug = roleSlugMap[userRoleId] || "";
 
-    const userRoleSlug =
-      roleSlugMap[userRoleId] || "";
+  if (!userRoleSlug) {
+    return false;
+  }
 
-    if (!userRoleSlug) {
-      return false;
-    }
-
-    return hasPermission(
-      userRoleSlug,
-      "view"
-    );
-  };
+  // Show users when any permission exists for this role's module.
+  return hasPermission(userRoleSlug);
+};
 
   const getSearchLimit = () => {
     const total =
