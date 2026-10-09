@@ -17,9 +17,7 @@ const formatModules = (modules = []) => {
       id: item?.id ?? index + 1,
       name: item?.name || "",
       slug: item?.slug || "",
-      sequence: Number(
-        item?.sequence ?? index + 1
-      ),
+      sequence: Number(item?.sequence ?? index + 1),
       status: Number(item?.status ?? 1),
     }))
     .sort((a, b) => a.sequence - b.sequence);
@@ -29,14 +27,10 @@ const formatRoles = (roles = []) => {
   return roles
     .map((item, index) => ({
       id: item?.id ?? index + 1,
-      roleId: Number(
-        item?.role_id ?? item?.id ?? 0
-      ),
+      roleId: Number(item?.role_id ?? item?.id ?? 0),
       name: item?.name || "User",
       slug: item?.slug || "",
-      sequence: Number(
-        item?.sequence ?? index + 1
-      ),
+      sequence: Number(item?.sequence ?? index + 1),
       status: Number(item?.status ?? 1),
     }))
     .sort((a, b) => a.sequence - b.sequence);
@@ -47,14 +41,10 @@ export default function ModulePage() {
   const [roles, setRoles] = useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [loadingRoles, setLoadingRoles] =
-    useState(true);
+  const [loadingRoles, setLoadingRoles] = useState(true);
 
-  const [updatingStatus, setUpdatingStatus] =
-    useState(null);
-
-  const [updatingRoleStatus, setUpdatingRoleStatus] =
-    useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(null);
+  const [updatingRoleStatus, setUpdatingRoleStatus] = useState(null);
 
   const loadModules = async () => {
     try {
@@ -66,17 +56,12 @@ export default function ModulePage() {
         response?.success &&
         Array.isArray(response?.data)
       ) {
-        setModules(
-          formatModules(response.data)
-        );
+        setModules(formatModules(response.data));
       } else {
         setModules([]);
       }
     } catch (error) {
-      console.error(
-        "GET MODULES ERROR:",
-        error
-      );
+      console.error("GET MODULES ERROR:", error);
 
       toast.error(
         error?.response?.data?.message ||
@@ -100,17 +85,12 @@ export default function ModulePage() {
         response?.success &&
         Array.isArray(response?.data)
       ) {
-        setRoles(
-          formatRoles(response.data)
-        );
+        setRoles(formatRoles(response.data));
       } else {
         setRoles([]);
       }
     } catch (error) {
-      console.error(
-        "GET ROLES ERROR:",
-        error
-      );
+      console.error("GET ROLES ERROR:", error);
 
       toast.error(
         error?.response?.data?.message ||
@@ -129,9 +109,7 @@ export default function ModulePage() {
     loadRoles();
   }, []);
 
-  const handleToggleModuleStatus = async (
-    moduleItem
-  ) => {
+  const handleToggleModuleStatus = async (moduleItem) => {
     if (
       !moduleItem?.id ||
       updatingStatus !== null ||
@@ -140,12 +118,8 @@ export default function ModulePage() {
       return;
     }
 
-    const currentStatus = Number(
-      moduleItem?.status ?? 1
-    );
-
-    const newStatus =
-      currentStatus === 1 ? 0 : 1;
+    const currentStatus = Number(moduleItem?.status ?? 1);
+    const newStatus = currentStatus === 1 ? 0 : 1;
 
     try {
       setUpdatingStatus(moduleItem.id);
@@ -155,43 +129,35 @@ export default function ModulePage() {
         status: newStatus,
       });
 
-      if (response?.success === true) {
-        setModules((prev) =>
-          prev.map((item) =>
-            Number(item.id) ===
-            Number(moduleItem.id)
-              ? {
-                  ...item,
-                  status: newStatus,
-                }
-              : item
-          )
-        );
-
-        if (
-          typeof window !== "undefined"
-        ) {
-          window.dispatchEvent(
-            new Event("modules_updated")
-          );
-        }
-
-        toast.success(
-          newStatus === 1
-            ? "Module activated successfully"
-            : "Module deactivated successfully"
-        );
-      } else {
+      if (!response?.success) {
         toast.error(
-          response?.message ||
-            "Failed to update module status"
+          response?.message || "Failed to update module status"
         );
+        return;
+      }
+
+      setModules((prev) =>
+        prev.map((item) =>
+          Number(item.id) === Number(moduleItem.id)
+            ? {
+                ...item,
+                status: newStatus,
+              }
+            : item
+        )
+      );
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("modules_updated"));
+      }
+
+      if (newStatus === 1) {
+        toast.success("Module activated successfully");
+      } else {
+        toast.error("Module deactivated successfully");
       }
     } catch (error) {
-      console.error(
-        "UPDATE MODULE STATUS ERROR:",
-        error
-      );
+      console.error("UPDATE MODULE STATUS ERROR:", error);
 
       toast.error(
         error?.response?.data?.message ||
@@ -203,9 +169,7 @@ export default function ModulePage() {
     }
   };
 
-  const handleToggleRoleStatus = async (
-    roleItem
-  ) => {
+  const handleToggleRoleStatus = async (roleItem) => {
     if (
       !roleItem?.id ||
       updatingStatus !== null ||
@@ -214,51 +178,42 @@ export default function ModulePage() {
       return;
     }
 
-    const currentStatus = Number(
-      roleItem?.status ?? 1
-    );
-
-    const newStatus =
-      currentStatus === 1 ? 0 : 1;
+    const currentStatus = Number(roleItem?.status ?? 1);
+    const newStatus = currentStatus === 1 ? 0 : 1;
 
     try {
       setUpdatingRoleStatus(roleItem.id);
 
-      const response =
-        await updateRoleStatus(
-          roleItem.id,
-          newStatus
-        );
+      const response = await updateRoleStatus(
+        roleItem.id,
+        newStatus
+      );
 
-      if (response?.success === true) {
-        setRoles((prev) =>
-          prev.map((item) =>
-            Number(item.id) ===
-            Number(roleItem.id)
-              ? {
-                  ...item,
-                  status: newStatus,
-                }
-              : item
-          )
-        );
-
-        toast.success(
-          newStatus === 1
-            ? "Role activated successfully"
-            : "Role deactivated successfully"
-        );
-      } else {
+      if (!response?.success) {
         toast.error(
-          response?.message ||
-            "Failed to update role status"
+          response?.message || "Failed to update role status"
         );
+        return;
+      }
+
+      setRoles((prev) =>
+        prev.map((item) =>
+          Number(item.id) === Number(roleItem.id)
+            ? {
+                ...item,
+                status: newStatus,
+              }
+            : item
+        )
+      );
+
+      if (newStatus === 1) {
+        toast.success("Role activated successfully");
+      } else {
+        toast.error("Role deactivated successfully");
       }
     } catch (error) {
-      console.error(
-        "UPDATE ROLE STATUS ERROR:",
-        error
-      );
+      console.error("UPDATE ROLE STATUS ERROR:", error);
 
       toast.error(
         error?.response?.data?.message ||
@@ -288,9 +243,7 @@ export default function ModulePage() {
           onClick={onClick}
           disabled={isDisabled}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-            isActive
-              ? "bg-green-500"
-              : "bg-slate-300"
+            isActive ? "bg-green-500" : "bg-slate-300"
           } ${
             isDisabled
               ? "cursor-not-allowed opacity-50"
@@ -314,9 +267,7 @@ export default function ModulePage() {
               : "text-red-500"
           }`}
         >
-          {isActive
-            ? "Active"
-            : "Inactive"}
+          {isActive ? "Active" : "Inactive"}
         </span>
       </div>
     );
@@ -340,57 +291,49 @@ export default function ModulePage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {modules.map(
-                (module, index) => {
-                  const isActive =
-                    Number(
-                      module?.status ?? 1
-                    ) === 1;
+              {modules.map((module, index) => {
+                const isActive =
+                  Number(module?.status ?? 1) === 1;
 
-                  const isUpdating =
-                    updatingStatus ===
-                    module.id;
+                const isUpdating =
+                  updatingStatus === module.id;
 
-                  return (
-                    <div
-                      key={module.id}
-                      className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:shadow-sm"
-                    >
-                      <div className="flex min-w-0 items-center gap-4">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 font-bold text-blue-600">
-                          {module.sequence ||
-                            index + 1}
-                        </div>
-
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-800">
-                            {module.name}
-                          </p>
-                        </div>
+                return (
+                  <div
+                    key={module.id}
+                    className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:shadow-sm"
+                  >
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 font-bold text-blue-600">
+                        {module.sequence || index + 1}
                       </div>
 
-                      {renderToggle(
-                        isActive,
-                        isUpdating,
-                        () =>
-                          handleToggleModuleStatus(
-                            module
-                          ),
-                        isActive
-                          ? "Deactivate Module"
-                          : "Activate Module"
-                      )}
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-800">
+                          {module.name}
+                        </p>
+                      </div>
                     </div>
-                  );
-                }
-              )}
+
+                    {renderToggle(
+                      isActive,
+                      isUpdating,
+                      () =>
+                        handleToggleModuleStatus(module),
+                      isActive
+                        ? "Deactivate Module"
+                        : "Activate Module"
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xl">
           <h2 className="mb-4 text-lg font-semibold text-slate-700">
-             List
+            Role List
           </h2>
 
           {loadingRoles ? (
@@ -403,50 +346,42 @@ export default function ModulePage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {roles.map(
-                (role, index) => {
-                  const isActive =
-                    Number(
-                      role?.status ?? 1
-                    ) === 1;
+              {roles.map((role, index) => {
+                const isActive =
+                  Number(role?.status ?? 1) === 1;
 
-                  const isUpdating =
-                    updatingRoleStatus ===
-                    role.id;
+                const isUpdating =
+                  updatingRoleStatus === role.id;
 
-                  return (
-                    <div
-                      key={role.id}
-                      className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:shadow-sm"
-                    >
-                      <div className="flex min-w-0 items-center gap-4">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 font-bold text-blue-600">
-                          {role.sequence ||
-                            index + 1}
-                        </div>
-
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-800">
-                            {role.name}
-                          </p>
-                        </div>
+                return (
+                  <div
+                    key={role.id}
+                    className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:shadow-sm"
+                  >
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 font-bold text-blue-600">
+                        {role.sequence || index + 1}
                       </div>
 
-                      {renderToggle(
-                        isActive,
-                        isUpdating,
-                        () =>
-                          handleToggleRoleStatus(
-                            role
-                          ),
-                        isActive
-                          ? "Deactivate Role"
-                          : "Activate Role"
-                      )}
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-800">
+                          {role.name}
+                        </p>
+                      </div>
                     </div>
-                  );
-                }
-              )}
+
+                    {renderToggle(
+                      isActive,
+                      isUpdating,
+                      () =>
+                        handleToggleRoleStatus(role),
+                      isActive
+                        ? "Deactivate Role"
+                        : "Activate Role"
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -454,4 +389,3 @@ export default function ModulePage() {
     </div>
   );
 }
-
