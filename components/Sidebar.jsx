@@ -106,13 +106,10 @@ if (typeof window === "undefined") {
 return;
 }
 
-
 localStorage.removeItem("permission");
 localStorage.removeItem("permissions");
 localStorage.removeItem("role_permission");
 localStorage.removeItem("rolePermission");
-
-
 }, []);
 
 const parsePermissions = useCallback((value) => {
@@ -162,21 +159,24 @@ if (typeof window === "undefined") {
 return null;
 }
 
-
 try {
-  const storedPermission = localStorage.getItem("staff_permission");
+  const storedPermission =
+    localStorage.getItem("staff_permission") ||
+    localStorage.getItem("staff_permissions");
 
   if (storedPermission) {
     const parsedPermission = parsePermissions(storedPermission);
 
     if (parsedPermission) {
       setPermissions(parsedPermission);
-
       localStorage.setItem(
         "staff_permission",
         JSON.stringify(parsedPermission)
       );
-
+      localStorage.setItem(
+        "staff_permissions",
+        JSON.stringify(parsedPermission)
+      );
       return parsedPermission;
     }
   }
@@ -192,19 +192,23 @@ try {
 
   const userPermission =
     user?.staff_permission?.permission ||
+    user?.staff_permissions?.permission ||
     user?.staff_permission ||
+    user?.staff_permissions ||
     null;
 
   const parsedPermission = parsePermissions(userPermission);
 
   if (parsedPermission) {
     setPermissions(parsedPermission);
-
     localStorage.setItem(
       "staff_permission",
       JSON.stringify(parsedPermission)
     );
-
+    localStorage.setItem(
+      "staff_permissions",
+      JSON.stringify(parsedPermission)
+    );
     return parsedPermission;
   }
 } catch (error) {
@@ -213,10 +217,7 @@ try {
 
 setPermissions(null);
 return null;
-
-
 }, [parsePermissions]);
-
 const loadCurrentUser = useCallback(() => {
 try {
 const currentRole = getRoleId();
@@ -244,6 +245,7 @@ const currentRole = getRoleId();
 
   setPermissions(null);
   localStorage.removeItem("staff_permission");
+  localStorage.removeItem("staff_permissions");
   removeInvalidPermissionKeys();
 } catch (error) {
   console.error("LOAD CURRENT USER ERROR:", error);
@@ -419,7 +421,8 @@ const handleStorage = (event) => {
 
   if (
     event.key === "user" ||
-    event.key === "staff_permission"
+    event.key === "staff_permission" ||
+    event.key === "staff_permissions"
   ) {
     loadCurrentUser();
     loadWalletBalance();

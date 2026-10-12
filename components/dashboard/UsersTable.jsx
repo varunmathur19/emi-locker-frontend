@@ -294,24 +294,30 @@ export default function UsersTable({
         }
 
         const savedStaffPermission =
-          localStorage.getItem(
-            "staff_permission"
-          );
+          localStorage.getItem("staff_permission") ||
+          localStorage.getItem("staff_permissions");
 
         const parsedStaffPermission =
-          parsePermissions(
-            savedStaffPermission
-          );
+          parsePermissions(savedStaffPermission);
 
         if (parsedStaffPermission) {
-          setStaffPermissions(
-            parsedStaffPermission
+          setStaffPermissions(parsedStaffPermission);
+          localStorage.setItem(
+            "staff_permission",
+            JSON.stringify(parsedStaffPermission)
+          );
+          localStorage.setItem(
+            "staff_permissions",
+            JSON.stringify(parsedStaffPermission)
           );
           return;
         }
 
         const permission =
+          user?.staff_permission?.permission ||
           user?.staff_permissions?.permission ||
+          user?.staff_permission ||
+          user?.staff_permissions ||
           user?.role_permissions?.permission ||
           null;
 
@@ -319,17 +325,15 @@ export default function UsersTable({
           parsePermissions(permission);
 
         if (parsedPermission) {
-          setStaffPermissions(
-            parsedPermission
-          );
-
+          setStaffPermissions(parsedPermission);
           localStorage.setItem(
             "staff_permission",
-            JSON.stringify(
-              parsedPermission
-            )
+            JSON.stringify(parsedPermission)
           );
-
+          localStorage.setItem(
+            "staff_permissions",
+            JSON.stringify(parsedPermission)
+          );
           return;
         }
 

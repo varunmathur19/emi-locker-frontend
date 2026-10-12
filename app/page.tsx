@@ -62,7 +62,7 @@ export default function Page() {
 
   const saveStaffPermissions = (user: any) => {
     localStorage.removeItem("staff_permission");
-    localStorage.removeItem("staff_permission");
+    localStorage.removeItem("staff_permissions");
 
     if (Number(user?.role_id) !== 9) {
       return;
@@ -70,7 +70,9 @@ export default function Page() {
 
     const permission =
       user?.staff_permission?.permission ||
-      user?.staff_permission?.permission ||
+      user?.staff_permissions?.permission ||
+      user?.staff_permission ||
+      user?.staff_permissions ||
       null;
 
     if (!permission) {
@@ -101,6 +103,10 @@ export default function Page() {
       parsedPermission = {};
     }
 
+    localStorage.setItem(
+      "staff_permission",
+      JSON.stringify(parsedPermission)
+    );
     localStorage.setItem(
       "staff_permissions",
       JSON.stringify(parsedPermission)
@@ -168,6 +174,7 @@ export default function Page() {
       } = loggedInUser;
 
       localStorage.removeItem("staff_permission");
+      localStorage.removeItem("staff_permissions");
 
       saveOriginalLogin(
         response.token,
