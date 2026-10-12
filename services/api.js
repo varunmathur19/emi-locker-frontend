@@ -531,15 +531,25 @@ export const getCompanySetting = async () => {
 
   return response.data;
 };
-export const getNormalCompanySetting = async () => {
-  const response = await api.get(
-    "/normal-company-setting",
-    {
-      skipMaintenanceRedirect: true,
-    }
-  );
 
-  return response.data;
+export const getNormalCompanySetting = async () => {
+  try {
+    const response = await api.get(
+      "/normal-company-setting",
+      {
+        skipMaintenanceRedirect: true,
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "GET NORMAL COMPANY SETTING ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
 };
 //company setting get data
 export const addCompanySetting = async (req, res) => {
