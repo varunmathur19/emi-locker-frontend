@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -376,8 +377,6 @@ useEffect(() => {
     }
 
     setStaffPermissions(permissions);
-
-    console.log("Staff permissions loaded:", permissions);
   } catch (error) {
     console.error("Staff permission load error:", error);
     setStaffPermissions({});
@@ -663,85 +662,70 @@ useEffect(() => {
     ]
   );
 
-  const isRoleAllowed = useMemo(() => {
-    if (roleId === null) {
-      return false;
-    }
+ const isRoleAllowed = useMemo(() => {
+   if (roleId === null) {
+     return false;
+   }
 
-    if (requestedRole === null) {
-      return true;
-    }
+   if (requestedRole === null) {
+     return true;
+   }
 
- if (roleId === 9) {
-if (!staffPermissionsLoaded) {
-console.log("STAFF DEBUG: Permissions not loaded yet");
-return true;
-}
+   if (roleId === 0) {
+     return true;
+   }
 
-const role = roles.find(
-(item) =>
-Number(item?.role_id) === Number(requestedRole)
-);
+   if (requestedRole === roleId) {
+     return true;
+   }
 
-console.log("STAFF DEBUG:", {
-roleId,
-requestedRole,
-staffPermissionsLoaded,
-roles,
-matchedRole: role,
-staffPermissions,
-});
+   if (roleId !== 9) {
+     return (
+       allowedRoles[roleId]?.includes(
+         requestedRole
+       ) || false
+     );
+   }
 
-if (!role) {
-console.log("FAILED: Requested role not found in roles");
-return false;
-}
+   if (!staffPermissionsLoaded) {
+     return true;
+   }
 
-const moduleForRole = getModuleForRole(role);
+   if (
+     !staffPermissions ||
+     !Object.keys(staffPermissions).length
+   ) {
+     return true;
+   }
 
-console.log("Matched role module:", moduleForRole);
+   const role = roles.find(
+     (item) =>
+       Number(item?.role_id) ===
+       Number(requestedRole)
+   );
 
-if (!moduleForRole) {
-console.log("FAILED: No module found for requested role");
-return false;
-}
+   if (!role) {
+     return true;
+   }
 
-const hasPermission = hasModulePermission(
-staffPermissions,
-moduleForRole.id
-);
+   const moduleForRole = getModuleForRole(role);
 
-console.log("MODULE PERMISSION CHECK:", {
-moduleId: moduleForRole.id,
-hasPermission,
-staffPermissions,
-});
+   if (!moduleForRole) {
+     return true;
+   }
 
-return hasPermission;
-}
-
-
-    if (roleId === 0) {
-      return true;
-    }
-
-    if (requestedRole === roleId) {
-      return true;
-    }
-
-    return (
-      allowedRoles[roleId]?.includes(
-        requestedRole
-      ) || false
-    );
-  }, [
-    roleId,
-    requestedRole,
-    roles,
-    staffPermissions,
-    staffPermissionsLoaded,
-    getModuleForRole,
-  ]);
+   return hasModulePermission(
+     staffPermissions,
+     moduleForRole.id
+   );
+ }, [
+   roleId,
+   requestedRole,
+   roles,
+   staffPermissions,
+   staffPermissionsLoaded,
+   getModuleForRole,
+ ]);
 
   const isModuleAllowed = useMemo(() => {
     if (roleId === null) {
@@ -761,6 +745,13 @@ return hasPermission;
     }
 
     if (!staffPermissionsLoaded) {
+      return true;
+    }
+
+    if (
+      !staffPermissions ||
+      !Object.keys(staffPermissions).length
+    ) {
       return true;
     }
 
@@ -816,51 +807,27 @@ return hasPermission;
     [roles]
   );
 
-  useEffect(() => {
-console.log("User Role Validation:", {
-roleId,
-hasRoleParam,
-urlRole,
-isRoleAllowed,
-staffPermissionsLoaded,
-roles,
-rolesLength: roles.length,
-});
+ useEffect(() => {
+   if (roleId === null || !hasRoleParam) {
+     return;
+   }
 
-if (roleId === null || !hasRoleParam) {
-console.log("Validation stopped: roleId is null or role param is missing");
-return;
-}
+   if (roleId === 9 && !staffPermissionsLoaded) {
+     return;
+   }
 
-if (roleId === 9 && !staffPermissionsLoaded) {
-console.log("Validatin stopped: Staff permissions are not loaded");
-return;
-}
-
-if (roles.length === 0) {
-console.log("Validation stopped: Roles are not loaded");
-return;
-}
-
-if (urlRole === null || !isRoleAllowed) {
-console.log("Access denied:", {
-roleId,
-urlRole,
-isRoleAllowed,
-});
-
-
-
-}
-}, [
-roleId,
-hasRoleParam,
-urlRole,
-isRoleAllowed,
-staffPermissionsLoaded,
-roles.length,
-router,
-]);
+   if (roles.length === 0) {
+     return;
+   }
+ }, [
+   roleId,
+   hasRoleParam,
+   urlRole,
+   isRoleAllowed,
+   staffPermissionsLoaded,
+   roles.length,
+   router,
+ ]);
 
 
   useEffect(() => {
@@ -997,9 +964,29 @@ router,
     getModuleForRole,
   ]);
 
+  const fetchUsersRef = useRef("");
+
   const fetchUsers = useCallback(
     async () => {
       try {
+        const requestKey = [
+          roleId,
+          selectedRole,
+          page,
+          isDashboardHome,
+          staffPermissionsLoaded,
+          roles.length,
+        ].join(":");
+
+        if (
+          fetchUsersRef.current ===
+          requestKey
+        ) {
+          return;
+        }
+
+        fetchUsersRef.current = requestKey;
+
         if (
           roleId === 9 &&
           !staffPermissionsLoaded
@@ -1141,6 +1128,8 @@ router,
           response?.pagination || {}
         );
       } catch (error) {
+        fetchUsersRef.current = "";
+
         console.error(
           "FETCH USERS ERROR:",
           error

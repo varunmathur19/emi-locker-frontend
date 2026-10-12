@@ -456,15 +456,18 @@ export default function UsersTable({
       return true;
     }
 
-    if (!staffPermissions) {
-      return false;
+    if (
+      !staffPermissions ||
+      !Object.keys(staffPermissions).length
+    ) {
+      return true;
     }
 
     const moduleId =
       getModuleIdByRoleSlug(roleSlug);
 
     if (moduleId === null) {
-      return false;
+      return true;
     }
 
     if (!action) {
@@ -562,14 +565,20 @@ const canStaffViewUser = (user) => {
     return true;
   }
 
+  if (
+    !staffPermissions ||
+    !Object.keys(staffPermissions).length
+  ) {
+    return true;
+  }
+
   const userRoleId = Number(user?.role_id);
   const userRoleSlug = roleSlugMap[userRoleId] || "";
 
   if (!userRoleSlug) {
-    return false;
+    return true;
   }
 
-  // Show users when any permission exists for this role's module.
   return hasPermission(userRoleSlug);
 };
 
