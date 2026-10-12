@@ -456,7 +456,10 @@ export default function UsersTable({
       return true;
     }
 
-    if (!staffPermissions) {
+    if (
+      !staffPermissions ||
+      !Object.keys(staffPermissions).length
+    ) {
       return false;
     }
 
@@ -562,6 +565,13 @@ const canStaffViewUser = (user) => {
     return true;
   }
 
+  if (
+    !staffPermissions ||
+    !Object.keys(staffPermissions).length
+  ) {
+    return false;
+  }
+
   const userRoleId = Number(user?.role_id);
   const userRoleSlug = roleSlugMap[userRoleId] || "";
 
@@ -569,7 +579,6 @@ const canStaffViewUser = (user) => {
     return false;
   }
 
-  // Show users when any permission exists for this role's module.
   return hasPermission(userRoleSlug);
 };
 

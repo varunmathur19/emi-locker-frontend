@@ -160,18 +160,30 @@ export const loginAsUser = async (
 // GET MODULES
 
 
+
 export const getModules = async () => {
   try {
     const response = await api.get("/modules");
-
-
-
     return response.data;
   } catch (error) {
-    console.error(
-      "GET MODULES ERROR:",
-      error?.response?.data || error
-    );
+    if (error.response) {
+      // Server returned an error response
+      console.error("GET MODULES API ERROR:", {
+        status: error.response.status,
+        data: error.response.data,
+      });
+    } else if (error.request) {
+      // Request was sent, but no response was received
+      console.error(
+        "GET MODULES NETWORK ERROR:",
+        error.message
+      );
+
+      console.error("API BASE URL:", api.defaults.baseURL);
+      console.error("REQUEST URL:", error.config?.url);
+    } else {
+      console.error("GET MODULES ERROR:", error.message);
+    }
 
     throw error;
   }
@@ -519,15 +531,25 @@ export const getCompanySetting = async () => {
 
   return response.data;
 };
-export const getNormalCompanySetting = async () => {
-  const response = await api.get(
-    "/normal-company-setting",
-    {
-      skipMaintenanceRedirect: true,
-    }
-  );
 
-  return response.data;
+export const getNormalCompanySetting = async () => {
+  try {
+    const response = await api.get(
+      "/normal-company-setting",
+      {
+        skipMaintenanceRedirect: true,
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "GET NORMAL COMPANY SETTING ERROR:",
+      error?.response?.data || error.message
+    );
+
+    throw error;
+  }
 };
 //company setting get data
 export const addCompanySetting = async (req, res) => {
