@@ -460,14 +460,14 @@ export default function UsersTable({
       !staffPermissions ||
       !Object.keys(staffPermissions).length
     ) {
-      return true;
+      return false;
     }
 
     const moduleId =
       getModuleIdByRoleSlug(roleSlug);
 
     if (moduleId === null) {
-      return true;
+      return false;
     }
 
     if (!action) {
@@ -569,14 +569,14 @@ const canStaffViewUser = (user) => {
     !staffPermissions ||
     !Object.keys(staffPermissions).length
   ) {
-    return true;
+    return false;
   }
 
   const userRoleId = Number(user?.role_id);
   const userRoleSlug = roleSlugMap[userRoleId] || "";
 
   if (!userRoleSlug) {
-    return true;
+    return false;
   }
 
   return hasPermission(userRoleSlug);
