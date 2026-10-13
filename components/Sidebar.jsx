@@ -494,41 +494,52 @@ return false;
 
 }, []);
 
+
 const hasModulePermission = useCallback(
-(moduleItem) => {
-if (Number(roleId) !== 9) {
-return true;
-}
-
-
-  if (!permissions) {
-    return false;
-  }
-
-  const moduleId = Number(moduleItem?.id);
-
-  if (!Number.isFinite(moduleId)) {
-    return false;
-  }
-
-  const modulePrefix = `${moduleId}.`;
-
-  return Object.entries(permissions).some(
-    ([permissionKey, value]) => {
-      const normalizedKey = String(permissionKey).trim();
-
-      if (!normalizedKey.startsWith(modulePrefix)) {
-        return false;
-      }
-
-      return isPermissionEnabled(value);
+  (moduleItem) => {
+    // Non-staff users keep their existing role-based access.
+    if (Number(roleId) !== 9) {
+      return true;
     }
-  );
-},
-[roleId, permissions, isPermissionEnabled]
 
+    if (!permissions || typeof permissions !== "object") {
+      return false;
+    }
 
+    const moduleId = Number(moduleItem?.id);
+
+    if (!Number.isFinite(moduleId)) {
+      return false;
+    }
+
+    return Object.entries(permissions).some(
+      ([permissionKey, value]) => {
+        const [permissionModuleId, subModuleId] =
+          String(permissionKey).trim().split(".");
+
+        // Match the exact module ID and sub-module ID.
+        if (
+          Number(permissionModuleId) !== moduleId ||
+          !Number.isFinite(Number(subModuleId))
+        ) {
+          return false;
+        }
+
+        // Only explicitly enabled permissions count.
+        return (
+          value === 1 ||
+          value === true ||
+          (typeof value === "string" &&
+            ["1", "true", "yes"].includes(
+              value.trim().toLowerCase()
+            ))
+        );
+      }
+    );
+  },
+  [roleId, permissions]
 );
+
 
 const myLogin = () => {
 removeInvalidPermissionKeys();

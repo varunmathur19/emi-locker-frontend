@@ -134,6 +134,7 @@ function hasModulePermission(
 
   const normalized = normalizePermissions(permissions);
 
+  // Check whether any submodule of this module is enabled.
   if (!action) {
     return Object.entries(normalized).some(
       ([key, value]) => {
@@ -160,6 +161,7 @@ function hasModulePermission(
     return true;
   }
 
+  // Preserve the existing rule: Manage also grants access.
   if (subModuleId !== SUBMODULE_IDS.manage) {
     return isPermissionEnabled(
       normalized[`${id}.${SUBMODULE_IDS.manage}`]
@@ -167,6 +169,14 @@ function hasModulePermission(
   }
 
   return false;
+}
+
+function normalizeRoleValue(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]/g, " ")
+    .replace(/\s+/g, " ");
 }
 
 function SkeletonCard() {
@@ -412,13 +422,49 @@ export default function Dashboard() {
     }
   }, [roleId]);
 
-  const normalizeRoleValue = useCallback((value) => {
-    return String(value ?? "")
-      .trim()
-      .toLowerCase()
-      .replace(/[_-]/g, " ")
-      .replace(/\s+/g, " ");
-  }, []);
+  // Find My Transaction's actual module from the API.
+  const myTransactionModule = useMemo(() => {
+    return (
+      modules.find((item) => {
+        const slug = normalizeRoleValue(item?.slug);
+        const name = normalizeRoleValue(item?.name);
+
+        return (
+          slug === "transaction" ||
+          slug === "my transaction" ||
+          name === "my transaction"
+        );
+      }) || null
+    );
+  }, [modules]);
+
+  // Key Settings visibility is based on My Transaction permission.
+  const canViewKeySettings = useMemo(() => {
+    // Preserve existing visibility for non-Staff roles.
+    if (roleId === null) return false;
+    if (roleId !== 9) return true;
+
+    if (!staffPermissionsLoaded || modulesLoading) {
+      return false;
+    }
+
+    if (!myTransactionModule?.id) {
+      return false;
+    }
+
+    // Require View permission or Manage permission.
+    return hasModulePermission(
+      staffPermissions,
+      myTransactionModule.id,
+      "view"
+    );
+  }, [
+    roleId,
+    staffPermissions,
+    staffPermissionsLoaded,
+    modulesLoading,
+    myTransactionModule,
+  ]);
 
   const getRoleIdFromValue = useCallback(
     (value) => {
@@ -452,7 +498,7 @@ export default function Dashboard() {
         ? Number(moduleItem.role_id)
         : null;
     },
-    [roles, modules, normalizeRoleValue]
+    [roles, modules]
   );
 
   const urlRole = useMemo(
@@ -491,7 +537,7 @@ export default function Dashboard() {
         null
       );
     },
-    [modules, normalizeRoleValue]
+    [modules]
   );
 
   const getModuleForParam = useCallback(
@@ -524,7 +570,7 @@ export default function Dashboard() {
 
       return getModuleForRole(matchedRole);
     },
-    [modules, roles, normalizeRoleValue, getModuleForRole]
+    [modules, roles, getModuleForRole]
   );
 
   const requestedModule = useMemo(
@@ -683,7 +729,7 @@ export default function Dashboard() {
     getModuleForRole,
   ]);
 
-  // Fetch accurate role-wise counts and the selected role's user list.
+  // Fetch role-wise counts and the selected role's user list.
   const fetchUsers = useCallback(async () => {
     if (
       roleId === null ||
@@ -700,10 +746,7 @@ export default function Dashboard() {
     setDashboardLoading(true);
     setDashboardError("");
     setUsersError("");
-
-    setUsersLoading(
-      !isDashboardHome && selectedRole !== null
-    );
+    setUsersLoading(!isDashboardHome && selectedRole !== null);
 
     try {
       const roleCounts = {};
@@ -716,7 +759,6 @@ export default function Dashboard() {
         }
       });
 
-      // Staff can count only roles they have permission to access.
       const countableRoles =
         roleId === 9
           ? roles.filter((role) => {
@@ -732,8 +774,6 @@ export default function Dashboard() {
             })
           : roles;
 
-      // Fetch one record per role, but use the backend's total count.
-      // This avoids loading thousands of users just to calculate counts.
       const countResponses = await Promise.all(
         countableRoles.map((role) =>
           getAllStaffData(1, 1, Number(role.role_id))
@@ -765,7 +805,6 @@ export default function Dashboard() {
         return;
       }
 
-      // Fetch only the selected role's current page.
       const response = await getAllStaffData(
         page,
         10,
@@ -900,61 +939,63 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Key Settings */}
-            <section className="mt-6 rounded-xl bg-white p-5 shadow">
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800">
-                    Key Settings
-                  </h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Current wallet balance
-                  </p>
+            {/* Key Settings: shown only when permitted */}
+            {canViewKeySettings && (
+              <section className="mt-6 rounded-xl bg-white p-5 shadow">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      Key Settings
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Current wallet balance
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-blue-50 px-4 py-2">
+                    <p className="text-xs text-blue-500">
+                      Total Balance
+                    </p>
+                    <p className="text-lg font-bold text-blue-600">
+                      {keySettingsLoading
+                        ? "Loading..."
+                        : totalKeyBalance.toLocaleString("en-IN")}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="rounded-lg bg-blue-50 px-4 py-2">
-                  <p className="text-xs text-blue-500">
-                    Total Balance
+                {keySettingsLoading ? (
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    {Array.from({ length: 4 }, (_, index) => (
+                      <SkeletonCard key={index} />
+                    ))}
+                  </div>
+                ) : keySettings.length === 0 ? (
+                  <p className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+                    No active key settings found.
                   </p>
-                  <p className="text-lg font-bold text-blue-600">
-                    {keySettingsLoading
-                      ? "Loading..."
-                      : totalKeyBalance.toLocaleString("en-IN")}
-                  </p>
-                </div>
-              </div>
-
-              {keySettingsLoading ? (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {Array.from({ length: 4 }, (_, index) => (
-                    <SkeletonCard key={index} />
-                  ))}
-                </div>
-              ) : keySettings.length === 0 ? (
-                <p className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-                  No active key settings found.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {keySettings.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-xl border border-gray-200 bg-gray-50 p-5"
-                    >
-                      <h3 className="text-sm font-semibold text-gray-700">
-                        {item.name || "Unnamed Key"}
-                      </h3>
-                      <p className="mt-1 text-xs text-gray-400">
-                        Wallet Balance
-                      </p>
-                      <p className="mt-2 text-xl font-bold text-blue-600">
-                        {Number(item?.balance || 0).toLocaleString("en-IN")}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
+                ) : (
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    {keySettings.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-xl border border-gray-200 bg-gray-50 p-5"
+                      >
+                        <h3 className="text-sm font-semibold text-gray-700">
+                          {item.name || "Unnamed Key"}
+                        </h3>
+                        <p className="mt-1 text-xs text-gray-400">
+                          Wallet Balance
+                        </p>
+                        <p className="mt-2 text-xl font-bold text-blue-600">
+                          {Number(item?.balance || 0).toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
 
             {/* Charts */}
             {dashboardLoading ? (
