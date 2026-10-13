@@ -940,7 +940,7 @@ export default function Dashboard() {
             )}
 
             {/* Key Settings: shown only when permitted */}
-            {canViewKeySettings && (
+    
               <section className="mt-6 rounded-xl bg-white p-5 shadow">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
                   <div>
@@ -995,7 +995,7 @@ export default function Dashboard() {
                   </div>
                 )}
               </section>
-            )}
+          
 
             {/* Charts */}
             {dashboardLoading ? (
