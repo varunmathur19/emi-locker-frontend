@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 
@@ -205,9 +204,7 @@ function SectionLoader({ message }) {
     >
       <div className="text-center">
         <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
-        <p className="text-sm text-gray-600">
-          {message}
-        </p>
+        <p className="text-sm text-gray-600">{message}</p>
       </div>
     </div>
   );
@@ -218,13 +215,11 @@ export default function Dashboard() {
   const searchParams = useSearchParams();
 
   const [roleId, setRoleId] = useState(null);
-
   const [roles, setRoles] = useState([]);
   const [modules, setModules] = useState([]);
 
   const [rolesLoading, setRolesLoading] = useState(true);
   const [modulesLoading, setModulesLoading] = useState(true);
-
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(false);
   const [keySettingsLoading, setKeySettingsLoading] = useState(true);
@@ -235,7 +230,6 @@ export default function Dashboard() {
   const [page, setPage] = useState(1);
 
   const [keySettings, setKeySettings] = useState([]);
-
   const [staffPermissions, setStaffPermissions] = useState({});
   const [staffPermissionsLoaded, setStaffPermissionsLoaded] =
     useState(false);
@@ -243,7 +237,6 @@ export default function Dashboard() {
   const [dashboardError, setDashboardError] = useState("");
   const [usersError, setUsersError] = useState("");
 
-  // Prevent older requests from overwriting newer results.
   const requestSequenceRef = useRef(0);
 
   const urlRoleParam = searchParams.get("role");
@@ -253,7 +246,7 @@ export default function Dashboard() {
   const hasModuleParam = moduleParam !== null;
   const isDashboardHome = !hasRoleParam && !hasModuleParam;
 
-  // Get logged-in role.
+  // Get the logged-in user's role.
   useEffect(() => {
     const currentRoleId = getRoleId();
 
@@ -262,7 +255,7 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Load roles.
+  // Load active roles.
   useEffect(() => {
     let cancelled = false;
 
@@ -396,7 +389,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Load staff permissions from localStorage.
+  // Load Staff permissions from localStorage.
   useEffect(() => {
     if (roleId === null) return;
 
@@ -690,7 +683,7 @@ export default function Dashboard() {
     getModuleForRole,
   ]);
 
-  // Fetch counts and the selected role's user list.
+  // Fetch accurate role-wise counts and the selected role's user list.
   const fetchUsers = useCallback(async () => {
     if (
       roleId === null ||
@@ -708,11 +701,9 @@ export default function Dashboard() {
     setDashboardError("");
     setUsersError("");
 
-    if (!isDashboardHome && selectedRole !== null) {
-      setUsersLoading(true);
-    } else {
-      setUsersLoading(false);
-    }
+    setUsersLoading(
+      !isDashboardHome && selectedRole !== null
+    );
 
     try {
       const roleCounts = {};
@@ -725,52 +716,46 @@ export default function Dashboard() {
         }
       });
 
-      if (roleId === 9) {
-        // Staff can count only permitted role modules.
-        const permittedRoles = roles.filter((role) => {
-          const moduleItem = getModuleForRole(role);
+      // Staff can count only roles they have permission to access.
+      const countableRoles =
+        roleId === 9
+          ? roles.filter((role) => {
+              const moduleItem = getModuleForRole(role);
 
-          return (
-            moduleItem &&
-            hasModulePermission(staffPermissions, moduleItem.id)
-          );
-        });
+              return (
+                moduleItem &&
+                hasModulePermission(
+                  staffPermissions,
+                  moduleItem.id
+                )
+              );
+            })
+          : roles;
 
-        const responses = await Promise.all(
-          permittedRoles.map((role) =>
-            getAllStaffData(1, 1, Number(role.role_id))
-          )
+      // Fetch one record per role, but use the backend's total count.
+      // This avoids loading thousands of users just to calculate counts.
+      const countResponses = await Promise.all(
+        countableRoles.map((role) =>
+          getAllStaffData(1, 1, Number(role.role_id))
+        )
+      );
+
+      countResponses.forEach((response, index) => {
+        const id = Number(countableRoles[index]?.role_id);
+
+        if (!Object.prototype.hasOwnProperty.call(roleCounts, id)) {
+          return;
+        }
+
+        roleCounts[id] = Number(
+          response?.pagination?.totalUsers ??
+          response?.pagination?.total ??
+          0
         );
-
-        responses.forEach((response, index) => {
-          const id = Number(permittedRoles[index]?.role_id);
-
-          roleCounts[id] = Number(
-            response?.pagination?.totalUsers ??
-            response?.pagination?.total ??
-            0
-          );
-        });
-      } else {
-        // Fetch users for calculating role-wise counts.
-        const countResponse = await getAllStaffData(1, 10000, "");
-
-        const allUsers = Array.isArray(countResponse?.data)
-          ? countResponse.data
-          : [];
-
-        allUsers.forEach((user) => {
-          const id = Number(user?.role_id);
-
-          if (Object.prototype.hasOwnProperty.call(roleCounts, id)) {
-            roleCounts[id] += 1;
-          }
-        });
-      }
+      });
 
       if (requestId !== requestSequenceRef.current) return;
 
-      // Counts are ready: update the cards and hide their skeletons.
       setCounts(roleCounts);
       setDashboardLoading(false);
 
@@ -780,11 +765,18 @@ export default function Dashboard() {
         return;
       }
 
-      const response = await getAllStaffData(page, 10, selectedRole);
+      // Fetch only the selected role's current page.
+      const response = await getAllStaffData(
+        page,
+        10,
+        selectedRole
+      );
 
       if (requestId !== requestSequenceRef.current) return;
 
-      setUsers(Array.isArray(response?.data) ? response.data : []);
+      setUsers(
+        Array.isArray(response?.data) ? response.data : []
+      );
       setPagination(response?.pagination || {});
     } catch (error) {
       if (requestId !== requestSequenceRef.current) return;
@@ -806,7 +798,6 @@ export default function Dashboard() {
       setPagination({});
     } finally {
       if (requestId === requestSequenceRef.current) {
-        // Always stop loaders after the request finishes or fails.
         setDashboardLoading(false);
         setUsersLoading(false);
       }
@@ -816,7 +807,6 @@ export default function Dashboard() {
     rolesLoading,
     modulesLoading,
     roles,
-    modules,
     staffPermissions,
     staffPermissionsLoaded,
     page,
@@ -828,7 +818,6 @@ export default function Dashboard() {
   useEffect(() => {
     fetchUsers();
 
-    // Invalidate this request if dependencies change or the component unmounts.
     return () => {
       requestSequenceRef.current += 1;
     };
