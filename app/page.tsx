@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -27,8 +28,7 @@ import type {
 export default function Page() {
   const router = useRouter();
 
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -62,17 +62,14 @@ export default function Page() {
 
   const saveStaffPermissions = (user: any) => {
     localStorage.removeItem("staff_permission");
-    localStorage.removeItem("staff_permissions");
 
     if (Number(user?.role_id) !== 9) {
       return;
     }
 
     const permission =
-      user?.staff_permission?.permission ||
-      user?.staff_permissions?.permission ||
-      user?.staff_permission ||
-      user?.staff_permissions ||
+      user?.staff_permission?.permission ??
+      user?.staff_permission ??
       null;
 
     if (!permission) {
@@ -83,8 +80,7 @@ export default function Page() {
 
     if (typeof parsedPermission === "string") {
       try {
-        parsedPermission =
-          JSON.parse(parsedPermission);
+        parsedPermission = JSON.parse(parsedPermission);
       } catch (error) {
         console.error(
           "Staff permission parse error:",
@@ -105,10 +101,6 @@ export default function Page() {
 
     localStorage.setItem(
       "staff_permission",
-      JSON.stringify(parsedPermission)
-    );
-    localStorage.setItem(
-      "staff_permissions",
       JSON.stringify(parsedPermission)
     );
   };
@@ -169,12 +161,10 @@ export default function Page() {
 
       const {
         staff_permission,
-        staff_permissions,
         ...cleanUser
       } = loggedInUser;
 
       localStorage.removeItem("staff_permission");
-      localStorage.removeItem("staff_permissions");
 
       saveOriginalLogin(
         response.token,
@@ -194,16 +184,10 @@ export default function Page() {
 
       router.replace("/dashboard");
     } catch (error: any) {
-      console.error(
-        "Login error:",
-        error
-      );
+      console.error("Login error:", error);
 
-      const status =
-        error?.response?.status;
-
-      const errorResponse =
-        error?.response?.data;
+      const status = error?.response?.status;
+      const errorResponse = error?.response?.data;
 
       if (
         status === 503 ||
@@ -299,11 +283,7 @@ export default function Page() {
 
             <input
               id="password"
-              type={
-                showPassword
-                  ? "text"
-                  : "password"
-              }
+              type={showPassword ? "text" : "password"}
               name="password"
               value={formData.password}
               onChange={handleChange}
@@ -321,9 +301,7 @@ export default function Page() {
                   : "Show password"
               }
               onClick={() =>
-                setShowPassword(
-                  (previous) => !previous
-                )
+                setShowPassword((previous) => !previous)
               }
               className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 transition-colors hover:text-blue-700"
             >

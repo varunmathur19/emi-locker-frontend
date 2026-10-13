@@ -262,116 +262,98 @@ export default function UsersTable({
     };
   }, []);
 
-  useEffect(() => {
-    const loadPermissions = () => {
-      try {
-        const savedUser =
-          localStorage.getItem("user");
+ 
+useEffect(() => {
+  const loadPermissions = () => {
+    try {
+      const savedUser = localStorage.getItem("user");
 
-        if (!savedUser) {
-          setCurrentRoleId(null);
-          setStaffPermissions(null);
-          return;
-        }
-
-        const user = JSON.parse(savedUser);
-
-        const roleId = Number(
-          user?.role_id ??
-          user?.roleId ??
-          user?.role
-        );
-
-        setCurrentRoleId(
-          Number.isFinite(roleId)
-            ? roleId
-            : null
-        );
-
-        if (roleId !== 9) {
-          setStaffPermissions(null);
-          return;
-        }
-
-        const savedStaffPermission =
-          localStorage.getItem("staff_permission") ||
-          localStorage.getItem("staff_permissions");
-
-        const parsedStaffPermission =
-          parsePermissions(savedStaffPermission);
-
-        if (parsedStaffPermission) {
-          setStaffPermissions(parsedStaffPermission);
-          localStorage.setItem(
-            "staff_permission",
-            JSON.stringify(parsedStaffPermission)
-          );
-          localStorage.setItem(
-            "staff_permissions",
-            JSON.stringify(parsedStaffPermission)
-          );
-          return;
-        }
-
-        const permission =
-          user?.staff_permission?.permission ||
-          user?.staff_permissions?.permission ||
-          user?.staff_permission ||
-          user?.staff_permissions ||
-          user?.role_permissions?.permission ||
-          null;
-
-        const parsedPermission =
-          parsePermissions(permission);
-
-        if (parsedPermission) {
-          setStaffPermissions(parsedPermission);
-          localStorage.setItem(
-            "staff_permission",
-            JSON.stringify(parsedPermission)
-          );
-          localStorage.setItem(
-            "staff_permissions",
-            JSON.stringify(parsedPermission)
-          );
-          return;
-        }
-
-        setStaffPermissions(null);
-      } catch (error) {
-        console.error(
-          "LOAD STAFF PERMISSIONS ERROR:",
-          error
-        );
-
+      if (!savedUser) {
+        localStorage.removeItem("staff_permission");
         setCurrentRoleId(null);
         setStaffPermissions(null);
+        return;
       }
-    };
 
-    loadPermissions();
+      const user = JSON.parse(savedUser);
 
-    const handleStorage = (event) => {
-      if (
-        event.key === "staff_permission" ||
-        event.key === "user"
-      ) {
-        loadPermissions();
-      }
-    };
-
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
-
-    return () => {
-      window.removeEventListener(
-        "storage",
-        handleStorage
+      const roleId = Number(
+        user?.role_id ??
+        user?.roleId ??
+        user?.role
       );
-    };
-  }, []);
+
+      setCurrentRoleId(
+        Number.isFinite(roleId) ? roleId : null
+      );
+
+      // Only Staff (role_id = 9) can have staff permissions
+      if (roleId !== 9) {
+        localStorage.removeItem("staff_permission");
+        setStaffPermissions(null);
+        return;
+      }
+
+      // Read only the singular localStorage key
+      const savedPermission =
+        localStorage.getItem("staff_permission");
+
+      const parsedPermission =
+        parsePermissions(savedPermission);
+
+      if (parsedPermission) {
+        setStaffPermissions(parsedPermission);
+        return;
+      }
+
+      // Fallback: read permission from the saved user object
+      const permission =
+        user?.staff_permission?.permission ??
+        user?.staff_permission ??
+        null;
+
+      const parsedUserPermission =
+        parsePermissions(permission);
+
+      if (parsedUserPermission) {
+        setStaffPermissions(parsedUserPermission);
+
+        localStorage.setItem(
+          "staff_permission",
+          JSON.stringify(parsedUserPermission)
+        );
+
+        return;
+      }
+
+      localStorage.removeItem("staff_permission");
+      setStaffPermissions(null);
+    } catch (error) {
+      console.error("LOAD STAFF PERMISSIONS ERROR:", error);
+
+      localStorage.removeItem("staff_permission");
+      setCurrentRoleId(null);
+      setStaffPermissions(null);
+    }
+  };
+
+  loadPermissions();
+
+  const handleStorage = (event) => {
+    if (
+      event.key === "staff_permission" ||
+      event.key === "user"
+    ) {
+      loadPermissions();
+    }
+  };
+
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+  };
+}, []);
 
   const isPermissionEnabled = (value) => {
     if (
@@ -1081,120 +1063,98 @@ const canStaffViewUser = (user) => {
     onSearch?.("");
   };
 
-  const handleLoginAsUser = async (
-    user
-  ) => {
-    const userRoleId =
-      Number(user?.role_id);
 
-    const userRoleSlug =
-      roleSlugMap[userRoleId] || "";
+const handleLoginAsUser = async (user) => {
+  const userRoleId = Number(user?.role_id);
+  const userRoleSlug = roleSlugMap[userRoleId] || "";
 
-    if (
-      Number(currentRoleId) === 9 &&
-      !hasPermission(
-        userRoleSlug,
-        "login"
-      )
-    ) {
-      toast.error(
-        `You don't have login permission for ${roleMap[userRoleId] ||
-        "this role"
-        }`
-      );
+  if (
+    Number(currentRoleId) === 9 &&
+    !hasPermission(userRoleSlug, "login")
+  ) {
+    toast.error(
+      `You don't have login permission for ${
+        roleMap[userRoleId] || "this role"
+      }`
+    );
+    return;
+  }
 
+  try {
+    setLoginLoading(user.id);
+
+    const response = await loginAsUser(user.id);
+
+    if (!response?.success) {
+      toast.error(response?.message || "Login failed");
       return;
     }
 
-    try {
-      setLoginLoading(user.id);
+    const responseUser = response?.user || {};
+    const targetRoleId = Number(responseUser?.role_id);
 
-      const response =
-        await loginAsUser(user.id);
+    // Clear permissions from the previous login
+    localStorage.removeItem("staff_permission");
 
-      if (!response?.success) {
-        toast.error(
-          response?.message ||
-          "Login failed"
+    let permissions = null;
+
+    if (targetRoleId === 9) {
+      const permissionSource =
+        responseUser?.staff_permission?.permission ??
+        responseUser?.staff_permission ??
+        response?.staff_permission?.permission ??
+        response?.staff_permission ??
+        null;
+
+      permissions = parsePermissions(permissionSource);
+
+      // Staff login requires permission data from the API
+      if (!permissions) {
+        console.error(
+          "STAFF PERMISSION MISSING FROM LOGIN API RESPONSE:",
+          response
         );
 
+        toast.error(
+          "Staff permissions were not received from the server"
+        );
         return;
       }
 
-      const responseUser =
-        response?.user || {};
-
-      let permissions =
-        responseUser
-          ?.staff_permissions
-          ?.permission ||
-        responseUser
-          ?.role_permissions
-          ?.permission ||
-        null;
-
-      permissions =
-        parsePermissions(
-          permissions
-        );
-
-      localStorage.removeItem(
-        "staff_permission"
+      localStorage.setItem(
+        "staff_permission",
+        JSON.stringify(permissions)
       );
-
-      if (
-        Number(
-          responseUser?.role_id
-        ) === 9 &&
-        permissions
-      ) {
-        localStorage.setItem(
-          "staff_permission",
-          JSON.stringify(
-            permissions
-          )
-        );
-      } else {
-        localStorage.removeItem(
-          "staff_permission"
-        );
-      }
-
-      const {
-        staff_permissions,
-        role_permissions,
-        ...userWithoutPermissions
-      } = responseUser;
-
-      saveToken(response.token);
-
-      saveUser(
-        userWithoutPermissions
-      );
-
-      toast.success(
-        `Logged in as ${responseUser?.name ||
-        "user"
-        }`
-      );
-
-      window.location.href =
-        "/dashboard";
-    } catch (error) {
-      console.error(
-        "LOGIN AS USER ERROR:",
-        error
-      );
-
-      toast.error(
-        error?.response?.data?.message ||
-        error?.message ||
-        "Unable to login as user"
-      );
-    } finally {
-      setLoginLoading(null);
     }
-  };
+
+    // Exclude permission data from the saved user object
+    const {
+      staff_permission,
+      role_permissions,
+      ...userWithoutPermissions
+    } = responseUser;
+
+    saveToken(response.token);
+    saveUser(userWithoutPermissions);
+
+    toast.success(
+      `Logged in as ${responseUser?.name || "user"}`
+    );
+
+    window.location.href = "/dashboard";
+  } catch (error) {
+    console.error("LOGIN AS USER ERROR:", error);
+
+    toast.error(
+      error?.response?.data?.message ||
+      error?.message ||
+      "Unable to login as user"
+    );
+  } finally {
+    setLoginLoading(null);
+  }
+};
+
 
   const handleStatusToggle = async (
     user

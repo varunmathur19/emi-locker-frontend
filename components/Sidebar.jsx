@@ -154,69 +154,62 @@ try {
 
 }, []);
 
+
 const loadStaffPermissions = useCallback(() => {
-if (typeof window === "undefined") {
-return null;
-}
+  if (typeof window === "undefined") {
+    return null;
+  }
 
-try {
-  const storedPermission =
-    localStorage.getItem("staff_permission") ||
-    localStorage.getItem("staff_permissions");
+  try {
+    const storedPermission = localStorage.getItem("staff_permission");
 
-  if (storedPermission) {
-    const parsedPermission = parsePermissions(storedPermission);
+    if (storedPermission) {
+      const parsedPermission = parsePermissions(storedPermission);
+
+      if (parsedPermission) {
+        setPermissions(parsedPermission);
+
+        localStorage.setItem(
+          "staff_permission",
+          JSON.stringify(parsedPermission)
+        );
+
+        return parsedPermission;
+      }
+    }
+
+    const savedUser = localStorage.getItem("user");
+
+    if (!savedUser) {
+      setPermissions(null);
+      return null;
+    }
+
+    const user = JSON.parse(savedUser);
+
+    const userPermission =
+      user?.staff_permission?.permission ??
+      user?.staff_permission ??
+      null;
+
+    const parsedPermission = parsePermissions(userPermission);
 
     if (parsedPermission) {
       setPermissions(parsedPermission);
+
       localStorage.setItem(
         "staff_permission",
         JSON.stringify(parsedPermission)
       );
-      localStorage.setItem(
-        "staff_permissions",
-        JSON.stringify(parsedPermission)
-      );
+
       return parsedPermission;
     }
+  } catch (error) {
+    console.error("STAFF PERMISSION STORAGE ERROR:", error);
   }
 
-  const savedUser = localStorage.getItem("user");
-
-  if (!savedUser) {
-    setPermissions(null);
-    return null;
-  }
-
-  const user = JSON.parse(savedUser);
-
-  const userPermission =
-    user?.staff_permission?.permission ||
-    user?.staff_permissions?.permission ||
-    user?.staff_permission ||
-    user?.staff_permissions ||
-    null;
-
-  const parsedPermission = parsePermissions(userPermission);
-
-  if (parsedPermission) {
-    setPermissions(parsedPermission);
-    localStorage.setItem(
-      "staff_permission",
-      JSON.stringify(parsedPermission)
-    );
-    localStorage.setItem(
-      "staff_permissions",
-      JSON.stringify(parsedPermission)
-    );
-    return parsedPermission;
-  }
-} catch (error) {
-  console.error("STAFF PERMISSION STORAGE ERROR:", error);
-}
-
-setPermissions(null);
-return null;
+  setPermissions(null);
+  return null;
 }, [parsePermissions]);
 const loadCurrentUser = useCallback(() => {
 try {
@@ -414,6 +407,7 @@ return;
 }
 
 
+
 const handleStorage = (event) => {
   if (event.key === "modules_updated") {
     loadModules();
@@ -421,8 +415,7 @@ const handleStorage = (event) => {
 
   if (
     event.key === "user" ||
-    event.key === "staff_permission" ||
-    event.key === "staff_permissions"
+    event.key === "staff_permission"
   ) {
     loadCurrentUser();
     loadWalletBalance();
@@ -554,26 +547,24 @@ window.location.href = "/dashboard";
 
 };
 
+
 const logout = async () => {
-try {
-await logoutStaff();
-} catch (error) {
-console.error("LOGOUT API ERROR:", error);
-} finally {
-removeToken();
+  try {
+    await logoutStaff();
+  } catch (error) {
+    console.error("LOGOUT API ERROR:", error);
+  } finally {
+    removeToken();
 
+    localStorage.removeItem("user");
+    localStorage.removeItem("original_token");
+    localStorage.removeItem("original_user");
+    localStorage.removeItem("staff_permission");
 
-  localStorage.removeItem("user");
-  localStorage.removeItem("original_token");
-  localStorage.removeItem("original_user");
-  localStorage.removeItem("staff_permission");
+    removeInvalidPermissionKeys();
 
-  removeInvalidPermissionKeys();
-
-  window.location.href = "/";
-}
-
-
+    window.location.href = "/";
+  }
 };
 
 const isRoleLinkActive = useCallback(
