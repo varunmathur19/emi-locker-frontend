@@ -44,6 +44,7 @@ const nextRoleMap = {
   6: 7,
   7: 8,
   8: 9,
+  9: 2,
 };
 
 const TRANSACTION_TYPES = {
@@ -906,54 +907,47 @@ export default function TransferPoint() {
   }, [availableRoleOptions, roleId]);
 
   const nextRoleId = useMemo(() => {
-    if (
-      roleId === null ||
-      roleId === undefined
-    ) {
-      return null;
-    }
-
-    const currentRole = Number(roleId);
-
-    if (!Number.isFinite(currentRole)) {
-      return null;
-    }
-
-    if (currentRole === 0) {
-      return 1;
-    }
-
-    let nextRole =
-      nextRoleMap[currentRole];
-
-    while (
-      nextRole !== undefined &&
-      nextRole !== null
-    ) {
-      const activeRole = roles.find(
-        (role) =>
-          Number(role?.role_id) ===
-            Number(nextRole) &&
-          Number(role?.status ?? 1) === 1
-      );
-
-      if (activeRole) {
-        return Number(
-          activeRole.role_id
-        );
-      }
-
-      nextRole =
-        nextRoleMap[nextRole];
-    }
-
+  if (roleId === null || roleId === undefined) {
     return null;
-  }, [roleId, roles]);
+  }
 
-  const nextRoleName =
-    Number(roleId) === 0
-      ? "Admin"
-      : roleNames[nextRoleId] || "";
+  const currentRole = Number(roleId);
+
+  if (!Number.isFinite(currentRole)) {
+    return null;
+  }
+
+  // Staff should load the same target role
+  // as the creator Admin.
+  if (currentRole === 9) {
+    return 2;
+  }
+
+  let targetRole = nextRoleMap[currentRole];
+
+  while (targetRole !== undefined && targetRole !== null) {
+    const activeRole = roles.find(
+      (role) =>
+        Number(role?.role_id) === Number(targetRole) &&
+        Number(role?.status ?? 1) === 1
+    );
+
+    if (activeRole) {
+      return Number(activeRole.role_id);
+    }
+
+    targetRole = nextRoleMap[targetRole];
+  }
+
+  return null;
+}, [roleId, roles]);
+
+ const nextRoleName =
+  Number(roleId) === 0
+    ? "Admin"
+    : Number(roleId) === 9
+    ? roleNames[2]
+    : roleNames[nextRoleId] || "";
 
   const selectedFromRoleName =
     selectedFromRoleData?.name ||
@@ -1119,77 +1113,66 @@ export default function TransferPoint() {
     }
   };
 
-  const loadKeySettings = async () => {
-    try {
-      setLoading(true);
+ 
+const loadKeySettings = async () => {
+  setLoading(true);
 
-      const response =
-        await getKeySettings();
+  try {
+    const response = await getKeySettings();
 
-      if (
-        response?.success &&
-        Array.isArray(response?.data)
-      ) {
-        const activeKeys =
-          response.data.filter(
-            (item) =>
-              Number(item?.status) === 1
-          );
-
-        setKeySettings(activeKeys);
-
-        if (activeKeys.length === 0) {
-          setSelectedKey("");
-          setWalletBalance(0);
-          setAvailableBalance(0);
-          return;
-        }
-
-        if (isSchemaTransfer) {
-          setSelectedKey("");
-          setWalletBalance(0);
-          setAvailableBalance(0);
-          return;
-        }
-
-        setSelectedKey((previous) => {
-          const existing =
-            activeKeys.find(
-              (item) =>
-                Number(item?.id) ===
-                Number(previous)
-            );
-
-          const key =
-            existing || activeKeys[0];
-
-          setWalletBalance(
-            Number(key?.balance || 0)
-          );
-
-          return key.id;
-        });
-      } else {
-        setKeySettings([]);
-        setSelectedKey("");
-        setWalletBalance(0);
-        setAvailableBalance(0);
-      }
-    } catch (error) {
-      console.error(
-        "GET KEY SETTINGS ERROR:",
-        error
-      );
-
+    if (
+      !response?.success ||
+      !Array.isArray(response?.data)
+    ) {
       setKeySettings([]);
       setSelectedKey("");
       setWalletBalance(0);
       setAvailableBalance(0);
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
 
+    // Show only active keys returned by the authorized API.
+    const activeKeys = response.data.filter(
+      (item) => Number(item?.status) === 1
+    );
+
+    setKeySettings(activeKeys);
+
+    if (activeKeys.length === 0) {
+      setSelectedKey("");
+      setWalletBalance(0);
+      setAvailableBalance(0);
+      return;
+    }
+
+    if (isSchemaTransfer) {
+      setSelectedKey("");
+      setWalletBalance(0);
+      setAvailableBalance(0);
+      return;
+    }
+
+    setSelectedKey((previous) => {
+      const selected =
+        activeKeys.find(
+          (item) => String(item?.id) === String(previous)
+        ) || activeKeys[0];
+
+      setWalletBalance(Number(selected?.balance || 0));
+
+      return String(selected.id);
+    });
+  } catch (error) {
+    console.error("GET KEY SETTINGS ERROR:", error);
+
+    setKeySettings([]);
+    setSelectedKey("");
+    setWalletBalance(0);
+    setAvailableBalance(0);
+  } finally {
+    setLoading(false);
+  }
+};
   const loadRoles = async () => {
     try {
       setLoadingRoles(true);
@@ -1241,124 +1224,103 @@ export default function TransferPoint() {
     }
   };
 
-  const loadTransferUsers = async (
-    currentRoleId,
-    activeRoles = roles
-  ) => {
-    try {
-      const currentRole =
-        Number(currentRoleId);
+  
+const loadTransferUsers = async (
+  currentRoleId,
+  activeRoles = roles
+) => {
+  try {
+    const currentRole = Number(currentRoleId);
+    const currentUser = getUser();
+    const currentUserId = Number(currentUser?.id);
 
-      if (!Number.isFinite(currentRole)) {
-        setTransferUsers([]);
-        return;
-      }
-
-      let targetRoleId;
-
-      if (currentRole === 0) {
-        targetRoleId = 1;
-      } else {
-        let nextRole =
-          nextRoleMap[currentRole];
-
-        while (
-          nextRole !== undefined &&
-          nextRole !== null
-        ) {
-          const activeTargetRole =
-            activeRoles.find(
-              (role) =>
-                Number(role?.role_id) ===
-                  Number(nextRole) &&
-                Number(role?.status ?? 1) === 1
-            );
-
-          if (activeTargetRole) {
-            targetRoleId = Number(
-              activeTargetRole.role_id
-            );
-            break;
-          }
-
-          nextRole =
-            nextRoleMap[nextRole];
-        }
-      }
-
-      if (
-        targetRoleId === undefined ||
-        targetRoleId === null
-      ) {
-        setTransferUsers([]);
-        return;
-      }
-
-      const user = getUser();
-
-      const currentUserId =
-        Number(user?.id);
-
-      if (!currentUserId) {
-        setTransferUsers([]);
-        return;
-      }
-
-      setLoadingTransferUsers(true);
-
-      const response =
-        await getAllStaffData(
-          1,
-          1000,
-          targetRoleId,
-          "",
-          ""
-        );
-
-      let users = [];
-
-      if (
-        response?.success &&
-        Array.isArray(response?.data)
-      ) {
-        users = response.data;
-      } else if (
-        response?.success &&
-        Array.isArray(response?.data?.data)
-      ) {
-        users = response.data.data;
-      } else if (
-        response?.success &&
-        Array.isArray(
-          response?.data?.users
-        )
-      ) {
-        users = response.data.users;
-      }
-
-      const filteredUsers =
-        users.filter(
-          (item) =>
-            Number(item?.role_id) ===
-              Number(targetRoleId) &&
-            Number(item?.id) !==
-              Number(currentUserId)
-        );
-
-      setTransferUsers(
-        filteredUsers
-      );
-    } catch (error) {
-      console.error(
-        "GET TRANSFER USERS ERROR:",
-        error
-      );
-
+    if (
+      !Number.isFinite(currentRole) ||
+      !Number.isFinite(currentUserId) ||
+      currentUserId <= 0
+    ) {
       setTransferUsers([]);
-    } finally {
-      setLoadingTransferUsers(false);
+      return;
     }
-  };
+
+    let targetRoleId = null;
+
+    // Staff loads the Admin's first child role.
+    if (currentRole === 9) {
+      targetRoleId = 2;
+    } else if (currentRole === 0) {
+      targetRoleId = 1;
+    } else {
+      let nextRole = nextRoleMap[currentRole];
+
+      while (nextRole !== undefined && nextRole !== null) {
+        const activeRole = activeRoles.find(
+          (role) =>
+            Number(role?.role_id) === Number(nextRole) &&
+            Number(role?.status ?? 1) === 1
+        );
+
+        if (activeRole) {
+          targetRoleId = Number(activeRole.role_id);
+          break;
+        }
+
+        nextRole = nextRoleMap[nextRole];
+      }
+    }
+
+    if (targetRoleId === null) {
+      setTransferUsers([]);
+      return;
+    }
+
+    setLoadingTransferUsers(true);
+
+    const response = await getAllStaffData(
+      1,
+      1000,
+      targetRoleId,
+      "",
+      ""
+    );
+
+    let users = [];
+
+    if (Array.isArray(response?.data)) {
+      users = response.data;
+    } else if (Array.isArray(response?.data?.data)) {
+      users = response.data.data;
+    } else if (Array.isArray(response?.data?.users)) {
+      users = response.data.users;
+    } else if (Array.isArray(response?.users)) {
+      users = response.users;
+    }
+
+    const filteredUsers = users.filter(
+      (user) =>
+        Number(user?.role_id) === targetRoleId &&
+        Number(user?.id) !== currentUserId
+    );
+
+    setTransferUsers(filteredUsers);
+
+    // Clear a selected user if they are not in
+    // the newly loaded authorized user list.
+    setSelectedTransferUser((previous) => {
+      const stillExists = filteredUsers.some(
+        (user) => Number(user?.id) === Number(previous)
+      );
+
+      return stillExists ? previous : "";
+    });
+  } catch (error) {
+    console.error("GET TRANSFER USERS ERROR:", error);
+    setTransferUsers([]);
+    setSelectedTransferUser("");
+  } finally {
+    setLoadingTransferUsers(false);
+  }
+};
 
   const loadSchemaUsers = async (
     selectedRoleId
@@ -2398,11 +2360,11 @@ export default function TransferPoint() {
                   setSchemaUserDropdownOpen
                 }
                 loading={loadingSchemaUsers}
-                disabled={
-                  !selectedSchemaRole ||
-                  loadingSchemaUsers ||
-                  transferLoading
-                }
+               disabled={
+  nextRoleId === null ||
+  loadingTransferUsers ||
+  transferLoading
+}
                 placeholder={
                   loadingSchemaUsers
                     ? "Loading users..."

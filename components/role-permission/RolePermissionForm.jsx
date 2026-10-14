@@ -3,6 +3,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import * as RiIcons from "react-icons/ri";
+import * as MdIcons from "react-icons/md";
+import * as IoIcons from "react-icons/io";
+import * as FaIcons from "react-icons/fa";
 import { toast } from "react-toastify";
 
 import {
@@ -66,7 +69,15 @@ const getIcon = (iconName) => {
     return null;
   }
 
-  return RiIcons[String(iconName).trim()] || null;
+  const name = String(iconName).trim();
+
+  return (
+    RiIcons[name] ||
+    MdIcons[name] ||
+    IoIcons[name] ||
+    FaIcons[name] ||
+    null
+  );
 };
 
 const isActive = (item) =>
@@ -1059,52 +1070,46 @@ const loadSubModules = async () => {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        {moduleSubModules.length > 0 ? (
-          moduleSubModules.map((subModule) => {
-            const SubModuleIcon = getIcon(subModule.icon);
+       {moduleSubModules.map((subModule) => {
+  const SubModuleIcon = getIcon(subModule.icon);
 
-            return (
-              <label
-                key={`${module.id}-${subModule.id}`}
-                className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 transition ${
-                  isPermissionChecked(module.id, subModule.id)
-                    ? "border-blue-200 bg-blue-50"
-                    : "border-gray-200 bg-white hover:bg-gray-50"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={isPermissionChecked(
-                    module.id,
-                    subModule.id
-                  )}
-                  onChange={(event) =>
-                    updatePermission(
-                      module.id,
-                      subModule.id,
-                      event.target.checked
-                    )
-                  }
-                  className="h-4 w-4 cursor-pointer rounded border-gray-300"
-                />
-
-                {SubModuleIcon ? (
-                  <SubModuleIcon className="text-base text-gray-500" />
-                ) : (
-                  <RiIcons.RiFileListLine className="text-base text-gray-500" />
-                )}
-
-                <span className="whitespace-nowrap text-sm text-gray-700">
-                  {subModule.name}
-                </span>
-              </label>
-            );
-          })
-        ) : (
-          <span className="text-sm text-gray-400">
-            No sub-modules available
-          </span>
+  return (
+    <label
+      key={`${module.id}-${subModule.id}`}
+      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 transition ${
+        isPermissionChecked(module.id, subModule.id)
+          ? "border-blue-200 bg-blue-50"
+          : "border-gray-200 bg-white hover:bg-gray-50"
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={isPermissionChecked(
+          module.id,
+          subModule.id
         )}
+        onChange={(event) =>
+          updatePermission(
+            module.id,
+            subModule.id,
+            event.target.checked
+          )
+        }
+        className="h-4 w-4 cursor-pointer rounded border-gray-300"
+      />
+
+      {SubModuleIcon ? (
+        <SubModuleIcon className="text-base text-gray-500" />
+      ) : (
+        <RiIcons.RiFileListLine className="text-base text-gray-500" />
+      )}
+
+      <span className="whitespace-nowrap text-sm text-gray-700">
+        {subModule.name}
+      </span>
+    </label>
+  );
+})}
       </div>
     </div>
   );
