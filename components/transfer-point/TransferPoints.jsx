@@ -810,17 +810,64 @@ const nextRoleId = useMemo(() => {
     }
   }, []);
 
-  const loadUsersByRole = useCallback(async (targetRoleId) => {
-    const role = Number(targetRoleId);
+  
+const loadUsersByRole = useCallback(async (targetRoleId) => {
+  const role = Number(targetRoleId);
 
-    if (!Number.isFinite(role)) return [];
+  if (!Number.isFinite(role)) return [];
 
-    const response = await getAllStaffData(1, 1000, role, "", "");
+  const limit = 1000;
+  let page = 1;
+  let allUsers = [];
+  let totalPages = 1;
 
-    return getArrayFromResponse(response).filter(
-      (user) => Number(user?.role_id) === role
+  do {
+    const response = await getAllStaffData(
+      page,
+      limit,
+      role,
+      "",
+      ""
     );
-  }, []);
+
+    const users = getArrayFromResponse(response);
+
+    allUsers = [...allUsers, ...users];
+
+    const responseData = response?.data ?? response;
+    const paginationData =
+      responseData?.pagination ??
+      responseData?.data?.pagination ??
+      responseData?.meta ??
+      responseData?.data?.meta;
+
+    if (paginationData?.totalPages) {
+      totalPages = Number(paginationData.totalPages);
+    } else if (paginationData?.lastPage) {
+      totalPages = Number(paginationData.lastPage);
+    } else if (paginationData?.total != null) {
+      totalPages = Math.ceil(
+        Number(paginationData.total) / limit
+      );
+    } else {
+      totalPages = page;
+    }
+
+    page += 1;
+  } while (page <= totalPages);
+
+  // Keep only users belonging to the selected role.
+  const uniqueUsers = new Map();
+
+  allUsers
+    .filter((user) => Number(user?.role_id) === role)
+    .forEach((user) => {
+      uniqueUsers.set(String(user.id), user);
+    });
+
+  return Array.from(uniqueUsers.values());
+}, []);
+
 
   const findNextActiveRole = useCallback((currentRoleId, activeRoles) => {
     const currentRole = Number(currentRoleId);
