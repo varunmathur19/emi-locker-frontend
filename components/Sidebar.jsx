@@ -106,13 +106,10 @@ if (typeof window === "undefined") {
 return;
 }
 
-
 localStorage.removeItem("permission");
 localStorage.removeItem("permissions");
 localStorage.removeItem("role_permission");
 localStorage.removeItem("rolePermission");
-
-
 }, []);
 
 const parsePermissions = useCallback((value) => {
@@ -157,17 +154,45 @@ try {
 
 }, []);
 
+
 const loadStaffPermissions = useCallback(() => {
-if (typeof window === "undefined") {
-return null;
-}
+  if (typeof window === "undefined") {
+    return null;
+  }
 
+  try {
+    const storedPermission = localStorage.getItem("staff_permission");
 
-try {
-  const storedPermission = localStorage.getItem("staff_permission");
+    if (storedPermission) {
+      const parsedPermission = parsePermissions(storedPermission);
 
-  if (storedPermission) {
-    const parsedPermission = parsePermissions(storedPermission);
+      if (parsedPermission) {
+        setPermissions(parsedPermission);
+
+        localStorage.setItem(
+          "staff_permission",
+          JSON.stringify(parsedPermission)
+        );
+
+        return parsedPermission;
+      }
+    }
+
+    const savedUser = localStorage.getItem("user");
+
+    if (!savedUser) {
+      setPermissions(null);
+      return null;
+    }
+
+    const user = JSON.parse(savedUser);
+
+    const userPermission =
+      user?.staff_permission?.permission ??
+      user?.staff_permission ??
+      null;
+
+    const parsedPermission = parsePermissions(userPermission);
 
     if (parsedPermission) {
       setPermissions(parsedPermission);
@@ -179,44 +204,13 @@ try {
 
       return parsedPermission;
     }
+  } catch (error) {
+    console.error("STAFF PERMISSION STORAGE ERROR:", error);
   }
 
-  const savedUser = localStorage.getItem("user");
-
-  if (!savedUser) {
-    setPermissions(null);
-    return null;
-  }
-
-  const user = JSON.parse(savedUser);
-
-  const userPermission =
-    user?.staff_permission?.permission ||
-    user?.staff_permission ||
-    null;
-
-  const parsedPermission = parsePermissions(userPermission);
-
-  if (parsedPermission) {
-    setPermissions(parsedPermission);
-
-    localStorage.setItem(
-      "staff_permission",
-      JSON.stringify(parsedPermission)
-    );
-
-    return parsedPermission;
-  }
-} catch (error) {
-  console.error("STAFF PERMISSION STORAGE ERROR:", error);
-}
-
-setPermissions(null);
-return null;
-
-
+  setPermissions(null);
+  return null;
 }, [parsePermissions]);
-
 const loadCurrentUser = useCallback(() => {
 try {
 const currentRole = getRoleId();
@@ -244,6 +238,7 @@ const currentRole = getRoleId();
 
   setPermissions(null);
   localStorage.removeItem("staff_permission");
+  localStorage.removeItem("staff_permissions");
   removeInvalidPermissionKeys();
 } catch (error) {
   console.error("LOAD CURRENT USER ERROR:", error);
@@ -412,6 +407,7 @@ return;
 }
 
 
+
 const handleStorage = (event) => {
   if (event.key === "modules_updated") {
     loadModules();
@@ -498,41 +494,52 @@ return false;
 
 }, []);
 
+
 const hasModulePermission = useCallback(
-(moduleItem) => {
-if (Number(roleId) !== 9) {
-return true;
-}
-
-
-  if (!permissions) {
-    return false;
-  }
-
-  const moduleId = Number(moduleItem?.id);
-
-  if (!Number.isFinite(moduleId)) {
-    return false;
-  }
-
-  const modulePrefix = `${moduleId}.`;
-
-  return Object.entries(permissions).some(
-    ([permissionKey, value]) => {
-      const normalizedKey = String(permissionKey).trim();
-
-      if (!normalizedKey.startsWith(modulePrefix)) {
-        return false;
-      }
-
-      return isPermissionEnabled(value);
+  (moduleItem) => {
+    // Non-staff users keep their existing role-based access.
+    if (Number(roleId) !== 9) {
+      return true;
     }
-  );
-},
-[roleId, permissions, isPermissionEnabled]
 
+    if (!permissions || typeof permissions !== "object") {
+      return false;
+    }
 
+    const moduleId = Number(moduleItem?.id);
+
+    if (!Number.isFinite(moduleId)) {
+      return false;
+    }
+
+    return Object.entries(permissions).some(
+      ([permissionKey, value]) => {
+        const [permissionModuleId, subModuleId] =
+          String(permissionKey).trim().split(".");
+
+        // Match the exact module ID and sub-module ID.
+        if (
+          Number(permissionModuleId) !== moduleId ||
+          !Number.isFinite(Number(subModuleId))
+        ) {
+          return false;
+        }
+
+        // Only explicitly enabled permissions count.
+        return (
+          value === 1 ||
+          value === true ||
+          (typeof value === "string" &&
+            ["1", "true", "yes"].includes(
+              value.trim().toLowerCase()
+            ))
+        );
+      }
+    );
+  },
+  [roleId, permissions]
 );
+
 
 const myLogin = () => {
 removeInvalidPermissionKeys();
@@ -551,26 +558,24 @@ window.location.href = "/dashboard";
 
 };
 
+
 const logout = async () => {
-try {
-await logoutStaff();
-} catch (error) {
-console.error("LOGOUT API ERROR:", error);
-} finally {
-removeToken();
+  try {
+    await logoutStaff();
+  } catch (error) {
+    console.error("LOGOUT API ERROR:", error);
+  } finally {
+    removeToken();
 
+    localStorage.removeItem("user");
+    localStorage.removeItem("original_token");
+    localStorage.removeItem("original_user");
+    localStorage.removeItem("staff_permission");
 
-  localStorage.removeItem("user");
-  localStorage.removeItem("original_token");
-  localStorage.removeItem("original_user");
-  localStorage.removeItem("staff_permission");
+    removeInvalidPermissionKeys();
 
-  removeInvalidPermissionKeys();
-
-  window.location.href = "/";
-}
-
-
+    window.location.href = "/";
+  }
 };
 
 const isRoleLinkActive = useCallback(

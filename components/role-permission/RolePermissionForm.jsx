@@ -3,6 +3,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import * as RiIcons from "react-icons/ri";
+import * as MdIcons from "react-icons/md";
+import * as IoIcons from "react-icons/io";
+import * as FaIcons from "react-icons/fa";
 import { toast } from "react-toastify";
 
 import {
@@ -66,7 +69,15 @@ const getIcon = (iconName) => {
     return null;
   }
 
-  return RiIcons[String(iconName).trim()] || null;
+  const name = String(iconName).trim();
+
+  return (
+    RiIcons[name] ||
+    MdIcons[name] ||
+    IoIcons[name] ||
+    FaIcons[name] ||
+    null
+  );
 };
 
 const isActive = (item) =>
@@ -219,36 +230,67 @@ export default function RolePermissionForm() {
     [modules]
   );
 
-  const visibleModules = useMemo(() => {
-    if (!Number.isFinite(currentRoleId)) {
-      return [];
+
+const visibleModules = useMemo(() => {
+  if (!Number.isFinite(currentRoleId)) {
+    return [];
+  }
+
+  return activeModules.filter((module) => {
+    const moduleName = String(module?.name || "")
+      .trim()
+      .toLowerCase();
+
+    const rawRoleId = module?.role_id;
+
+    const moduleRoleId =
+      rawRoleId === null ||
+      rawRoleId === undefined ||
+      rawRoleId === ""
+        ? null
+        : Number(rawRoleId);
+
+    // Master Admin: saare modules show honge
+    if (currentRoleId === 0) {
+      return true;
     }
 
-    const allowedRoles =
-      allowedRolesByRole[currentRoleId] || [];
+    // Admin module baaki roles ko hide rahega
+    if (moduleName === "admin" || moduleRoleId === 1) {
+      return false;
+    }
 
-    return activeModules.filter((module) => {
-      const moduleRoleId = Number(
-        module?.role_id
-      );
+    const isEmployee =
+      moduleName === "employee" || moduleRoleId === 8;
 
-      if (
-        Number.isFinite(moduleRoleId) &&
-        moduleRoleId >= 0 &&
-        moduleRoleId <= 9
-      ) {
-        return allowedRoles.includes(
-          moduleRoleId
-        );
-      }
+    const isStaff =
+      moduleName === "staff" || moduleRoleId === 9;
 
-      return (
-        String(module?.name || "")
-          .trim()
-          .toLowerCase() !== "admin"
-      );
-    });
-  }, [activeModules, currentRoleId]);
+    // CNF se FOS tak Employee hide rahega
+    if (
+      [2, 3, 4, 5].includes(currentRoleId) &&
+      isEmployee
+    ) {
+      return false;
+    }
+
+    // Retailer aur Sub Retailer ko Staff nahi dikhana
+    if ([6, 7].includes(currentRoleId) && isStaff) {
+      return false;
+    }
+
+    // Common modules show honge
+    if (moduleRoleId === null) {
+      return true;
+    }
+
+    // Hierarchy ke according modules show honge
+    return (
+      Number.isFinite(moduleRoleId) &&
+      moduleRoleId > currentRoleId
+    );
+  });
+}, [activeModules, currentRoleId]);
 
   const activeSubModules = useMemo(
     () => subModules.filter(isActive),
@@ -265,31 +307,15 @@ export default function RolePermissionForm() {
     [profiles, selectedProfile]
   );
 
-  const getModuleSubModules = (moduleId) => {
-    const numericModuleId = Number(moduleId);
+  
 
-    if (!Number.isFinite(numericModuleId)) {
-      return [];
-    }
 
-    const hasModuleRelation = activeSubModules.some(
-      (subModule) =>
-        subModule?.module_id !== undefined ||
-        subModule?.moduleId !== undefined
-    );
 
-    if (!hasModuleRelation) {
-      return activeSubModules;
-    }
-
-    return activeSubModules.filter(
-      (subModule) =>
-        Number(
-          subModule?.module_id ??
-            subModule?.moduleId
-        ) === numericModuleId
-    );
-  };
+const getModuleSubModules = () => {
+  return activeSubModules.filter(
+    (subModule) => Number(subModule.status) === 1
+  );
+};
 
   const loadProfiles = async () => {
     try {
@@ -326,76 +352,77 @@ export default function RolePermissionForm() {
     }
   };
 
-  const loadModules = async () => {
-    try {
-      setLoadingModules(true);
+ 
+const loadModules = async () => {
+  try {
+    setLoadingModules(true);
 
-      const response = await getModules();
+    const response = await getModules();
 
-      const moduleData = Array.isArray(response)
-        ? response
-        : response?.data ||
-          response?.modules ||
-          [];
+    const moduleData = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.data)
+      ? response.data
+      : Array.isArray(response?.modules)
+      ? response.modules
+      : [];
 
-      setModules(
-        Array.isArray(moduleData)
-          ? moduleData
-          : []
-      );
-    } catch (error) {
-      console.error(
-        "Failed to load modules:",
-        error
-      );
+    console.log("GET MODULES API DATA:", moduleData);
 
-      setModules([]);
+    setModules(moduleData);
+  } catch (error) {
+    console.error(
+      "Failed to load modules:",
+      error?.response?.data || error
+    );
 
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Failed to load modules"
-      );
-    } finally {
-      setLoadingModules(false);
-    }
-  };
+    setModules([]);
 
-  const loadSubModules = async () => {
-    try {
-      setLoadingSubModules(true);
+    toast.error(
+      error?.response?.data?.message ||
+        "Failed to load modules"
+    );
+  } finally {
+    setLoadingModules(false);
+  }
+};
 
-      const response = await getSubModules();
+  
+const loadSubModules = async () => {
+  try {
+    setLoadingSubModules(true);
 
-      const subModuleData = Array.isArray(response)
-        ? response
-        : response?.data ||
-          response?.subModules ||
-          response?.submodules ||
-          [];
+    const response = await getSubModules();
 
-      setSubModules(
-        Array.isArray(subModuleData)
-          ? subModuleData
-          : []
-      );
-    } catch (error) {
-      console.error(
-        "Failed to load sub-modules:",
-        error
-      );
+    const subModuleData = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.data)
+      ? response.data
+      : Array.isArray(response?.subModules)
+      ? response.subModules
+      : Array.isArray(response?.submodules)
+      ? response.submodules
+      : [];
 
-      setSubModules([]);
+    console.log("GET SUB MODULES API DATA:", subModuleData);
 
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Failed to load sub-modules"
-      );
-    } finally {
-      setLoadingSubModules(false);
-    }
-  };
+    setSubModules(subModuleData);
+  } catch (error) {
+    console.error(
+      "Failed to load sub-modules:",
+      error?.response?.data || error
+    );
+
+    setSubModules([]);
+
+    toast.error(
+      error?.response?.data?.message ||
+        "Failed to load sub-modules"
+    );
+  } finally {
+    setLoadingSubModules(false);
+  }
+};
 
   const loadRolePermissions = async (profileId) => {
     if (!profileId) {
@@ -1003,100 +1030,90 @@ export default function RolePermissionForm() {
                 </div>
               </div>
 
-              {visibleModules.map((module) => {
-                const moduleSubModules =
-                  getModuleSubModules(
-                    module.id
-                  );
+            
+{visibleModules.map((module) => {
+  const moduleSubModules = getModuleSubModules(module.id);
+  const ModuleIcon = getIcon(module.icon);
 
-                const ModuleIcon = getIcon(
-                  module.icon
-                );
+  return (
+    <div
+      key={module.id}
+      className="grid grid-cols-[220px_1fr] items-start border-b border-gray-200 px-5 py-4 last:border-b-0"
+    >
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          checked={isModuleFullyChecked(module.id)}
+          onChange={(event) =>
+            toggleModulePermissions(
+              module.id,
+              event.target.checked
+            )
+          }
+          className="h-4 w-4 cursor-pointer rounded border-gray-300"
+        />
 
-                return (
-                  <div
-                    key={module.id}
-                    className="grid grid-cols-[220px_1fr] items-center border-b border-gray-200 px-5 py-4 last:border-b-0"
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={isModuleFullyChecked(
-                          module.id
-                        )}
-                        onChange={(event) =>
-                          toggleModulePermissions(
-                            module.id,
-                            event.target.checked
-                          )
-                        }
-                        className="h-4 w-4 cursor-pointer rounded border-gray-300"
-                      />
+        {ModuleIcon ? (
+          <ModuleIcon className="text-lg text-gray-600" />
+        ) : (
+          <RiIcons.RiFolderLine className="text-lg text-gray-600" />
+        )}
 
-                      {ModuleIcon ? (
-                        <ModuleIcon className="text-lg text-gray-600" />
-                      ) : (
-                        <RiIcons.RiFolderLine className="text-lg text-gray-600" />
-                      )}
+        <div>
+          <p className="text-sm font-semibold text-gray-800">
+            {module.name}
+          </p>
+          <p className="text-xs text-gray-400">
+            Module ID: {module.id}
+          </p>
+        </div>
+      </div>
 
-                      <span className="text-sm font-semibold text-gray-800">
-                        {module.name}
-                      </span>
-                    </div>
+      <div className="flex flex-wrap items-center gap-3">
+       {moduleSubModules.map((subModule) => {
+  const SubModuleIcon = getIcon(subModule.icon);
 
-                    <div className="flex flex-wrap items-center gap-3">
-                      {moduleSubModules.map(
-                        (subModule) => {
-                          const SubModuleIcon =
-                            getIcon(
-                              subModule.icon
-                            );
+  return (
+    <label
+      key={`${module.id}-${subModule.id}`}
+      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 transition ${
+        isPermissionChecked(module.id, subModule.id)
+          ? "border-blue-200 bg-blue-50"
+          : "border-gray-200 bg-white hover:bg-gray-50"
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={isPermissionChecked(
+          module.id,
+          subModule.id
+        )}
+        onChange={(event) =>
+          updatePermission(
+            module.id,
+            subModule.id,
+            event.target.checked
+          )
+        }
+        className="h-4 w-4 cursor-pointer rounded border-gray-300"
+      />
 
-                          return (
-                            <label
-                              key={`${module.id}-${subModule.id}`}
-                              className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 transition ${
-                                isPermissionChecked(
-                                  module.id,
-                                  subModule.id
-                                )
-                                  ? "border-blue-200 bg-blue-50"
-                                  : "border-gray-200 bg-white hover:bg-gray-50"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isPermissionChecked(
-                                  module.id,
-                                  subModule.id
-                                )}
-                                onChange={(event) =>
-                                  updatePermission(
-                                    module.id,
-                                    subModule.id,
-                                    event.target.checked
-                                  )
-                                }
-                                className="h-4 w-4 cursor-pointer rounded border-gray-300"
-                              />
+      {SubModuleIcon ? (
+        <SubModuleIcon className="text-base text-gray-500" />
+      ) : (
+        <RiIcons.RiFileListLine className="text-base text-gray-500" />
+      )}
 
-                              {SubModuleIcon ? (
-                                <SubModuleIcon className="text-base text-gray-500" />
-                              ) : (
-                                <RiIcons.RiFileListLine className="text-base text-gray-500" />
-                              )}
-
-                              <span className="whitespace-nowrap text-sm text-gray-700">
-                                {subModule.name}
-                              </span>
-                            </label>
-                          );
-                        }
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+      <span className="whitespace-nowrap text-sm text-gray-700">
+        {subModule.name}
+      </span>
+    </label>
+  );
+})}
+      </div>
+    </div>
+  );
+})}
             </div>
           </div>
         </div>

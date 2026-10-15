@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 
@@ -135,6 +134,7 @@ function hasModulePermission(
 
   const normalized = normalizePermissions(permissions);
 
+  // Check whether any submodule of this module is enabled.
   if (!action) {
     return Object.entries(normalized).some(
       ([key, value]) => {
@@ -161,6 +161,7 @@ function hasModulePermission(
     return true;
   }
 
+  // Preserve the existing rule: Manage also grants access.
   if (subModuleId !== SUBMODULE_IDS.manage) {
     return isPermissionEnabled(
       normalized[`${id}.${SUBMODULE_IDS.manage}`]
@@ -168,6 +169,14 @@ function hasModulePermission(
   }
 
   return false;
+}
+
+function normalizeRoleValue(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]/g, " ")
+    .replace(/\s+/g, " ");
 }
 
 function SkeletonCard() {
@@ -205,9 +214,7 @@ function SectionLoader({ message }) {
     >
       <div className="text-center">
         <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
-        <p className="text-sm text-gray-600">
-          {message}
-        </p>
+        <p className="text-sm text-gray-600">{message}</p>
       </div>
     </div>
   );
@@ -218,13 +225,11 @@ export default function Dashboard() {
   const searchParams = useSearchParams();
 
   const [roleId, setRoleId] = useState(null);
-
   const [roles, setRoles] = useState([]);
   const [modules, setModules] = useState([]);
 
   const [rolesLoading, setRolesLoading] = useState(true);
   const [modulesLoading, setModulesLoading] = useState(true);
-
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(false);
   const [keySettingsLoading, setKeySettingsLoading] = useState(true);
@@ -235,7 +240,6 @@ export default function Dashboard() {
   const [page, setPage] = useState(1);
 
   const [keySettings, setKeySettings] = useState([]);
-
   const [staffPermissions, setStaffPermissions] = useState({});
   const [staffPermissionsLoaded, setStaffPermissionsLoaded] =
     useState(false);
@@ -243,7 +247,6 @@ export default function Dashboard() {
   const [dashboardError, setDashboardError] = useState("");
   const [usersError, setUsersError] = useState("");
 
-  // Prevent older requests from overwriting newer results.
   const requestSequenceRef = useRef(0);
 
   const urlRoleParam = searchParams.get("role");
@@ -253,7 +256,7 @@ export default function Dashboard() {
   const hasModuleParam = moduleParam !== null;
   const isDashboardHome = !hasRoleParam && !hasModuleParam;
 
-  // Get logged-in role.
+  // Get the logged-in user's role.
   useEffect(() => {
     const currentRoleId = getRoleId();
 
@@ -262,7 +265,7 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Load roles.
+  // Load active roles.
   useEffect(() => {
     let cancelled = false;
 
@@ -396,7 +399,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Load staff permissions from localStorage.
+  // Load Staff permissions from localStorage.
   useEffect(() => {
     if (roleId === null) return;
 
@@ -419,13 +422,49 @@ export default function Dashboard() {
     }
   }, [roleId]);
 
-  const normalizeRoleValue = useCallback((value) => {
-    return String(value ?? "")
-      .trim()
-      .toLowerCase()
-      .replace(/[_-]/g, " ")
-      .replace(/\s+/g, " ");
-  }, []);
+  // Find My Transaction's actual module from the API.
+  const myTransactionModule = useMemo(() => {
+    return (
+      modules.find((item) => {
+        const slug = normalizeRoleValue(item?.slug);
+        const name = normalizeRoleValue(item?.name);
+
+        return (
+          slug === "transaction" ||
+          slug === "my transaction" ||
+          name === "my transaction"
+        );
+      }) || null
+    );
+  }, [modules]);
+
+  // Key Settings visibility is based on My Transaction permission.
+  const canViewKeySettings = useMemo(() => {
+    // Preserve existing visibility for non-Staff roles.
+    if (roleId === null) return false;
+    if (roleId !== 9) return true;
+
+    if (!staffPermissionsLoaded || modulesLoading) {
+      return false;
+    }
+
+    if (!myTransactionModule?.id) {
+      return false;
+    }
+
+    // Require View permission or Manage permission.
+    return hasModulePermission(
+      staffPermissions,
+      myTransactionModule.id,
+      "view"
+    );
+  }, [
+    roleId,
+    staffPermissions,
+    staffPermissionsLoaded,
+    modulesLoading,
+    myTransactionModule,
+  ]);
 
   const getRoleIdFromValue = useCallback(
     (value) => {
@@ -459,7 +498,7 @@ export default function Dashboard() {
         ? Number(moduleItem.role_id)
         : null;
     },
-    [roles, modules, normalizeRoleValue]
+    [roles, modules]
   );
 
   const urlRole = useMemo(
@@ -498,7 +537,7 @@ export default function Dashboard() {
         null
       );
     },
-    [modules, normalizeRoleValue]
+    [modules]
   );
 
   const getModuleForParam = useCallback(
@@ -531,7 +570,7 @@ export default function Dashboard() {
 
       return getModuleForRole(matchedRole);
     },
-    [modules, roles, normalizeRoleValue, getModuleForRole]
+    [modules, roles, getModuleForRole]
   );
 
   const requestedModule = useMemo(
@@ -690,7 +729,7 @@ export default function Dashboard() {
     getModuleForRole,
   ]);
 
-  // Fetch counts and the selected role's user list.
+  // Fetch role-wise counts and the selected role's user list.
   const fetchUsers = useCallback(async () => {
     if (
       roleId === null ||
@@ -707,12 +746,7 @@ export default function Dashboard() {
     setDashboardLoading(true);
     setDashboardError("");
     setUsersError("");
-
-    if (!isDashboardHome && selectedRole !== null) {
-      setUsersLoading(true);
-    } else {
-      setUsersLoading(false);
-    }
+    setUsersLoading(!isDashboardHome && selectedRole !== null);
 
     try {
       const roleCounts = {};
@@ -725,52 +759,43 @@ export default function Dashboard() {
         }
       });
 
-      if (roleId === 9) {
-        // Staff can count only permitted role modules.
-        const permittedRoles = roles.filter((role) => {
-          const moduleItem = getModuleForRole(role);
+      const countableRoles =
+        roleId === 9
+          ? roles.filter((role) => {
+              const moduleItem = getModuleForRole(role);
 
-          return (
-            moduleItem &&
-            hasModulePermission(staffPermissions, moduleItem.id)
-          );
-        });
+              return (
+                moduleItem &&
+                hasModulePermission(
+                  staffPermissions,
+                  moduleItem.id
+                )
+              );
+            })
+          : roles;
 
-        const responses = await Promise.all(
-          permittedRoles.map((role) =>
-            getAllStaffData(1, 1, Number(role.role_id))
-          )
+      const countResponses = await Promise.all(
+        countableRoles.map((role) =>
+          getAllStaffData(1, 1, Number(role.role_id))
+        )
+      );
+
+      countResponses.forEach((response, index) => {
+        const id = Number(countableRoles[index]?.role_id);
+
+        if (!Object.prototype.hasOwnProperty.call(roleCounts, id)) {
+          return;
+        }
+
+        roleCounts[id] = Number(
+          response?.pagination?.totalUsers ??
+          response?.pagination?.total ??
+          0
         );
-
-        responses.forEach((response, index) => {
-          const id = Number(permittedRoles[index]?.role_id);
-
-          roleCounts[id] = Number(
-            response?.pagination?.totalUsers ??
-            response?.pagination?.total ??
-            0
-          );
-        });
-      } else {
-        // Fetch users for calculating role-wise counts.
-        const countResponse = await getAllStaffData(1, 10000, "");
-
-        const allUsers = Array.isArray(countResponse?.data)
-          ? countResponse.data
-          : [];
-
-        allUsers.forEach((user) => {
-          const id = Number(user?.role_id);
-
-          if (Object.prototype.hasOwnProperty.call(roleCounts, id)) {
-            roleCounts[id] += 1;
-          }
-        });
-      }
+      });
 
       if (requestId !== requestSequenceRef.current) return;
 
-      // Counts are ready: update the cards and hide their skeletons.
       setCounts(roleCounts);
       setDashboardLoading(false);
 
@@ -780,11 +805,17 @@ export default function Dashboard() {
         return;
       }
 
-      const response = await getAllStaffData(page, 10, selectedRole);
+      const response = await getAllStaffData(
+        page,
+        10,
+        selectedRole
+      );
 
       if (requestId !== requestSequenceRef.current) return;
 
-      setUsers(Array.isArray(response?.data) ? response.data : []);
+      setUsers(
+        Array.isArray(response?.data) ? response.data : []
+      );
       setPagination(response?.pagination || {});
     } catch (error) {
       if (requestId !== requestSequenceRef.current) return;
@@ -806,7 +837,6 @@ export default function Dashboard() {
       setPagination({});
     } finally {
       if (requestId === requestSequenceRef.current) {
-        // Always stop loaders after the request finishes or fails.
         setDashboardLoading(false);
         setUsersLoading(false);
       }
@@ -816,7 +846,6 @@ export default function Dashboard() {
     rolesLoading,
     modulesLoading,
     roles,
-    modules,
     staffPermissions,
     staffPermissionsLoaded,
     page,
@@ -828,7 +857,6 @@ export default function Dashboard() {
   useEffect(() => {
     fetchUsers();
 
-    // Invalidate this request if dependencies change or the component unmounts.
     return () => {
       requestSequenceRef.current += 1;
     };
@@ -911,61 +939,63 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Key Settings */}
-            <section className="mt-6 rounded-xl bg-white p-5 shadow">
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800">
-                    Key Settings
-                  </h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Current wallet balance
-                  </p>
+            {/* Key Settings: shown only when permitted */}
+    
+              <section className="mt-6 rounded-xl bg-white p-5 shadow">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      Key Settings
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Current wallet balance
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-blue-50 px-4 py-2">
+                    <p className="text-xs text-blue-500">
+                      Total Balance
+                    </p>
+                    <p className="text-lg font-bold text-blue-600">
+                      {keySettingsLoading
+                        ? "Loading..."
+                        : totalKeyBalance.toLocaleString("en-IN")}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="rounded-lg bg-blue-50 px-4 py-2">
-                  <p className="text-xs text-blue-500">
-                    Total Balance
+                {keySettingsLoading ? (
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    {Array.from({ length: 4 }, (_, index) => (
+                      <SkeletonCard key={index} />
+                    ))}
+                  </div>
+                ) : keySettings.length === 0 ? (
+                  <p className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+                    No active key settings found.
                   </p>
-                  <p className="text-lg font-bold text-blue-600">
-                    {keySettingsLoading
-                      ? "Loading..."
-                      : totalKeyBalance.toLocaleString("en-IN")}
-                  </p>
-                </div>
-              </div>
-
-              {keySettingsLoading ? (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {Array.from({ length: 4 }, (_, index) => (
-                    <SkeletonCard key={index} />
-                  ))}
-                </div>
-              ) : keySettings.length === 0 ? (
-                <p className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-                  No active key settings found.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {keySettings.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-xl border border-gray-200 bg-gray-50 p-5"
-                    >
-                      <h3 className="text-sm font-semibold text-gray-700">
-                        {item.name || "Unnamed Key"}
-                      </h3>
-                      <p className="mt-1 text-xs text-gray-400">
-                        Wallet Balance
-                      </p>
-                      <p className="mt-2 text-xl font-bold text-blue-600">
-                        {Number(item?.balance || 0).toLocaleString("en-IN")}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
+                ) : (
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    {keySettings.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-xl border border-gray-200 bg-gray-50 p-5"
+                      >
+                        <h3 className="text-sm font-semibold text-gray-700">
+                          {item.name || "Unnamed Key"}
+                        </h3>
+                        <p className="mt-1 text-xs text-gray-400">
+                          Wallet Balance
+                        </p>
+                        <p className="mt-2 text-xl font-bold text-blue-600">
+                          {Number(item?.balance || 0).toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+          
 
             {/* Charts */}
             {dashboardLoading ? (

@@ -162,31 +162,8 @@ export const loginAsUser = async (
 
 
 export const getModules = async () => {
-  try {
-    const response = await api.get("/modules");
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      // Server returned an error response
-      console.error("GET MODULES API ERROR:", {
-        status: error.response.status,
-        data: error.response.data,
-      });
-    } else if (error.request) {
-      // Request was sent, but no response was received
-      console.error(
-        "GET MODULES NETWORK ERROR:",
-        error.message
-      );
-
-      console.error("API BASE URL:", api.defaults.baseURL);
-      console.error("REQUEST URL:", error.config?.url);
-    } else {
-      console.error("GET MODULES ERROR:", error.message);
-    }
-
-    throw error;
-  }
+  const response = await api.get("/modules");
+  return response.data;
 };
 
 
