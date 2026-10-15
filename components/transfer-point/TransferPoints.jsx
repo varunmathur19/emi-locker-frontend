@@ -62,19 +62,25 @@ const getArrayFromResponse = (response) => {
   const candidates = [
     response,
     response?.data,
+    response?.users,
+    response?.roles,
+    response?.keys,
+    response?.transactions,
     response?.data?.data,
     response?.data?.users,
     response?.data?.roles,
     response?.data?.keys,
     response?.data?.transactions,
-    response?.users,
-    response?.roles,
-    response?.keys,
-    response?.transactions,
   ];
 
   return candidates.find(Array.isArray) || [];
 };
+
+const getResponsePayload = (response) =>
+  response?.data && !Array.isArray(response.data)
+    ? response.data
+    : response;
+
 
 const getUserName = (user) =>
   user?.name ||
@@ -814,14 +820,20 @@ const nextRoleId = useMemo(() => {
 const loadUsersByRole = useCallback(async (targetRoleId) => {
   const role = Number(targetRoleId);
 
-  if (!Number.isFinite(role)) return [];
+  if (!Number.isInteger(role) || role < 0 || role > 9) {
+    return [];
+  }
 
   const limit = 1000;
   let page = 1;
-  let allUsers = [];
   let totalPages = 1;
+  const allUsers = [];
+  const seenPages = new Set();
 
   do {
+    if (seenPages.has(page)) break;
+    seenPages.add(page);
+
     const response = await getAllStaffData(
       page,
       limit,
@@ -830,24 +842,25 @@ const loadUsersByRole = useCallback(async (targetRoleId) => {
       ""
     );
 
-    const users = getArrayFromResponse(response);
+    const payload = getResponsePayload(response);
+    const pageUsers = getArrayFromResponse(response);
 
-    allUsers = [...allUsers, ...users];
+    allUsers.push(...pageUsers);
 
-    const responseData = response?.data ?? response;
-    const paginationData =
-      responseData?.pagination ??
-      responseData?.data?.pagination ??
-      responseData?.meta ??
-      responseData?.data?.meta;
+    const pagination =
+      payload?.pagination ??
+      payload?.data?.pagination ??
+      payload?.meta ??
+      payload?.data?.meta;
 
-    if (paginationData?.totalPages) {
-      totalPages = Number(paginationData.totalPages);
-    } else if (paginationData?.lastPage) {
-      totalPages = Number(paginationData.lastPage);
-    } else if (paginationData?.total != null) {
-      totalPages = Math.ceil(
-        Number(paginationData.total) / limit
+    if (pagination?.totalPages != null) {
+      totalPages = Math.max(1, Number(pagination.totalPages) || 1);
+    } else if (pagination?.lastPage != null) {
+      totalPages = Math.max(1, Number(pagination.lastPage) || 1);
+    } else if (pagination?.total != null) {
+      totalPages = Math.max(
+        1,
+        Math.ceil(Number(pagination.total) / limit)
       );
     } else {
       totalPages = page;
@@ -856,13 +869,14 @@ const loadUsersByRole = useCallback(async (targetRoleId) => {
     page += 1;
   } while (page <= totalPages);
 
-  // Keep only users belonging to the selected role.
   const uniqueUsers = new Map();
 
   allUsers
     .filter((user) => Number(user?.role_id) === role)
     .forEach((user) => {
-      uniqueUsers.set(String(user.id), user);
+      if (user?.id != null) {
+        uniqueUsers.set(String(user.id), user);
+      }
     });
 
   return Array.from(uniqueUsers.values());
@@ -904,30 +918,38 @@ const loadTransferUsers = useCallback(
       let users = [];
 
       if (currentRole === 9) {
-        // Staff: backend creator ki hierarchy ke according
-        // transferTargetRoleId aur authorized users return karega.
+        // Staff: target role backend ki hierarchy se aayega.
+        // Role 2 hardcode karne se doosri hierarchy mein
+        // valid users filter out ho sakte hain.
         const response = await getAllStaffData(
           1,
           1000,
-          2,
+          "",
           "",
           ""
         );
 
-        const responseData = response?.data ?? response;
+        const payload = getResponsePayload(response);
 
         targetRoleId = Number(
-          responseData?.transferTargetRoleId ??
-            responseData?.data?.transferTargetRoleId ??
+          payload?.transferTargetRoleId ??
+            payload?.data?.transferTargetRoleId ??
             response?.transferTargetRoleId
         );
 
-        users = getArrayFromResponse(response);
-
         if (
           !Number.isInteger(targetRoleId) ||
-          targetRoleId <= 0
+          targetRoleId <= 0 ||
+          targetRoleId > 9
         ) {
+          console.error(
+            "STAFF TRANSFER TARGET ROLE MISSING:",
+            {
+              response,
+              targetRoleId,
+            }
+          );
+
           setTransferTargetRoleId(null);
           setTransferUsers([]);
           setSelectedTransferUser("");
@@ -936,15 +958,50 @@ const loadTransferUsers = useCallback(
 
         setTransferTargetRoleId(targetRoleId);
 
-        // Backend ka hierarchy filter primary security boundary hai.
-        // Frontend par target role bhi verify kiya ja raha hai.
+        // Backend response ke supported array structures ko parse karo.
+        users = getArrayFromResponse(response);
+
+        // Agar pagination mein aur pages hain, unhe bhi load karo.
+        const pagination =
+          payload?.pagination ??
+          payload?.data?.pagination ??
+          payload?.meta ??
+          payload?.data?.meta;
+
+        const totalPages = Math.max(
+          1,
+          Number(
+            pagination?.totalPages ??
+              pagination?.lastPage ??
+              (pagination?.total != null
+                ? Math.ceil(Number(pagination.total) / 1000)
+                : 1)
+          ) || 1
+        );
+
+        for (let page = 2; page <= totalPages; page += 1) {
+          const pageResponse = await getAllStaffData(
+            page,
+            1000,
+            "",
+            "",
+            ""
+          );
+
+          users = [
+            ...users,
+            ...getArrayFromResponse(pageResponse),
+          ];
+        }
+
+        // Staff ko sirf backend-authorized target role ke users dikhao.
         users = users.filter(
           (user) =>
             Number(user?.role_id) === targetRoleId &&
             Number(user?.id) !== currentUserId
         );
       } else {
-        // Non-Staff users ka existing behavior unchanged.
+        // Baaki roles ka existing next-active-role behavior.
         targetRoleId = findNextActiveRole(
           currentRole,
           activeRoles
@@ -965,10 +1022,34 @@ const loadTransferUsers = useCallback(
         );
       }
 
-      setTransferUsers(users);
+      // Duplicate users hatao.
+      const uniqueUsers = new Map();
+
+      users.forEach((user) => {
+        if (user?.id != null) {
+          uniqueUsers.set(String(user.id), user);
+        }
+      });
+
+      const finalUsers = Array.from(uniqueUsers.values());
+
+      console.log("TRANSFER USERS DEBUG:", {
+        currentRole,
+        targetRoleId,
+        currentUserId,
+        receivedUsers: users.length,
+        finalUsers: finalUsers.length,
+        userRoleIds: [
+          ...new Set(
+            finalUsers.map((user) => Number(user.role_id))
+          ),
+        ],
+      });
+
+      setTransferUsers(finalUsers);
 
       setSelectedTransferUser((previous) =>
-        users.some(
+        finalUsers.some(
           (user) => String(user?.id) === String(previous)
         )
           ? previous
@@ -977,7 +1058,7 @@ const loadTransferUsers = useCallback(
     } catch (error) {
       console.error(
         "GET TRANSFER USERS ERROR:",
-        getErrorMessage(error)
+        error?.response?.data || error
       );
 
       setTransferTargetRoleId(null);
