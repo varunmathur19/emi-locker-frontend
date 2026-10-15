@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -110,7 +109,7 @@ const filterUsers = (users, search) => {
 };
 
 const getUserKeyBalance = (user, key) => {
-  if (!user?.wallet_balance || !key) return 0;
+  if (!user || !key) return 0;
 
   let wallet = user.wallet_balance;
 
@@ -122,57 +121,87 @@ const getUserKeyBalance = (user, key) => {
     }
   }
 
-  const keyId = String(key?.id ?? "").toLowerCase();
-  const keyName = String(key?.name ?? "").toLowerCase();
+  if (wallet == null) return 0;
+
+  const keyId = String(key.id ?? "").trim();
+  const keyName = String(key.name ?? "").trim().toLowerCase();
 
   const getBalance = (item) => {
-    if (item === null || item === undefined) return 0;
+    if (item == null) return 0;
 
-    if (typeof item === "object") {
-      return Number(item.balance ?? item.amount ?? 0) || 0;
-    }
+    const rawBalance =
+      typeof item === "object"
+        ? item.balance ??
+          item.wallet_balance ??
+          item.available_balance ??
+          item.amount ??
+          item.points ??
+          0
+        : item;
 
-    return Number(item) || 0;
+    const balance = Number(rawBalance);
+
+    return Number.isFinite(balance) && balance >= 0
+      ? balance
+      : 0;
   };
 
   const matchesKey = (item) => {
-    const itemId = String(
-      item?.id ?? item?.key_id ?? ""
-    ).toLowerCase();
+    if (!item || typeof item !== "object") return false;
 
-    const itemName = String(
-      item?.name ?? item?.key_name ?? ""
-    ).toLowerCase();
+    const ids = [
+      item.key_id,
+      item.key_setting_id,
+      item.keySettingId,
+    ]
+      .filter((value) => value != null)
+      .map(String);
+
+    const names = [
+      item.key_name,
+      item.key_setting_name,
+      item.keySettingName,
+      item.name,
+    ]
+      .filter((value) => value != null)
+      .map((value) => String(value).trim().toLowerCase());
 
     return (
-      (keyId && itemId === keyId) ||
-      (keyName && itemName === keyName)
+      (keyId && ids.includes(keyId)) ||
+      (keyName && names.includes(keyName))
     );
   };
 
   if (Array.isArray(wallet)) {
-    return getBalance(wallet.find(matchesKey));
+    const matched = wallet.find(matchesKey);
+    return matched ? getBalance(matched) : 0;
   }
 
-  if (typeof wallet !== "object" || wallet === null) {
-    return 0;
+  if (typeof wallet !== "object") {
+    return getBalance(wallet);
   }
 
-  if (keyName && wallet[key.name] !== undefined) {
-    return getBalance(wallet[key.name]);
+  // Wallet indexed directly by key ID.
+  if (
+    keyId &&
+    Object.prototype.hasOwnProperty.call(wallet, keyId)
+  ) {
+    return getBalance(wallet[keyId]);
   }
 
-  const matched = Object.values(wallet).find(matchesKey);
-
-  if (matched !== undefined) {
-    return getBalance(matched);
-  }
-
-  const matchedKey = Object.keys(wallet).find(
-    (name) => name.toLowerCase() === keyName
+  // Wallet indexed directly by key name.
+  const matchedName = Object.keys(wallet).find(
+    (name) => name.trim().toLowerCase() === keyName
   );
 
-  return matchedKey ? getBalance(wallet[matchedKey]) : 0;
+  if (matchedName !== undefined) {
+    return getBalance(wallet[matchedName]);
+  }
+
+  // Wallet stores key details inside its values.
+  const matchedItem = Object.values(wallet).find(matchesKey);
+
+  return matchedItem ? getBalance(matchedItem) : 0;
 };
 
 const getTransactionTypeName = (type) => {
@@ -522,6 +551,7 @@ export default function TransferPoint() {
 
   const [keySettings, setKeySettings] = useState([]);
   const [selectedKey, setSelectedKey] = useState("");
+  const [currentUserData, setCurrentUserData] = useState(null);
   const [walletBalance, setWalletBalance] = useState(0);
   const [availableBalance, setAvailableBalance] = useState(0);
 
@@ -680,29 +710,54 @@ export default function TransferPoint() {
     setTransactionPinLoading(true);
 
     try {
-      const user = getUser();
-      const userId = Number(user?.id);
+      const loggedInUser = getUser();
+      const userId = Number(loggedInUser?.id);
 
       if (!Number.isFinite(userId) || userId <= 0) {
         setTransactionPin("");
+        setCurrentUserData(null);
+        setWalletBalance(0);
         return;
       }
 
       const response = await getStaffDataById(userId);
+
       let data = response?.data ?? response;
 
       if (Array.isArray(data)) {
-        data = data[0] || {};
-      } else if (data?.data && typeof data.data === "object") {
-        data = Array.isArray(data.data) ? data.data[0] || {} : data.data;
+        data = data[0] ?? {};
       }
 
-      const pin = data?.transaction_pin ?? response?.transaction_pin ?? "";
+      if (data?.user && typeof data.user === "object") {
+        data = data.user;
+      } else if (data?.data && typeof data.data === "object") {
+        data = Array.isArray(data.data)
+          ? data.data[0] ?? {}
+          : data.data;
+      }
 
-      setTransactionPin(pin == null ? "" : String(pin));
+      // Keep local user fields as fallback if the API omits some fields.
+      const normalizedUser = {
+  ...(loggedInUser || {}),
+  ...(data || {}),
+};
+
+      setCurrentUserData(normalizedUser);
+
+      const pin = normalizedUser?.transaction_pin;
+
+      setTransactionPin(
+        pin === null || pin === undefined ? "" : String(pin)
+      );
     } catch (error) {
-      console.error("GET TRANSACTION PIN ERROR:", getErrorMessage(error));
+      console.error(
+        "GET CURRENT USER DATA ERROR:",
+        getErrorMessage(error)
+      );
+
       setTransactionPin("");
+      setCurrentUserData(null);
+      setWalletBalance(0);
     } finally {
       setTransactionPinLoading(false);
     }
@@ -713,40 +768,46 @@ export default function TransferPoint() {
 
     try {
       const response = await getKeySettings();
+
       const activeKeys = getArrayFromResponse(response).filter(
         (item) => Number(item?.status) === 1
       );
 
       setKeySettings(activeKeys);
 
-      if (isSchemaTransfer || activeKeys.length === 0) {
+      if (activeKeys.length === 0) {
         setSelectedKey("");
         setWalletBalance(0);
-        return activeKeys;
+        setAvailableBalance(0);
+        return [];
       }
 
       setSelectedKey((previous) => {
-        const selected =
+        const selectedKeyItem =
           activeKeys.find(
             (item) => String(item?.id) === String(previous)
           ) || activeKeys[0];
 
-        setWalletBalance(Number(selected?.balance || 0));
-        return String(selected?.id ?? "");
+        return String(selectedKeyItem?.id ?? "");
       });
 
       return activeKeys;
     } catch (error) {
-      console.error("GET KEY SETTINGS ERROR:", getErrorMessage(error));
+      console.error(
+        "GET KEY SETTINGS ERROR:",
+        getErrorMessage(error)
+      );
+
       setKeySettings([]);
       setSelectedKey("");
       setWalletBalance(0);
       setAvailableBalance(0);
+
       return [];
     } finally {
       setLoading(false);
     }
-  }, [isSchemaTransfer]);
+  }, []);
 
   const loadRoles = useCallback(async () => {
     setLoadingRoles(true);
@@ -988,7 +1049,10 @@ export default function TransferPoint() {
     };
 
     initializePage().catch((error) => {
-      console.error("TRANSFER PAGE INITIALIZATION ERROR:", getErrorMessage(error));
+      console.error(
+        "TRANSFER PAGE INITIALIZATION ERROR:",
+        getErrorMessage(error)
+      );
     });
 
     return () => {
@@ -1006,6 +1070,7 @@ export default function TransferPoint() {
     loadRecentTransactions();
   }, [loadRecentTransactions, roleId]);
 
+  // Balance of the selected recipient, used for revert/schema operations.
   useEffect(() => {
     let selectedUser = null;
 
@@ -1024,7 +1089,9 @@ export default function TransferPoint() {
 
     const balance = getUserKeyBalance(selectedUser, selectedKeyData);
 
-    setAvailableBalance(Number.isFinite(balance) ? balance : 0);
+    setAvailableBalance(
+      Number.isFinite(balance) && balance >= 0 ? balance : 0
+    );
   }, [
     isRevert,
     isSchemaTransfer,
@@ -1034,16 +1101,31 @@ export default function TransferPoint() {
     selectedKeyData,
   ]);
 
+  // FIX: Balance of the logged-in user for the currently selected key.
+useEffect(() => {
+  if (!selectedKeyData || !currentUserData) {
+    setWalletBalance(0);
+    return;
+  }
+
+  const balance = getUserKeyBalance(
+    currentUserData,
+    selectedKeyData
+  );
+
+  setWalletBalance(
+    Number.isFinite(balance) && balance >= 0
+      ? balance
+      : 0
+  );
+}, [currentUserData, selectedKeyData]);
+
   /* -------------------------------- HANDLERS ------------------------------- */
 
   const handleKeySelect = (id) => {
     const keyId = String(id);
-    const key = keySettings.find(
-      (item) => String(item?.id) === keyId
-    );
 
     setSelectedKey(keyId);
-    setWalletBalance(Number(key?.balance || 0));
     setAvailableBalance(0);
     setTransferPoint("");
     setTransactionPinEntry("");
@@ -1151,128 +1233,161 @@ export default function TransferPoint() {
     setRevertUsers([]);
   };
 
-  const handleTransfer = async () => {
-    if (!selectedKey) {
-      toast.error("Please select a key setting.");
+ const handleTransfer = async () => {
+  const loggedInRole = Number(getRoleId());
+
+  if (!selectedKey) {
+    toast.error("Please select a key setting.");
+    return;
+  }
+
+  if (transactionPinEntry.length !== 4) {
+    toast.error("Please enter a valid 4-digit transaction PIN.");
+    return;
+  }
+
+  // Validate the selected recipient.
+  if (isRevert) {
+    if (!selectedFromRole) {
+      toast.error("Please select a role.");
       return;
     }
 
-    if (transactionPinEntry.length !== 4) {
-      toast.error("Please enter a valid 4-digit transaction PIN.");
-      return;
-    }
-
-    if (isRevert) {
-      if (!selectedFromRole) {
-        toast.error("Please select a role.");
-        return;
-      }
-
-      if (!selectedRevertUser) {
-        toast.error("Please select a user.");
-        return;
-      }
-    } else if (isSchemaTransfer) {
-      if (!selectedSchemaRole) {
-        toast.error("Please select a role.");
-        return;
-      }
-
-      if (!selectedSchemaUser) {
-        toast.error("Please select a user.");
-        return;
-      }
-    } else if (!selectedTransferUser) {
+    if (!selectedRevertUser) {
       toast.error("Please select a user.");
       return;
     }
-
-    const points = Number(transferPoint);
-
-    if (!Number.isFinite(points) || points <= 0) {
-      toast.error(
-        isRevert
-          ? "Please enter valid revert points."
-          : "Please enter valid transfer points."
-      );
+  } else if (isSchemaTransfer) {
+    if (!selectedSchemaRole) {
+      toast.error("Please select a role.");
       return;
     }
 
-    const balance = isRevert ? availableBalance : walletBalance;
+    if (!selectedSchemaUser) {
+      toast.error("Please select a user.");
+      return;
+    }
+  } else if (!selectedTransferUser) {
+    toast.error("Please select a user.");
+    return;
+  }
+
+  const points = Number(transferPoint);
+
+  if (!Number.isFinite(points) || points <= 0) {
+    toast.error(
+      isRevert
+        ? "Please enter valid revert points."
+        : "Please enter valid transfer points."
+    );
+    return;
+  }
+
+  /*
+   * Staff (role 9):
+   * Do not block the request using the Staff account's local wallet balance.
+   * The backend must validate the actual parent wallet balance.
+   *
+   * Revert:
+   * Validate against the selected user's available balance.
+   *
+   * Other roles:
+   * Validate against the logged-in user's wallet balance.
+   */
+  if (isRevert) {
+    const balance = Number(availableBalance || 0);
 
     if (points > balance) {
       toast.error(
-        `Insufficient balance. Available balance is ${Number(
-          balance || 0
-        ).toLocaleString("en-IN")}.`
+        `Insufficient balance. Available balance is ${balance.toLocaleString(
+          "en-IN"
+        )}.`
       );
       return;
     }
+  } else if (loggedInRole !== 9) {
+    const balance = Number(walletBalance || 0);
 
-    const targetUserId = isRevert
-      ? selectedRevertUser
-      : isSchemaTransfer
-        ? selectedSchemaUser
-        : selectedTransferUser;
-
-    const previousFromRole = selectedFromRole;
-    const previousSchemaRole = selectedSchemaRole;
-
-    try {
-      setTransferLoading(true);
-
-      const response = await transferWalletPoints(
-        targetUserId,
-        selectedKey,
-        points,
-        transactionType,
-        transactionPinEntry
+    if (points > balance) {
+      toast.error(
+        `Insufficient balance. Available balance is ${balance.toLocaleString(
+          "en-IN"
+        )}.`
       );
-
-      if (!response?.success) {
-        toast.error(response?.message || "Failed to process points.");
-        return;
-      }
-
-      toast.success(
-        response?.message ||
-          (isRevert
-            ? "Points reverted successfully."
-            : isSchemaTransfer
-              ? "Schema transferred successfully."
-              : "Points transferred successfully.")
-      );
-
-      resetAllFields();
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("wallet_balance_updated"));
-      }
-
-      await Promise.all([
-        loadKeySettings(),
-        loadRecentTransactions(),
-        loadTransactionPin(),
-      ]);
-
-      const currentRole = Number(getRoleId());
-
-      if (Number.isFinite(currentRole)) {
-        if (isRevert && previousFromRole) {
-          await loadRevertUsers(Number(previousFromRole));
-        } else if (isSchemaTransfer && previousSchemaRole) {
-          await loadSchemaUsers(Number(previousSchemaRole));
-        } else if (!isRevert && !isSchemaTransfer) {
-          await loadTransferUsers(currentRole, roles);
-        }
-      }
-    } catch (error) {
-      console.error("TRANSFER WALLET POINTS ERROR:", getErrorMessage(error));
-      toast.error(getErrorMessage(error) || "Failed to transfer points.");
-    } finally {
-      setTransferLoading(false);
+      return;
     }
-  };
+  }
+
+  const targetUserId = isRevert
+    ? selectedRevertUser
+    : isSchemaTransfer
+      ? selectedSchemaUser
+      : selectedTransferUser;
+
+  const previousFromRole = selectedFromRole;
+  const previousSchemaRole = selectedSchemaRole;
+
+  try {
+    setTransferLoading(true);
+
+    const response = await transferWalletPoints(
+      targetUserId,
+      selectedKey,
+      points,
+      transactionType,
+      transactionPinEntry
+    );
+
+    if (!response?.success) {
+      toast.error(response?.message || "Failed to process points.");
+      return;
+    }
+
+    toast.success(
+      response.message ||
+        (isRevert
+          ? "Points reverted successfully."
+          : isSchemaTransfer
+            ? "Schema transferred successfully."
+            : "Points transferred successfully.")
+    );
+
+    resetAllFields();
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("wallet_balance_updated"));
+    }
+
+    await Promise.all([
+      loadKeySettings(),
+      loadRecentTransactions(),
+      loadTransactionPin(),
+    ]);
+
+    const currentRole = Number(getRoleId());
+
+    if (Number.isFinite(currentRole)) {
+      if (isRevert && previousFromRole) {
+        await loadRevertUsers(Number(previousFromRole));
+      } else if (isSchemaTransfer && previousSchemaRole) {
+        await loadSchemaUsers(Number(previousSchemaRole));
+      } else if (!isRevert && !isSchemaTransfer) {
+        await loadTransferUsers(currentRole, roles);
+      }
+    }
+  } catch (error) {
+    console.error(
+      "TRANSFER WALLET POINTS ERROR:",
+      getErrorMessage(error)
+    );
+
+    toast.error(
+      getErrorMessage(error) || "Failed to transfer points."
+    );
+  } finally {
+    setTransferLoading(false);
+  }
+};
 
   /* ------------------------------- PIN FIELDS ----------------------------- */
 
@@ -1286,7 +1401,9 @@ export default function TransferPoint() {
         type="text"
         value={transactionPinLoading ? "" : transactionPin}
         readOnly
-        placeholder={transactionPinLoading ? "Loading PIN..." : "Transaction PIN"}
+        placeholder={
+          transactionPinLoading ? "Loading PIN..." : "Transaction PIN"
+        }
         className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none"
       />
     </div>
@@ -1313,10 +1430,14 @@ export default function TransferPoint() {
 
         <button
           type="button"
-          onClick={() => setShowTransactionPin((previous) => !previous)}
+          onClick={() =>
+            setShowTransactionPin((previous) => !previous)
+          }
           disabled={transferLoading || !transactionPinEntry}
           aria-label={
-            showTransactionPin ? "Hide transaction PIN" : "Show transaction PIN"
+            showTransactionPin
+              ? "Hide transaction PIN"
+              : "Show transaction PIN"
           }
           className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 transition hover:text-gray-700 disabled:cursor-not-allowed disabled:text-gray-300"
         >
