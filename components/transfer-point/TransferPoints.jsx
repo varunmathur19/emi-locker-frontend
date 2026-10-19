@@ -21,10 +21,6 @@ import {
 
 import { getRoleId, getUser } from "@/utils/token";
 
-/* -------------------------------------------------------------------------- */
-/* CONSTANTS                                                                  */
-/* -------------------------------------------------------------------------- */
-
 const ROLE_NAMES = {
   0: "Master Admin",
   1: "Admin",
@@ -57,10 +53,6 @@ const TRANSACTION_TYPES = {
   REVERT: 2,
 };
 
-/* -------------------------------------------------------------------------- */
-/* HELPERS                                                                    */
-/* -------------------------------------------------------------------------- */
-
 const getErrorMessage = (error) =>
   error?.response?.data?.message ||
   error?.message ||
@@ -70,19 +62,25 @@ const getArrayFromResponse = (response) => {
   const candidates = [
     response,
     response?.data,
+    response?.users,
+    response?.roles,
+    response?.keys,
+    response?.transactions,
     response?.data?.data,
     response?.data?.users,
     response?.data?.roles,
     response?.data?.keys,
     response?.data?.transactions,
-    response?.users,
-    response?.roles,
-    response?.keys,
-    response?.transactions,
   ];
 
   return candidates.find(Array.isArray) || [];
 };
+
+const getResponsePayload = (response) =>
+  response?.data && !Array.isArray(response.data)
+    ? response.data
+    : response;
+
 
 const getUserName = (user) =>
   user?.name ||
@@ -180,16 +178,12 @@ const getUserKeyBalance = (user, key) => {
   if (typeof wallet !== "object") {
     return getBalance(wallet);
   }
-
-  // Wallet indexed directly by key ID.
   if (
     keyId &&
     Object.prototype.hasOwnProperty.call(wallet, keyId)
   ) {
     return getBalance(wallet[keyId]);
   }
-
-  // Wallet indexed directly by key name.
   const matchedName = Object.keys(wallet).find(
     (name) => name.trim().toLowerCase() === keyName
   );
@@ -197,8 +191,6 @@ const getUserKeyBalance = (user, key) => {
   if (matchedName !== undefined) {
     return getBalance(wallet[matchedName]);
   }
-
-  // Wallet stores key details inside its values.
   const matchedItem = Object.values(wallet).find(matchesKey);
 
   return matchedItem ? getBalance(matchedItem) : 0;
@@ -313,10 +305,6 @@ const getTransactionPartyId = (transaction, side) => {
 
   return Number(value);
 };
-
-/* -------------------------------------------------------------------------- */
-/* USER DROPDOWN                                                              */
-/* -------------------------------------------------------------------------- */
 
 function UserDropdown({
   value,
@@ -447,10 +435,6 @@ function UserDropdown({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* ROLE DROPDOWN                                                              */
-/* -------------------------------------------------------------------------- */
-
 function RoleDropdown({
   value,
   roles = [],
@@ -524,10 +508,6 @@ function RoleDropdown({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* MAIN COMPONENT                                                             */
-/* -------------------------------------------------------------------------- */
-
 export default function TransferPoint() {
   const searchParams = useSearchParams();
 
@@ -547,9 +527,8 @@ export default function TransferPoint() {
   const isSchemaTransfer =
     transactionType === TRANSACTION_TYPES.SCHEMA_TRANSFER;
 
-  /* -------------------------------- STATE --------------------------------- */
-
   const [keySettings, setKeySettings] = useState([]);
+  const [transferTargetRoleId, setTransferTargetRoleId] = useState(null);
   const [selectedKey, setSelectedKey] = useState("");
   const [currentUserData, setCurrentUserData] = useState(null);
   const [walletBalance, setWalletBalance] = useState(0);
@@ -595,8 +574,6 @@ export default function TransferPoint() {
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [recentTransactionsLoading, setRecentTransactionsLoading] =
     useState(false);
-
-  /* ----------------------------- DERIVED DATA ----------------------------- */
 
   const selectedKeyData = useMemo(
     () =>
@@ -666,31 +643,39 @@ export default function TransferPoint() {
     [availableRoleOptions, roleId]
   );
 
-  const nextRoleId = useMemo(() => {
-    if (roleId === null || roleId === undefined) return null;
+const nextRoleId = useMemo(() => {
+  if (roleId === null || roleId === undefined) return null;
 
-    const currentRole = Number(roleId);
-    if (!Number.isFinite(currentRole)) return null;
+  const currentRole = Number(roleId);
 
-    if (currentRole === 9) return 2;
-    if (currentRole === 0) return 1;
+  if (!Number.isFinite(currentRole)) return null;
 
-    let targetRole = NEXT_ROLE_MAP[currentRole];
+  if (currentRole === 9) {
+    const targetRole = Number(transferTargetRoleId);
 
-    while (targetRole !== undefined && targetRole !== null) {
-      const activeRole = roles.find(
-        (role) =>
-          Number(role?.role_id) === Number(targetRole) &&
-          Number(role?.status ?? 1) === 1
-      );
+    return Number.isInteger(targetRole) && targetRole > 0
+      ? targetRole
+      : null;
+  }
 
-      if (activeRole) return Number(activeRole.role_id);
+  if (currentRole === 0) return 1;
 
-      targetRole = NEXT_ROLE_MAP[targetRole];
-    }
+  let targetRole = NEXT_ROLE_MAP[currentRole];
 
-    return null;
-  }, [roleId, roles]);
+  while (targetRole !== undefined && targetRole !== null) {
+    const activeRole = roles.find(
+      (role) =>
+        Number(role?.role_id) === Number(targetRole) &&
+        Number(role?.status ?? 1) === 1
+    );
+
+    if (activeRole) return Number(activeRole.role_id);
+
+    targetRole = NEXT_ROLE_MAP[targetRole];
+  }
+
+  return null;
+}, [roleId, roles, transferTargetRoleId]);
 
   const nextRoleName = ROLE_NAMES[nextRoleId] || "";
 
@@ -703,8 +688,6 @@ export default function TransferPoint() {
     selectedSchemaRoleData?.name ||
     ROLE_NAMES[Number(selectedSchemaRole)] ||
     "";
-
-  /* ------------------------------ API HELPERS ----------------------------- */
 
   const loadTransactionPin = useCallback(async () => {
     setTransactionPinLoading(true);
@@ -735,8 +718,6 @@ export default function TransferPoint() {
           ? data.data[0] ?? {}
           : data.data;
       }
-
-      // Keep local user fields as fallback if the API omits some fields.
       const normalizedUser = {
   ...(loggedInUser || {}),
   ...(data || {}),
@@ -834,17 +815,72 @@ export default function TransferPoint() {
     }
   }, []);
 
-  const loadUsersByRole = useCallback(async (targetRoleId) => {
-    const role = Number(targetRoleId);
+  
+const loadUsersByRole = useCallback(async (targetRoleId) => {
+  const role = Number(targetRoleId);
 
-    if (!Number.isFinite(role)) return [];
+  if (!Number.isInteger(role) || role < 0 || role > 9) {
+    return [];
+  }
 
-    const response = await getAllStaffData(1, 1000, role, "", "");
+  const limit = 1000;
+  let page = 1;
+  let totalPages = 1;
+  const allUsers = [];
+  const seenPages = new Set();
 
-    return getArrayFromResponse(response).filter(
-      (user) => Number(user?.role_id) === role
+  do {
+    if (seenPages.has(page)) break;
+    seenPages.add(page);
+
+    const response = await getAllStaffData(
+      page,
+      limit,
+      role,
+      "",
+      ""
     );
-  }, []);
+
+    const payload = getResponsePayload(response);
+    const pageUsers = getArrayFromResponse(response);
+
+    allUsers.push(...pageUsers);
+
+    const pagination =
+      payload?.pagination ??
+      payload?.data?.pagination ??
+      payload?.meta ??
+      payload?.data?.meta;
+
+    if (pagination?.totalPages != null) {
+      totalPages = Math.max(1, Number(pagination.totalPages) || 1);
+    } else if (pagination?.lastPage != null) {
+      totalPages = Math.max(1, Number(pagination.lastPage) || 1);
+    } else if (pagination?.total != null) {
+      totalPages = Math.max(
+        1,
+        Math.ceil(Number(pagination.total) / limit)
+      );
+    } else {
+      totalPages = page;
+    }
+
+    page += 1;
+  } while (page <= totalPages);
+
+  const uniqueUsers = new Map();
+
+  allUsers
+    .filter((user) => Number(user?.role_id) === role)
+    .forEach((user) => {
+      if (user?.id != null) {
+        uniqueUsers.set(String(user.id), user);
+      }
+    });
+
+  return Array.from(uniqueUsers.values());
+}, []);
+
 
   const findNextActiveRole = useCallback((currentRoleId, activeRoles) => {
     const currentRole = Number(currentRoleId);
@@ -869,13 +905,101 @@ export default function TransferPoint() {
     return null;
   }, []);
 
-  const loadTransferUsers = useCallback(
-    async (currentRoleId, activeRoles = []) => {
-      setLoadingTransferUsers(true);
+const loadTransferUsers = useCallback(
+  async (currentRoleId, activeRoles = []) => {
+    setLoadingTransferUsers(true);
 
-      try {
-        const currentUserId = Number(getUser()?.id);
-        const targetRoleId = findNextActiveRole(currentRoleId, activeRoles);
+    try {
+      const currentUserId = Number(getUser()?.id);
+      const currentRole = Number(currentRoleId);
+
+      let targetRoleId = null;
+      let users = [];
+
+      if (currentRole === 9) {
+        const response = await getAllStaffData(
+          1,
+          1000,
+          "",
+          "",
+          ""
+        );
+
+        const payload = getResponsePayload(response);
+
+        targetRoleId = Number(
+          payload?.transferTargetRoleId ??
+            payload?.data?.transferTargetRoleId ??
+            response?.transferTargetRoleId
+        );
+
+        if (
+          !Number.isInteger(targetRoleId) ||
+          targetRoleId <= 0 ||
+          targetRoleId > 9
+        ) {
+          console.error(
+            "STAFF TRANSFER TARGET ROLE MISSING:",
+            {
+              response,
+              targetRoleId,
+            }
+          );
+
+          setTransferTargetRoleId(null);
+          setTransferUsers([]);
+          setSelectedTransferUser("");
+          return;
+        }
+
+        setTransferTargetRoleId(targetRoleId);
+
+        users = getArrayFromResponse(response);
+
+        const pagination =
+          payload?.pagination ??
+          payload?.data?.pagination ??
+          payload?.meta ??
+          payload?.data?.meta;
+
+        const totalPages = Math.max(
+          1,
+          Number(
+            pagination?.totalPages ??
+              pagination?.lastPage ??
+              (pagination?.total != null
+                ? Math.ceil(Number(pagination.total) / 1000)
+                : 1)
+          ) || 1
+        );
+
+        for (let page = 2; page <= totalPages; page += 1) {
+          const pageResponse = await getAllStaffData(
+            page,
+            1000,
+            "",
+            "",
+            ""
+          );
+
+          users = [
+            ...users,
+            ...getArrayFromResponse(pageResponse),
+          ];
+        }
+
+        users = users.filter(
+          (user) =>
+            Number(user?.role_id) === targetRoleId &&
+            Number(user?.id) !== currentUserId
+        );
+      } else {
+        targetRoleId = findNextActiveRole(
+          currentRole,
+          activeRoles
+        );
+
+        setTransferTargetRoleId(null);
 
         if (targetRoleId === null) {
           setTransferUsers([]);
@@ -883,30 +1007,61 @@ export default function TransferPoint() {
           return;
         }
 
-        const users = await loadUsersByRole(targetRoleId);
-        const filteredUsers = users.filter(
+        users = await loadUsersByRole(targetRoleId);
+
+        users = users.filter(
           (user) => Number(user?.id) !== currentUserId
         );
-
-        setTransferUsers(filteredUsers);
-
-        setSelectedTransferUser((previous) =>
-          filteredUsers.some(
-            (user) => String(user?.id) === String(previous)
-          )
-            ? previous
-            : ""
-        );
-      } catch (error) {
-        console.error("GET TRANSFER USERS ERROR:", getErrorMessage(error));
-        setTransferUsers([]);
-        setSelectedTransferUser("");
-      } finally {
-        setLoadingTransferUsers(false);
       }
-    },
-    [findNextActiveRole, loadUsersByRole]
-  );
+
+      // Duplicate users hatao.
+      const uniqueUsers = new Map();
+
+      users.forEach((user) => {
+        if (user?.id != null) {
+          uniqueUsers.set(String(user.id), user);
+        }
+      });
+
+      const finalUsers = Array.from(uniqueUsers.values());
+
+      console.log("TRANSFER USERS DEBUG:", {
+        currentRole,
+        targetRoleId,
+        currentUserId,
+        receivedUsers: users.length,
+        finalUsers: finalUsers.length,
+        userRoleIds: [
+          ...new Set(
+            finalUsers.map((user) => Number(user.role_id))
+          ),
+        ],
+      });
+
+      setTransferUsers(finalUsers);
+
+      setSelectedTransferUser((previous) =>
+        finalUsers.some(
+          (user) => String(user?.id) === String(previous)
+        )
+          ? previous
+          : ""
+      );
+    } catch (error) {
+      console.error(
+        "GET TRANSFER USERS ERROR:",
+        error?.response?.data || error
+      );
+
+      setTransferTargetRoleId(null);
+      setTransferUsers([]);
+      setSelectedTransferUser("");
+    } finally {
+      setLoadingTransferUsers(false);
+    }
+  },
+  [findNextActiveRole, loadUsersByRole]
+);
 
   const loadSchemaUsers = useCallback(
     async (targetRoleId) => {
@@ -946,52 +1101,60 @@ export default function TransferPoint() {
     [loadUsersByRole]
   );
 
-  const loadRecentTransactions = useCallback(async () => {
-    setRecentTransactionsLoading(true);
+  
+const loadRecentTransactions = useCallback(async () => {
+  setRecentTransactionsLoading(true);
 
-    try {
-      const response = await getWalletTransactions({
-        page: 1,
-        limit: 100,
-        transaction_type: transactionType,
+  try {
+    const response = await getWalletTransactions({
+      page: 1,
+      limit: 100,
+      transaction_type: transactionType,
+    });
+
+    let transactions = getArrayFromResponse(response);
+
+    const currentRoleId = Number(getRoleId());
+    const currentUserId = Number(getUser()?.id);
+
+    if (![0, 1, 9].includes(currentRoleId)) {
+      transactions = transactions.filter((transaction) => {
+        const fromUserId = getTransactionPartyId(
+          transaction,
+          "from"
+        );
+
+        const toUserId = getTransactionPartyId(
+          transaction,
+          "to"
+        );
+
+        return (
+          fromUserId === currentUserId ||
+          toUserId === currentUserId
+        );
       });
-
-      let transactions = getArrayFromResponse(response);
-
-      const currentRoleId = Number(getRoleId());
-      const currentUserId = Number(getUser()?.id);
-
-      if (![0, 1].includes(currentRoleId)) {
-        transactions = transactions.filter((transaction) => {
-          const fromUserId = getTransactionPartyId(transaction, "from");
-          const toUserId = getTransactionPartyId(transaction, "to");
-
-          return (
-            fromUserId === currentUserId ||
-            toUserId === currentUserId
-          );
-        });
-      }
-
-      transactions.sort(
-        (a, b) =>
-          new Date(b?.created_at || 0).getTime() -
-          new Date(a?.created_at || 0).getTime()
-      );
-
-      setRecentTransactions(transactions.slice(0, 5));
-    } catch (error) {
-      console.error(
-        "GET RECENT TRANSACTIONS ERROR:",
-        getErrorMessage(error)
-      );
-      setRecentTransactions([]);
-    } finally {
-      setRecentTransactionsLoading(false);
     }
-  }, [transactionType]);
 
-  /* ----------------------------- INITIAL LOAD ----------------------------- */
+    transactions.sort((a, b) => {
+      const dateA = new Date(a?.created_at || 0).getTime();
+      const dateB = new Date(b?.created_at || 0).getTime();
+
+      return dateB - dateA;
+    });
+
+    setRecentTransactions(transactions.slice(0, 5));
+  } catch (error) {
+    console.error(
+      "GET RECENT TRANSACTIONS ERROR:",
+      getErrorMessage(error)
+    );
+
+    setRecentTransactions([]);
+  } finally {
+    setRecentTransactionsLoading(false);
+  }
+}, [transactionType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1066,11 +1229,10 @@ export default function TransferPoint() {
     loadTransferUsers,
   ]);
 
-  useEffect(() => {
-    loadRecentTransactions();
-  }, [loadRecentTransactions, roleId]);
+useEffect(() => {
+  loadRecentTransactions();
+}, [loadRecentTransactions, roleId]);
 
-  // Balance of the selected recipient, used for revert/schema operations.
   useEffect(() => {
     let selectedUser = null;
 
@@ -1100,8 +1262,6 @@ export default function TransferPoint() {
     selectedTransferUserData,
     selectedKeyData,
   ]);
-
-  // FIX: Balance of the logged-in user for the currently selected key.
 useEffect(() => {
   if (!selectedKeyData || !currentUserData) {
     setWalletBalance(0);
@@ -1119,8 +1279,6 @@ useEffect(() => {
       : 0
   );
 }, [currentUserData, selectedKeyData]);
-
-  /* -------------------------------- HANDLERS ------------------------------- */
 
   const handleKeySelect = (id) => {
     const keyId = String(id);
@@ -1233,8 +1391,7 @@ useEffect(() => {
     setRevertUsers([]);
   };
 
- const handleTransfer = async () => {
-  const loggedInRole = Number(getRoleId());
+const handleTransfer = async () => {
 
   if (!selectedKey) {
     toast.error("Please select a key setting.");
@@ -1245,8 +1402,6 @@ useEffect(() => {
     toast.error("Please enter a valid 4-digit transaction PIN.");
     return;
   }
-
-  // Validate the selected recipient.
   if (isRevert) {
     if (!selectedFromRole) {
       toast.error("Please select a role.");
@@ -1282,31 +1437,8 @@ useEffect(() => {
     );
     return;
   }
-
-  /*
-   * Staff (role 9):
-   * Do not block the request using the Staff account's local wallet balance.
-   * The backend must validate the actual parent wallet balance.
-   *
-   * Revert:
-   * Validate against the selected user's available balance.
-   *
-   * Other roles:
-   * Validate against the logged-in user's wallet balance.
-   */
   if (isRevert) {
     const balance = Number(availableBalance || 0);
-
-    if (points > balance) {
-      toast.error(
-        `Insufficient balance. Available balance is ${balance.toLocaleString(
-          "en-IN"
-        )}.`
-      );
-      return;
-    }
-  } else if (loggedInRole !== 9) {
-    const balance = Number(walletBalance || 0);
 
     if (points > balance) {
       toast.error(
@@ -1388,9 +1520,6 @@ useEffect(() => {
     setTransferLoading(false);
   }
 };
-
-  /* ------------------------------- PIN FIELDS ----------------------------- */
-
   const transactionPinField = (
     <div>
       <label className="mb-2 block text-sm font-semibold text-gray-700">
@@ -1462,9 +1591,6 @@ useEffect(() => {
       : isSchemaTransfer
         ? !selectedSchemaRole || !selectedSchemaUser
         : !selectedTransferUser);
-
-  /* ----------------------------------- UI ---------------------------------- */
-
   return (
     <div className="min-h-screen">
       <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -1605,7 +1731,7 @@ useEffect(() => {
                       type="button"
                       onClick={() => handleKeySelect(item?.id)}
                       disabled={transferLoading}
-                      className={`rounded-lg border px-4 py-3 text-left transition disabled:cursor-not-allowed ${
+                      className={`rounded-lg border px-4 py-3 text-left transition cursor-pointer disabled:cursor-not-allowed ${
                         selected
                           ? "border-blue-500 bg-blue-500 text-white shadow-md"
                           : "border-gray-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
@@ -1633,8 +1759,6 @@ useEffect(() => {
             )}
           </div>
         )}
-
-        {/* REVERT FORM */}
         {isRevert ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
             <div>
@@ -1887,11 +2011,15 @@ useEffect(() => {
                 Recent Transactions
               </h2>
 
-              <p className="mt-1 text-xs text-gray-400">
-                {[0, 1].includes(Number(roleId))
-                  ? "Latest transactions"
-                  : "Your latest transactions"}
-              </p>
+             
+<p className="mt-1 text-xs text-gray-400">
+  {[0, 1].includes(Number(roleId))
+    ? "Latest transactions"
+    : Number(roleId) === 9
+      ? "Your and creator's latest transactions"
+      : "Your latest transactions"}
+</p>
+
             </div>
 
             <span className="rounded-md bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-500">

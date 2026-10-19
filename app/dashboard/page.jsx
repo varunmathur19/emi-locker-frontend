@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -134,7 +133,6 @@ function hasModulePermission(
 
   const normalized = normalizePermissions(permissions);
 
-  // Check whether any submodule of this module is enabled.
   if (!action) {
     return Object.entries(normalized).some(
       ([key, value]) => {
@@ -161,7 +159,6 @@ function hasModulePermission(
     return true;
   }
 
-  // Preserve the existing rule: Manage also grants access.
   if (subModuleId !== SUBMODULE_IDS.manage) {
     return isPermissionEnabled(
       normalized[`${id}.${SUBMODULE_IDS.manage}`]
@@ -205,21 +202,6 @@ function DashboardCardsLoader() {
   );
 }
 
-function SectionLoader({ message }) {
-  return (
-    <div
-      className="flex min-h-[180px] items-center justify-center rounded-xl bg-white p-6 shadow"
-      role="status"
-      aria-live="polite"
-    >
-      <div className="text-center">
-        <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
-        <p className="text-sm text-gray-600">{message}</p>
-      </div>
-    </div>
-  );
-}
-
 export default function Dashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -256,7 +238,6 @@ export default function Dashboard() {
   const hasModuleParam = moduleParam !== null;
   const isDashboardHome = !hasRoleParam && !hasModuleParam;
 
-  // Get the logged-in user's role.
   useEffect(() => {
     const currentRoleId = getRoleId();
 
@@ -313,7 +294,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Load modules.
   useEffect(() => {
     let cancelled = false;
 
@@ -399,7 +379,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Load Staff permissions from localStorage.
   useEffect(() => {
     if (roleId === null) return;
 
@@ -422,7 +401,6 @@ export default function Dashboard() {
     }
   }, [roleId]);
 
-  // Find My Transaction's actual module from the API.
   const myTransactionModule = useMemo(() => {
     return (
       modules.find((item) => {
@@ -438,9 +416,7 @@ export default function Dashboard() {
     );
   }, [modules]);
 
-  // Key Settings visibility is based on My Transaction permission.
   const canViewKeySettings = useMemo(() => {
-    // Preserve existing visibility for non-Staff roles.
     if (roleId === null) return false;
     if (roleId !== 9) return true;
 
@@ -452,7 +428,6 @@ export default function Dashboard() {
       return false;
     }
 
-    // Require View permission or Manage permission.
     return hasModulePermission(
       staffPermissions,
       myTransactionModule.id,
@@ -655,7 +630,6 @@ export default function Dashboard() {
     [roles]
   );
 
-  // Validate module access.
   useEffect(() => {
     if (roleId === null || !hasModuleParam) return;
     if (rolesLoading || modulesLoading) return;
@@ -729,7 +703,15 @@ export default function Dashboard() {
     getModuleForRole,
   ]);
 
-  // Fetch role-wise counts and the selected role's user list.
+  const hasStaffGraphData = useMemo(
+    () =>
+      visibleCards.some(
+        (card) => Number(card.count) > 0
+      ),
+    [visibleCards]
+  );
+
+
   const fetchUsers = useCallback(async () => {
     if (
       roleId === null ||
@@ -881,14 +863,6 @@ export default function Dashboard() {
     modulesLoading ||
     (roleId === 9 && !staffPermissionsLoaded);
 
-  if (initialLoading) {
-    return (
-      <div className="min-h-[250px] bg-gray-100 p-4">
-        <SectionLoader message="Preparing your dashboard..." />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-100">
       <main className="p-0 pt-0">
@@ -917,7 +891,7 @@ export default function Dashboard() {
 
         {isDashboardHome && (
           <>
-            {/* Role counts */}
+    
             {dashboardLoading ? (
               <DashboardCardsLoader />
             ) : (
@@ -939,128 +913,138 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Key Settings: shown only when permitted */}
-    
-              <section className="mt-6 rounded-xl bg-white p-5 shadow">
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-800">
-                      Key Settings
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Current wallet balance
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg bg-blue-50 px-4 py-2">
-                    <p className="text-xs text-blue-500">
-                      Total Balance
-                    </p>
-                    <p className="text-lg font-bold text-blue-600">
-                      {keySettingsLoading
-                        ? "Loading..."
-                        : totalKeyBalance.toLocaleString("en-IN")}
-                    </p>
-                  </div>
+ 
+            <section className="mt-6 rounded-xl bg-white p-5 shadow">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    Key Settings
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Current wallet balance
+                  </p>
                 </div>
 
-                {keySettingsLoading ? (
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                    {Array.from({ length: 4 }, (_, index) => (
-                      <SkeletonCard key={index} />
-                    ))}
-                  </div>
-                ) : keySettings.length === 0 ? (
-                  <p className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-                    No active key settings found.
+                <div className="rounded-lg bg-blue-50 px-4 py-2">
+                  <p className="text-xs text-blue-500">
+                    Total Balance
                   </p>
-                ) : (
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                    {keySettings.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-xl border border-gray-200 bg-gray-50 p-5"
-                      >
-                        <h3 className="text-sm font-semibold text-gray-700">
-                          {item.name || "Unnamed Key"}
-                        </h3>
-                        <p className="mt-1 text-xs text-gray-400">
-                          Wallet Balance
-                        </p>
-                        <p className="mt-2 text-xl font-bold text-blue-600">
-                          {Number(item?.balance || 0).toLocaleString("en-IN")}
-                        </p>
-                      </div>
-                    ))}
+                  <p className="text-lg font-bold text-blue-600">
+                    {keySettingsLoading
+                      ? "Loading..."
+                      : totalKeyBalance.toLocaleString("en-IN")}
+                  </p>
+                </div>
+              </div>
+
+              {keySettingsLoading ? (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <SkeletonCard key={index} />
+                  ))}
+                </div>
+              ) : keySettings.length === 0 ? (
+                <p className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+                  No active key settings found.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {keySettings.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-gray-200 bg-gray-50 p-5"
+                    >
+                      <h3 className="text-sm font-semibold text-gray-700">
+                        {item.name || "Unnamed Key"}
+                      </h3>
+                      <p className="mt-1 text-xs text-gray-400">
+                        Wallet Balance
+                      </p>
+                      <p className="mt-2 text-xl font-bold text-blue-600">
+                        {Number(item?.balance || 0).toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {(
+              roleId !== 9 ||
+              dashboardLoading ||
+              hasStaffGraphData
+            ) && (
+              dashboardLoading ? (
+                <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <div className="animate-pulse rounded-xl bg-white p-5 shadow">
+                    <div className="mb-5 h-5 w-48 rounded bg-gray-200" />
+                    <div className="h-[300px] rounded-lg bg-gray-100" />
                   </div>
-                )}
-              </section>
-          
 
-            {/* Charts */}
-            {dashboardLoading ? (
-              <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-                <SectionLoader message="Loading bar chart..." />
-                <SectionLoader message="Loading pie chart..." />
-              </div>
-            ) : (
-              <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-                <section className="rounded-xl bg-white p-5 shadow">
-                  <h2 className="mb-4 font-semibold text-gray-700">
-                    Role-wise Users (Bar Chart)
-                  </h2>
+                  <div className="animate-pulse rounded-xl bg-white p-5 shadow">
+                    <div className="mb-5 h-5 w-48 rounded bg-gray-200" />
+                    <div className="h-[300px] rounded-lg bg-gray-100" />
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <section className="rounded-xl bg-white p-5 shadow">
+                    <h2 className="mb-4 font-semibold text-gray-700">
+                      Role-wise Users (Bar Chart)
+                    </h2>
 
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={visibleCards}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="title"
-                        tick={{ fontSize: 12 }}
-                        interval={0}
-                        angle={-20}
-                        textAnchor="end"
-                        height={60}
-                      />
-                      <YAxis allowDecimals={false} />
-                      <Tooltip />
-                      <Bar
-                        dataKey="count"
-                        fill="#6366f1"
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </section>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={visibleCards}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="title"
+                          tick={{ fontSize: 12 }}
+                          interval={0}
+                          angle={-20}
+                          textAnchor="end"
+                          height={60}
+                        />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar
+                          dataKey="count"
+                          fill="#6366f1"
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </section>
 
-                <section className="rounded-xl bg-white p-5 shadow">
-                  <h2 className="mb-4 font-semibold text-gray-700">
-                    Role Distribution (Pie Chart)
-                  </h2>
+                  <section className="rounded-xl bg-white p-5 shadow">
+                    <h2 className="mb-4 font-semibold text-gray-700">
+                      Role Distribution (Pie Chart)
+                    </h2>
 
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={visibleCards}
-                        dataKey="count"
-                        nameKey="title"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        label
-                      >
-                        {visibleCards.map((entry, index) => (
-                          <Cell
-                            key={`cell-${entry.roleId}`}
-                            fill={PIE_COLORS[index % PIE_COLORS.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </section>
-              </div>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={visibleCards}
+                          dataKey="count"
+                          nameKey="title"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          label
+                        >
+                          {visibleCards.map((entry, index) => (
+                            <Cell
+                              key={`cell-${entry.roleId}`}
+                              fill={PIE_COLORS[index % PIE_COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </section>
+                </div>
+              )
             )}
           </>
         )}
