@@ -650,7 +650,6 @@ const nextRoleId = useMemo(() => {
 
   if (!Number.isFinite(currentRole)) return null;
 
-  // Staff ka target role uske creator ke according backend se aayega.
   if (currentRole === 9) {
     const targetRole = Number(transferTargetRoleId);
 
@@ -918,9 +917,6 @@ const loadTransferUsers = useCallback(
       let users = [];
 
       if (currentRole === 9) {
-        // Staff: target role backend ki hierarchy se aayega.
-        // Role 2 hardcode karne se doosri hierarchy mein
-        // valid users filter out ho sakte hain.
         const response = await getAllStaffData(
           1,
           1000,
@@ -958,10 +954,8 @@ const loadTransferUsers = useCallback(
 
         setTransferTargetRoleId(targetRoleId);
 
-        // Backend response ke supported array structures ko parse karo.
         users = getArrayFromResponse(response);
 
-        // Agar pagination mein aur pages hain, unhe bhi load karo.
         const pagination =
           payload?.pagination ??
           payload?.data?.pagination ??
@@ -994,14 +988,12 @@ const loadTransferUsers = useCallback(
           ];
         }
 
-        // Staff ko sirf backend-authorized target role ke users dikhao.
         users = users.filter(
           (user) =>
             Number(user?.role_id) === targetRoleId &&
             Number(user?.id) !== currentUserId
         );
       } else {
-        // Baaki roles ka existing next-active-role behavior.
         targetRoleId = findNextActiveRole(
           currentRole,
           activeRoles
@@ -1125,10 +1117,6 @@ const loadRecentTransactions = useCallback(async () => {
     const currentRoleId = Number(getRoleId());
     const currentUserId = Number(getUser()?.id);
 
-    // Staff: backend se aayi hui apni aur creator ki
-    // transactions ko frontend par dobara filter nahi karna.
-    // Admin/Master Admin: API ka complete returned result dikhana.
-    // Other roles: sirf logged-in user ki transactions dikhana.
     if (![0, 1, 9].includes(currentRoleId)) {
       transactions = transactions.filter((transaction) => {
         const fromUserId = getTransactionPartyId(
@@ -1403,8 +1391,7 @@ useEffect(() => {
     setRevertUsers([]);
   };
 
- const handleTransfer = async () => {
-  const loggedInRole = Number(getRoleId());
+const handleTransfer = async () => {
 
   if (!selectedKey) {
     toast.error("Please select a key setting.");
@@ -1452,17 +1439,6 @@ useEffect(() => {
   }
   if (isRevert) {
     const balance = Number(availableBalance || 0);
-
-    if (points > balance) {
-      toast.error(
-        `Insufficient balance. Available balance is ${balance.toLocaleString(
-          "en-IN"
-        )}.`
-      );
-      return;
-    }
-  } else if (loggedInRole !== 9) {
-    const balance = Number(walletBalance || 0);
 
     if (points > balance) {
       toast.error(
@@ -1755,7 +1731,7 @@ useEffect(() => {
                       type="button"
                       onClick={() => handleKeySelect(item?.id)}
                       disabled={transferLoading}
-                      className={`rounded-lg border px-4 py-3 text-left transition disabled:cursor-not-allowed ${
+                      className={`rounded-lg border px-4 py-3 text-left transition cursor-pointer disabled:cursor-not-allowed ${
                         selected
                           ? "border-blue-500 bg-blue-500 text-white shadow-md"
                           : "border-gray-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
