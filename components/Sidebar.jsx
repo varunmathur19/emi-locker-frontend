@@ -634,6 +634,7 @@ export default function Sidebar({ sidebarOpen }) {
       "system-control": "/dashboard/system-controll",
       transaction: "/dashboard/my-transaction",
       "my-transaction": "/dashboard/my-transaction",
+      "user-list": "/dashboard/device-detail",
     };
 
     if (specialPaths[slug]) {

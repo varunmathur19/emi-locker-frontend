@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState ,useRef} from "react";
 import { toast } from "react-toastify";
 import { FiLayers, FiRefreshCw, FiSearch } from "react-icons/fi";
 import {
@@ -18,6 +18,7 @@ export default function SubModule() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [statusLoading, setStatusLoading] = useState(null);
+  const hasFetched = useRef(false);
 
   const loadModules = useCallback(async () => {
     try {
@@ -62,9 +63,13 @@ export default function SubModule() {
   }, []);
 
   useEffect(() => {
-    loadModules();
-    loadSubModules();
-  }, [loadModules, loadSubModules]);
+  if (hasFetched.current) return;
+
+  hasFetched.current = true;
+
+  loadModules();
+  loadSubModules();
+}, [loadModules, loadSubModules]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

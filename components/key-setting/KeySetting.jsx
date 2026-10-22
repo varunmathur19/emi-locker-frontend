@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState ,useRef} from "react";
 import { toast } from "react-toastify";
 import {
   getKeySettings,
@@ -35,6 +35,7 @@ export default function KeySetting() {
   const [search, setSearch] = useState("");
   const [updatingIds, setUpdatingIds] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
+  const hasFetched = useRef(false);
 
   // Fetch all records, including inactive records.
   const fetchKeySettings = useCallback(async () => {
@@ -73,9 +74,12 @@ export default function KeySetting() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchKeySettings();
-  }, [fetchKeySettings]);
+ useEffect(() => {
+  if (hasFetched.current) return;
+
+  hasFetched.current = true;
+  fetchKeySettings();
+}, [fetchKeySettings]);
 
   // Search all settings without filtering by status.
   const filteredSettings = useMemo(() => {

@@ -615,3 +615,12 @@ export const updateCompanySetting = async (formData) => {
 
   return response.data;
 };
+
+
+
+
+//get device data
+export const getDevices = async () => {
+  const response = await api.get("/devices");
+  return response.data;
+};

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo,useRef, useState } from "react";
 import { toast } from "react-toastify";
 
 import {
@@ -407,7 +407,7 @@ function ManagementPanel({
 export default function ModulePage() {
   const [modules, setModules] = useState([]);
   const [roles, setRoles] = useState([]);
-
+const hasFetched = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadingRoles, setLoadingRoles] = useState(true);
 
@@ -471,10 +471,14 @@ export default function ModulePage() {
     }
   }, []);
 
-  useEffect(() => {
-    loadModules();
-    loadRoles();
-  }, [loadModules, loadRoles]);
+useEffect(() => {
+  if (hasFetched.current) return;
+
+  hasFetched.current = true;
+
+  loadModules();
+  loadRoles();
+}, [loadModules, loadRoles]);
 
   const activeModules = modules.filter(
     (item) => Number(item.status) === 1
