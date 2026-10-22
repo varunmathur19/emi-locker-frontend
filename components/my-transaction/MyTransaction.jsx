@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef  } from "react";
 import { toast } from "react-toastify";
 
 import {
@@ -26,6 +26,7 @@ export default function MyTransaction() {
     const [loading, setLoading] = useState(true);
     const [selectedTransaction, setSelectedTransaction] = useState(null);
     const [currentRole, setCurrentRole] = useState(null);
+    const hasFetched = useRef(false);
 
     const [pagination, setPagination] = useState({
         page: 1,
@@ -181,10 +182,13 @@ export default function MyTransaction() {
         }
     }, [pagination.page, pagination.limit]);
 
-    useEffect(() => {
-        getTransactions();
-    }, [getTransactions]);
+  useEffect(() => {
+    if (hasFetched.current) return;
 
+    hasFetched.current = true;
+
+    getTransactions();
+}, [getTransactions]);
     useEffect(() => {
         if (!selectedTransaction) {
             document.body.style.overflow = "";

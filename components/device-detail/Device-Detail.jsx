@@ -4,11 +4,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { getDevices } from "@/services/api";
+import DeviceDetailForm from "./form";
 
 export function DeviceDetail() {
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const hasFetched = useRef(false);
 
@@ -75,6 +77,19 @@ export function DeviceDetail() {
     return `${serverUrl}/${String(imagePath).replace(/^\/+/, "")}`;
   };
 
+  // Show Add Device form on the same page
+  if (showAddForm) {
+    return (
+      <DeviceDetailForm
+        onCancel={() => setShowAddForm(false)}
+        onSuccess={() => {
+          setShowAddForm(false);
+          fetchDevices();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="mx-auto max-w-7xl">
@@ -90,23 +105,30 @@ export function DeviceDetail() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={fetchDevices}
-            disabled={loading}
-            className="shrink-0 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Loading..." : "Refresh"}
-          </button>
+          <div className="flex shrink-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowAddForm(true)}
+              className="cursor-pointer whitespace-nowrap rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700"
+            >
+              + Add Device
+            </button>
+
+            <button
+              type="button"
+              onClick={fetchDevices}
+              disabled={loading}
+              className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Loading..." : "Refresh"}
+            </button>
+          </div>
         </div>
 
         {/* Device Count */}
         {!loading && !error && (
           <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500">
-              Total Devices
-            </p>
-
+            <p className="text-sm text-gray-500">Total Devices</p>
             <p className="mt-1 text-2xl font-bold text-gray-900">
               {devices.length}
             </p>
@@ -127,9 +149,7 @@ export function DeviceDetail() {
         {/* Error */}
         {!loading && error && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-            <p className="font-medium text-red-700">
-              {error}
-            </p>
+            <p className="font-medium text-red-700">{error}</p>
 
             <button
               type="button"
@@ -161,61 +181,20 @@ export function DeviceDetail() {
               <table className="w-full min-w-[1400px] text-left text-sm">
                 <thead className="bg-gray-100 text-xs uppercase tracking-wider text-gray-600">
                   <tr>
-                    <th className="whitespace-nowrap px-4 py-4">
-                      S. No.
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      Brand
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      Enrollment
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      Customer Image
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      Customer Name
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      Registration No.
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      Phone
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      IMEI
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      Retailer
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      Distributor
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      Key Type
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      Status
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      FL Version
-                    </th>
-
-                    <th className="whitespace-nowrap px-4 py-4">
-                      Actions
-                    </th>
+                    <th className="whitespace-nowrap px-4 py-4">S. No.</th>
+                    <th className="whitespace-nowrap px-4 py-4">Brand</th>
+                    <th className="whitespace-nowrap px-4 py-4">Enrollment</th>
+                    <th className="whitespace-nowrap px-4 py-4">Customer Image</th>
+                    <th className="whitespace-nowrap px-4 py-4">Customer Name</th>
+                    <th className="whitespace-nowrap px-4 py-4">Registration No.</th>
+                    <th className="whitespace-nowrap px-4 py-4">Phone</th>
+                    <th className="whitespace-nowrap px-4 py-4">IMEI</th>
+                    <th className="whitespace-nowrap px-4 py-4">Retailer</th>
+                    <th className="whitespace-nowrap px-4 py-4">Distributor</th>
+                    <th className="whitespace-nowrap px-4 py-4">Key Type</th>
+                    <th className="whitespace-nowrap px-4 py-4">Status</th>
+                    <th className="whitespace-nowrap px-4 py-4">FL Version</th>
+                    <th className="whitespace-nowrap px-4 py-4">Actions</th>
                   </tr>
                 </thead>
 
@@ -298,8 +277,7 @@ export function DeviceDetail() {
                       <td className="whitespace-nowrap px-4 py-4">
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            String(device.device_status).toLowerCase() ===
-                            "active"
+                            String(device.device_status).toLowerCase() === "active"
                               ? "bg-green-100 text-green-700"
                               : "bg-gray-100 text-gray-700"
                           }`}

@@ -518,57 +518,63 @@ export default function Sidebar({ sidebarOpen }) {
     [activeRole, activeModule]
   );
 
-  const isModuleLinkActive = useCallback(
-    (moduleItem) => {
-      const slug = String(moduleItem?.slug || "")
-        .trim()
-        .toLowerCase();
+ 
+const isModuleLinkActive = useCallback(
+  (moduleItem) => {
+    const slug = String(moduleItem?.slug || "")
+      .trim()
+      .toLowerCase();
 
-      if (!slug) return false;
+    if (!slug) return false;
 
-      const specialPaths = {
-        "key-settings": "/dashboard/key-setting",
-        "role-permission": "/dashboard/role-permission",
-        "company-setting": "/dashboard/company-setting",
-        "system-control": "/dashboard/system-controll",
-      };
+    const specialPaths = {
+      "key-settings": "/dashboard/key-setting",
+      "role-permission": "/dashboard/role-permission",
+      "company-setting": "/dashboard/company-setting",
+      "system-control": "/dashboard/system-controll",
+      "user-list": "/dashboard/device-detail",
+      transaction: "/dashboard/my-transaction",
+      "my-transaction": "/dashboard/my-transaction",
+    };
 
-      if (specialPaths[slug]) {
-        const targetPath = specialPaths[slug];
+    // Handle special routes, including User List
+    if (specialPaths[slug]) {
+      const targetPath = specialPaths[slug];
 
-        return (
-          pathname === targetPath ||
-          pathname.startsWith(`${targetPath}/`)
-        );
-      }
+      return (
+        pathname === targetPath ||
+        pathname.startsWith(`${targetPath}/`)
+      );
+    }
 
-      if (POINT_TRANSACTION_SLUGS.includes(slug)) {
-        if (
-          pathname !== "/dashboard/transfer-point" &&
-          !pathname.startsWith(
-            "/dashboard/transfer-point/"
-          )
-        ) {
-          return false;
-        }
-
-        return (
-          Number(activeTransactionType) ===
-          POINT_TRANSACTION_TYPES[slug]
-        );
-      }
-
-      if (activeModule && activeModule === slug) {
-        return true;
+    // Handle point transaction modules
+    if (POINT_TRANSACTION_SLUGS.includes(slug)) {
+      if (
+        pathname !== "/dashboard/transfer-point" &&
+        !pathname.startsWith("/dashboard/transfer-point/")
+      ) {
+        return false;
       }
 
       return (
-        pathname === `/dashboard/${slug}` ||
-        pathname.startsWith(`/dashboard/${slug}/`)
+        Number(activeTransactionType) ===
+        POINT_TRANSACTION_TYPES[slug]
       );
-    },
-    [pathname, activeModule, activeTransactionType]
-  );
+    }
+
+    // Handle modules selected through query parameters
+    if (activeModule && activeModule === slug) {
+      return true;
+    }
+
+    // Default route matching
+    return (
+      pathname === `/dashboard/${slug}` ||
+      pathname.startsWith(`/dashboard/${slug}/`)
+    );
+  },
+  [pathname, activeModule, activeTransactionType]
+);
 
   const RoleLink = ({ moduleItem }) => {
     const roleValue = Number(moduleItem?.role_id);
@@ -741,9 +747,9 @@ export default function Sidebar({ sidebarOpen }) {
           return false;
         }
 
-        if (slug === "revert-point" && currentRole !== 0) {
-          return false;
-        }
+        if (slug === "revert-point" && ![0, 1].includes(currentRole)) {
+  return false;
+}
 
         if (slug === "company-setting" && currentRole !== 1) {
           return false;
