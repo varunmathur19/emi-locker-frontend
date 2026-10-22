@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState , useRef} from "react";
 import { toast } from "react-toastify";
 import {
   getCompanySetting,
@@ -11,7 +11,7 @@ export default function SystemControll() {
   const [settings, setSettings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingKey, setUpdatingKey] = useState(null);
-
+const hasFetched = useRef(false);
   const loadCompanySettings = async () => {
     try {
       setLoading(true);
@@ -113,9 +113,12 @@ export default function SystemControll() {
     }
   };
 
-  useEffect(() => {
-    loadCompanySettings();
-  }, []);
+useEffect(() => {
+  if (hasFetched.current) return;
+
+  hasFetched.current = true;
+  loadCompanySettings();
+}, []);
 
   return (
     <div className="">

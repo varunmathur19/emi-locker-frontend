@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { IoMdArrowDropdown } from "react-icons/io";
 import {
@@ -574,6 +574,13 @@ export default function TransferPoint() {
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [recentTransactionsLoading, setRecentTransactionsLoading] =
     useState(false);
+
+  // Share initialization requests across React Strict Mode effect replays.
+  const initializationRequestRef = useRef({
+    transactionType: null,
+    promise: null,
+  });
+  const recentTransactionTypeRef = useRef(null);
 
   const selectedKeyData = useMemo(
     () =>
@@ -1162,11 +1169,30 @@ const loadRecentTransactions = useCallback(async () => {
     const initializePage = async () => {
       setTransactionPinEntry("");
 
-      const [, , activeRoles] = await Promise.all([
-        loadTransactionPin(),
-        loadKeySettings(),
-        loadRoles(),
-      ]);
+      const currentType = Number(transactionType);
+      let request = initializationRequestRef.current;
+
+      if (!request.promise || request.transactionType !== currentType) {
+        const promise = Promise.all([
+          loadTransactionPin(),
+          loadKeySettings(),
+          loadRoles(),
+        ]);
+
+        request = { transactionType: currentType, promise };
+        initializationRequestRef.current = request;
+
+        promise.finally(() => {
+          if (initializationRequestRef.current.promise === promise) {
+            initializationRequestRef.current = {
+              transactionType: null,
+              promise: null,
+            };
+          }
+        }).catch(() => {});
+      }
+
+      const [, , activeRoles] = await request.promise;
 
       if (cancelled) return;
 
@@ -1194,7 +1220,7 @@ const loadRecentTransactions = useCallback(async () => {
 
       setRoleId(currentRole);
 
-      if (transactionType === TRANSACTION_TYPES.SCHEMA_TRANSFER) {
+      if (currentType === TRANSACTION_TYPES.SCHEMA_TRANSFER) {
         setTransferUsers([]);
         setSchemaUsers([]);
         setSelectedSchemaRole("");
@@ -1203,7 +1229,7 @@ const loadRecentTransactions = useCallback(async () => {
         return;
       }
 
-      if (transactionType === TRANSACTION_TYPES.REVERT) {
+      if (currentType === TRANSACTION_TYPES.REVERT) {
         setTransferUsers([]);
         return;
       }
@@ -1229,9 +1255,15 @@ const loadRecentTransactions = useCallback(async () => {
     loadTransferUsers,
   ]);
 
-useEffect(() => {
-  loadRecentTransactions();
-}, [loadRecentTransactions, roleId]);
+  useEffect(() => {
+    const currentType = Number(transactionType);
+
+    // roleId changes during initialization; it should not trigger another fetch.
+    if (recentTransactionTypeRef.current === currentType) return;
+
+    recentTransactionTypeRef.current = currentType;
+    loadRecentTransactions();
+  }, [transactionType, loadRecentTransactions]);
 
   useEffect(() => {
     let selectedUser = null;
@@ -1391,7 +1423,9 @@ useEffect(() => {
     setRevertUsers([]);
   };
 
+
 const handleTransfer = async () => {
+  const loggedInRole = Number(getRoleId());
 
   if (!selectedKey) {
     toast.error("Please select a key setting.");
@@ -1402,6 +1436,7 @@ const handleTransfer = async () => {
     toast.error("Please enter a valid 4-digit transaction PIN.");
     return;
   }
+
   if (isRevert) {
     if (!selectedFromRole) {
       toast.error("Please select a role.");
@@ -1437,14 +1472,32 @@ const handleTransfer = async () => {
     );
     return;
   }
-  if (isRevert) {
-    const balance = Number(availableBalance || 0);
 
-    if (points > balance) {
+  // Revert: selected user's available balance is required.
+  if (isRevert) {
+    const balance = Number(availableBalance ?? 0);
+
+    if (!Number.isFinite(balance) || points > balance) {
       toast.error(
-        `Insufficient balance. Available balance is ${balance.toLocaleString(
-          "en-IN"
-        )}.`
+        `Insufficient balance. Available balance is ${(
+          Number.isFinite(balance) ? balance : 0
+        ).toLocaleString("en-IN")}.`
+      );
+      return;
+    }
+  }
+
+  // Admin and Master Admin: skip frontend wallet balance check.
+  // Staff: retain the existing behavior.
+  // Backend must validate the actual balance before completing a transfer.
+  else if (![0, 1, 9].includes(loggedInRole)) {
+    const balance = Number(walletBalance ?? 0);
+
+    if (!Number.isFinite(balance) || points > balance) {
+      toast.error(
+        `Insufficient balance. Available balance is ${(
+          Number.isFinite(balance) ? balance : 0
+        ).toLocaleString("en-IN")}.`
       );
       return;
     }
@@ -1520,6 +1573,7 @@ const handleTransfer = async () => {
     setTransferLoading(false);
   }
 };
+
   const transactionPinField = (
     <div>
       <label className="mb-2 block text-sm font-semibold text-gray-700">
