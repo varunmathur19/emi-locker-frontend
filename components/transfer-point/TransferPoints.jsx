@@ -1423,7 +1423,8 @@ useEffect(() => {
     setRevertUsers([]);
   };
 
- const handleTransfer = async () => {
+
+const handleTransfer = async () => {
   const loggedInRole = Number(getRoleId());
 
   if (!selectedKey) {
@@ -1435,6 +1436,7 @@ useEffect(() => {
     toast.error("Please enter a valid 4-digit transaction PIN.");
     return;
   }
+
   if (isRevert) {
     if (!selectedFromRole) {
       toast.error("Please select a role.");
@@ -1470,31 +1472,32 @@ useEffect(() => {
     );
     return;
   }
-  if (isRevert) {
-    const balance = Number(availableBalance || 0);
 
-    if (points > balance) {
+  // Revert: selected user's available balance is required.
+  if (isRevert) {
+    const balance = Number(availableBalance ?? 0);
+
+    if (!Number.isFinite(balance) || points > balance) {
       toast.error(
-        `Insufficient balance. Available balance is ${balance.toLocaleString(
-          "en-IN"
-        )}.`
+        `Insufficient balance. Available balance is ${(
+          Number.isFinite(balance) ? balance : 0
+        ).toLocaleString("en-IN")}.`
       );
       return;
     }
-    console.log("Transfer Debug:", {
-  roleId: getRoleId(),
-  points,
-  balance,
-  balanceType: typeof balance,
-});
-  } else if (loggedInRole !== 9) {
-    const balance = Number(walletBalance || 0);
+  }
 
-    if (points > balance) {
+  // Admin and Master Admin: skip frontend wallet balance check.
+  // Staff: retain the existing behavior.
+  // Backend must validate the actual balance before completing a transfer.
+  else if (![0, 1, 9].includes(loggedInRole)) {
+    const balance = Number(walletBalance ?? 0);
+
+    if (!Number.isFinite(balance) || points > balance) {
       toast.error(
-        `Insufficient balance. Available balance is ${balance.toLocaleString(
-          "en-IN"
-        )}.`
+        `Insufficient balance. Available balance is ${(
+          Number.isFinite(balance) ? balance : 0
+        ).toLocaleString("en-IN")}.`
       );
       return;
     }
@@ -1570,6 +1573,7 @@ useEffect(() => {
     setTransferLoading(false);
   }
 };
+
   const transactionPinField = (
     <div>
       <label className="mb-2 block text-sm font-semibold text-gray-700">
