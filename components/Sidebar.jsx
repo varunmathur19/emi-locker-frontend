@@ -62,6 +62,16 @@ const INVALID_PERMISSION_KEYS = [
   "rolePermission",
 ];
 
+const SPECIAL_PATHS = {
+  "key-settings": "/dashboard/key-setting",
+  "role-permission": "/dashboard/role-permission",
+  "company-setting": "/dashboard/company-setting",
+  "system-control": "/dashboard/system-controll",
+  "user-list": "/dashboard/device-detail",
+  transaction: "/dashboard/my-transaction",
+  "my-transaction": "/dashboard/my-transaction",
+};
+
 const getModuleIcon = (iconName, size = 20) => {
   const IconComponent = RiIcons[String(iconName || "").trim()];
 
@@ -137,8 +147,6 @@ const isPermissionEnabled = (value) => {
     if (value.enabled !== undefined) {
       return isPermissionEnabled(value.enabled);
     }
-
-    return false;
   }
 
   return false;
@@ -319,9 +327,7 @@ export default function Sidebar({ sidebarOpen }) {
       const response = await getNormalCompanySetting();
 
       if (response?.success) {
-        setCompanyLogo(
-          response?.data?.company_logo || null
-        );
+        setCompanyLogo(response?.data?.company_logo || null);
       } else {
         setCompanyLogo(null);
       }
@@ -433,7 +439,19 @@ export default function Sidebar({ sidebarOpen }) {
 
   const hasModulePermission = useCallback(
     (moduleItem) => {
-      if (Number(roleId) !== 9) return true;
+      const slug = String(moduleItem?.slug || "")
+        .trim()
+        .toLowerCase();
+
+      // Revert Point should be visible to every role.
+      if (slug === "revert-point") {
+        return true;
+      }
+
+      // Non-staff roles retain their existing access.
+      if (Number(roleId) !== 9) {
+        return true;
+      }
 
       if (!permissions || typeof permissions !== "object") {
         return false;
@@ -441,7 +459,9 @@ export default function Sidebar({ sidebarOpen }) {
 
       const moduleId = Number(moduleItem?.id);
 
-      if (!Number.isFinite(moduleId)) return false;
+      if (!Number.isFinite(moduleId)) {
+        return false;
+      }
 
       return Object.entries(permissions).some(
         ([permissionKey, value]) => {
@@ -518,63 +538,48 @@ export default function Sidebar({ sidebarOpen }) {
     [activeRole, activeModule]
   );
 
- 
-const isModuleLinkActive = useCallback(
-  (moduleItem) => {
-    const slug = String(moduleItem?.slug || "")
-      .trim()
-      .toLowerCase();
+  const isModuleLinkActive = useCallback(
+    (moduleItem) => {
+      const slug = String(moduleItem?.slug || "")
+        .trim()
+        .toLowerCase();
 
-    if (!slug) return false;
+      if (!slug) return false;
 
-    const specialPaths = {
-      "key-settings": "/dashboard/key-setting",
-      "role-permission": "/dashboard/role-permission",
-      "company-setting": "/dashboard/company-setting",
-      "system-control": "/dashboard/system-controll",
-      "user-list": "/dashboard/device-detail",
-      transaction: "/dashboard/my-transaction",
-      "my-transaction": "/dashboard/my-transaction",
-    };
+      if (SPECIAL_PATHS[slug]) {
+        const targetPath = SPECIAL_PATHS[slug];
 
-    // Handle special routes, including User List
-    if (specialPaths[slug]) {
-      const targetPath = specialPaths[slug];
+        return (
+          pathname === targetPath ||
+          pathname.startsWith(`${targetPath}/`)
+        );
+      }
 
-      return (
-        pathname === targetPath ||
-        pathname.startsWith(`${targetPath}/`)
-      );
-    }
+      if (POINT_TRANSACTION_SLUGS.includes(slug)) {
+        if (
+          pathname !== "/dashboard/transfer-point" &&
+          !pathname.startsWith("/dashboard/transfer-point/")
+        ) {
+          return false;
+        }
 
-    // Handle point transaction modules
-    if (POINT_TRANSACTION_SLUGS.includes(slug)) {
-      if (
-        pathname !== "/dashboard/transfer-point" &&
-        !pathname.startsWith("/dashboard/transfer-point/")
-      ) {
-        return false;
+        return (
+          Number(activeTransactionType) ===
+          POINT_TRANSACTION_TYPES[slug]
+        );
+      }
+
+      if (activeModule && activeModule === slug) {
+        return true;
       }
 
       return (
-        Number(activeTransactionType) ===
-        POINT_TRANSACTION_TYPES[slug]
+        pathname === `/dashboard/${slug}` ||
+        pathname.startsWith(`/dashboard/${slug}/`)
       );
-    }
-
-    // Handle modules selected through query parameters
-    if (activeModule && activeModule === slug) {
-      return true;
-    }
-
-    // Default route matching
-    return (
-      pathname === `/dashboard/${slug}` ||
-      pathname.startsWith(`/dashboard/${slug}/`)
-    );
-  },
-  [pathname, activeModule, activeTransactionType]
-);
+    },
+    [pathname, activeModule, activeTransactionType]
+  );
 
   const RoleLink = ({ moduleItem }) => {
     const roleValue = Number(moduleItem?.role_id);
@@ -616,9 +621,7 @@ const isModuleLinkActive = useCallback(
         </span>
 
         <span className="truncate">
-          {moduleItem?.name ||
-            ROLE_MAP[roleValue] ||
-            "Role"}
+          {moduleItem?.name || ROLE_MAP[roleValue] || "Role"}
         </span>
       </Link>
     );
@@ -633,18 +636,8 @@ const isModuleLinkActive = useCallback(
 
     let href = `/dashboard?module=${encodeURIComponent(slug)}`;
 
-    const specialPaths = {
-      "key-settings": "/dashboard/key-setting",
-      "role-permission": "/dashboard/role-permission",
-      "company-setting": "/dashboard/company-setting",
-      "system-control": "/dashboard/system-controll",
-      transaction: "/dashboard/my-transaction",
-      "my-transaction": "/dashboard/my-transaction",
-      "user-list": "/dashboard/device-detail",
-    };
-
-    if (specialPaths[slug]) {
-      href = specialPaths[slug];
+    if (SPECIAL_PATHS[slug]) {
+      href = SPECIAL_PATHS[slug];
     }
 
     if (POINT_TRANSACTION_SLUGS.includes(slug)) {
@@ -695,7 +688,9 @@ const isModuleLinkActive = useCallback(
   const renderRoleLinks = () => {
     const currentRole = Number(roleId);
 
-    if (!Number.isFinite(currentRole)) return null;
+    if (!Number.isFinite(currentRole)) {
+      return null;
+    }
 
     const roleModules = modules.filter((moduleItem) => {
       const moduleRoleId = Number(moduleItem?.role_id);
@@ -747,9 +742,11 @@ const isModuleLinkActive = useCallback(
           return false;
         }
 
-        if (slug === "revert-point" && ![0, 1].includes(currentRole)) {
-  return false;
-}
+        // Revert Point is visible to all roles.
+        // Do not apply role-based hiding or staff permission checks.
+        if (slug === "revert-point") {
+          return true;
+        }
 
         if (slug === "company-setting" && currentRole !== 1) {
           return false;
@@ -819,9 +816,7 @@ const isModuleLinkActive = useCallback(
           <span>Dashboard</span>
         </Link>
 
-        <div className="space-y-2">
-          {renderRoleLinks()}
-        </div>
+        <div className="space-y-2">{renderRoleLinks()}</div>
 
         {Number(roleId) === 0 && (
           <>
@@ -853,9 +848,7 @@ const isModuleLinkActive = useCallback(
           </>
         )}
 
-        <div className="space-y-2">
-          {renderModuleLinks()}
-        </div>
+        <div className="space-y-2">{renderModuleLinks()}</div>
 
         <button
           type="button"
