@@ -112,7 +112,7 @@ export default function Navbar({
 
   return (
     <nav
-      className={`fixed top-0 right-0 z-50 flex h-16 items-center justify-between bg-gradient-to-r from-white via-white to-blue-200 pl-3 pr-8 shadow transition-all duration-300 ${
+      className={`fixed top-0 right-0 z-[99] flex h-16 items-center justify-between bg-gradient-to-r from-white via-white to-blue-200 pl-3 pr-8 shadow transition-all duration-300 ${
         sidebarOpen ? "left-68" : "left-0"
       }`}
     >

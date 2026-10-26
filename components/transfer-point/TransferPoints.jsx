@@ -681,23 +681,18 @@ export default function TransferPoint() {
     [roles, roleId]
   );
 
- const revertRoleOptions = useMemo(() => {
+const revertRoleOptions = useMemo(() => {
   const currentRole = Number(roleId);
 
-  // Master Admin and Admin can select any active child role.
+  // Master Admin and Admin: show all roles except own role and Staff.
   if ([0, 1].includes(currentRole)) {
-    return roles.filter((role) => {
-      const targetRole = Number(role?.role_id);
-
-      return (
-        targetRole >= 2 &&
-        targetRole <= 9 &&
-        Number(role?.status ?? 1) === 1
-      );
-    });
+    return roles.filter(
+      (role) =>
+        Number(role?.role_id) !== currentRole &&
+        Number(role?.role_id) !== 9
+    );
   }
 
-  // Other roles can select only their eligible next role.
   if (
     hierarchyRoleId === null ||
     hierarchyRoleId === undefined ||
@@ -709,29 +704,56 @@ export default function TransferPoint() {
   const expectedRoleId =
     REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
 
-  if (expectedRoleId === undefined) return [];
+  if (expectedRoleId === undefined || expectedRoleId === 9) {
+    return [];
+  }
 
   return roles.filter(
-    (role) =>
-      Number(role?.role_id) === Number(expectedRoleId) &&
-      Number(role?.status ?? 1) === 1
+    (role) => Number(role?.role_id) === Number(expectedRoleId)
   );
 }, [roles, hierarchyRoleId, roleId]);
 
-  const schemaRoleOptions = useMemo(
-    () =>
-      availableRoleOptions.filter((role) => {
-        const currentRole = Number(roleId);
-        const targetRole = Number(role?.role_id);
+const schemaRoleOptions = useMemo(() => {
+  const currentRole = Number(roleId);
 
-        if ([0, 1].includes(currentRole)) return true;
-        if ([2, 3, 4, 5].includes(currentRole)) return targetRole !== 8;
-        if ([6, 7].includes(currentRole)) return targetRole !== 9;
+  if (!Number.isInteger(currentRole)) {
+    return [];
+  }
 
-        return true;
-      }),
-    [availableRoleOptions, roleId]
-  );
+  // Staff ko dropdown mein show nahi karna.
+  if (currentRole === 9) {
+    if (
+      hierarchyRoleId === null ||
+      hierarchyRoleId === undefined ||
+      !Number.isInteger(Number(hierarchyRoleId))
+    ) {
+      return [];
+    }
+
+    const parentRole = Number(hierarchyRoleId);
+
+    return roles.filter((role) => {
+      const targetRole = Number(role?.role_id);
+
+      return (
+        targetRole > parentRole &&
+        targetRole < 9 &&
+        Number(role?.status ?? 1) === 1
+      );
+    });
+  }
+
+  // Show roles below the logged-in role, excluding Staff.
+  return roles.filter((role) => {
+    const targetRole = Number(role?.role_id);
+
+    return (
+      targetRole > currentRole &&
+      targetRole < 9 &&
+      Number(role?.status ?? 1) === 1
+    );
+  });
+}, [roles, roleId, hierarchyRoleId]);
 
   const nextRoleId = useMemo(() => {
     if (roleId === null || roleId === undefined) return null;
@@ -919,30 +941,41 @@ export default function TransferPoint() {
     }
   }, []);
 
-  const loadRoles = useCallback(async () => {
-    setLoadingRoles(true);
+const loadRoles = useCallback(async () => {
+  setLoadingRoles(true);
 
-    try {
-      const response = await getRoles();
+  try {
+    const response = await getRoles();
 
-      const activeRoles = getArrayFromResponse(response)
-        .filter((role) => Number(role?.status ?? 1) === 1)
-        .sort(
-          (a, b) =>
-            Number(a?.sequence ?? a?.role_id ?? 0) -
-            Number(b?.sequence ?? b?.role_id ?? 0)
-        );
+    const allRoles = getArrayFromResponse(response)
+      .filter(
+        (role) =>
+          role?.role_id !== null &&
+          role?.role_id !== undefined &&
+          Number.isInteger(Number(role.role_id))
+      )
+      .sort((a, b) => {
+        const roleA = Number(a.role_id);
+        const roleB = Number(b.role_id);
 
-      setRoles(activeRoles);
-      return activeRoles;
-    } catch (error) {
-      console.error("GET ROLES ERROR:", getErrorMessage(error));
-      setRoles([]);
-      return [];
-    } finally {
-      setLoadingRoles(false);
-    }
-  }, []);
+        // Admin sabse pehle
+        if (roleA === 1) return -1;
+        if (roleB === 1) return 1;
+
+        // Baaki roles role_id ke ascending order mein
+        return roleA - roleB;
+      });
+
+    setRoles(allRoles);
+    return allRoles;
+  } catch (error) {
+    console.error("GET ROLES ERROR:", getErrorMessage(error));
+    setRoles([]);
+    return [];
+  } finally {
+    setLoadingRoles(false);
+  }
+}, []);
 
   const loadUsersByRole = useCallback(async (targetRoleId) => {
     const role = Number(targetRoleId);
@@ -1222,10 +1255,14 @@ const loadRevertUsers = useCallback(
           Number(role?.status ?? 1) === 1
       );
 
-      if (!isActiveRole || selectedRoleId < 2 || selectedRoleId > 9) {
-        toast.error("Please select a valid active role.");
-        return;
-      }
+     const isValidRole = isPrivilegedRole
+  ? selectedRoleId >= 1 && selectedRoleId <= 9
+  : selectedRoleId >= 2 && selectedRoleId <= 9;
+
+if (!isActiveRole || !isValidRole) {
+  toast.error("Please select a valid active role.");
+  return;
+}
 
       // Non-admin users remain restricted to the next role in hierarchy.
       if (!isPrivilegedRole) {
@@ -1569,16 +1606,18 @@ const loadRevertUsers = useCallback(
       Number(item?.status ?? 1) === 1
   );
 
-  if (
-    !Number.isInteger(targetRoleId) ||
-    !isActiveRole ||
-    targetRoleId < 2 ||
-    targetRoleId > 9
-  ) {
-    toast.error("Please select a valid active role.");
-    return;
-  }
+ const isValidRole = isPrivilegedRole
+  ? targetRoleId >= 1 && targetRoleId <= 9
+  : targetRoleId >= 2 && targetRoleId <= 9;
 
+if (
+  !Number.isInteger(targetRoleId) ||
+  !isActiveRole ||
+  !isValidRole
+) {
+  toast.error("Please select a valid active role.");
+  return;
+}
   if (!isPrivilegedRole) {
     const expectedRoleId =
       REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
@@ -1691,14 +1730,14 @@ const loadRevertUsers = useCallback(
       Number(role?.status ?? 1) === 1
   );
 
-  if (
-    !isActiveRole ||
-    selectedRoleId < 2 ||
-    selectedRoleId > 9
-  ) {
-    toast.error("Please select a valid active role.");
-    return;
-  }
+  const isValidRole = isPrivilegedRole
+  ? selectedRoleId >= 1 && selectedRoleId <= 9
+  : selectedRoleId >= 2 && selectedRoleId <= 9;
+
+if (!isActiveRole || !isValidRole) {
+  toast.error("Please select a valid active role.");
+  return;
+}
 
   if (!selectedUser || Number(selectedUser?.role_id) !== selectedRoleId) {
     toast.error("Selected user does not belong to the selected role.");
