@@ -153,6 +153,11 @@ export default function UsersTable({
   const [loginLoading, setLoginLoading] = useState(null);
   const [statusLoading, setStatusLoading] = useState(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [localUsers, setLocalUsers] = useState(Array.isArray(users) ? users : []);
+
+  useEffect(() => {
+    setLocalUsers(Array.isArray(users) ? users : []);
+  }, [users]);
 
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -811,6 +816,14 @@ export default function UsersTable({
         return;
       }
 
+      setLocalUsers((previous) =>
+        previous.map((item) =>
+          item.id === user.id
+            ? { ...item, userStatus: newStatus }
+            : item
+        )
+      );
+
       setSearchResults((previous) =>
         previous.map((item) =>
           item.id === user.id
@@ -826,12 +839,21 @@ export default function UsersTable({
             : item
         )
       );
-
-      toast.success(
-        newStatus === 1
-          ? "User activated successfully"
-          : "User deactivated successfully"
-      );
+if (newStatus === 1) {
+  toast.success("User activated successfully", {
+    style: {
+      background: "#07bc0c", // Green 500
+      color: "#ffffff",
+    },
+  });
+} else {
+  toast.error("User deactivated successfully", {
+    style: {
+      background: "#dc2626",
+      color: "#ffffff",
+    },
+  });
+}
     } catch (error) {
       console.error("USER STATUS ERROR:", error);
 
@@ -904,7 +926,7 @@ export default function UsersTable({
     await loadStatusPage(nextPage);
   };
 
-  let tableUsers = Array.isArray(users) ? users : [];
+  let tableUsers = Array.isArray(localUsers) ? localUsers : [];
 
   if (filterSearchApplied) {
     tableUsers = filterSearchResults;

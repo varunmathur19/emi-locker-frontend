@@ -47,6 +47,18 @@ const NEXT_ROLE_MAP = {
   9: 2,
 };
 
+const REVERT_NEXT_ROLE_MAP = {
+  0: 1,
+  1: 2,
+  2: 3,
+  3: 4,
+  4: 5,
+  5: 6,
+  6: 7,
+  7: 8,
+  8: 9,
+};
+
 const TRANSACTION_TYPES = {
   TRANSFER: 0,
   SCHEMA_TRANSFER: 1,
@@ -81,6 +93,21 @@ const getResponsePayload = (response) =>
     ? response.data
     : response;
 
+const normalizeUserResponse = (response) => {
+  let data = response?.data ?? response;
+
+  if (Array.isArray(data)) {
+    data = data[0] ?? {};
+  }
+
+  if (data?.user && typeof data.user === "object") {
+    data = data.user;
+  } else if (data?.data && typeof data.data === "object") {
+    data = Array.isArray(data.data) ? data.data[0] ?? {} : data.data;
+  }
+
+  return data && typeof data === "object" ? data : {};
+};
 
 const getUserName = (user) =>
   user?.name ||
@@ -106,95 +133,113 @@ const filterUsers = (users, search) => {
   );
 };
 
-const getUserKeyBalance = (user, key) => {
-  if (!user || !key) return 0;
+const toNonNegativeNumber = (value, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : fallback;
+};
+
+const getUserKeyStats = (user, key) => {
+  const emptyStats = { balance: 0, consumed: 0, available: 0 };
+  if (!user || !key) return emptyStats;
 
   let wallet = user.wallet_balance;
-
   if (typeof wallet === "string") {
     try {
       wallet = JSON.parse(wallet);
     } catch {
-      return 0;
+      return emptyStats;
     }
   }
-
-  if (wallet == null) return 0;
+  if (wallet == null) return emptyStats;
 
   const keyId = String(key.id ?? "").trim();
   const keyName = String(key.name ?? "").trim().toLowerCase();
 
-  const getBalance = (item) => {
-    if (item == null) return 0;
-
-    const rawBalance =
-      typeof item === "object"
-        ? item.balance ??
-          item.wallet_balance ??
-          item.available_balance ??
-          item.amount ??
-          item.points ??
-          0
-        : item;
-
-    const balance = Number(rawBalance);
-
-    return Number.isFinite(balance) && balance >= 0
-      ? balance
-      : 0;
-  };
-
-  const matchesKey = (item) => {
-    if (!item || typeof item !== "object") return false;
-
-    const ids = [
-      item.key_id,
-      item.key_setting_id,
-      item.keySettingId,
-    ]
+  const matchesKey = (entry) => {
+    if (!entry || typeof entry !== "object") return false;
+    const ids = [entry.key_id, entry.key_setting_id, entry.keySettingId]
       .filter((value) => value != null)
       .map(String);
-
     const names = [
-      item.key_name,
-      item.key_setting_name,
-      item.keySettingName,
-      item.name,
+      entry.key_name,
+      entry.key_setting_name,
+      entry.keySettingName,
+      entry.name,
     ]
       .filter((value) => value != null)
       .map((value) => String(value).trim().toLowerCase());
 
-    return (
-      (keyId && ids.includes(keyId)) ||
-      (keyName && names.includes(keyName))
-    );
+    return (keyId && ids.includes(keyId)) || (keyName && names.includes(keyName));
   };
 
+  let entry;
   if (Array.isArray(wallet)) {
-    const matched = wallet.find(matchesKey);
-    return matched ? getBalance(matched) : 0;
+    entry = wallet.find(matchesKey);
+  } else if (typeof wallet === "object") {
+    if (keyId && Object.prototype.hasOwnProperty.call(wallet, keyId)) {
+      entry = wallet[keyId];
+    } else {
+      const matchedName = Object.keys(wallet).find(
+        (name) => name.trim().toLowerCase() === keyName
+      );
+      entry =
+        matchedName !== undefined
+          ? wallet[matchedName]
+          : Object.values(wallet).find(matchesKey);
+    }
+  } else {
+    entry = wallet;
   }
 
-  if (typeof wallet !== "object") {
-    return getBalance(wallet);
+  if (entry == null) return emptyStats;
+  if (typeof entry !== "object") {
+    const legacyBalance = toNonNegativeNumber(entry);
+    return { balance: legacyBalance, consumed: 0, available: legacyBalance };
   }
-  if (
-    keyId &&
-    Object.prototype.hasOwnProperty.call(wallet, keyId)
-  ) {
-    return getBalance(wallet[keyId]);
-  }
-  const matchedName = Object.keys(wallet).find(
-    (name) => name.trim().toLowerCase() === keyName
+
+  const available = toNonNegativeNumber(
+    entry.available ??
+      entry.available_balance ??
+      entry.current_balance ??
+      entry.wallet_balance ??
+      entry.balance ??
+      entry.amount ??
+      entry.points ??
+      0
   );
 
-  if (matchedName !== undefined) {
-    return getBalance(wallet[matchedName]);
-  }
-  const matchedItem = Object.values(wallet).find(matchesKey);
+  const consumed = toNonNegativeNumber(
+    entry.consumed ??
+      entry.consumed_balance ??
+      entry.consumed_points ??
+      entry.used ??
+      entry.used_points ??
+      0
+  );
 
-  return matchedItem ? getBalance(matchedItem) : 0;
+  const balance = toNonNegativeNumber(
+    entry.total_balance ??
+      entry.balance ??
+      entry.total ??
+      entry.received ??
+      entry.received_points ??
+      (available + consumed)
+  );
+
+  return { balance, consumed, available };
 };
+
+const getUserKeyBalance = (user, key) =>
+  getUserKeyStats(user, key).available;
+
+const getKeySettingStats = (key) => ({
+  balance: toNonNegativeNumber(key?.balance),
+  consumed: toNonNegativeNumber(key?.consumed),
+  available: toNonNegativeNumber(key?.available),
+});
+
+const formatPoints = (value) =>
+  toNonNegativeNumber(value).toLocaleString("en-IN");
 
 const getTransactionTypeName = (type) => {
   switch (Number(type)) {
@@ -305,6 +350,7 @@ const getTransactionPartyId = (transaction, side) => {
 
   return Number(value);
 };
+
 
 function UserDropdown({
   value,
@@ -536,6 +582,7 @@ export default function TransferPoint() {
 
   const [roleId, setRoleId] = useState(null);
   const [roles, setRoles] = useState([]);
+  const [hierarchyRoleId, setHierarchyRoleId] = useState(null);
 
   const [transferPoint, setTransferPoint] = useState("");
   const [loading, setLoading] = useState(true);
@@ -575,7 +622,6 @@ export default function TransferPoint() {
   const [recentTransactionsLoading, setRecentTransactionsLoading] =
     useState(false);
 
-  // Share initialization requests across React Strict Mode effect replays.
   const initializationRequestRef = useRef({
     transactionType: null,
     promise: null,
@@ -635,54 +681,113 @@ export default function TransferPoint() {
     [roles, roleId]
   );
 
-  const schemaRoleOptions = useMemo(
-    () =>
-      availableRoleOptions.filter((role) => {
-        const currentRole = Number(roleId);
-        const targetRole = Number(role?.role_id);
-
-        if ([0, 1].includes(currentRole)) return true;
-        if ([2, 3, 4, 5].includes(currentRole)) return targetRole !== 8;
-        if ([6, 7].includes(currentRole)) return targetRole !== 9;
-
-        return true;
-      }),
-    [availableRoleOptions, roleId]
-  );
-
-const nextRoleId = useMemo(() => {
-  if (roleId === null || roleId === undefined) return null;
-
+const revertRoleOptions = useMemo(() => {
   const currentRole = Number(roleId);
 
-  if (!Number.isFinite(currentRole)) return null;
-
-  if (currentRole === 9) {
-    const targetRole = Number(transferTargetRoleId);
-
-    return Number.isInteger(targetRole) && targetRole > 0
-      ? targetRole
-      : null;
-  }
-
-  if (currentRole === 0) return 1;
-
-  let targetRole = NEXT_ROLE_MAP[currentRole];
-
-  while (targetRole !== undefined && targetRole !== null) {
-    const activeRole = roles.find(
+  // Master Admin and Admin: show all roles except own role and Staff.
+  if ([0, 1].includes(currentRole)) {
+    return roles.filter(
       (role) =>
-        Number(role?.role_id) === Number(targetRole) &&
-        Number(role?.status ?? 1) === 1
+        Number(role?.role_id) !== currentRole &&
+        Number(role?.role_id) !== 9
     );
-
-    if (activeRole) return Number(activeRole.role_id);
-
-    targetRole = NEXT_ROLE_MAP[targetRole];
   }
 
-  return null;
-}, [roleId, roles, transferTargetRoleId]);
+  if (
+    hierarchyRoleId === null ||
+    hierarchyRoleId === undefined ||
+    !Number.isInteger(Number(hierarchyRoleId))
+  ) {
+    return [];
+  }
+
+  const expectedRoleId =
+    REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
+
+  if (expectedRoleId === undefined || expectedRoleId === 9) {
+    return [];
+  }
+
+  return roles.filter(
+    (role) => Number(role?.role_id) === Number(expectedRoleId)
+  );
+}, [roles, hierarchyRoleId, roleId]);
+
+const schemaRoleOptions = useMemo(() => {
+  const currentRole = Number(roleId);
+
+  if (!Number.isInteger(currentRole)) {
+    return [];
+  }
+
+  // Staff ko dropdown mein show nahi karna.
+  if (currentRole === 9) {
+    if (
+      hierarchyRoleId === null ||
+      hierarchyRoleId === undefined ||
+      !Number.isInteger(Number(hierarchyRoleId))
+    ) {
+      return [];
+    }
+
+    const parentRole = Number(hierarchyRoleId);
+
+    return roles.filter((role) => {
+      const targetRole = Number(role?.role_id);
+
+      return (
+        targetRole > parentRole &&
+        targetRole < 9 &&
+        Number(role?.status ?? 1) === 1
+      );
+    });
+  }
+
+  // Show roles below the logged-in role, excluding Staff.
+  return roles.filter((role) => {
+    const targetRole = Number(role?.role_id);
+
+    return (
+      targetRole > currentRole &&
+      targetRole < 9 &&
+      Number(role?.status ?? 1) === 1
+    );
+  });
+}, [roles, roleId, hierarchyRoleId]);
+
+  const nextRoleId = useMemo(() => {
+    if (roleId === null || roleId === undefined) return null;
+
+    const currentRole = Number(roleId);
+
+    if (!Number.isFinite(currentRole)) return null;
+
+    if (currentRole === 9) {
+      const targetRole = Number(transferTargetRoleId);
+
+      return Number.isInteger(targetRole) && targetRole > 0
+        ? targetRole
+        : null;
+    }
+
+    if (currentRole === 0) return 1;
+
+    let targetRole = NEXT_ROLE_MAP[currentRole];
+
+    while (targetRole !== undefined && targetRole !== null) {
+      const activeRole = roles.find(
+        (role) =>
+          Number(role?.role_id) === Number(targetRole) &&
+          Number(role?.status ?? 1) === 1
+      );
+
+      if (activeRole) return Number(activeRole.role_id);
+
+      targetRole = NEXT_ROLE_MAP[targetRole];
+    }
+
+    return null;
+  }, [roleId, roles, transferTargetRoleId]);
 
   const nextRoleName = ROLE_NAMES[nextRoleId] || "";
 
@@ -695,48 +800,78 @@ const nextRoleId = useMemo(() => {
     selectedSchemaRoleData?.name ||
     ROLE_NAMES[Number(selectedSchemaRole)] ||
     "";
-
   const loadTransactionPin = useCallback(async () => {
     setTransactionPinLoading(true);
 
     try {
       const loggedInUser = getUser();
       const userId = Number(loggedInUser?.id);
+      const loggedInRoleId = Number(
+        loggedInUser?.role_id ?? getRoleId()
+      );
 
-      if (!Number.isFinite(userId) || userId <= 0) {
+      if (!Number.isInteger(userId) || userId <= 0) {
         setTransactionPin("");
         setCurrentUserData(null);
+        setHierarchyRoleId(null);
         setWalletBalance(0);
-        return;
+        return null;
       }
 
       const response = await getStaffDataById(userId);
+      const data = normalizeUserResponse(response);
 
-      let data = response?.data ?? response;
-
-      if (Array.isArray(data)) {
-        data = data[0] ?? {};
-      }
-
-      if (data?.user && typeof data.user === "object") {
-        data = data.user;
-      } else if (data?.data && typeof data.data === "object") {
-        data = Array.isArray(data.data)
-          ? data.data[0] ?? {}
-          : data.data;
-      }
       const normalizedUser = {
-  ...(loggedInUser || {}),
-  ...(data || {}),
-};
+        ...(loggedInUser || {}),
+        ...(data || {}),
+      };
 
       setCurrentUserData(normalizedUser);
 
       const pin = normalizedUser?.transaction_pin;
-
       setTransactionPin(
         pin === null || pin === undefined ? "" : String(pin)
       );
+
+      if (loggedInRoleId === 9) {
+        const parentId = Number(normalizedUser?.parent_id);
+
+        if (Number.isInteger(parentId) && parentId > 0) {
+          try {
+            const parentResponse = await getStaffDataById(parentId);
+            const parentData = normalizeUserResponse(parentResponse);
+
+            const parentRoleId = Number(
+              parentData?.role_id ??
+                parentData?.user?.role_id
+            );
+
+            setHierarchyRoleId(
+              Number.isInteger(parentRoleId) ? parentRoleId : null
+            );
+          } catch (parentError) {
+            console.error(
+              "GET STAFF PARENT ERROR:",
+              getErrorMessage(parentError)
+            );
+            setHierarchyRoleId(null);
+          }
+        } else {
+          setHierarchyRoleId(null);
+        }
+      } else {
+        const currentHierarchyRoleId = Number(
+          normalizedUser?.role_id ?? getRoleId()
+        );
+
+        setHierarchyRoleId(
+          Number.isInteger(currentHierarchyRoleId)
+            ? currentHierarchyRoleId
+            : null
+        );
+      }
+
+      return normalizedUser;
     } catch (error) {
       console.error(
         "GET CURRENT USER DATA ERROR:",
@@ -745,7 +880,10 @@ const nextRoleId = useMemo(() => {
 
       setTransactionPin("");
       setCurrentUserData(null);
+      setHierarchyRoleId(null);
       setWalletBalance(0);
+
+      return null;
     } finally {
       setTransactionPinLoading(false);
     }
@@ -757,13 +895,19 @@ const nextRoleId = useMemo(() => {
     try {
       const response = await getKeySettings();
 
-      const activeKeys = getArrayFromResponse(response).filter(
-        (item) => Number(item?.status) === 1
-      );
+      // Show only active key settings (status = 1) and keep their wallet metrics.
+      const keys = getArrayFromResponse(response)
+        .filter((item) => Number(item?.status) === 1)
+        .map((item) => ({
+          ...item,
+          balance: toNonNegativeNumber(item?.balance),
+          consumed: toNonNegativeNumber(item?.consumed),
+          available: toNonNegativeNumber(item?.available),
+        }));
 
-      setKeySettings(activeKeys);
+      setKeySettings(keys);
 
-      if (activeKeys.length === 0) {
+      if (keys.length === 0) {
         setSelectedKey("");
         setWalletBalance(0);
         setAvailableBalance(0);
@@ -772,14 +916,14 @@ const nextRoleId = useMemo(() => {
 
       setSelectedKey((previous) => {
         const selectedKeyItem =
-          activeKeys.find(
+          keys.find(
             (item) => String(item?.id) === String(previous)
-          ) || activeKeys[0];
+          ) || keys[0];
 
         return String(selectedKeyItem?.id ?? "");
       });
 
-      return activeKeys;
+      return keys;
     } catch (error) {
       console.error(
         "GET KEY SETTINGS ERROR:",
@@ -797,97 +941,113 @@ const nextRoleId = useMemo(() => {
     }
   }, []);
 
-  const loadRoles = useCallback(async () => {
-    setLoadingRoles(true);
+const loadRoles = useCallback(async () => {
+  setLoadingRoles(true);
 
-    try {
-      const response = await getRoles();
+  try {
+    const response = await getRoles();
 
-      const activeRoles = getArrayFromResponse(response)
-        .filter((role) => Number(role?.status ?? 1) === 1)
-        .sort(
-          (a, b) =>
-            Number(a?.sequence ?? a?.role_id ?? 0) -
-            Number(b?.sequence ?? b?.role_id ?? 0)
-        );
+    const allRoles = getArrayFromResponse(response)
+      .filter(
+        (role) =>
+          role?.role_id !== null &&
+          role?.role_id !== undefined &&
+          Number.isInteger(Number(role.role_id))
+      )
+      .sort((a, b) => {
+        const roleA = Number(a.role_id);
+        const roleB = Number(b.role_id);
 
-      setRoles(activeRoles);
-      return activeRoles;
-    } catch (error) {
-      console.error("GET ROLES ERROR:", getErrorMessage(error));
-      setRoles([]);
-      return [];
-    } finally {
-      setLoadingRoles(false);
-    }
-  }, []);
+        // Admin sabse pehle
+        if (roleA === 1) return -1;
+        if (roleB === 1) return 1;
 
-  
-const loadUsersByRole = useCallback(async (targetRoleId) => {
-  const role = Number(targetRoleId);
+        // Baaki roles role_id ke ascending order mein
+        return roleA - roleB;
+      });
 
-  if (!Number.isInteger(role) || role < 0 || role > 9) {
+    setRoles(allRoles);
+    return allRoles;
+  } catch (error) {
+    console.error("GET ROLES ERROR:", getErrorMessage(error));
+    setRoles([]);
     return [];
+  } finally {
+    setLoadingRoles(false);
   }
-
-  const limit = 1000;
-  let page = 1;
-  let totalPages = 1;
-  const allUsers = [];
-  const seenPages = new Set();
-
-  do {
-    if (seenPages.has(page)) break;
-    seenPages.add(page);
-
-    const response = await getAllStaffData(
-      page,
-      limit,
-      role,
-      "",
-      ""
-    );
-
-    const payload = getResponsePayload(response);
-    const pageUsers = getArrayFromResponse(response);
-
-    allUsers.push(...pageUsers);
-
-    const pagination =
-      payload?.pagination ??
-      payload?.data?.pagination ??
-      payload?.meta ??
-      payload?.data?.meta;
-
-    if (pagination?.totalPages != null) {
-      totalPages = Math.max(1, Number(pagination.totalPages) || 1);
-    } else if (pagination?.lastPage != null) {
-      totalPages = Math.max(1, Number(pagination.lastPage) || 1);
-    } else if (pagination?.total != null) {
-      totalPages = Math.max(
-        1,
-        Math.ceil(Number(pagination.total) / limit)
-      );
-    } else {
-      totalPages = page;
-    }
-
-    page += 1;
-  } while (page <= totalPages);
-
-  const uniqueUsers = new Map();
-
-  allUsers
-    .filter((user) => Number(user?.role_id) === role)
-    .forEach((user) => {
-      if (user?.id != null) {
-        uniqueUsers.set(String(user.id), user);
-      }
-    });
-
-  return Array.from(uniqueUsers.values());
 }, []);
 
+  const loadUsersByRole = useCallback(async (targetRoleId) => {
+    const role = Number(targetRoleId);
+
+    if (!Number.isInteger(role) || role < 0 || role > 9) {
+      return [];
+    }
+
+    const limit = 1000;
+    let page = 1;
+    let totalPages = 1;
+
+    const allUsers = [];
+    const seenPages = new Set();
+
+    do {
+      if (seenPages.has(page)) break;
+      seenPages.add(page);
+
+      const response = await getAllStaffData(
+        page,
+        limit,
+        role,
+        "",
+        ""
+      );
+
+      const payload = getResponsePayload(response);
+      const pageUsers = getArrayFromResponse(response);
+
+      allUsers.push(...pageUsers);
+
+      const pagination =
+        payload?.pagination ??
+        payload?.data?.pagination ??
+        payload?.meta ??
+        payload?.data?.meta;
+
+      if (pagination?.totalPages != null) {
+        totalPages = Math.max(
+          1,
+          Number(pagination.totalPages) || 1
+        );
+      } else if (pagination?.lastPage != null) {
+        totalPages = Math.max(
+          1,
+          Number(pagination.lastPage) || 1
+        );
+      } else if (pagination?.total != null) {
+        totalPages = Math.max(
+          1,
+          Math.ceil(Number(pagination.total) / limit)
+        );
+      } else {
+        totalPages = page;
+      }
+
+      page += 1;
+    } while (page <= totalPages);
+
+    const uniqueUsers = new Map();
+
+    allUsers
+      .filter((user) => Number(user?.role_id) === role)
+      .forEach((user) => {
+        if (user?.id != null) {
+          uniqueUsers.set(String(user.id), user);
+        }
+      });
+
+    return Array.from(uniqueUsers.values());
+  }, []);
 
   const findNextActiveRole = useCallback((currentRoleId, activeRoles) => {
     const currentRole = Number(currentRoleId);
@@ -912,163 +1072,145 @@ const loadUsersByRole = useCallback(async (targetRoleId) => {
     return null;
   }, []);
 
-const loadTransferUsers = useCallback(
-  async (currentRoleId, activeRoles = []) => {
-    setLoadingTransferUsers(true);
+  const loadTransferUsers = useCallback(
+    async (currentRoleId, activeRoles = []) => {
+      setLoadingTransferUsers(true);
 
-    try {
-      const currentUserId = Number(getUser()?.id);
-      const currentRole = Number(currentRoleId);
+      try {
+        const currentUserId = Number(getUser()?.id);
+        const currentRole = Number(currentRoleId);
 
-      let targetRoleId = null;
-      let users = [];
+        let targetRoleId = null;
+        let users = [];
 
-      if (currentRole === 9) {
-        const response = await getAllStaffData(
-          1,
-          1000,
-          "",
-          "",
-          ""
-        );
-
-        const payload = getResponsePayload(response);
-
-        targetRoleId = Number(
-          payload?.transferTargetRoleId ??
-            payload?.data?.transferTargetRoleId ??
-            response?.transferTargetRoleId
-        );
-
-        if (
-          !Number.isInteger(targetRoleId) ||
-          targetRoleId <= 0 ||
-          targetRoleId > 9
-        ) {
-          console.error(
-            "STAFF TRANSFER TARGET ROLE MISSING:",
-            {
-              response,
-              targetRoleId,
-            }
-          );
-
-          setTransferTargetRoleId(null);
-          setTransferUsers([]);
-          setSelectedTransferUser("");
-          return;
-        }
-
-        setTransferTargetRoleId(targetRoleId);
-
-        users = getArrayFromResponse(response);
-
-        const pagination =
-          payload?.pagination ??
-          payload?.data?.pagination ??
-          payload?.meta ??
-          payload?.data?.meta;
-
-        const totalPages = Math.max(
-          1,
-          Number(
-            pagination?.totalPages ??
-              pagination?.lastPage ??
-              (pagination?.total != null
-                ? Math.ceil(Number(pagination.total) / 1000)
-                : 1)
-          ) || 1
-        );
-
-        for (let page = 2; page <= totalPages; page += 1) {
-          const pageResponse = await getAllStaffData(
-            page,
+        if (currentRole === 9) {
+          const response = await getAllStaffData(
+            1,
             1000,
             "",
             "",
             ""
           );
 
-          users = [
-            ...users,
-            ...getArrayFromResponse(pageResponse),
-          ];
+          const payload = getResponsePayload(response);
+
+          targetRoleId = Number(
+            payload?.transferTargetRoleId ??
+              payload?.data?.transferTargetRoleId ??
+              response?.transferTargetRoleId
+          );
+
+          if (
+            !Number.isInteger(targetRoleId) ||
+            targetRoleId <= 0 ||
+            targetRoleId > 9
+          ) {
+            console.error(
+              "STAFF TRANSFER TARGET ROLE MISSING:",
+              { response, targetRoleId }
+            );
+
+            setTransferTargetRoleId(null);
+            setTransferUsers([]);
+            setSelectedTransferUser("");
+            return;
+          }
+
+          setTransferTargetRoleId(targetRoleId);
+          users = getArrayFromResponse(response);
+
+          const pagination =
+            payload?.pagination ??
+            payload?.data?.pagination ??
+            payload?.meta ??
+            payload?.data?.meta;
+
+          const totalPages = Math.max(
+            1,
+            Number(
+              pagination?.totalPages ??
+                pagination?.lastPage ??
+                (pagination?.total != null
+                  ? Math.ceil(Number(pagination.total) / 1000)
+                  : 1)
+            ) || 1
+          );
+
+          for (let page = 2; page <= totalPages; page += 1) {
+            const pageResponse = await getAllStaffData(
+              page,
+              1000,
+              "",
+              "",
+              ""
+            );
+
+            users = [
+              ...users,
+              ...getArrayFromResponse(pageResponse),
+            ];
+          }
+
+          users = users.filter(
+            (user) =>
+              Number(user?.role_id) === targetRoleId &&
+              Number(user?.id) !== currentUserId
+          );
+        } else {
+          targetRoleId = findNextActiveRole(
+            currentRole,
+            activeRoles
+          );
+
+          setTransferTargetRoleId(null);
+
+          if (targetRoleId === null) {
+            setTransferUsers([]);
+            setSelectedTransferUser("");
+            return;
+          }
+
+          users = await loadUsersByRole(targetRoleId);
+
+          users = users.filter(
+            (user) => Number(user?.id) !== currentUserId
+          );
         }
 
-        users = users.filter(
-          (user) =>
-            Number(user?.role_id) === targetRoleId &&
-            Number(user?.id) !== currentUserId
+        const uniqueUsers = new Map();
+
+        users.forEach((user) => {
+          if (user?.id != null) {
+            uniqueUsers.set(String(user.id), user);
+          }
+        });
+
+        const finalUsers = Array.from(uniqueUsers.values());
+
+        setTransferUsers(finalUsers);
+
+        setSelectedTransferUser((previous) =>
+          finalUsers.some(
+            (user) => String(user?.id) === String(previous)
+          )
+            ? previous
+            : ""
         );
-      } else {
-        targetRoleId = findNextActiveRole(
-          currentRole,
-          activeRoles
+      } catch (error) {
+        console.error(
+          "GET TRANSFER USERS ERROR:",
+          error?.response?.data || error
         );
 
         setTransferTargetRoleId(null);
-
-        if (targetRoleId === null) {
-          setTransferUsers([]);
-          setSelectedTransferUser("");
-          return;
-        }
-
-        users = await loadUsersByRole(targetRoleId);
-
-        users = users.filter(
-          (user) => Number(user?.id) !== currentUserId
-        );
+        setTransferUsers([]);
+        setSelectedTransferUser("");
+      } finally {
+        setLoadingTransferUsers(false);
       }
-
-      // Duplicate users hatao.
-      const uniqueUsers = new Map();
-
-      users.forEach((user) => {
-        if (user?.id != null) {
-          uniqueUsers.set(String(user.id), user);
-        }
-      });
-
-      const finalUsers = Array.from(uniqueUsers.values());
-
-      console.log("TRANSFER USERS DEBUG:", {
-        currentRole,
-        targetRoleId,
-        currentUserId,
-        receivedUsers: users.length,
-        finalUsers: finalUsers.length,
-        userRoleIds: [
-          ...new Set(
-            finalUsers.map((user) => Number(user.role_id))
-          ),
-        ],
-      });
-
-      setTransferUsers(finalUsers);
-
-      setSelectedTransferUser((previous) =>
-        finalUsers.some(
-          (user) => String(user?.id) === String(previous)
-        )
-          ? previous
-          : ""
-      );
-    } catch (error) {
-      console.error(
-        "GET TRANSFER USERS ERROR:",
-        error?.response?.data || error
-      );
-
-      setTransferTargetRoleId(null);
-      setTransferUsers([]);
-      setSelectedTransferUser("");
-    } finally {
-      setLoadingTransferUsers(false);
-    }
-  },
-  [findNextActiveRole, loadUsersByRole]
-);
+    },
+    [findNextActiveRole, loadUsersByRole]
+  );
 
   const loadSchemaUsers = useCallback(
     async (targetRoleId) => {
@@ -1080,7 +1222,10 @@ const loadTransferUsers = useCallback(
         const users = await loadUsersByRole(targetRoleId);
         setSchemaUsers(users);
       } catch (error) {
-        console.error("GET SCHEMA USERS ERROR:", getErrorMessage(error));
+        console.error(
+          "GET SCHEMA USERS ERROR:",
+          getErrorMessage(error)
+        );
         setSchemaUsers([]);
       } finally {
         setLoadingSchemaUsers(false);
@@ -1089,79 +1234,156 @@ const loadTransferUsers = useCallback(
     [loadUsersByRole]
   );
 
-  const loadRevertUsers = useCallback(
-    async (targetRoleId) => {
-      setLoadingRevertUsers(true);
-      setRevertUsers([]);
-      setSelectedRevertUser("");
+const loadRevertUsers = useCallback(
+  async (targetRoleId) => {
+    setLoadingRevertUsers(true);
+    setRevertUsers([]);
+    setSelectedRevertUser("");
+    setAvailableBalance(0);
 
-      try {
-        const users = await loadUsersByRole(targetRoleId);
-        setRevertUsers(users);
-      } catch (error) {
-        console.error("GET REVERT USERS ERROR:", getErrorMessage(error));
-        setRevertUsers([]);
-      } finally {
-        setLoadingRevertUsers(false);
+    try {
+      const loggedInUser = getUser();
+      const loggedInRoleId = Number(getRoleId());
+      const selectedRoleId = Number(targetRoleId);
+
+      const isPrivilegedRole = [0, 1].includes(loggedInRoleId);
+
+      // Validate selected role.
+      const isActiveRole = roles.some(
+        (role) =>
+          Number(role?.role_id) === selectedRoleId &&
+          Number(role?.status ?? 1) === 1
+      );
+
+     const isValidRole = isPrivilegedRole
+  ? selectedRoleId >= 1 && selectedRoleId <= 9
+  : selectedRoleId >= 2 && selectedRoleId <= 9;
+
+if (!isActiveRole || !isValidRole) {
+  toast.error("Please select a valid active role.");
+  return;
+}
+
+      // Non-admin users remain restricted to the next role in hierarchy.
+      if (!isPrivilegedRole) {
+        const expectedRoleId =
+          REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
+
+        if (
+          expectedRoleId === undefined ||
+          selectedRoleId !== Number(expectedRoleId)
+        ) {
+          toast.error("This role is not allowed in your hierarchy.");
+          return;
+        }
       }
-    },
-    [loadUsersByRole]
-  );
 
-  
-const loadRecentTransactions = useCallback(async () => {
-  setRecentTransactionsLoading(true);
+      const users = await loadUsersByRole(selectedRoleId);
 
-  try {
-    const response = await getWalletTransactions({
-      page: 1,
-      limit: 100,
-      transaction_type: transactionType,
-    });
+      let eligibleUsers = users;
 
-    let transactions = getArrayFromResponse(response);
+      if (!isPrivilegedRole) {
+        const walletOwnerId =
+          loggedInRoleId === 9
+            ? Number(
+                currentUserData?.parent_id ??
+                  loggedInUser?.parent_id
+              )
+            : Number(loggedInUser?.id);
 
-    const currentRoleId = Number(getRoleId());
-    const currentUserId = Number(getUser()?.id);
+        if (
+          !Number.isInteger(walletOwnerId) ||
+          walletOwnerId <= 0
+        ) {
+          toast.error("Unable to determine the parent account.");
+          return;
+        }
 
-    if (![0, 1, 9].includes(currentRoleId)) {
-      transactions = transactions.filter((transaction) => {
-        const fromUserId = getTransactionPartyId(
-          transaction,
-          "from"
+        eligibleUsers = users.filter(
+          (user) =>
+            Number(user?.parent_id) === walletOwnerId &&
+            Number(user?.role_id) === selectedRoleId
         );
+      }
 
-        const toUserId = getTransactionPartyId(
-          transaction,
-          "to"
-        );
+      setRevertUsers(eligibleUsers);
 
-        return (
-          fromUserId === currentUserId ||
-          toUserId === currentUserId
-        );
-      });
+      if (eligibleUsers.length === 0) {
+        toast.info("No eligible users found for the selected role.");
+      }
+    } catch (error) {
+      console.error(
+        "GET REVERT USERS ERROR:",
+        getErrorMessage(error)
+      );
+
+      setRevertUsers([]);
+      toast.error("Failed to load eligible revert users.");
+    } finally {
+      setLoadingRevertUsers(false);
     }
+  },
+  [
+    roles,
+    hierarchyRoleId,
+    currentUserData,
+    loadUsersByRole,
+  ]
+);
 
-    transactions.sort((a, b) => {
-      const dateA = new Date(a?.created_at || 0).getTime();
-      const dateB = new Date(b?.created_at || 0).getTime();
+  const loadRecentTransactions = useCallback(async () => {
+    setRecentTransactionsLoading(true);
 
-      return dateB - dateA;
-    });
+    try {
+      const response = await getWalletTransactions({
+        page: 1,
+        limit: 100,
+        transaction_type: transactionType,
+      });
 
-    setRecentTransactions(transactions.slice(0, 5));
-  } catch (error) {
-    console.error(
-      "GET RECENT TRANSACTIONS ERROR:",
-      getErrorMessage(error)
-    );
+      let transactions = getArrayFromResponse(response);
 
-    setRecentTransactions([]);
-  } finally {
-    setRecentTransactionsLoading(false);
-  }
-}, [transactionType]);
+      const currentRoleId = Number(getRoleId());
+      const currentUserId = Number(getUser()?.id);
+
+      if (![0, 1, 9].includes(currentRoleId)) {
+        transactions = transactions.filter((transaction) => {
+          const fromUserId = getTransactionPartyId(
+            transaction,
+            "from"
+          );
+
+          const toUserId = getTransactionPartyId(
+            transaction,
+            "to"
+          );
+
+          return (
+            fromUserId === currentUserId ||
+            toUserId === currentUserId
+          );
+        });
+      }
+
+      transactions.sort((a, b) => {
+        const dateA = new Date(a?.created_at || 0).getTime();
+        const dateB = new Date(b?.created_at || 0).getTime();
+
+        return dateB - dateA;
+      });
+
+      setRecentTransactions(transactions.slice(0, 5));
+    } catch (error) {
+      console.error(
+        "GET RECENT TRANSACTIONS ERROR:",
+        getErrorMessage(error)
+      );
+
+      setRecentTransactions([]);
+    } finally {
+      setRecentTransactionsLoading(false);
+    }
+  }, [transactionType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1172,24 +1394,35 @@ const loadRecentTransactions = useCallback(async () => {
       const currentType = Number(transactionType);
       let request = initializationRequestRef.current;
 
-      if (!request.promise || request.transactionType !== currentType) {
+      if (
+        !request.promise ||
+        request.transactionType !== currentType
+      ) {
         const promise = Promise.all([
           loadTransactionPin(),
           loadKeySettings(),
           loadRoles(),
         ]);
 
-        request = { transactionType: currentType, promise };
+        request = {
+          transactionType: currentType,
+          promise,
+        };
+
         initializationRequestRef.current = request;
 
-        promise.finally(() => {
-          if (initializationRequestRef.current.promise === promise) {
-            initializationRequestRef.current = {
-              transactionType: null,
-              promise: null,
-            };
-          }
-        }).catch(() => {});
+        promise
+          .finally(() => {
+            if (
+              initializationRequestRef.current.promise === promise
+            ) {
+              initializationRequestRef.current = {
+                transactionType: null,
+                promise: null,
+              };
+            }
+          })
+          .catch(() => {});
       }
 
       const [, , activeRoles] = await request.promise;
@@ -1212,7 +1445,10 @@ const loadRecentTransactions = useCallback(async () => {
       const currentRole = Number(rawRoleId);
 
       if (!Number.isFinite(currentRole)) {
-        console.error("Transfer Point: invalid role ID:", rawRoleId);
+        console.error(
+          "Transfer Point: invalid role ID:",
+          rawRoleId
+        );
         setRoleId(null);
         setTransferUsers([]);
         return;
@@ -1231,6 +1467,9 @@ const loadRecentTransactions = useCallback(async () => {
 
       if (currentType === TRANSACTION_TYPES.REVERT) {
         setTransferUsers([]);
+        setSelectedFromRole("");
+        setSelectedRevertUser("");
+        setRevertUsers([]);
         return;
       }
 
@@ -1258,7 +1497,6 @@ const loadRecentTransactions = useCallback(async () => {
   useEffect(() => {
     const currentType = Number(transactionType);
 
-    // roleId changes during initialization; it should not trigger another fetch.
     if (recentTransactionTypeRef.current === currentType) return;
 
     recentTransactionTypeRef.current = currentType;
@@ -1281,7 +1519,10 @@ const loadRecentTransactions = useCallback(async () => {
       return;
     }
 
-    const balance = getUserKeyBalance(selectedUser, selectedKeyData);
+    const balance = getUserKeyBalance(
+      selectedUser,
+      selectedKeyData
+    );
 
     setAvailableBalance(
       Number.isFinite(balance) && balance >= 0 ? balance : 0
@@ -1294,23 +1535,15 @@ const loadRecentTransactions = useCallback(async () => {
     selectedTransferUserData,
     selectedKeyData,
   ]);
-useEffect(() => {
-  if (!selectedKeyData || !currentUserData) {
-    setWalletBalance(0);
-    return;
-  }
 
-  const balance = getUserKeyBalance(
-    currentUserData,
-    selectedKeyData
-  );
+  useEffect(() => {
+    if (!selectedKeyData) {
+      setWalletBalance(0);
+      return;
+    }
 
-  setWalletBalance(
-    Number.isFinite(balance) && balance >= 0
-      ? balance
-      : 0
-  );
-}, [currentUserData, selectedKeyData]);
+    setWalletBalance(getKeySettingStats(selectedKeyData).available);
+  }, [selectedKeyData]);
 
   const handleKeySelect = (id) => {
     const keyId = String(id);
@@ -1361,20 +1594,55 @@ useEffect(() => {
     setTransactionPinEntry("");
   };
 
-  const handleFromRoleSelect = async (role) => {
-    const targetRoleId = Number(role?.role_id);
+ const handleFromRoleSelect = async (role) => {
+  const targetRoleId = Number(role?.role_id);
+  const loggedInRoleId = Number(getRoleId());
 
-    if (!Number.isFinite(targetRoleId)) return;
+  const isPrivilegedRole = [0, 1].includes(loggedInRoleId);
 
-    setSelectedFromRole(String(targetRoleId));
-    setRevertUserSearch("");
-    setFromRoleDropdownOpen(false);
-    setAvailableBalance(0);
-    setTransferPoint("");
-    setTransactionPinEntry("");
+  const isActiveRole = roles.some(
+    (item) =>
+      Number(item?.role_id) === targetRoleId &&
+      Number(item?.status ?? 1) === 1
+  );
 
-    await loadRevertUsers(targetRoleId);
-  };
+ const isValidRole = isPrivilegedRole
+  ? targetRoleId >= 1 && targetRoleId <= 9
+  : targetRoleId >= 2 && targetRoleId <= 9;
+
+if (
+  !Number.isInteger(targetRoleId) ||
+  !isActiveRole ||
+  !isValidRole
+) {
+  toast.error("Please select a valid active role.");
+  return;
+}
+  if (!isPrivilegedRole) {
+    const expectedRoleId =
+      REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
+
+    if (
+      expectedRoleId === undefined ||
+      targetRoleId !== Number(expectedRoleId)
+    ) {
+      toast.error("This role is not allowed in your hierarchy.");
+      return;
+    }
+  }
+
+  setSelectedFromRole(String(targetRoleId));
+  setRevertUserSearch("");
+  setFromRoleDropdownOpen(false);
+  setRevertUserDropdownOpen(false);
+  setSelectedRevertUser("");
+  setRevertUsers([]);
+  setAvailableBalance(0);
+  setTransferPoint("");
+  setTransactionPinEntry("");
+
+  await loadRevertUsers(targetRoleId);
+};
 
   const handleRevertUserSelect = (userId) => {
     setSelectedRevertUser(String(userId));
@@ -1423,156 +1691,212 @@ useEffect(() => {
     setRevertUsers([]);
   };
 
+  const handleTransfer = async () => {
+    const loggedInRole = Number(getRoleId());
 
-const handleTransfer = async () => {
-  const loggedInRole = Number(getRoleId());
+    if (!selectedKey) {
+      toast.error("Please select a key setting.");
+      return;
+    }
 
-  if (!selectedKey) {
-    toast.error("Please select a key setting.");
+    if (transactionPinEntry.length !== 4) {
+      toast.error("Please enter a valid 4-digit transaction PIN.");
+      return;
+    }
+
+   if (isRevert) {
+  const isPrivilegedRole = [0, 1].includes(loggedInRole);
+
+  if (!selectedFromRole) {
+    toast.error("Please select a role.");
     return;
   }
 
-  if (transactionPinEntry.length !== 4) {
-    toast.error("Please enter a valid 4-digit transaction PIN.");
-    return;
-  }
-
-  if (isRevert) {
-    if (!selectedFromRole) {
-      toast.error("Please select a role.");
-      return;
-    }
-
-    if (!selectedRevertUser) {
-      toast.error("Please select a user.");
-      return;
-    }
-  } else if (isSchemaTransfer) {
-    if (!selectedSchemaRole) {
-      toast.error("Please select a role.");
-      return;
-    }
-
-    if (!selectedSchemaUser) {
-      toast.error("Please select a user.");
-      return;
-    }
-  } else if (!selectedTransferUser) {
+  if (!selectedRevertUser) {
     toast.error("Please select a user.");
     return;
   }
 
-  const points = Number(transferPoint);
+  const selectedRoleId = Number(selectedFromRole);
 
-  if (!Number.isFinite(points) || points <= 0) {
-    toast.error(
-      isRevert
-        ? "Please enter valid revert points."
-        : "Please enter valid transfer points."
-    );
+  const selectedUser = revertUsers.find(
+    (user) => String(user?.id) === String(selectedRevertUser)
+  );
+
+  // Ensure the selected role is active and valid.
+  const isActiveRole = roles.some(
+    (role) =>
+      Number(role?.role_id) === selectedRoleId &&
+      Number(role?.status ?? 1) === 1
+  );
+
+  const isValidRole = isPrivilegedRole
+  ? selectedRoleId >= 1 && selectedRoleId <= 9
+  : selectedRoleId >= 2 && selectedRoleId <= 9;
+
+if (!isActiveRole || !isValidRole) {
+  toast.error("Please select a valid active role.");
+  return;
+}
+
+  if (!selectedUser || Number(selectedUser?.role_id) !== selectedRoleId) {
+    toast.error("Selected user does not belong to the selected role.");
     return;
   }
 
-  // Revert: selected user's available balance is required.
-  if (isRevert) {
-    const balance = Number(availableBalance ?? 0);
+  // Master Admin and Admin can revert for any user in the selected role.
+  // Other roles remain restricted to their direct hierarchy.
+  if (!isPrivilegedRole) {
+    const expectedRoleId =
+      REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
 
-    if (!Number.isFinite(balance) || points > balance) {
-      toast.error(
-        `Insufficient balance. Available balance is ${(
-          Number.isFinite(balance) ? balance : 0
-        ).toLocaleString("en-IN")}.`
-      );
+    const walletOwnerId =
+      loggedInRole === 9
+        ? Number(
+            currentUserData?.parent_id ??
+              getUser()?.parent_id
+          )
+        : Number(getUser()?.id);
+
+    if (
+      expectedRoleId === undefined ||
+      selectedRoleId !== Number(expectedRoleId)
+    ) {
+      toast.error("Please select the eligible child role.");
+      return;
+    }
+
+    if (
+      !Number.isInteger(walletOwnerId) ||
+      walletOwnerId <= 0 ||
+      Number(selectedUser?.parent_id) !== walletOwnerId
+    ) {
+      toast.error("Selected user is outside your hierarchy.");
       return;
     }
   }
+} else if (isSchemaTransfer) {
+  if (!selectedSchemaRole) {
+    toast.error("Please select a role.");
+    return;
+  }
 
-  // Admin and Master Admin: skip frontend wallet balance check.
-  // Staff: retain the existing behavior.
-  // Backend must validate the actual balance before completing a transfer.
-  else if (![0, 1, 9].includes(loggedInRole)) {
-    const balance = Number(walletBalance ?? 0);
+  if (!selectedSchemaUser) {
+    toast.error("Please select a user.");
+    return;
+  }
+} else if (!selectedTransferUser) {
+  toast.error("Please select a user.");
+  return;
+}
 
-    if (!Number.isFinite(balance) || points > balance) {
+    const points = Number(transferPoint);
+
+    if (!Number.isFinite(points) || points <= 0) {
       toast.error(
-        `Insufficient balance. Available balance is ${(
-          Number.isFinite(balance) ? balance : 0
-        ).toLocaleString("en-IN")}.`
+        isRevert
+          ? "Please enter valid revert points."
+          : "Please enter valid transfer points."
       );
       return;
     }
-  }
 
-  const targetUserId = isRevert
-    ? selectedRevertUser
-    : isSchemaTransfer
-      ? selectedSchemaUser
-      : selectedTransferUser;
+    if (isRevert) {
+      const balance = Number(availableBalance ?? 0);
 
-  const previousFromRole = selectedFromRole;
-  const previousSchemaRole = selectedSchemaRole;
+      if (!Number.isFinite(balance) || points > balance) {
+        toast.error(
+          `Insufficient balance. Available balance is ${(
+            Number.isFinite(balance) ? balance : 0
+          ).toLocaleString("en-IN")}.`
+        );
+        return;
+      }
+    } else if (![0, 1, 9].includes(loggedInRole)) {
+      const balance = Number(walletBalance ?? 0);
 
-  try {
-    setTransferLoading(true);
-
-    const response = await transferWalletPoints(
-      targetUserId,
-      selectedKey,
-      points,
-      transactionType,
-      transactionPinEntry
-    );
-
-    if (!response?.success) {
-      toast.error(response?.message || "Failed to process points.");
-      return;
-    }
-
-    toast.success(
-      response.message ||
-        (isRevert
-          ? "Points reverted successfully."
-          : isSchemaTransfer
-            ? "Schema transferred successfully."
-            : "Points transferred successfully.")
-    );
-
-    resetAllFields();
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("wallet_balance_updated"));
-    }
-
-    await Promise.all([
-      loadKeySettings(),
-      loadRecentTransactions(),
-      loadTransactionPin(),
-    ]);
-
-    const currentRole = Number(getRoleId());
-
-    if (Number.isFinite(currentRole)) {
-      if (isRevert && previousFromRole) {
-        await loadRevertUsers(Number(previousFromRole));
-      } else if (isSchemaTransfer && previousSchemaRole) {
-        await loadSchemaUsers(Number(previousSchemaRole));
-      } else if (!isRevert && !isSchemaTransfer) {
-        await loadTransferUsers(currentRole, roles);
+      if (!Number.isFinite(balance) || points > balance) {
+        toast.error(
+          `Insufficient balance. Available balance is ${(
+            Number.isFinite(balance) ? balance : 0
+          ).toLocaleString("en-IN")}.`
+        );
+        return;
       }
     }
-  } catch (error) {
-    console.error(
-      "TRANSFER WALLET POINTS ERROR:",
-      getErrorMessage(error)
-    );
 
-    toast.error(
-      getErrorMessage(error) || "Failed to transfer points."
-    );
-  } finally {
-    setTransferLoading(false);
-  }
-};
+    const targetUserId = isRevert
+      ? selectedRevertUser
+      : isSchemaTransfer
+        ? selectedSchemaUser
+        : selectedTransferUser;
+
+    const previousFromRole = selectedFromRole;
+    const previousSchemaRole = selectedSchemaRole;
+
+    try {
+      setTransferLoading(true);
+
+      const response = await transferWalletPoints(
+        targetUserId,
+        selectedKey,
+        points,
+        transactionType,
+        transactionPinEntry
+      );
+
+      if (!response?.success) {
+        toast.error(
+          response?.message || "Failed to process points."
+        );
+        return;
+      }
+
+      toast.success(
+        response.message ||
+          (isRevert
+            ? "Points reverted successfully."
+            : isSchemaTransfer
+              ? "Schema transferred successfully."
+              : "Points transferred successfully.")
+      );
+
+      resetAllFields();
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("wallet_balance_updated"));
+      }
+
+      await Promise.all([
+        loadKeySettings(),
+        loadRecentTransactions(),
+        loadTransactionPin(),
+      ]);
+
+      const currentRole = Number(getRoleId());
+
+      if (Number.isFinite(currentRole)) {
+        if (isRevert && previousFromRole) {
+          await loadRevertUsers(Number(previousFromRole));
+        } else if (isSchemaTransfer && previousSchemaRole) {
+          await loadSchemaUsers(Number(previousSchemaRole));
+        } else if (!isRevert && !isSchemaTransfer) {
+          await loadTransferUsers(currentRole, roles);
+        }
+      }
+    } catch (error) {
+      console.error(
+        "TRANSFER WALLET POINTS ERROR:",
+        getErrorMessage(error)
+      );
+
+      toast.error(
+        getErrorMessage(error) || "Failed to transfer points."
+      );
+    } finally {
+      setTransferLoading(false);
+    }
+  };
 
   const transactionPinField = (
     <div>
@@ -1645,6 +1969,7 @@ const handleTransfer = async () => {
       : isSchemaTransfer
         ? !selectedSchemaRole || !selectedSchemaUser
         : !selectedTransferUser);
+
   return (
     <div className="min-h-screen">
       <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -1652,7 +1977,6 @@ const handleTransfer = async () => {
           {transactionPinField}
         </div>
 
-        {/* SCHEMA TRANSFER KEY SELECTION */}
         {isSchemaTransfer ? (
           <div className="mb-6">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -1668,7 +1992,9 @@ const handleTransfer = async () => {
                       setSchemaKeyDropdownOpen((previous) => !previous)
                     }
                     disabled={
-                      loading || transferLoading || keySettings.length === 0
+                      loading ||
+                      transferLoading ||
+                      keySettings.length === 0
                     }
                     className="flex h-[46px] w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-4 text-left text-sm font-medium text-gray-700 shadow-sm transition hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
                   >
@@ -1730,7 +2056,7 @@ const handleTransfer = async () => {
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  My Wallet Balance
+                  My Available Balance
                 </label>
 
                 <input
@@ -1771,13 +2097,13 @@ const handleTransfer = async () => {
               </div>
             ) : keySettings.length === 0 ? (
               <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-                No active key settings found.
+                No key settings found.
               </div>
             ) : (
               <div className="flex flex-wrap gap-3">
                 {keySettings.map((item) => {
-                  const selected =
-                    String(selectedKey) === String(item?.id);
+                  const selected = String(selectedKey) === String(item?.id);
+                  const stats = getKeySettingStats(item);
 
                   return (
                     <button
@@ -1785,26 +2111,54 @@ const handleTransfer = async () => {
                       type="button"
                       onClick={() => handleKeySelect(item?.id)}
                       disabled={transferLoading}
-                      className={`rounded-lg border px-4 py-3 text-left transition cursor-pointer disabled:cursor-not-allowed ${
+                      className={`min-w-[230px] flex-1 cursor-pointer rounded-xl border p-4 text-left transition disabled:cursor-not-allowed ${
                         selected
-                          ? "border-blue-500 bg-blue-500 text-white shadow-md"
-                          : "border-gray-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
+                          ? "border-blue-500 bg-blue-50 shadow-sm ring-1 ring-blue-200"
+                          : "border-gray-200 bg-white hover:border-blue-300 hover:bg-gray-50"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold">
+                      <div className="mb-4 flex items-center justify-between gap-3">
+                        <span className="break-words text-sm font-semibold text-gray-800">
                           {item?.name || "Unnamed Key"}
                         </span>
-
                         <span
-                          className={`rounded-md px-2 py-1 text-xs font-bold ${
+                          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
                             selected
-                              ? "bg-white/20 text-white"
-                              : "bg-blue-50 text-blue-600"
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-100 text-gray-600"
                           }`}
                         >
-                          {Number(item?.balance || 0).toLocaleString("en-IN")}
+                          {selected ? "Selected" : "Select"}
                         </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="min-w-0 rounded-lg bg-gray-50 p-2">
+                          <p className="mb-1 text-[11px] font-medium text-gray-500">
+                            Balance
+                          </p>
+                          <p className="break-words text-sm font-bold text-gray-800">
+                            {formatPoints(stats.balance)}
+                          </p>
+                        </div>
+
+                        <div className="min-w-0 rounded-lg bg-orange-50 p-2">
+                          <p className="mb-1 text-[11px] font-medium text-orange-700">
+                            Consumed
+                          </p>
+                          <p className="break-words text-sm font-bold text-orange-800">
+                            {formatPoints(stats.consumed)}
+                          </p>
+                        </div>
+
+                        <div className="min-w-0 rounded-lg bg-green-50 p-2">
+                          <p className="mb-1 text-[11px] font-medium text-green-700">
+                            Available
+                          </p>
+                          <p className="break-words text-sm font-bold text-green-800">
+                            {formatPoints(stats.available)}
+                          </p>
+                        </div>
                       </div>
                     </button>
                   );
@@ -1813,6 +2167,7 @@ const handleTransfer = async () => {
             )}
           </div>
         )}
+
         {isRevert ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
             <div>
@@ -1822,16 +2177,23 @@ const handleTransfer = async () => {
 
               <RoleDropdown
                 value={selectedFromRole}
-                roles={availableRoleOptions}
+                roles={revertRoleOptions}
                 open={fromRoleDropdownOpen}
                 setOpen={setFromRoleDropdownOpen}
-                loading={loadingRoles}
+                loading={loadingRoles || transactionPinLoading}
                 disabled={
                   loadingRoles ||
+                  transactionPinLoading ||
                   transferLoading ||
-                  availableRoleOptions.length === 0
+                  revertRoleOptions.length === 0
                 }
-                placeholder="Select Role"
+                placeholder={
+                  transactionPinLoading
+                    ? "Loading hierarchy..."
+                    : revertRoleOptions.length
+                      ? "Select Role"
+                      : "No eligible role available"
+                }
                 onSelect={handleFromRoleSelect}
               />
             </div>
@@ -2037,7 +2399,6 @@ const handleTransfer = async () => {
           </div>
         )}
 
-        {/* SUBMIT */}
         <div className="mt-6 flex justify-end">
           <button
             type="button"
@@ -2057,7 +2418,6 @@ const handleTransfer = async () => {
           </button>
         </div>
 
-        {/* RECENT TRANSACTIONS */}
         <div className="mt-8">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -2065,15 +2425,13 @@ const handleTransfer = async () => {
                 Recent Transactions
               </h2>
 
-             
-<p className="mt-1 text-xs text-gray-400">
-  {[0, 1].includes(Number(roleId))
-    ? "Latest transactions"
-    : Number(roleId) === 9
-      ? "Your and creator's latest transactions"
-      : "Your latest transactions"}
-</p>
-
+              <p className="mt-1 text-xs text-gray-400">
+                {[0, 1].includes(Number(roleId))
+                  ? "Latest transactions"
+                  : Number(roleId) === 9
+                    ? "Your and creator's latest transactions"
+                    : "Your latest transactions"}
+              </p>
             </div>
 
             <span className="rounded-md bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-500">
@@ -2081,109 +2439,164 @@ const handleTransfer = async () => {
             </span>
           </div>
 
-          {recentTransactionsLoading ? (
-            <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-              Loading recent transactions...
+         {recentTransactionsLoading ? (
+  <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+    Loading recent transactions...
+  </div>
+) : recentTransactions.length === 0 ? (
+  <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+    No recent transactions found.
+  </div>
+) : (
+  <div className="space-y-3">
+    {recentTransactions.map((transaction) => {
+      const points = getTransactionPoints(transaction);
+
+      // Original transaction parties
+      const originalFromName = getTransactionUserName(
+        transaction,
+        "from"
+      );
+      const originalToName = getTransactionUserName(
+        transaction,
+        "to"
+      );
+
+      const originalFromEmail = getTransactionUserEmail(
+        transaction,
+        "from"
+      );
+      const originalToEmail = getTransactionUserEmail(
+        transaction,
+        "to"
+      );
+
+      const originalFromUserId = getTransactionUserId(
+        transaction,
+        "from"
+      );
+      const originalToUserId = getTransactionUserId(
+        transaction,
+        "to"
+      );
+
+      // Transfer = 0, Schema Transfer = 1, Revert = 2
+      const isRevertTransaction =
+        Number(transaction?.transaction_type) ===
+        TRANSACTION_TYPES.REVERT;
+
+      // Normal transfer/schema: From = sender, To = receiver
+      // Revert: From = user whose points were reverted,
+      // To = admin who initiated the revert
+      const fromName = isRevertTransaction
+        ? originalToName
+        : originalFromName;
+
+      const toName = isRevertTransaction
+        ? originalFromName
+        : originalToName;
+
+      const fromEmail = isRevertTransaction
+        ? originalToEmail
+        : originalFromEmail;
+
+      const toEmail = isRevertTransaction
+        ? originalFromEmail
+        : originalToEmail;
+
+      const fromUserId = isRevertTransaction
+        ? originalToUserId
+        : originalFromUserId;
+
+      const toUserId = isRevertTransaction
+        ? originalFromUserId
+        : originalToUserId;
+
+      return (
+        <div
+          key={
+            transaction?.id ??
+            `${fromUserId}-${toUserId}-${transaction?.created_at}`
+          }
+          className="rounded-lg border border-gray-200 bg-white p-4"
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-600">
+                    {getTransactionTypeName(
+                      transaction?.transaction_type
+                    )}
+                  </span>
+
+                  <span className="break-words text-sm font-semibold text-gray-800">
+                    {getTransactionKeyName(transaction)}
+                  </span>
+                </div>
+
+                <p className="mt-2 text-xs text-gray-400">
+                  {formatTransactionDate(transaction?.created_at)}
+                </p>
+              </div>
+
+              <div className="shrink-0 rounded-lg bg-gray-50 px-4 py-2 sm:text-right">
+                <p className="text-base font-bold text-gray-800">
+                  {points.toLocaleString("en-IN")}
+                </p>
+                <p className="text-xs text-gray-400">Points</p>
+              </div>
             </div>
-          ) : recentTransactions.length === 0 ? (
-            <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-              No recent transactions found.
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {/* FROM: Sender, or user whose points were reverted */}
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  From (Sender)
+                </p>
+
+                <p className="break-words text-sm font-semibold text-gray-700">
+                  {fromName || "N/A"}
+                </p>
+
+                {fromEmail && (
+                  <p className="mt-1 break-all text-xs text-gray-400">
+                    {fromEmail}
+                  </p>
+                )}
+
+                <p className="mt-1 break-all text-xs text-gray-400">
+                  ID: {fromUserId ?? "N/A"}
+                </p>
+              </div>
+
+              {/* TO: Receiver, or admin who initiated the revert */}
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  To (Receiver)
+                </p>
+
+                <p className="break-words text-sm font-semibold text-gray-700">
+                  {toName || "N/A"}
+                </p>
+
+                {toEmail && (
+                  <p className="mt-1 break-all text-xs text-gray-400">
+                    {toEmail}
+                  </p>
+                )}
+
+                <p className="mt-1 break-all text-xs text-gray-400">
+                  ID: {toUserId ?? "N/A"}
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {recentTransactions.map((transaction) => {
-                const points = getTransactionPoints(transaction);
-
-                const fromName = getTransactionUserName(transaction, "from");
-                const toName = getTransactionUserName(transaction, "to");
-                const fromEmail = getTransactionUserEmail(transaction, "from");
-                const toEmail = getTransactionUserEmail(transaction, "to");
-                const fromUserId = getTransactionUserId(transaction, "from");
-                const toUserId = getTransactionUserId(transaction, "to");
-
-                return (
-                  <div
-                    key={
-                      transaction?.id ??
-                      `${fromUserId}-${toUserId}-${transaction?.created_at}`
-                    }
-                    className="rounded-lg border border-gray-200 bg-white p-4"
-                  >
-                    <div className="flex flex-col gap-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-600">
-                              {getTransactionTypeName(
-                                transaction?.transaction_type
-                              )}
-                            </span>
-
-                            <span className="break-words text-sm font-semibold text-gray-800">
-                              {getTransactionKeyName(transaction)}
-                            </span>
-                          </div>
-
-                          <p className="mt-2 text-xs text-gray-400">
-                            {formatTransactionDate(transaction?.created_at)}
-                          </p>
-                        </div>
-
-                        <div className="shrink-0 rounded-lg bg-gray-50 px-4 py-2 sm:text-right">
-                          <p className="text-base font-bold text-gray-800">
-                            {points.toLocaleString("en-IN")}
-                          </p>
-                          <p className="text-xs text-gray-400">Points</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                            From
-                          </p>
-
-                          <p className="break-words text-sm font-semibold text-gray-700">
-                            {fromName}
-                          </p>
-
-                          {fromEmail && (
-                            <p className="mt-1 break-all text-xs text-gray-400">
-                              {fromEmail}
-                            </p>
-                          )}
-
-                          <p className="mt-1 break-all text-xs text-gray-400">
-                            ID: {fromUserId}
-                          </p>
-                        </div>
-
-                        <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                            To
-                          </p>
-
-                          <p className="break-words text-sm font-semibold text-gray-700">
-                            {toName}
-                          </p>
-
-                          {toEmail && (
-                            <p className="mt-1 break-all text-xs text-gray-400">
-                              {toEmail}
-                            </p>
-                          )}
-
-                          <p className="mt-1 break-all text-xs text-gray-400">
-                            ID: {toUserId}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
         </div>
       </div>
     </div>

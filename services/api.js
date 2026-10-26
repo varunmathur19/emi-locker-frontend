@@ -409,6 +409,7 @@ export const updateKeySetting = async (id, data) => {
 
 
 //post the transactione data
+
 export const transferWalletPoints = async (
   to_user_id,
   key_setting_id,
@@ -417,24 +418,41 @@ export const transferWalletPoints = async (
   transaction_pin
 ) => {
   try {
-    const response = await api.post("/wallet/transfer", {
+    const payload = {
       to_user_id: Number(to_user_id),
       key_setting_id: Number(key_setting_id),
       points_sent: Number(points_sent),
       transaction_type: Number(transaction_type),
       transaction_pin: String(transaction_pin).trim(),
-    });
+    };
+
+    const response = await api.post("/wallet/transfer", payload);
 
     return response.data;
   } catch (error) {
+    const errorDetails = {
+      message: error?.message ?? "Unknown error",
+      code: error?.code ?? null,
+      status: error?.response?.status ?? null,
+      responseData: error?.response?.data ?? null,
+      responseText: error?.response?.request?.responseText ?? null,
+      requestUrl: error?.config?.url ?? null,
+      method: error?.config?.method ?? null,
+      requestPayload: {
+        ...payload,
+        transaction_pin: "[REDACTED]",
+      },
+    };
+
     console.error(
       "TRANSFER WALLET POINTS API ERROR:",
-      error?.response?.data || error.message
+      JSON.stringify(errorDetails, null, 2)
     );
 
     throw error;
   }
 };
+
 
 //get the transaction data
 export const getWalletTransactions = async (params = {}) => {

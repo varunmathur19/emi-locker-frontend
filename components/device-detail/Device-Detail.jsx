@@ -285,7 +285,7 @@ export function DeviceDetail() {
                         <img
                           src={getImageUrl(device.brand)}
                           alt="Brand logo"
-                          className="h-10 w-16 rounded border border-gray-200 bg-white object-contain p-1"
+                          className="h-10 w-16  border border-gray-200 bg-white "
                           onError={(event) => {
                             event.currentTarget.style.display = "none";
                           }}
