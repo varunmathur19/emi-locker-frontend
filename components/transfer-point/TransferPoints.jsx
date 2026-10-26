@@ -351,6 +351,7 @@ const getTransactionPartyId = (transaction, side) => {
   return Number(value);
 };
 
+
 function UserDropdown({
   value,
   users = [],
@@ -680,26 +681,42 @@ export default function TransferPoint() {
     [roles, roleId]
   );
 
-  const revertRoleOptions = useMemo(() => {
-    if (
-      hierarchyRoleId === null ||
-      hierarchyRoleId === undefined ||
-      !Number.isInteger(Number(hierarchyRoleId))
-    ) {
-      return [];
-    }
+ const revertRoleOptions = useMemo(() => {
+  const currentRole = Number(roleId);
 
-    const expectedRoleId =
-      REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
+  // Master Admin and Admin can select any active child role.
+  if ([0, 1].includes(currentRole)) {
+    return roles.filter((role) => {
+      const targetRole = Number(role?.role_id);
 
-    if (expectedRoleId === undefined) return [];
-
-    return roles.filter(
-      (role) =>
-        Number(role?.role_id) === Number(expectedRoleId) &&
+      return (
+        targetRole >= 2 &&
+        targetRole <= 9 &&
         Number(role?.status ?? 1) === 1
-    );
-  }, [roles, hierarchyRoleId]);
+      );
+    });
+  }
+
+  // Other roles can select only their eligible next role.
+  if (
+    hierarchyRoleId === null ||
+    hierarchyRoleId === undefined ||
+    !Number.isInteger(Number(hierarchyRoleId))
+  ) {
+    return [];
+  }
+
+  const expectedRoleId =
+    REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
+
+  if (expectedRoleId === undefined) return [];
+
+  return roles.filter(
+    (role) =>
+      Number(role?.role_id) === Number(expectedRoleId) &&
+      Number(role?.status ?? 1) === 1
+  );
+}, [roles, hierarchyRoleId, roleId]);
 
   const schemaRoleOptions = useMemo(
     () =>
@@ -1184,27 +1201,51 @@ export default function TransferPoint() {
     [loadUsersByRole]
   );
 
-  const loadRevertUsers = useCallback(
-    async (targetRoleId) => {
-      setLoadingRevertUsers(true);
-      setRevertUsers([]);
-      setSelectedRevertUser("");
+const loadRevertUsers = useCallback(
+  async (targetRoleId) => {
+    setLoadingRevertUsers(true);
+    setRevertUsers([]);
+    setSelectedRevertUser("");
+    setAvailableBalance(0);
 
-      try {
-        const loggedInUser = getUser();
-        const loggedInRoleId = Number(getRoleId());
+    try {
+      const loggedInUser = getUser();
+      const loggedInRoleId = Number(getRoleId());
+      const selectedRoleId = Number(targetRoleId);
 
+      const isPrivilegedRole = [0, 1].includes(loggedInRoleId);
+
+      // Validate selected role.
+      const isActiveRole = roles.some(
+        (role) =>
+          Number(role?.role_id) === selectedRoleId &&
+          Number(role?.status ?? 1) === 1
+      );
+
+      if (!isActiveRole || selectedRoleId < 2 || selectedRoleId > 9) {
+        toast.error("Please select a valid active role.");
+        return;
+      }
+
+      // Non-admin users remain restricted to the next role in hierarchy.
+      if (!isPrivilegedRole) {
         const expectedRoleId =
           REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
 
         if (
           expectedRoleId === undefined ||
-          Number(targetRoleId) !== Number(expectedRoleId)
+          selectedRoleId !== Number(expectedRoleId)
         ) {
           toast.error("This role is not allowed in your hierarchy.");
           return;
         }
+      }
 
+      const users = await loadUsersByRole(selectedRoleId);
+
+      let eligibleUsers = users;
+
+      if (!isPrivilegedRole) {
         const walletOwnerId =
           loggedInRoleId === 9
             ? Number(
@@ -1221,33 +1262,37 @@ export default function TransferPoint() {
           return;
         }
 
-        const users = await loadUsersByRole(targetRoleId);
-
-        const directChildren = users.filter(
+        eligibleUsers = users.filter(
           (user) =>
             Number(user?.parent_id) === walletOwnerId &&
-            Number(user?.role_id) === Number(targetRoleId)
+            Number(user?.role_id) === selectedRoleId
         );
-
-        setRevertUsers(directChildren);
-
-        if (directChildren.length === 0) {
-          toast.info("No eligible users found under this account.");
-        }
-      } catch (error) {
-        console.error(
-          "GET REVERT USERS ERROR:",
-          getErrorMessage(error)
-        );
-
-        setRevertUsers([]);
-        toast.error("Failed to load eligible revert users.");
-      } finally {
-        setLoadingRevertUsers(false);
       }
-    },
-    [loadUsersByRole, currentUserData, hierarchyRoleId]
-  );
+
+      setRevertUsers(eligibleUsers);
+
+      if (eligibleUsers.length === 0) {
+        toast.info("No eligible users found for the selected role.");
+      }
+    } catch (error) {
+      console.error(
+        "GET REVERT USERS ERROR:",
+        getErrorMessage(error)
+      );
+
+      setRevertUsers([]);
+      toast.error("Failed to load eligible revert users.");
+    } finally {
+      setLoadingRevertUsers(false);
+    }
+  },
+  [
+    roles,
+    hierarchyRoleId,
+    currentUserData,
+    loadUsersByRole,
+  ]
+);
 
   const loadRecentTransactions = useCallback(async () => {
     setRecentTransactionsLoading(true);
@@ -1512,32 +1557,53 @@ export default function TransferPoint() {
     setTransactionPinEntry("");
   };
 
-  const handleFromRoleSelect = async (role) => {
-    const targetRoleId = Number(role?.role_id);
+ const handleFromRoleSelect = async (role) => {
+  const targetRoleId = Number(role?.role_id);
+  const loggedInRoleId = Number(getRoleId());
+
+  const isPrivilegedRole = [0, 1].includes(loggedInRoleId);
+
+  const isActiveRole = roles.some(
+    (item) =>
+      Number(item?.role_id) === targetRoleId &&
+      Number(item?.status ?? 1) === 1
+  );
+
+  if (
+    !Number.isInteger(targetRoleId) ||
+    !isActiveRole ||
+    targetRoleId < 2 ||
+    targetRoleId > 9
+  ) {
+    toast.error("Please select a valid active role.");
+    return;
+  }
+
+  if (!isPrivilegedRole) {
     const expectedRoleId =
       REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
 
     if (
-      !Number.isInteger(targetRoleId) ||
       expectedRoleId === undefined ||
       targetRoleId !== Number(expectedRoleId)
     ) {
       toast.error("This role is not allowed in your hierarchy.");
       return;
     }
+  }
 
-    setSelectedFromRole(String(targetRoleId));
-    setRevertUserSearch("");
-    setFromRoleDropdownOpen(false);
-    setRevertUserDropdownOpen(false);
-    setSelectedRevertUser("");
-    setRevertUsers([]);
-    setAvailableBalance(0);
-    setTransferPoint("");
-    setTransactionPinEntry("");
+  setSelectedFromRole(String(targetRoleId));
+  setRevertUserSearch("");
+  setFromRoleDropdownOpen(false);
+  setRevertUserDropdownOpen(false);
+  setSelectedRevertUser("");
+  setRevertUsers([]);
+  setAvailableBalance(0);
+  setTransferPoint("");
+  setTransactionPinEntry("");
 
-    await loadRevertUsers(targetRoleId);
-  };
+  await loadRevertUsers(targetRoleId);
+};
 
   const handleRevertUserSelect = (userId) => {
     setSelectedRevertUser(String(userId));
@@ -1599,58 +1665,91 @@ export default function TransferPoint() {
       return;
     }
 
-    if (isRevert) {
-      const expectedRoleId =
-        REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
+   if (isRevert) {
+  const isPrivilegedRole = [0, 1].includes(loggedInRole);
 
-      if (
-        !selectedFromRole ||
-        expectedRoleId === undefined ||
-        Number(selectedFromRole) !== Number(expectedRoleId)
-      ) {
-        toast.error("Please select the eligible child role.");
-        return;
-      }
+  if (!selectedFromRole) {
+    toast.error("Please select a role.");
+    return;
+  }
 
-      if (!selectedRevertUser) {
-        toast.error("Please select a user.");
-        return;
-      }
+  if (!selectedRevertUser) {
+    toast.error("Please select a user.");
+    return;
+  }
 
-      const selectedUser = revertUsers.find(
-        (user) => String(user?.id) === String(selectedRevertUser)
-      );
+  const selectedRoleId = Number(selectedFromRole);
 
-      const walletOwnerId =
-        loggedInRole === 9
-          ? Number(
-              currentUserData?.parent_id ??
-                getUser()?.parent_id
-            )
-          : Number(getUser()?.id);
+  const selectedUser = revertUsers.find(
+    (user) => String(user?.id) === String(selectedRevertUser)
+  );
 
-      if (
-        !selectedUser ||
-        Number(selectedUser?.parent_id) !== walletOwnerId ||
-        Number(selectedUser?.role_id) !== Number(expectedRoleId)
-      ) {
-        toast.error("Selected user is outside your hierarchy.");
-        return;
-      }
-    } else if (isSchemaTransfer) {
-      if (!selectedSchemaRole) {
-        toast.error("Please select a role.");
-        return;
-      }
+  // Ensure the selected role is active and valid.
+  const isActiveRole = roles.some(
+    (role) =>
+      Number(role?.role_id) === selectedRoleId &&
+      Number(role?.status ?? 1) === 1
+  );
 
-      if (!selectedSchemaUser) {
-        toast.error("Please select a user.");
-        return;
-      }
-    } else if (!selectedTransferUser) {
-      toast.error("Please select a user.");
+  if (
+    !isActiveRole ||
+    selectedRoleId < 2 ||
+    selectedRoleId > 9
+  ) {
+    toast.error("Please select a valid active role.");
+    return;
+  }
+
+  if (!selectedUser || Number(selectedUser?.role_id) !== selectedRoleId) {
+    toast.error("Selected user does not belong to the selected role.");
+    return;
+  }
+
+  // Master Admin and Admin can revert for any user in the selected role.
+  // Other roles remain restricted to their direct hierarchy.
+  if (!isPrivilegedRole) {
+    const expectedRoleId =
+      REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
+
+    const walletOwnerId =
+      loggedInRole === 9
+        ? Number(
+            currentUserData?.parent_id ??
+              getUser()?.parent_id
+          )
+        : Number(getUser()?.id);
+
+    if (
+      expectedRoleId === undefined ||
+      selectedRoleId !== Number(expectedRoleId)
+    ) {
+      toast.error("Please select the eligible child role.");
       return;
     }
+
+    if (
+      !Number.isInteger(walletOwnerId) ||
+      walletOwnerId <= 0 ||
+      Number(selectedUser?.parent_id) !== walletOwnerId
+    ) {
+      toast.error("Selected user is outside your hierarchy.");
+      return;
+    }
+  }
+} else if (isSchemaTransfer) {
+  if (!selectedSchemaRole) {
+    toast.error("Please select a role.");
+    return;
+  }
+
+  if (!selectedSchemaUser) {
+    toast.error("Please select a user.");
+    return;
+  }
+} else if (!selectedTransferUser) {
+  toast.error("Please select a user.");
+  return;
+}
 
     const points = Number(transferPoint);
 
@@ -2301,129 +2400,164 @@ export default function TransferPoint() {
             </span>
           </div>
 
-          {recentTransactionsLoading ? (
-            <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-              Loading recent transactions...
+         {recentTransactionsLoading ? (
+  <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+    Loading recent transactions...
+  </div>
+) : recentTransactions.length === 0 ? (
+  <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+    No recent transactions found.
+  </div>
+) : (
+  <div className="space-y-3">
+    {recentTransactions.map((transaction) => {
+      const points = getTransactionPoints(transaction);
+
+      // Original transaction parties
+      const originalFromName = getTransactionUserName(
+        transaction,
+        "from"
+      );
+      const originalToName = getTransactionUserName(
+        transaction,
+        "to"
+      );
+
+      const originalFromEmail = getTransactionUserEmail(
+        transaction,
+        "from"
+      );
+      const originalToEmail = getTransactionUserEmail(
+        transaction,
+        "to"
+      );
+
+      const originalFromUserId = getTransactionUserId(
+        transaction,
+        "from"
+      );
+      const originalToUserId = getTransactionUserId(
+        transaction,
+        "to"
+      );
+
+      // Transfer = 0, Schema Transfer = 1, Revert = 2
+      const isRevertTransaction =
+        Number(transaction?.transaction_type) ===
+        TRANSACTION_TYPES.REVERT;
+
+      // Normal transfer/schema: From = sender, To = receiver
+      // Revert: From = user whose points were reverted,
+      // To = admin who initiated the revert
+      const fromName = isRevertTransaction
+        ? originalToName
+        : originalFromName;
+
+      const toName = isRevertTransaction
+        ? originalFromName
+        : originalToName;
+
+      const fromEmail = isRevertTransaction
+        ? originalToEmail
+        : originalFromEmail;
+
+      const toEmail = isRevertTransaction
+        ? originalFromEmail
+        : originalToEmail;
+
+      const fromUserId = isRevertTransaction
+        ? originalToUserId
+        : originalFromUserId;
+
+      const toUserId = isRevertTransaction
+        ? originalFromUserId
+        : originalToUserId;
+
+      return (
+        <div
+          key={
+            transaction?.id ??
+            `${fromUserId}-${toUserId}-${transaction?.created_at}`
+          }
+          className="rounded-lg border border-gray-200 bg-white p-4"
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-600">
+                    {getTransactionTypeName(
+                      transaction?.transaction_type
+                    )}
+                  </span>
+
+                  <span className="break-words text-sm font-semibold text-gray-800">
+                    {getTransactionKeyName(transaction)}
+                  </span>
+                </div>
+
+                <p className="mt-2 text-xs text-gray-400">
+                  {formatTransactionDate(transaction?.created_at)}
+                </p>
+              </div>
+
+              <div className="shrink-0 rounded-lg bg-gray-50 px-4 py-2 sm:text-right">
+                <p className="text-base font-bold text-gray-800">
+                  {points.toLocaleString("en-IN")}
+                </p>
+                <p className="text-xs text-gray-400">Points</p>
+              </div>
             </div>
-          ) : recentTransactions.length === 0 ? (
-            <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-              No recent transactions found.
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {/* FROM: Sender, or user whose points were reverted */}
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  From (Sender)
+                </p>
+
+                <p className="break-words text-sm font-semibold text-gray-700">
+                  {fromName || "N/A"}
+                </p>
+
+                {fromEmail && (
+                  <p className="mt-1 break-all text-xs text-gray-400">
+                    {fromEmail}
+                  </p>
+                )}
+
+                <p className="mt-1 break-all text-xs text-gray-400">
+                  ID: {fromUserId ?? "N/A"}
+                </p>
+              </div>
+
+              {/* TO: Receiver, or admin who initiated the revert */}
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  To (Receiver)
+                </p>
+
+                <p className="break-words text-sm font-semibold text-gray-700">
+                  {toName || "N/A"}
+                </p>
+
+                {toEmail && (
+                  <p className="mt-1 break-all text-xs text-gray-400">
+                    {toEmail}
+                  </p>
+                )}
+
+                <p className="mt-1 break-all text-xs text-gray-400">
+                  ID: {toUserId ?? "N/A"}
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {recentTransactions.map((transaction) => {
-                const points = getTransactionPoints(transaction);
-
-                const fromName = getTransactionUserName(
-                  transaction,
-                  "from"
-                );
-                const toName = getTransactionUserName(
-                  transaction,
-                  "to"
-                );
-                const fromEmail = getTransactionUserEmail(
-                  transaction,
-                  "from"
-                );
-                const toEmail = getTransactionUserEmail(
-                  transaction,
-                  "to"
-                );
-                const fromUserId = getTransactionUserId(
-                  transaction,
-                  "from"
-                );
-                const toUserId = getTransactionUserId(
-                  transaction,
-                  "to"
-                );
-
-                return (
-                  <div
-                    key={
-                      transaction?.id ??
-                      `${fromUserId}-${toUserId}-${transaction?.created_at}`
-                    }
-                    className="rounded-lg border border-gray-200 bg-white p-4"
-                  >
-                    <div className="flex flex-col gap-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-600">
-                              {getTransactionTypeName(
-                                transaction?.transaction_type
-                              )}
-                            </span>
-
-                            <span className="break-words text-sm font-semibold text-gray-800">
-                              {getTransactionKeyName(transaction)}
-                            </span>
-                          </div>
-
-                          <p className="mt-2 text-xs text-gray-400">
-                            {formatTransactionDate(
-                              transaction?.created_at
-                            )}
-                          </p>
-                        </div>
-
-                        <div className="shrink-0 rounded-lg bg-gray-50 px-4 py-2 sm:text-right">
-                          <p className="text-base font-bold text-gray-800">
-                            {points.toLocaleString("en-IN")}
-                          </p>
-                          <p className="text-xs text-gray-400">Points</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                            To
-                          </p>
-
-                          <p className="break-words text-sm font-semibold text-gray-700">
-                            {fromName}
-                          </p>
-
-                          {fromEmail && (
-                            <p className="mt-1 break-all text-xs text-gray-400">
-                              {fromEmail}
-                            </p>
-                          )}
-
-                          <p className="mt-1 break-all text-xs text-gray-400">
-                            ID: {fromUserId}
-                          </p>
-                        </div>
-
-                        <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                            From
-                          </p>
-
-                          <p className="break-words text-sm font-semibold text-gray-700">
-                            {toName}
-                          </p>
-
-                          {toEmail && (
-                            <p className="mt-1 break-all text-xs text-gray-400">
-                              {toEmail}
-                            </p>
-                          )}
-
-                          <p className="mt-1 break-all text-xs text-gray-400">
-                            ID: {toUserId}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
         </div>
       </div>
     </div>

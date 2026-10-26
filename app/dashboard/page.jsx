@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -77,17 +78,11 @@ function normalizePermissions(value) {
     }
   }
 
-  if (
-    typeof value !== "object" ||
-    Array.isArray(value)
-  ) {
+  if (typeof value !== "object" || Array.isArray(value)) {
     return {};
   }
 
-  if (
-    value.permission &&
-    typeof value.permission === "object"
-  ) {
+  if (value.permission && typeof value.permission === "object") {
     return normalizePermissions(value.permission);
   }
 
@@ -99,18 +94,11 @@ function isPermissionEnabled(value) {
   if (typeof value === "number") return value === 1;
 
   if (typeof value === "string") {
-    return ["1", "true", "yes"].includes(
-      value.trim().toLowerCase()
-    );
+    return ["1", "true", "yes"].includes(value.trim().toLowerCase());
   }
 
   if (value && typeof value === "object") {
-    for (const key of [
-      "status",
-      "access",
-      "view",
-      "enabled",
-    ]) {
+    for (const key of ["status", "access", "view", "enabled"]) {
       if (value[key] !== undefined) {
         return isPermissionEnabled(value[key]);
       }
@@ -120,30 +108,21 @@ function isPermissionEnabled(value) {
   return false;
 }
 
-function hasModulePermission(
-  permissions,
-  moduleId,
-  action = null
-) {
+function hasModulePermission(permissions, moduleId, action = null) {
   const id = Number(moduleId);
 
-  if (!Number.isInteger(id) || id <= 0) {
-    return false;
-  }
+  if (!Number.isInteger(id) || id <= 0) return false;
 
   const normalized = normalizePermissions(permissions);
 
   if (!action) {
-    return Object.entries(normalized).some(
-      ([key, value]) => {
-        const [permissionModuleId] = key.split(".");
-
-        return (
-          Number(permissionModuleId) === id &&
-          isPermissionEnabled(value)
-        );
-      }
-    );
+    return Object.entries(normalized).some(([key, value]) => {
+      const [permissionModuleId] = key.split(".");
+      return (
+        Number(permissionModuleId) === id &&
+        isPermissionEnabled(value)
+      );
+    });
   }
 
   const subModuleId =
@@ -155,9 +134,7 @@ function hasModulePermission(
 
   const exactKey = `${id}.${subModuleId}`;
 
-  if (isPermissionEnabled(normalized[exactKey])) {
-    return true;
-  }
+  if (isPermissionEnabled(normalized[exactKey])) return true;
 
   if (subModuleId !== SUBMODULE_IDS.manage) {
     return isPermissionEnabled(
@@ -174,6 +151,10 @@ function normalizeRoleValue(value) {
     .toLowerCase()
     .replace(/[_-]/g, " ")
     .replace(/\s+/g, " ");
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("en-IN");
 }
 
 function SkeletonCard() {
@@ -246,7 +227,6 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Load active roles.
   useEffect(() => {
     let cancelled = false;
 
@@ -267,9 +247,7 @@ export default function Dashboard() {
               Number(b?.sequence ?? 0)
           );
 
-        if (!cancelled) {
-          setRoles(activeRoles);
-        }
+        if (!cancelled) setRoles(activeRoles);
       } catch (error) {
         console.error(
           "GET ROLES ERROR:",
@@ -281,9 +259,7 @@ export default function Dashboard() {
           toast.error("Failed to load roles");
         }
       } finally {
-        if (!cancelled) {
-          setRolesLoading(false);
-        }
+        if (!cancelled) setRolesLoading(false);
       }
     }
 
@@ -309,9 +285,7 @@ export default function Dashboard() {
           ? response
           : [];
 
-        if (!cancelled) {
-          setModules(data);
-        }
+        if (!cancelled) setModules(data);
       } catch (error) {
         console.error(
           "GET MODULES ERROR:",
@@ -323,9 +297,7 @@ export default function Dashboard() {
           toast.error("Failed to load modules");
         }
       } finally {
-        if (!cancelled) {
-          setModulesLoading(false);
-        }
+        if (!cancelled) setModulesLoading(false);
       }
     }
 
@@ -336,7 +308,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Load active key settings.
+  // Load active key settings with balance, consumed and available.
   useEffect(() => {
     let cancelled = false;
 
@@ -353,22 +325,16 @@ export default function Dashboard() {
               )
             : [];
 
-        if (!cancelled) {
-          setKeySettings(data);
-        }
+        if (!cancelled) setKeySettings(data);
       } catch (error) {
         console.error(
           "GET KEY SETTINGS ERROR:",
           error?.response?.data || error.message
         );
 
-        if (!cancelled) {
-          setKeySettings([]);
-        }
+        if (!cancelled) setKeySettings([]);
       } finally {
-        if (!cancelled) {
-          setKeySettingsLoading(false);
-        }
+        if (!cancelled) setKeySettingsLoading(false);
       }
     }
 
@@ -420,13 +386,8 @@ export default function Dashboard() {
     if (roleId === null) return false;
     if (roleId !== 9) return true;
 
-    if (!staffPermissionsLoaded || modulesLoading) {
-      return false;
-    }
-
-    if (!myTransactionModule?.id) {
-      return false;
-    }
+    if (!staffPermissionsLoaded || modulesLoading) return false;
+    if (!myTransactionModule?.id) return false;
 
     return hasModulePermission(
       staffPermissions,
@@ -449,9 +410,7 @@ export default function Dashboard() {
 
       const text = String(value).trim();
 
-      if (/^\d+$/.test(text)) {
-        return Number(text);
-      }
+      if (/^\d+$/.test(text)) return Number(text);
 
       const normalized = normalizeRoleValue(text);
 
@@ -704,13 +663,9 @@ export default function Dashboard() {
   ]);
 
   const hasStaffGraphData = useMemo(
-    () =>
-      visibleCards.some(
-        (card) => Number(card.count) > 0
-      ),
+    () => visibleCards.some((card) => Number(card.count) > 0),
     [visibleCards]
   );
-
 
   const fetchUsers = useCallback(async () => {
     if (
@@ -735,10 +690,7 @@ export default function Dashboard() {
 
       roles.forEach((role) => {
         const id = Number(role.role_id);
-
-        if (Number.isFinite(id)) {
-          roleCounts[id] = 0;
-        }
+        if (Number.isFinite(id)) roleCounts[id] = 0;
       });
 
       const countableRoles =
@@ -795,9 +747,7 @@ export default function Dashboard() {
 
       if (requestId !== requestSequenceRef.current) return;
 
-      setUsers(
-        Array.isArray(response?.data) ? response.data : []
-      );
+      setUsers(Array.isArray(response?.data) ? response.data : []);
       setPagination(response?.pagination || {});
     } catch (error) {
       if (requestId !== requestSequenceRef.current) return;
@@ -848,14 +798,23 @@ export default function Dashboard() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const totalKeyBalance = useMemo(
-    () =>
-      keySettings.reduce(
-        (total, item) => total + Number(item?.balance || 0),
-        0
-      ),
-    [keySettings]
-  );
+  // Totals for active key settings.
+  const keySettingTotals = useMemo(() => {
+    return keySettings.reduce(
+      (totals, item) => {
+        totals.balance += Number(item?.balance ?? 0);
+        totals.consumed += Number(item?.consumed ?? 0);
+        totals.available += Number(item?.available ?? 0);
+
+        return totals;
+      },
+      {
+        balance: 0,
+        consumed: 0,
+        available: 0,
+      }
+    );
+  }, [keySettings]);
 
   const initialLoading =
     roleId === null ||
@@ -875,9 +834,7 @@ export default function Dashboard() {
             className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4"
             role="alert"
           >
-            <p className="text-sm text-red-700">
-              {dashboardError}
-            </p>
+            <p className="text-sm text-red-700">{dashboardError}</p>
 
             <button
               type="button"
@@ -891,7 +848,6 @@ export default function Dashboard() {
 
         {isDashboardHome && (
           <>
-    
             {dashboardLoading ? (
               <DashboardCardsLoader />
             ) : (
@@ -906,68 +862,115 @@ export default function Dashboard() {
                     </h3>
 
                     <p className="mt-2 text-3xl font-bold text-gray-900">
-                      {Number(card.count || 0).toLocaleString("en-IN")}
+                      {formatNumber(card.count)}
                     </p>
                   </div>
                 ))}
               </div>
             )}
 
- 
-            <section className="mt-6 rounded-xl bg-white p-5 shadow">
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800">
-                    Key Settings
-                  </h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Current wallet balance
-                  </p>
+            {/* Key Settings */}
+            {canViewKeySettings && (
+              <section className="mt-6 rounded-xl bg-white p-5 shadow">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      Key Settings
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Wallet balance, consumed and available points
+                    </p>
+                  </div>
                 </div>
 
-                <div className="rounded-lg bg-blue-50 px-4 py-2">
-                  <p className="text-xs text-blue-500">
-                    Total Balance
+                {keySettingsLoading ? (
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    {Array.from({ length: 4 }, (_, index) => (
+                      <SkeletonCard key={index} />
+                    ))}
+                  </div>
+                ) : keySettings.length === 0 ? (
+                  <p className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+                    No active key settings found.
                   </p>
-                  <p className="text-lg font-bold text-blue-600">
-                    {keySettingsLoading
-                      ? "Loading..."
-                      : totalKeyBalance.toLocaleString("en-IN")}
-                  </p>
-                </div>
-              </div>
+                ) : (
+                  <>
+                    {/* Total balance, consumed and available */}
+                    <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                        <p className="text-sm font-medium text-blue-600">
+                          Total Balance
+                        </p>
+                        <p className="mt-2 text-2xl font-bold text-blue-700">
+                          {formatNumber(keySettingTotals.balance)}
+                        </p>
+                      </div>
 
-              {keySettingsLoading ? (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {Array.from({ length: 4 }, (_, index) => (
-                    <SkeletonCard key={index} />
-                  ))}
-                </div>
-              ) : keySettings.length === 0 ? (
-                <p className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-                  No active key settings found.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {keySettings.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-xl border border-gray-200 bg-gray-50 p-5"
-                    >
-                      <h3 className="text-sm font-semibold text-gray-700">
-                        {item.name || "Unnamed Key"}
-                      </h3>
-                      <p className="mt-1 text-xs text-gray-400">
-                        Wallet Balance
-                      </p>
-                      <p className="mt-2 text-xl font-bold text-blue-600">
-                        {Number(item?.balance || 0).toLocaleString("en-IN")}
-                      </p>
+                      <div className="rounded-xl border border-orange-100 bg-orange-50 p-4">
+                        <p className="text-sm font-medium text-orange-600">
+                          Total Consumed
+                        </p>
+                        <p className="mt-2 text-2xl font-bold text-orange-700">
+                          {formatNumber(keySettingTotals.consumed)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-green-100 bg-green-50 p-4">
+                        <p className="text-sm font-medium text-green-600">
+                          Total Available
+                        </p>
+                        <p className="mt-2 text-2xl font-bold text-green-700">
+                          {formatNumber(keySettingTotals.available)}
+                        </p>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </section>
+
+                    {/* Individual key settings */}
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                      {keySettings.map((item, index) => (
+                        <div
+                          key={item.id ?? item.key_setting_id ?? index}
+                          className="rounded-xl border border-gray-200 bg-gray-50 p-5"
+                        >
+                          <h3 className="mb-4 text-base font-semibold text-gray-800">
+                            {item.name || item.key_name || "Unnamed Key"}
+                          </h3>
+
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm text-gray-500">
+                                Balance
+                              </span>
+                              <span className="text-base font-bold text-blue-600">
+                                {formatNumber(item?.balance)}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm text-gray-500">
+                                Consumed
+                              </span>
+                              <span className="text-base font-bold text-orange-600">
+                                {formatNumber(item?.consumed)}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm text-gray-500">
+                                Available
+                              </span>
+                              <span className="text-base font-bold text-green-600">
+                                {formatNumber(item?.available)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </section>
+            )}
 
             {(
               roleId !== 9 ||
@@ -1093,7 +1096,6 @@ export default function Dashboard() {
             </div>
           )}
       </main>
-      
     </div>
   );
 }

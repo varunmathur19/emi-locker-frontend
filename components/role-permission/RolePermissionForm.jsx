@@ -236,6 +236,14 @@ const visibleModules = useMemo(() => {
     return [];
   }
 
+  // Ye modules kisi bhi role ko show nahi honge
+  const hiddenModuleNames = new Set([
+    "system control",
+    "role & permission",
+    "key settings",
+      "company setting",
+  ]);
+
   return activeModules.filter((module) => {
     const moduleName = String(module?.name || "")
       .trim()
@@ -250,7 +258,12 @@ const visibleModules = useMemo(() => {
         ? null
         : Number(rawRoleId);
 
-    // Master Admin: saare modules show honge
+    // Hidden modules sabhi roles ke liye hide rahenge
+    if (hiddenModuleNames.has(moduleName)) {
+      return false;
+    }
+
+    // Master Admin ko baaki saare active modules show honge
     if (currentRoleId === 0) {
       return true;
     }
@@ -267,10 +280,7 @@ const visibleModules = useMemo(() => {
       moduleName === "staff" || moduleRoleId === 9;
 
     // CNF se FOS tak Employee hide rahega
-    if (
-      [2, 3, 4, 5].includes(currentRoleId) &&
-      isEmployee
-    ) {
+    if ([2, 3, 4, 5].includes(currentRoleId) && isEmployee) {
       return false;
     }
 
@@ -284,7 +294,7 @@ const visibleModules = useMemo(() => {
       return true;
     }
 
-    // Hierarchy ke according modules show honge
+    // Existing hierarchy logic same rahega
     return (
       Number.isFinite(moduleRoleId) &&
       moduleRoleId > currentRoleId
