@@ -299,28 +299,35 @@ export default function Sidebar({ sidebarOpen }) {
     }
   }, []);
 
-  const loadWalletBalance = useCallback(async () => {
-    try {
-      const response = await getKeySettings();
+const loadWalletBalance = useCallback(async () => {
+  try {
+    const response = await getKeySettings();
 
-      if (response?.success && Array.isArray(response?.data)) {
-        const total = response.data
-          .filter((item) => Number(item?.status) === 1)
-          .reduce(
-            (sum, item) =>
-              sum + Number(item?.balance || 0),
-            0
-          );
+    if (response?.success && Array.isArray(response?.data)) {
+      const total = response.data.reduce((sum, item) => {
+        // Sirf active keys count hongi
+        if (Number(item?.status) !== 1) {
+          return sum;
+        }
 
-        setTotalWalletBalance(total);
-      } else {
-        setTotalWalletBalance(0);
-      }
-    } catch (error) {
-      console.error("GET WALLET BALANCE ERROR:", error);
+        const available = Number(item?.available ?? 0);
+
+        return sum + (
+          Number.isFinite(available) && available > 0
+            ? available
+            : 0
+        );
+      }, 0);
+
+      setTotalWalletBalance(total);
+    } else {
       setTotalWalletBalance(0);
     }
-  }, []);
+  } catch (error) {
+    console.error("GET WALLET BALANCE ERROR:", error);
+    setTotalWalletBalance(0);
+  }
+}, []);
 
   const loadCompanySetting = useCallback(async () => {
     try {
@@ -669,17 +676,17 @@ export default function Sidebar({ sidebarOpen }) {
         <span className="flex min-w-0 flex-1 items-center">
           <span className="truncate">{label}</span>
 
-          {slug === "transfer-points" && (
-            <span
-              className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${
-                isActive
-                  ? "border-red-600 bg-red-600 text-white"
-                  : "border-red-500 bg-red-500 text-white"
-              }`}
-            >
-              {totalWalletBalance.toLocaleString("en-IN")}
-            </span>
-          )}
+         {slug === "transfer-points" && (
+  <span
+    className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${
+      isActive
+        ? "border-red-600 bg-red-600 text-white"
+        : "border-red-500 bg-red-500 text-white"
+    }`}
+  >
+    {totalWalletBalance.toLocaleString("en-IN")}
+  </span>
+)}
         </span>
       </Link>
     );

@@ -47,10 +47,6 @@ const NEXT_ROLE_MAP = {
   9: 2,
 };
 
-/**
- * Direct child hierarchy for Revert Point.
- * The eligible role is based on the actual account hierarchy.
- */
 const REVERT_NEXT_ROLE_MAP = {
   0: 1,
   1: 2,
@@ -137,96 +133,113 @@ const filterUsers = (users, search) => {
   );
 };
 
-const getUserKeyBalance = (user, key) => {
-  if (!user || !key) return 0;
+const toNonNegativeNumber = (value, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : fallback;
+};
+
+const getUserKeyStats = (user, key) => {
+  const emptyStats = { balance: 0, consumed: 0, available: 0 };
+  if (!user || !key) return emptyStats;
 
   let wallet = user.wallet_balance;
-
   if (typeof wallet === "string") {
     try {
       wallet = JSON.parse(wallet);
     } catch {
-      return 0;
+      return emptyStats;
     }
   }
-
-  if (wallet == null) return 0;
+  if (wallet == null) return emptyStats;
 
   const keyId = String(key.id ?? "").trim();
   const keyName = String(key.name ?? "").trim().toLowerCase();
 
-  const getBalance = (item) => {
-    if (item == null) return 0;
-
-    const rawBalance =
-      typeof item === "object"
-        ? item.balance ??
-          item.wallet_balance ??
-          item.available_balance ??
-          item.amount ??
-          item.points ??
-          0
-        : item;
-
-    const balance = Number(rawBalance);
-
-    return Number.isFinite(balance) && balance >= 0 ? balance : 0;
-  };
-
-  const matchesKey = (item) => {
-    if (!item || typeof item !== "object") return false;
-
-    const ids = [
-      item.key_id,
-      item.key_setting_id,
-      item.keySettingId,
-    ]
+  const matchesKey = (entry) => {
+    if (!entry || typeof entry !== "object") return false;
+    const ids = [entry.key_id, entry.key_setting_id, entry.keySettingId]
       .filter((value) => value != null)
       .map(String);
-
     const names = [
-      item.key_name,
-      item.key_setting_name,
-      item.keySettingName,
-      item.name,
+      entry.key_name,
+      entry.key_setting_name,
+      entry.keySettingName,
+      entry.name,
     ]
       .filter((value) => value != null)
       .map((value) => String(value).trim().toLowerCase());
 
-    return (
-      (keyId && ids.includes(keyId)) ||
-      (keyName && names.includes(keyName))
-    );
+    return (keyId && ids.includes(keyId)) || (keyName && names.includes(keyName));
   };
 
+  let entry;
   if (Array.isArray(wallet)) {
-    const matched = wallet.find(matchesKey);
-    return matched ? getBalance(matched) : 0;
+    entry = wallet.find(matchesKey);
+  } else if (typeof wallet === "object") {
+    if (keyId && Object.prototype.hasOwnProperty.call(wallet, keyId)) {
+      entry = wallet[keyId];
+    } else {
+      const matchedName = Object.keys(wallet).find(
+        (name) => name.trim().toLowerCase() === keyName
+      );
+      entry =
+        matchedName !== undefined
+          ? wallet[matchedName]
+          : Object.values(wallet).find(matchesKey);
+    }
+  } else {
+    entry = wallet;
   }
 
-  if (typeof wallet !== "object") {
-    return getBalance(wallet);
+  if (entry == null) return emptyStats;
+  if (typeof entry !== "object") {
+    const legacyBalance = toNonNegativeNumber(entry);
+    return { balance: legacyBalance, consumed: 0, available: legacyBalance };
   }
 
-  if (
-    keyId &&
-    Object.prototype.hasOwnProperty.call(wallet, keyId)
-  ) {
-    return getBalance(wallet[keyId]);
-  }
-
-  const matchedName = Object.keys(wallet).find(
-    (name) => name.trim().toLowerCase() === keyName
+  const available = toNonNegativeNumber(
+    entry.available ??
+      entry.available_balance ??
+      entry.current_balance ??
+      entry.wallet_balance ??
+      entry.balance ??
+      entry.amount ??
+      entry.points ??
+      0
   );
 
-  if (matchedName !== undefined) {
-    return getBalance(wallet[matchedName]);
-  }
+  const consumed = toNonNegativeNumber(
+    entry.consumed ??
+      entry.consumed_balance ??
+      entry.consumed_points ??
+      entry.used ??
+      entry.used_points ??
+      0
+  );
 
-  const matchedItem = Object.values(wallet).find(matchesKey);
+  const balance = toNonNegativeNumber(
+    entry.total_balance ??
+      entry.balance ??
+      entry.total ??
+      entry.received ??
+      entry.received_points ??
+      (available + consumed)
+  );
 
-  return matchedItem ? getBalance(matchedItem) : 0;
+  return { balance, consumed, available };
 };
+
+const getUserKeyBalance = (user, key) =>
+  getUserKeyStats(user, key).available;
+
+const getKeySettingStats = (key) => ({
+  balance: toNonNegativeNumber(key?.balance),
+  consumed: toNonNegativeNumber(key?.consumed),
+  available: toNonNegativeNumber(key?.available),
+});
+
+const formatPoints = (value) =>
+  toNonNegativeNumber(value).toLocaleString("en-IN");
 
 const getTransactionTypeName = (type) => {
   switch (Number(type)) {
@@ -748,11 +761,6 @@ export default function TransferPoint() {
     selectedSchemaRoleData?.name ||
     ROLE_NAMES[Number(selectedSchemaRole)] ||
     "";
-
-  /**
-   * Load logged-in user data and determine the role that owns
-   * the current hierarchy. Staff uses its parent's role.
-   */
   const loadTransactionPin = useCallback(async () => {
     setTransactionPinLoading(true);
 
@@ -848,13 +856,19 @@ export default function TransferPoint() {
     try {
       const response = await getKeySettings();
 
-      const activeKeys = getArrayFromResponse(response).filter(
-        (item) => Number(item?.status) === 1
-      );
+      // Show only active key settings (status = 1) and keep their wallet metrics.
+      const keys = getArrayFromResponse(response)
+        .filter((item) => Number(item?.status) === 1)
+        .map((item) => ({
+          ...item,
+          balance: toNonNegativeNumber(item?.balance),
+          consumed: toNonNegativeNumber(item?.consumed),
+          available: toNonNegativeNumber(item?.available),
+        }));
 
-      setKeySettings(activeKeys);
+      setKeySettings(keys);
 
-      if (activeKeys.length === 0) {
+      if (keys.length === 0) {
         setSelectedKey("");
         setWalletBalance(0);
         setAvailableBalance(0);
@@ -863,14 +877,14 @@ export default function TransferPoint() {
 
       setSelectedKey((previous) => {
         const selectedKeyItem =
-          activeKeys.find(
+          keys.find(
             (item) => String(item?.id) === String(previous)
-          ) || activeKeys[0];
+          ) || keys[0];
 
         return String(selectedKeyItem?.id ?? "");
       });
 
-      return activeKeys;
+      return keys;
     } catch (error) {
       console.error(
         "GET KEY SETTINGS ERROR:",
@@ -1170,12 +1184,6 @@ export default function TransferPoint() {
     [loadUsersByRole]
   );
 
-  /**
-   * Revert Point:
-   * 1. Determine the wallet-owning account.
-   * 2. Allow only the mapped direct child role.
-   * 3. Return users whose parent_id matches the wallet owner.
-   */
   const loadRevertUsers = useCallback(
     async (targetRoleId) => {
       setLoadingRevertUsers(true);
@@ -1447,20 +1455,13 @@ export default function TransferPoint() {
   ]);
 
   useEffect(() => {
-    if (!selectedKeyData || !currentUserData) {
+    if (!selectedKeyData) {
       setWalletBalance(0);
       return;
     }
 
-    const balance = getUserKeyBalance(
-      currentUserData,
-      selectedKeyData
-    );
-
-    setWalletBalance(
-      Number.isFinite(balance) && balance >= 0 ? balance : 0
-    );
-  }, [currentUserData, selectedKeyData]);
+    setWalletBalance(getKeySettingStats(selectedKeyData).available);
+  }, [selectedKeyData]);
 
   const handleKeySelect = (id) => {
     const keyId = String(id);
@@ -1917,7 +1918,7 @@ export default function TransferPoint() {
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  My Wallet Balance
+                  My Available Balance
                 </label>
 
                 <input
@@ -1958,13 +1959,13 @@ export default function TransferPoint() {
               </div>
             ) : keySettings.length === 0 ? (
               <div className="rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-                No active key settings found.
+                No key settings found.
               </div>
             ) : (
               <div className="flex flex-wrap gap-3">
                 {keySettings.map((item) => {
-                  const selected =
-                    String(selectedKey) === String(item?.id);
+                  const selected = String(selectedKey) === String(item?.id);
+                  const stats = getKeySettingStats(item);
 
                   return (
                     <button
@@ -1972,26 +1973,54 @@ export default function TransferPoint() {
                       type="button"
                       onClick={() => handleKeySelect(item?.id)}
                       disabled={transferLoading}
-                      className={`cursor-pointer rounded-lg border px-4 py-3 text-left transition disabled:cursor-not-allowed ${
+                      className={`min-w-[230px] flex-1 cursor-pointer rounded-xl border p-4 text-left transition disabled:cursor-not-allowed ${
                         selected
-                          ? "border-blue-500 bg-blue-500 text-white shadow-md"
-                          : "border-gray-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
+                          ? "border-blue-500 bg-blue-50 shadow-sm ring-1 ring-blue-200"
+                          : "border-gray-200 bg-white hover:border-blue-300 hover:bg-gray-50"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold">
+                      <div className="mb-4 flex items-center justify-between gap-3">
+                        <span className="break-words text-sm font-semibold text-gray-800">
                           {item?.name || "Unnamed Key"}
                         </span>
-
                         <span
-                          className={`rounded-md px-2 py-1 text-xs font-bold ${
+                          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
                             selected
-                              ? "bg-white/20 text-white"
-                              : "bg-blue-50 text-blue-600"
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-100 text-gray-600"
                           }`}
                         >
-                          {Number(item?.balance || 0).toLocaleString("en-IN")}
+                          {selected ? "Selected" : "Select"}
                         </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="min-w-0 rounded-lg bg-gray-50 p-2">
+                          <p className="mb-1 text-[11px] font-medium text-gray-500">
+                            Balance
+                          </p>
+                          <p className="break-words text-sm font-bold text-gray-800">
+                            {formatPoints(stats.balance)}
+                          </p>
+                        </div>
+
+                        <div className="min-w-0 rounded-lg bg-orange-50 p-2">
+                          <p className="mb-1 text-[11px] font-medium text-orange-700">
+                            Consumed
+                          </p>
+                          <p className="break-words text-sm font-bold text-orange-800">
+                            {formatPoints(stats.consumed)}
+                          </p>
+                        </div>
+
+                        <div className="min-w-0 rounded-lg bg-green-50 p-2">
+                          <p className="mb-1 text-[11px] font-medium text-green-700">
+                            Available
+                          </p>
+                          <p className="break-words text-sm font-bold text-green-800">
+                            {formatPoints(stats.available)}
+                          </p>
+                        </div>
                       </div>
                     </button>
                   );
@@ -2351,7 +2380,7 @@ export default function TransferPoint() {
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                         <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                            From
+                            To
                           </p>
 
                           <p className="break-words text-sm font-semibold text-gray-700">
@@ -2371,7 +2400,7 @@ export default function TransferPoint() {
 
                         <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                            To
+                            From
                           </p>
 
                           <p className="break-words text-sm font-semibold text-gray-700">
