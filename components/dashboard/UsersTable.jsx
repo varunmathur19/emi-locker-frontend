@@ -702,90 +702,130 @@ export default function UsersTable({
     onSearch?.("");
   };
 
-  const handleLoginAsUser = async (user) => {
-    const userRoleId = Number(user?.role_id);
-    const userRoleSlug = ROLE_SLUG_MAP[userRoleId] || "";
+ 
+const handleLoginAsUser = async (user) => {
+  const userRoleId = Number(user?.role_id);
+  const userRoleSlug = ROLE_SLUG_MAP[userRoleId] || "";
 
-    if (
-      Number(currentRoleId) === 9 &&
-      !hasPermission(userRoleSlug, "login")
-    ) {
-      toast.error(
-        `You don't have login permission for ${
-          ROLE_MAP[userRoleId] || "this role"
-        }`
-      );
+  if (
+    Number(currentRoleId) === 9 &&
+    !hasPermission(userRoleSlug, "login")
+  ) {
+    toast.error(
+      `You don't have login permission for ${
+        ROLE_MAP[userRoleId] || "this role"
+      }`
+    );
+    return;
+  }
+
+  try {
+    setLoginLoading(user.id);
+
+    const result = await loginAsUser(user.id);
+
+    // Support both Axios response and response.data formats.
+    const response = result?.data ?? result;
+
+    if (!response?.success || !response?.token) {
+      toast.error(response?.message || "Login failed");
       return;
     }
 
-    try {
-      setLoginLoading(user.id);
+    const responseUser = response?.user;
 
-      const response = await loginAsUser(user.id);
+    if (!responseUser) {
+      toast.error("User data was not received from the server");
+      return;
+    }
 
-      if (!response?.success) {
-        toast.error(response?.message || "Login failed");
+    const targetRoleId = Number(
+      responseUser?.role_id ??
+      responseUser?.roleId ??
+      responseUser?.role
+    );
+
+    // Find staff permissions from the API response first.
+    const permissionSource =
+      responseUser?.staff_permission?.permission ??
+      responseUser?.staff_permission?.permissions ??
+      responseUser?.staff_permission ??
+      responseUser?.permission ??
+      responseUser?.permissions ??
+      response?.staff_permission?.permission ??
+      response?.staff_permission?.permissions ??
+      response?.staff_permission ??
+      user?.staff_permission?.permission ??
+      user?.staff_permission?.permissions ??
+      user?.staff_permission ??
+      user?.permission ??
+      null;
+
+    const permissions = parsePermissions(permissionSource);
+
+    // Clear permissions belonging to the previous login.
+    localStorage.removeItem("staff_permission");
+
+    if (targetRoleId === 9) {
+      if (!permissions) {
+        console.error("Staff permission missing:", {
+          targetRoleId,
+          responseUser,
+          response,
+          clickedUser: user,
+        });
+
+        toast.error(
+          "Staff permissions are missing. Check the login API response."
+        );
         return;
       }
 
-      const responseUser = response?.user || {};
-      const targetRoleId = Number(responseUser?.role_id);
-
-      localStorage.removeItem("staff_permission");
-
-      if (targetRoleId === 9) {
-        const permissionSource =
-          responseUser?.staff_permission?.permission ??
-          responseUser?.staff_permission ??
-          response?.staff_permission?.permission ??
-          response?.staff_permission ??
-          null;
-
-        const permissions = parsePermissions(permissionSource);
-
-        if (!permissions) {
-          console.error(
-            "STAFF PERMISSION MISSING FROM LOGIN API RESPONSE:",
-            response
-          );
-          toast.error(
-            "Staff permissions were not received from the server"
-          );
-          return;
-        }
-
-        localStorage.setItem(
-          "staff_permission",
-          JSON.stringify(permissions)
-        );
-      }
-
-      const {
-        staff_permission,
-        role_permissions,
-        ...userWithoutPermissions
-      } = responseUser;
-
-      saveToken(response.token);
-      saveUser(userWithoutPermissions);
-
-      toast.success(
-        `Logged in as ${responseUser?.name || "user"}`
+      // Store staff permissions separately.
+      localStorage.setItem(
+        "staff_permission",
+        JSON.stringify(permissions)
       );
-
-      window.location.href = "/dashboard";
-    } catch (error) {
-      console.error("LOGIN AS USER ERROR:", error);
-
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Unable to login as user"
-      );
-    } finally {
-      setLoginLoading(null);
     }
-  };
+
+    const {
+      staff_permission,
+      role_permissions,
+      permission,
+      permissions: userPermissions,
+      ...userWithoutPermissions
+    } = responseUser;
+
+    saveToken(response.token);
+    saveUser(userWithoutPermissions);
+
+    console.log("Login successful:", {
+      roleId: targetRoleId,
+      staffPermissionSaved:
+        localStorage.getItem("staff_permission") !== null,
+    });
+
+    toast.success(
+      `Logged in as ${responseUser?.name || "user"}`
+    );
+
+    window.location.href = "/dashboard";
+  } catch (error) {
+    console.error(
+      "LOGIN AS USER ERROR:",
+      error?.response?.data || error
+    );
+
+    toast.error(
+      error?.response?.data?.message ||
+      error?.message ||
+      "Unable to login as user"
+    );
+  } finally {
+    setLoginLoading(null);
+  }
+};
+
 
   const handleStatusToggle = async (user) => {
     const userRoleId = Number(user?.role_id);
