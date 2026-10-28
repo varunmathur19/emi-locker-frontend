@@ -1,10 +1,158 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { getDevices } from "@/services/api";
 import DeviceDetailForm from "./form";
+
+const PAGE_SIZE = 10;
+const SKELETON_ROWS = 6;
+
+const TABLE_HEADERS = [
+  "S. No.",
+  "Brand",
+  "Enrollment",
+  "Customer Image",
+  "Customer Name",
+  "Registration No.",
+  "Phone",
+  "IMEI",
+  "Key Type",
+  "Status",
+  "FL Version",
+  "Retailer",
+  "FOS",
+  "Distributor",
+  "Actions",
+];
+
+function SkeletonLine({ className = "" }) {
+  return (
+    <div
+      className={`animate-pulse rounded-md bg-gray-200 ${className}`}
+    />
+  );
+}
+
+function DeviceTableSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[2200px] text-left text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              {TABLE_HEADERS.map((header) => (
+                <th
+                  key={header}
+                  className="whitespace-nowrap px-4 py-4"
+                >
+                  <SkeletonLine className="h-3 w-20" />
+                </th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-gray-100">
+            {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
+              <tr key={index}>
+                <td className="px-4 py-4">
+                  <SkeletonLine className="h-4 w-6" />
+                </td>
+
+                <td className="px-4 py-4">
+                  <SkeletonLine className="h-10 w-16" />
+                </td>
+
+                <td className="px-4 py-4">
+                  <SkeletonLine className="h-6 w-20 rounded-full" />
+                </td>
+
+                <td className="px-4 py-4">
+                  <SkeletonLine className="h-12 w-12 rounded-lg" />
+                </td>
+
+                {Array.from({ length: 7 }).map((_, cellIndex) => (
+                  <td key={cellIndex} className="px-4 py-4">
+                    <SkeletonLine
+                      className={`h-4 ${
+                        cellIndex % 2 === 0 ? "w-28" : "w-20"
+                      }`}
+                    />
+                  </td>
+                ))}
+
+                {Array.from({ length: 3 }).map((_, cellIndex) => (
+                  <td key={cellIndex} className="px-4 py-4">
+                    <div className="flex min-w-36 flex-col gap-2">
+                      <SkeletonLine className="h-4 w-28" />
+                      <SkeletonLine className="h-3 w-24" />
+                    </div>
+                  </td>
+                ))}
+
+                <td className="px-4 py-4">
+                  <SkeletonLine className="h-4 w-6" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <SkeletonLine className="h-4 w-48" />
+        <div className="flex gap-2">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <SkeletonLine
+              key={index}
+              className="h-9 w-10 rounded-lg"
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TotalDevicesSkeleton() {
+  return (
+    <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <SkeletonLine className="h-4 w-24" />
+      <SkeletonLine className="mt-3 h-8 w-16" />
+    </div>
+  );
+}
+
+function renderPerson(name, companyName, blankIfMissing = false) {
+  if (!name && blankIfMissing) {
+    return null;
+  }
+
+  return (
+    <div className="flex min-w-36 flex-col gap-1">
+      <span
+        className="whitespace-nowrap font-medium text-gray-800"
+        title={name || ""}
+      >
+        {name || (blankIfMissing ? "" : "-")}
+      </span>
+
+      {companyName ? (
+        <span
+          className="max-w-52 truncate text-xs text-gray-500"
+          title={companyName}
+        >
+          {companyName}
+        </span>
+      ) : !blankIfMissing ? (
+        <span className="max-w-52 truncate text-xs text-gray-500">
+          -
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 export function DeviceDetail() {
   const [devices, setDevices] = useState([]);
@@ -12,67 +160,67 @@ export function DeviceDetail() {
   const [error, setError] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const hasFetched = useRef(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalDevices, setTotalDevices] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  // Extract the devices array from common API response structures.
-  const extractDevices = (response) => {
-    const candidates = [
-      response,
-      response?.data,
-      response?.data?.data,
-      response?.data?.devices,
-      response?.data?.result,
-      response?.data?.results,
-      response?.data?.data?.data,
-      response?.data?.data?.devices,
-      response?.data?.data?.result,
-      response?.data?.data?.results,
-      response?.devices,
-      response?.result,
-      response?.results,
-    ];
-
-    for (const candidate of candidates) {
-      if (Array.isArray(candidate)) {
-        return candidate;
-      }
-    }
-
-    return null;
-  };
-
-  const fetchDevices = useCallback(async () => {
+  const fetchDevices = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await getDevices();
+      const response = await getDevices({
+        page,
+        limit: PAGE_SIZE,
+      });
 
-      // Debug the real response if the structure is unexpected.
-      console.log("GET DEVICES RAW RESPONSE:", response);
+      const root = response?.data ?? response;
 
-      const payload = response?.data ?? response;
+      const payload = Array.isArray(root)
+        ? { data: root }
+        : Array.isArray(root?.data)
+          ? root
+          : Array.isArray(root?.devices)
+            ? { ...root, data: root.devices }
+            : Array.isArray(root?.result?.data)
+              ? root.result
+              : null;
 
-      if (payload?.success === false) {
+      if (!payload) {
         throw new Error(
-          payload?.message || "Failed to fetch devices."
+          "Invalid devices response received from the server."
         );
       }
 
-      const result = extractDevices(response);
+      const deviceList = payload.data;
 
-      if (!result) {
-        console.error(
-          "Unexpected GET DEVICES response structure:",
-          response
-        );
+      const pagination =
+        payload.pagination ??
+        root?.pagination ??
+        response?.pagination ??
+        {};
 
-        throw new Error(
-          "Devices array not found in API response. Check the GET DEVICES RAW RESPONSE in the browser console."
-        );
-      }
+      const total = Number(
+        pagination.total ??
+          payload.total ??
+          payload.count ??
+          deviceList.length
+      );
 
-      setDevices(result);
+      const pages = Number(
+        pagination.totalPages ??
+          Math.ceil(total / PAGE_SIZE)
+      );
+
+      setDevices(deviceList);
+      setTotalDevices(total);
+      setTotalPages(pages);
+
+      setCurrentPage(
+        Number(pagination.page) > 0
+          ? Number(pagination.page)
+          : page
+      );
     } catch (err) {
       console.error(
         "GET DEVICES ERROR:",
@@ -85,19 +233,19 @@ export function DeviceDetail() {
         "Failed to load devices.";
 
       setError(message);
-      toast.error(message);
       setDevices([]);
+      setTotalDevices(0);
+      setTotalPages(0);
+
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (hasFetched.current) return;
-
-    hasFetched.current = true;
-    fetchDevices();
-  }, [fetchDevices]);
+    fetchDevices(currentPage);
+  }, [currentPage, fetchDevices]);
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return "";
@@ -119,34 +267,38 @@ export function DeviceDetail() {
     return `${serverUrl}/${cleanPath}`;
   };
 
-  // Missing FOS or Distributor details should remain blank.
-  const renderPerson = (name, companyName, blankIfMissing = false) => {
-    if (!name && blankIfMissing) {
-      return null;
+  const handleRefresh = () => {
+    fetchDevices(currentPage);
+  };
+
+  const handleAddSuccess = () => {
+    setShowAddForm(false);
+
+    if (currentPage === 1) {
+      fetchDevices(1);
+    } else {
+      setCurrentPage(1);
+    }
+  };
+
+  const getPageNumbers = () => {
+    if (totalPages <= 5) {
+      return Array.from(
+        { length: totalPages },
+        (_, index) => index + 1
+      );
     }
 
-    return (
-      <div className="flex min-w-36 flex-col gap-1">
-        <span
-          className="whitespace-nowrap font-medium text-gray-800"
-          title={name || ""}
-        >
-          {name || (blankIfMissing ? "" : "-")}
-        </span>
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(totalPages, start + 4);
 
-        {companyName ? (
-          <span
-            className="max-w-52 truncate text-xs text-gray-500"
-            title={companyName}
-          >
-            {companyName}
-          </span>
-        ) : !blankIfMissing ? (
-          <span className="max-w-52 truncate text-xs text-gray-500">
-            -
-          </span>
-        ) : null}
-      </div>
+    if (end === totalPages) {
+      start = Math.max(1, totalPages - 4);
+    }
+
+    return Array.from(
+      { length: end - start + 1 },
+      (_, index) => start + index
     );
   };
 
@@ -154,13 +306,20 @@ export function DeviceDetail() {
     return (
       <DeviceDetailForm
         onCancel={() => setShowAddForm(false)}
-        onSuccess={() => {
-          setShowAddForm(false);
-          fetchDevices();
-        }}
+        onSuccess={handleAddSuccess}
       />
     );
   }
+
+  const startRecord =
+    totalDevices === 0
+      ? 0
+      : (currentPage - 1) * PAGE_SIZE + 1;
+
+  const endRecord = Math.min(
+    currentPage * PAGE_SIZE,
+    totalDevices
+  );
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -187,35 +346,31 @@ export function DeviceDetail() {
 
           <button
             type="button"
-            onClick={fetchDevices}
+            onClick={handleRefresh}
             disabled={loading}
             className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Loading..." : "Refresh"}
+            {loading ? "Refreshing..." : "Refresh"}
           </button>
         </div>
       </div>
 
-      {/* Device Count */}
-      {!loading && !error && (
-        <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-sm text-gray-500">Total Devices</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
-            {devices.length}
-          </p>
-        </div>
+      {/* Total Devices */}
+      {loading ? (
+        <TotalDevicesSkeleton />
+      ) : (
+        !error && (
+          <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-sm text-gray-500">Total Devices</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {totalDevices}
+            </p>
+          </div>
+        )
       )}
 
-      {/* Loading */}
-      {loading && (
-        <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
-
-          <p className="mt-4 text-sm text-gray-500">
-            Fetching device details...
-          </p>
-        </div>
-      )}
+      {/* Skeleton Loading */}
+      {loading && <DeviceTableSkeleton />}
 
       {/* Error */}
       {!loading && error && (
@@ -224,7 +379,7 @@ export function DeviceDetail() {
 
           <button
             type="button"
-            onClick={fetchDevices}
+            onClick={handleRefresh}
             className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
           >
             Try Again
@@ -252,21 +407,14 @@ export function DeviceDetail() {
             <table className="w-full min-w-[2200px] text-left text-sm">
               <thead className="bg-gray-100 text-xs uppercase tracking-wider text-gray-600">
                 <tr>
-                  <th className="whitespace-nowrap px-4 py-4">S. No.</th>
-                  <th className="whitespace-nowrap px-4 py-4">Brand</th>
-                  <th className="whitespace-nowrap px-4 py-4">Enrollment</th>
-                  <th className="whitespace-nowrap px-4 py-4">Customer Image</th>
-                  <th className="whitespace-nowrap px-4 py-4">Customer Name</th>
-                  <th className="whitespace-nowrap px-4 py-4">Registration No.</th>
-                  <th className="whitespace-nowrap px-4 py-4">Phone</th>
-                  <th className="whitespace-nowrap px-4 py-4">IMEI</th>
-                  <th className="whitespace-nowrap px-4 py-4">Key Type</th>
-                  <th className="whitespace-nowrap px-4 py-4">Status</th>
-                  <th className="whitespace-nowrap px-4 py-4">FL Version</th>
-                  <th className="whitespace-nowrap px-4 py-4">Retailer</th>
-                  <th className="whitespace-nowrap px-4 py-4">FOS</th>
-                  <th className="whitespace-nowrap px-4 py-4">Distributor</th>
-                  <th className="whitespace-nowrap px-4 py-4">Actions</th>
+                  {TABLE_HEADERS.map((header) => (
+                    <th
+                      key={header}
+                      className="whitespace-nowrap px-4 py-4"
+                    >
+                      {header}
+                    </th>
+                  ))}
                 </tr>
               </thead>
 
@@ -277,7 +425,7 @@ export function DeviceDetail() {
                     className="transition hover:bg-gray-50"
                   >
                     <td className="whitespace-nowrap px-4 py-4 font-medium text-gray-900">
-                      {index + 1}
+                      {(currentPage - 1) * PAGE_SIZE + index + 1}
                     </td>
 
                     <td className="px-4 py-4">
@@ -285,7 +433,7 @@ export function DeviceDetail() {
                         <img
                           src={getImageUrl(device.brand)}
                           alt="Brand logo"
-                          className="h-10 w-16  border border-gray-200 bg-white "
+                          className="h-10 w-16 border border-gray-200 bg-white object-contain"
                           onError={(event) => {
                             event.currentTarget.style.display = "none";
                           }}
@@ -327,7 +475,19 @@ export function DeviceDetail() {
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-4 text-gray-600">
-                      {device.phone_number || "-"}
+                      {device.phone_number
+                        ? `${String(
+                            device.country_code ??
+                              device.calling_code ??
+                              device.dial_code ??
+                              ""
+                          )
+                            .trim()
+                            .replace(/\s+/g, "")
+                            .replace(/^(?!\+)/, "+")} ${String(
+                            device.phone_number
+                          ).trim()}`.trim()
+                        : "-"}
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-4 text-gray-600">
@@ -341,7 +501,8 @@ export function DeviceDetail() {
                     <td className="whitespace-nowrap px-4 py-4">
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          String(device.device_status).toLowerCase() === "active"
+                          String(device.device_status).toLowerCase() ===
+                          "active"
                             ? "bg-green-100 text-green-700"
                             : "bg-gray-100 text-gray-700"
                         }`}
@@ -386,9 +547,66 @@ export function DeviceDetail() {
             </table>
           </div>
 
-          <div className="border-t border-gray-200 px-4 py-3 text-sm text-gray-500">
-            Showing {devices.length} device
-            {devices.length !== 1 ? "s" : ""}
+          {/* Pagination */}
+          <div className="flex flex-col gap-4 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-gray-500">
+              Showing{" "}
+              <span className="font-semibold text-gray-800">
+                {startRecord}-{endRecord}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-gray-800">
+                {totalDevices}
+              </span>{" "}
+              devices
+            </p>
+
+            {totalPages > 1 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((page) => Math.max(1, page - 1))
+                  }
+                  disabled={loading || currentPage <= 1}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Previous
+                </button>
+
+                {getPageNumbers().map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    disabled={loading || page === currentPage}
+                    aria-current={
+                      page === currentPage ? "page" : undefined
+                    }
+                    className={`min-w-10 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                      page === currentPage
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                    } disabled:cursor-default`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.min(totalPages, page + 1)
+                    )
+                  }
+                  disabled={loading || currentPage >= totalPages}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

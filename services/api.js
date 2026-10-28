@@ -635,10 +635,29 @@ export const updateCompanySetting = async (formData) => {
 };
 
 
-
+//Add device data
+export const addDevice = async (formData) => {
+  try {
+    const response = await api.post("/add-device", formData);
+    return response.data;
+  } catch (error) {
+    console.error("ADD DEVICE ERROR:", error);
+    console.error("Response:", error?.response?.data);
+    console.error("Status:", error?.response?.status);
+    throw error;
+  }
+};
 
 //get device data
-export const getDevices = async () => {
-  const response = await api.get("/devices");
+
+export const getDevices = async ({ page = 1, limit = 10 } = {}) => {
+  const response = await api.get("/devices", {
+    params: {
+      page,
+      limit,
+    },
+  });
+
   return response.data;
 };
+
