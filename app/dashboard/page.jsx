@@ -82,7 +82,7 @@ function normalizePermissions(value) {
     return {};
   }
 
-  if (value.permission && typeof value.permission === "object") {
+  if (value.permission !== undefined) {
     return normalizePermissions(value.permission);
   }
 
@@ -94,7 +94,9 @@ function isPermissionEnabled(value) {
   if (typeof value === "number") return value === 1;
 
   if (typeof value === "string") {
-    return ["1", "true", "yes"].includes(value.trim().toLowerCase());
+    return ["1", "true", "yes"].includes(
+      value.trim().toLowerCase()
+    );
   }
 
   if (value && typeof value === "object") {
@@ -115,11 +117,16 @@ function hasModulePermission(permissions, moduleId, action = null) {
 
   const normalized = normalizePermissions(permissions);
 
+  // No specific action: any enabled permission for this module.
   if (!action) {
     return Object.entries(normalized).some(([key, value]) => {
-      const [permissionModuleId] = key.split(".");
+      const [permissionModuleId, subModuleId] = String(key)
+        .split(".")
+        .map((part) => part.trim());
+
       return (
         Number(permissionModuleId) === id &&
+        Number.isFinite(Number(subModuleId)) &&
         isPermissionEnabled(value)
       );
     });
@@ -345,6 +352,7 @@ export default function Dashboard() {
     };
   }, []);
 
+  // Load Staff permissions from localStorage.
   useEffect(() => {
     if (roleId === null) return;
 
@@ -366,41 +374,6 @@ export default function Dashboard() {
       setStaffPermissionsLoaded(true);
     }
   }, [roleId]);
-
-  const myTransactionModule = useMemo(() => {
-    return (
-      modules.find((item) => {
-        const slug = normalizeRoleValue(item?.slug);
-        const name = normalizeRoleValue(item?.name);
-
-        return (
-          slug === "transaction" ||
-          slug === "my transaction" ||
-          name === "my transaction"
-        );
-      }) || null
-    );
-  }, [modules]);
-
-  const canViewKeySettings = useMemo(() => {
-    if (roleId === null) return false;
-    if (roleId !== 9) return true;
-
-    if (!staffPermissionsLoaded || modulesLoading) return false;
-    if (!myTransactionModule?.id) return false;
-
-    return hasModulePermission(
-      staffPermissions,
-      myTransactionModule.id,
-      "view"
-    );
-  }, [
-    roleId,
-    staffPermissions,
-    staffPermissionsLoaded,
-    modulesLoading,
-    myTransactionModule,
-  ]);
 
   const getRoleIdFromValue = useCallback(
     (value) => {
@@ -815,6 +788,56 @@ export default function Dashboard() {
       }
     );
   }, [keySettings]);
+
+  // Key Settings visibility:
+  // Non-staff roles keep their existing access.
+  // Staff needs any enabled permission on one of the three
+  // point-transfer modules.
+  const canViewKeySettings = useMemo(() => {
+    if (roleId === null) return false;
+
+    if (roleId !== 9) return true;
+
+    if (
+      !staffPermissionsLoaded ||
+      modulesLoading ||
+      modules.length === 0
+    ) {
+      return false;
+    }
+
+    const allowedPointModuleSlugs = new Set([
+      "transfer points",
+      "transfer point",
+      "revert point",
+      "revert points",
+      "schema transfer point",
+      "schema transfer points",
+    ]);
+
+    const pointModules = modules.filter((item) => {
+      const slug = normalizeRoleValue(item?.slug);
+      const name = normalizeRoleValue(item?.name);
+
+      return (
+        allowedPointModuleSlugs.has(slug) ||
+        allowedPointModuleSlugs.has(name)
+      );
+    });
+
+    return pointModules.some((moduleItem) =>
+      hasModulePermission(
+        staffPermissions,
+        moduleItem.id
+      )
+    );
+  }, [
+    roleId,
+    staffPermissions,
+    staffPermissionsLoaded,
+    modules,
+    modulesLoading,
+  ]);
 
   const initialLoading =
     roleId === null ||
