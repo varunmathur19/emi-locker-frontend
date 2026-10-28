@@ -7,6 +7,152 @@ import { getDevices } from "@/services/api";
 import DeviceDetailForm from "./form";
 
 const PAGE_SIZE = 10;
+const SKELETON_ROWS = 6;
+
+const TABLE_HEADERS = [
+  "S. No.",
+  "Brand",
+  "Enrollment",
+  "Customer Image",
+  "Customer Name",
+  "Registration No.",
+  "Phone",
+  "IMEI",
+  "Key Type",
+  "Status",
+  "FL Version",
+  "Retailer",
+  "FOS",
+  "Distributor",
+  "Actions",
+];
+
+function SkeletonLine({ className = "" }) {
+  return (
+    <div
+      className={`animate-pulse rounded-md bg-gray-200 ${className}`}
+    />
+  );
+}
+
+function DeviceTableSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[2200px] text-left text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              {TABLE_HEADERS.map((header) => (
+                <th
+                  key={header}
+                  className="whitespace-nowrap px-4 py-4"
+                >
+                  <SkeletonLine className="h-3 w-20" />
+                </th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-gray-100">
+            {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
+              <tr key={index}>
+                <td className="px-4 py-4">
+                  <SkeletonLine className="h-4 w-6" />
+                </td>
+
+                <td className="px-4 py-4">
+                  <SkeletonLine className="h-10 w-16" />
+                </td>
+
+                <td className="px-4 py-4">
+                  <SkeletonLine className="h-6 w-20 rounded-full" />
+                </td>
+
+                <td className="px-4 py-4">
+                  <SkeletonLine className="h-12 w-12 rounded-lg" />
+                </td>
+
+                {Array.from({ length: 7 }).map((_, cellIndex) => (
+                  <td key={cellIndex} className="px-4 py-4">
+                    <SkeletonLine
+                      className={`h-4 ${
+                        cellIndex % 2 === 0 ? "w-28" : "w-20"
+                      }`}
+                    />
+                  </td>
+                ))}
+
+                {Array.from({ length: 3 }).map((_, cellIndex) => (
+                  <td key={cellIndex} className="px-4 py-4">
+                    <div className="flex min-w-36 flex-col gap-2">
+                      <SkeletonLine className="h-4 w-28" />
+                      <SkeletonLine className="h-3 w-24" />
+                    </div>
+                  </td>
+                ))}
+
+                <td className="px-4 py-4">
+                  <SkeletonLine className="h-4 w-6" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <SkeletonLine className="h-4 w-48" />
+        <div className="flex gap-2">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <SkeletonLine
+              key={index}
+              className="h-9 w-10 rounded-lg"
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TotalDevicesSkeleton() {
+  return (
+    <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <SkeletonLine className="h-4 w-24" />
+      <SkeletonLine className="mt-3 h-8 w-16" />
+    </div>
+  );
+}
+
+function renderPerson(name, companyName, blankIfMissing = false) {
+  if (!name && blankIfMissing) {
+    return null;
+  }
+
+  return (
+    <div className="flex min-w-36 flex-col gap-1">
+      <span
+        className="whitespace-nowrap font-medium text-gray-800"
+        title={name || ""}
+      >
+        {name || (blankIfMissing ? "" : "-")}
+      </span>
+
+      {companyName ? (
+        <span
+          className="max-w-52 truncate text-xs text-gray-500"
+          title={companyName}
+        >
+          {companyName}
+        </span>
+      ) : !blankIfMissing ? (
+        <span className="max-w-52 truncate text-xs text-gray-500">
+          -
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 export function DeviceDetail() {
   const [devices, setDevices] = useState([]);
@@ -18,7 +164,6 @@ export function DeviceDetail() {
   const [totalDevices, setTotalDevices] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  // Fetch paginated devices
   const fetchDevices = useCallback(async (page = 1) => {
     try {
       setLoading(true);
@@ -28,8 +173,6 @@ export function DeviceDetail() {
         page,
         limit: PAGE_SIZE,
       });
-
-      console.log("GET DEVICES RESPONSE:", response);
 
       const root = response?.data ?? response;
 
@@ -104,7 +247,6 @@ export function DeviceDetail() {
     fetchDevices(currentPage);
   }, [currentPage, fetchDevices]);
 
-  // Resolve uploaded image URLs
   const getImageUrl = (imagePath) => {
     if (!imagePath) return "";
 
@@ -123,41 +265,6 @@ export function DeviceDetail() {
     const cleanPath = path.replace(/^\/+/, "");
 
     return `${serverUrl}/${cleanPath}`;
-  };
-
-  // Display person and company details
-  const renderPerson = (
-    name,
-    companyName,
-    blankIfMissing = false
-  ) => {
-    if (!name && blankIfMissing) {
-      return null;
-    }
-
-    return (
-      <div className="flex min-w-36 flex-col gap-1">
-        <span
-          className="whitespace-nowrap font-medium text-gray-800"
-          title={name || ""}
-        >
-          {name || (blankIfMissing ? "" : "-")}
-        </span>
-
-        {companyName ? (
-          <span
-            className="max-w-52 truncate text-xs text-gray-500"
-            title={companyName}
-          >
-            {companyName}
-          </span>
-        ) : !blankIfMissing ? (
-          <span className="max-w-52 truncate text-xs text-gray-500">
-            -
-          </span>
-        ) : null}
-      </div>
-    );
   };
 
   const handleRefresh = () => {
@@ -243,32 +350,27 @@ export function DeviceDetail() {
             disabled={loading}
             className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Loading..." : "Refresh"}
+            {loading ? "Refreshing..." : "Refresh"}
           </button>
         </div>
       </div>
 
       {/* Total Devices */}
-      {!error && (
-        <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-sm text-gray-500">Total Devices</p>
-
-          <p className="mt-1 text-2xl font-bold text-gray-900">
-            {totalDevices}
-          </p>
-        </div>
+      {loading ? (
+        <TotalDevicesSkeleton />
+      ) : (
+        !error && (
+          <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-sm text-gray-500">Total Devices</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {totalDevices}
+            </p>
+          </div>
+        )
       )}
 
-      {/* Loading */}
-      {loading && (
-        <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
-
-          <p className="mt-4 text-sm text-gray-500">
-            Fetching device details...
-          </p>
-        </div>
-      )}
+      {/* Skeleton Loading */}
+      {loading && <DeviceTableSkeleton />}
 
       {/* Error */}
       {!loading && error && (
@@ -305,21 +407,14 @@ export function DeviceDetail() {
             <table className="w-full min-w-[2200px] text-left text-sm">
               <thead className="bg-gray-100 text-xs uppercase tracking-wider text-gray-600">
                 <tr>
-                  <th className="whitespace-nowrap px-4 py-4">S. No.</th>
-                  <th className="whitespace-nowrap px-4 py-4">Brand</th>
-                  <th className="whitespace-nowrap px-4 py-4">Enrollment</th>
-                  <th className="whitespace-nowrap px-4 py-4">Customer Image</th>
-                  <th className="whitespace-nowrap px-4 py-4">Customer Name</th>
-                  <th className="whitespace-nowrap px-4 py-4">Registration No.</th>
-                  <th className="whitespace-nowrap px-4 py-4">Phone</th>
-                  <th className="whitespace-nowrap px-4 py-4">IMEI</th>
-                  <th className="whitespace-nowrap px-4 py-4">Key Type</th>
-                  <th className="whitespace-nowrap px-4 py-4">Status</th>
-                  <th className="whitespace-nowrap px-4 py-4">FL Version</th>
-                  <th className="whitespace-nowrap px-4 py-4">Retailer</th>
-                  <th className="whitespace-nowrap px-4 py-4">FOS</th>
-                  <th className="whitespace-nowrap px-4 py-4">Distributor</th>
-                  <th className="whitespace-nowrap px-4 py-4">Actions</th>
+                  {TABLE_HEADERS.map((header) => (
+                    <th
+                      key={header}
+                      className="whitespace-nowrap px-4 py-4"
+                    >
+                      {header}
+                    </th>
+                  ))}
                 </tr>
               </thead>
 
@@ -338,7 +433,7 @@ export function DeviceDetail() {
                         <img
                           src={getImageUrl(device.brand)}
                           alt="Brand logo"
-                          className="h-10 w-16 border border-gray-200 bg-white "
+                          className="h-10 w-16 border border-gray-200 bg-white object-contain"
                           onError={(event) => {
                             event.currentTarget.style.display = "none";
                           }}
@@ -379,23 +474,20 @@ export function DeviceDetail() {
                       {device.registration_no || "-"}
                     </td>
 
-                    {/* Phone + Country Calling Code */}
                     <td className="whitespace-nowrap px-4 py-4 text-gray-600">
-                      <span className="font-medium text-gray-800">
-                        {device.phone_number
-                          ? `${String(
-                              device.country_code ||
-                                device.calling_code ||
-                                device.dial_code ||
-                                ""
-                            )
-                              .trim()
-                              .replace(/\s+/g, "")
-                              .replace(/^(?!\+)/, "+")} ${String(
-                              device.phone_number
-                            ).trim()}`.trim()
-                          : "-"}
-                      </span>
+                      {device.phone_number
+                        ? `${String(
+                            device.country_code ??
+                              device.calling_code ??
+                              device.dial_code ??
+                              ""
+                          )
+                            .trim()
+                            .replace(/\s+/g, "")
+                            .replace(/^(?!\+)/, "+")} ${String(
+                            device.phone_number
+                          ).trim()}`.trim()
+                        : "-"}
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-4 text-gray-600">
@@ -423,7 +515,6 @@ export function DeviceDetail() {
                       {device.fl_version || "-"}
                     </td>
 
-                    {/* Retailer: device creator */}
                     <td className="px-4 py-4">
                       {renderPerson(
                         device.retailer_name,
@@ -431,7 +522,6 @@ export function DeviceDetail() {
                       )}
                     </td>
 
-                    {/* FOS: retailer's parent */}
                     <td className="px-4 py-4">
                       {renderPerson(
                         device.fos_name,
@@ -440,7 +530,6 @@ export function DeviceDetail() {
                       )}
                     </td>
 
-                    {/* Distributor: FOS's parent */}
                     <td className="px-4 py-4">
                       {renderPerson(
                         device.distributor_name,
