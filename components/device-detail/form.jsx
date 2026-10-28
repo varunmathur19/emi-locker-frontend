@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { RiArrowDownSLine } from "react-icons/ri";
-import { getKeySettings } from "@/services/api";
+import {
+  RiArrowDownSLine,
+  RiSearchLine,
+} from "react-icons/ri";
+import {
+  getKeySettings,
+  getCountries,
+  addDevice,
+} from "@/services/api";
 
 const initialFormData = {
   enrollment_type: "",
@@ -19,10 +26,59 @@ const initialFormData = {
 const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 
-const labelClass = "mb-2 block text-sm font-medium text-gray-700";
+const labelClass =
+  "mb-2 block text-sm font-medium text-gray-700";
 
 const fileInputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:font-medium file:text-gray-700";
+
+const getArrayFromResponse = (response, key) => {
+  if (Array.isArray(response)) return response;
+
+  const values = [
+    response?.data,
+    response?.data?.data,
+    response?.data?.[key],
+    response?.[key],
+    response?.data?.result,
+    response?.result,
+  ];
+
+  return values.find(Array.isArray) || [];
+};
+
+const getCountryDialCode = (country) => {
+  const value =
+    country?.mobile_code ??
+    country?.phone_code ??
+    country?.phonecode ??
+    country?.dial_code ??
+    country?.calling_code ??
+    country?.phoneCode ??
+    "";
+
+  if (!String(value).trim()) return "";
+
+  const code = String(value).trim().replace(/\s+/g, "");
+
+  return code.startsWith("+") ? code : `+${code}`;
+};
+
+const getCountryId = (country, index = 0) =>
+  String(
+    country?.country_id ??
+      country?.id ??
+      country?.iso2 ??
+      country?.iso_code ??
+      country?.country_code ??
+      index
+  );
+
+const getCountryName = (country) =>
+  country?.country_name ??
+  country?.name ??
+  country?.country ??
+  "Unknown";
 
 function FormSelect({
   id,
@@ -69,16 +125,180 @@ function FormSelect({
   );
 }
 
-export default function DeviceDetailForm({ onCancel, onSuccess }) {
+function SearchableCountryDropdown({
+  countries,
+  selectedCountryId,
+  onChange,
+  loading,
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const selectedCountry = useMemo(
+    () =>
+      countries.find(
+        (country, index) =>
+          getCountryId(country, index) ===
+          String(selectedCountryId)
+      ),
+    [countries, selectedCountryId]
+  );
+
+  const filteredCountries = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) return countries;
+
+    return countries.filter((country) => {
+      const name = getCountryName(country).toLowerCase();
+
+      const isoCode = String(
+        country?.country_code ??
+          country?.isoCode ??
+          country?.iso_code ??
+          country?.iso2 ??
+          ""
+      ).toLowerCase();
+
+      const dialCode = getCountryDialCode(country).toLowerCase();
+
+      return (
+        name.includes(query) ||
+        isoCode.includes(query) ||
+        dialCode.includes(query)
+      );
+    });
+  }, [countries, search]);
+
+  const handleSelect = (country, index) => {
+    onChange(country, getCountryId(country, index));
+    setOpen(false);
+    setSearch("");
+  };
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        disabled={loading || countries.length === 0}
+        onClick={() => setOpen((previous) => !previous)}
+        aria-label="Select phone country code"
+        aria-expanded={open}
+        className="flex h-[42px] items-center gap-3 rounded-l-lg border border-gray-300 bg-gray-50 px-3 text-sm text-gray-700 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <span className="flex min-w-0 items-center gap-1.5">
+          {selectedCountry?.emoji && (
+            <span className="shrink-0 text-base">
+              {selectedCountry.emoji}
+            </span>
+          )}
+
+          <span className="truncate font-medium">
+            {loading
+              ? "Loading..."
+              : selectedCountry
+                ? getCountryDialCode(selectedCountry) || "Code"
+                : "Code"}
+          </span>
+        </span>
+
+        <RiArrowDownSLine
+          size={18}
+          className={`shrink-0 text-gray-500 transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-[100] mt-1 w-[290px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
+          <div className="border-b border-gray-200 p-2">
+            <div className="relative">
+              <RiSearchLine
+                size={18}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+
+              <input
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search country or code..."
+                autoFocus
+                className="w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+          </div>
+
+          <div className="max-h-60 overflow-y-auto">
+            {filteredCountries.length > 0 ? (
+              filteredCountries.map((country) => {
+                const originalIndex = countries.indexOf(country);
+                const countryId = getCountryId(
+                  country,
+                  originalIndex
+                );
+
+                const isSelected =
+                  countryId === String(selectedCountryId);
+
+                return (
+                  <button
+                    key={countryId}
+                    type="button"
+                    onClick={() =>
+                      handleSelect(country, originalIndex)
+                    }
+                    className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition hover:bg-blue-50 ${
+                      isSelected
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-700"
+                    }`}
+                  >
+                    <span className="shrink-0 text-lg">
+                      {country.emoji || "🌐"}
+                    </span>
+
+                    <span className="min-w-0 flex-1 truncate">
+                      {getCountryName(country)}
+                    </span>
+
+                    <span className="shrink-0 text-gray-500">
+                      {getCountryDialCode(country)}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <p className="px-3 py-5 text-center text-sm text-gray-400">
+                No country found
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function DeviceDetailForm({
+  onCancel,
+  onSuccess,
+}) {
   const [formData, setFormData] = useState(initialFormData);
+
   const [brandImage, setBrandImage] = useState(null);
   const [customerImage, setCustomerImage] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const [countries, setCountries] = useState([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
+  const [selectedCountryId, setSelectedCountryId] = useState("");
+
   const [keySettings, setKeySettings] = useState([]);
   const [keySettingsLoading, setKeySettingsLoading] = useState(true);
 
-  // Fetch active key settings
+  // Load active key settings
   useEffect(() => {
     let isMounted = true;
 
@@ -87,16 +307,7 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
         setKeySettingsLoading(true);
 
         const response = await getKeySettings();
-
-        const settings = Array.isArray(response)
-          ? response
-          : Array.isArray(response?.data)
-            ? response.data
-            : Array.isArray(response?.data?.data)
-              ? response.data.data
-              : Array.isArray(response?.settings)
-                ? response.settings
-                : [];
+        const settings = getArrayFromResponse(response, "settings");
 
         const activeSettings = settings.filter((item) => {
           const status = item?.status;
@@ -133,19 +344,82 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
     };
   }, []);
 
-  // Handle text and dropdown changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  // Load countries and select India by default
+  useEffect(() => {
+    let isMounted = true;
 
-    setFormData((prev) => ({
-      ...prev,
+    const fetchCountries = async () => {
+      try {
+        setCountriesLoading(true);
+
+        const response = await getCountries();
+        const countryList = getArrayFromResponse(
+          response,
+          "countries"
+        );
+
+        if (!isMounted) return;
+
+        setCountries(countryList);
+
+        const india = countryList.find((country) => {
+          const isoCode = String(
+            country?.country_code ??
+              country?.isoCode ??
+              country?.iso_code ??
+              country?.iso2 ??
+              ""
+          )
+            .trim()
+            .toUpperCase();
+
+          return (
+            isoCode === "IN" ||
+            getCountryName(country).toLowerCase() === "india"
+          );
+        });
+
+        if (india) {
+          const index = countryList.indexOf(india);
+          setSelectedCountryId(getCountryId(india, index));
+        } else if (countryList.length > 0) {
+          setSelectedCountryId(getCountryId(countryList[0], 0));
+        }
+      } catch (error) {
+        console.error("Failed to fetch countries:", error);
+
+        if (isMounted) {
+          setCountries([]);
+          toast.error(
+            error?.response?.data?.message ||
+              "Failed to load countries."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setCountriesLoading(false);
+        }
+      }
+    };
+
+    fetchCountries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setFormData((previous) => ({
+      ...previous,
       [name]: value,
     }));
   };
 
-  // Validate and upload selected image
-  const handleImageChange = (e, setImage, label) => {
-    const file = e.target.files?.[0] || null;
+  const handleImageChange = (event, setImage, label) => {
+    const file = event.target.files?.[0] || null;
 
     if (!file) {
       setImage(null);
@@ -154,14 +428,14 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
 
     if (!file.type.startsWith("image/")) {
       toast.error(`${label} must be an image.`);
-      e.target.value = "";
+      event.target.value = "";
       setImage(null);
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
       toast.error(`${label} must be smaller than 5 MB.`);
-      e.target.value = "";
+      event.target.value = "";
       setImage(null);
       return;
     }
@@ -169,9 +443,29 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
     setImage(file);
   };
 
-  // Submit device details
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const keyTypeOptions = keySettings
+    .map((item) => {
+      const value = item.id ?? item.key_type ?? item.key_id;
+      const label =
+        item.name ?? item.key_name ?? item.key_type ?? item.title;
+
+      if (
+        value == null ||
+        label == null ||
+        String(label).trim() === ""
+      ) {
+        return null;
+      }
+
+      return {
+        value: String(value),
+        label: String(label),
+      };
+    })
+    .filter(Boolean);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
     if (loading) return;
 
@@ -198,6 +492,24 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
       }
     }
 
+    const selectedCountry = countries.find(
+      (country, index) =>
+        getCountryId(country, index) ===
+        String(selectedCountryId)
+    );
+
+    if (!selectedCountry) {
+      toast.error("Please select a country code.");
+      return;
+    }
+
+    const countryCode = getCountryDialCode(selectedCountry);
+
+    if (!countryCode) {
+      toast.error("Selected country has no calling code.");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -207,77 +519,78 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
         payload.append(key, String(value).trim());
       });
 
-      // Brand image
+      // Send selected country calling code separately.
+      payload.append("country_code", countryCode);
+
+      // Field names supported by the backend upload middleware/controller.
       payload.append("brandImage", brandImage);
 
-      // Customer image is optional
       if (customerImage) {
         payload.append("customerImage", customerImage);
       }
 
-      const apiBaseUrl = (
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
-      ).replace(/\/+$/, "");
+      // Integrated service API: POST /add-device
+      const result = await addDevice(payload);
 
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("token")
-          : null;
-
-      const response = await fetch(`${apiBaseUrl}/add-device`, {
-        method: "POST",
-        credentials: "include",
-        headers: token
-          ? { Authorization: `Bearer ${token}` }
-          : {},
-        body: payload,
-      });
-
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok || result.success === false) {
-        throw new Error(result.message || "Failed to add device.");
+      if (result?.success === false) {
+        throw new Error(
+          result.message || "Failed to add device."
+        );
       }
 
-      toast.success(result.message || "Device added successfully.");
+      toast.success(
+        result?.message || "Device added successfully."
+      );
 
       setFormData(initialFormData);
       setBrandImage(null);
       setCustomerImage(null);
-      e.target.reset();
 
+      const india = countries.find((country) => {
+        const isoCode = String(
+          country?.country_code ??
+            country?.isoCode ??
+            country?.iso_code ??
+            country?.iso2 ??
+            ""
+        )
+          .trim()
+          .toUpperCase();
+
+        return (
+          isoCode === "IN" ||
+          getCountryName(country).toLowerCase() === "india"
+        );
+      });
+
+      if (india) {
+        setSelectedCountryId(
+          getCountryId(india, countries.indexOf(india))
+        );
+      }
+
+      event.target.reset();
       onSuccess?.(result);
     } catch (error) {
-      console.error("Add device error:", error);
-      toast.error(error.message || "Something went wrong.");
+      console.error(
+        "Add device error:",
+        error?.response?.data || error
+      );
+
+      toast.error(
+        error?.response?.data?.message ||
+          error.message ||
+          "Something went wrong."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Convert API key settings into dropdown options
-  const keyTypeOptions = keySettings
-    .map((item) => {
-      const value = item.id ?? item.key_type ?? item.key_id;
-      const label =
-        item.name ?? item.key_name ?? item.key_type ?? item.title;
-
-      if (value == null || label == null || String(label).trim() === "") {
-        return null;
-      }
-
-      return {
-        value: String(value),
-        label: String(label),
-      };
-    })
-    .filter(Boolean);
-
   return (
     <div className="w-full">
       <div className="mx-auto w-full">
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-8">
-          {/* Header */}
+        <div className="overflow-visible rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-8">
           <div className="mb-6 border-b border-gray-200 pb-4">
             <h1 className="text-2xl font-bold text-gray-900">
               Add Device
@@ -288,9 +601,13 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-5"
+            autoComplete="off"
+          >
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Brand Image - First Field */}
+              {/* Brand Image */}
               <div className="min-w-0">
                 <label htmlFor="brandImage" className={labelClass}>
                   Brand Image <span className="text-red-500">*</span>
@@ -302,8 +619,12 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
                   type="file"
                   accept="image/*"
                   required
-                  onChange={(e) =>
-                    handleImageChange(e, setBrandImage, "Brand image")
+                  onChange={(event) =>
+                    handleImageChange(
+                      event,
+                      setBrandImage,
+                      "Brand image"
+                    )
                   }
                   className={fileInputClass}
                 />
@@ -356,7 +677,7 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
               />
 
               {/* Customer Name */}
-              <div>
+              <div className="min-w-0">
                 <label htmlFor="customer_name" className={labelClass}>
                   Customer Name
                 </label>
@@ -374,7 +695,7 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
               </div>
 
               {/* Registration Number */}
-              <div>
+              <div className="min-w-0">
                 <label htmlFor="registration_no" className={labelClass}>
                   Registration Number
                 </label>
@@ -391,26 +712,42 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
                 />
               </div>
 
-              {/* Phone Number */}
-              <div>
+              {/* Phone Number with searchable country code */}
+              <div className="min-w-0">
                 <label htmlFor="phone_number" className={labelClass}>
-                  Phone Number
+                  Phone Number <span className="text-red-500">*</span>
                 </label>
 
-                <input
-                  id="phone_number"
-                  name="phone_number"
-                  type="tel"
-                  value={formData.phone_number}
-                  onChange={handleChange}
-                  placeholder="Enter phone number"
-                  className={inputClass}
-                  required
-                />
+                <div className="flex w-full">
+                  <SearchableCountryDropdown
+                    countries={countries}
+                    selectedCountryId={selectedCountryId}
+                    loading={countriesLoading}
+                    onChange={(_country, countryId) => {
+                      setSelectedCountryId(countryId);
+                    }}
+                  />
+
+                  <input
+                    id="phone_number"
+                    name="phone_number"
+                    type="tel"
+                    inputMode="tel"
+                    value={formData.phone_number}
+                    onChange={handleChange}
+                    placeholder="Enter phone number"
+                    className="h-[42px] min-w-0 flex-1 rounded-r-lg border border-l-0 border-gray-300 bg-white px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    required
+                  />
+                </div>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Search and select a country code.
+                </p>
               </div>
 
               {/* IMEI Number */}
-              <div>
+              <div className="min-w-0">
                 <label htmlFor="imei_1" className={labelClass}>
                   IMEI Number
                 </label>
@@ -427,8 +764,6 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
                 />
               </div>
 
-              
-
               {/* Key Type */}
               <FormSelect
                 id="key_type"
@@ -444,7 +779,10 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
                       : "No active key types available"
                 }
                 options={keyTypeOptions}
-                disabled={keySettingsLoading || keyTypeOptions.length === 0}
+                disabled={
+                  keySettingsLoading ||
+                  keyTypeOptions.length === 0
+                }
               />
 
               {/* Device Status */}
@@ -464,7 +802,7 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
               />
 
               {/* FL Version */}
-              <div>
+              <div className="min-w-0">
                 <label htmlFor="fl_version" className={labelClass}>
                   FL Version
                 </label>
@@ -483,7 +821,7 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
             </div>
 
             {/* Customer Image */}
-            <div>
+            <div className="min-w-0">
               <label htmlFor="customerImage" className={labelClass}>
                 Customer Image
               </label>
@@ -493,8 +831,12 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
                 name="customerImage"
                 type="file"
                 accept="image/*"
-                onChange={(e) =>
-                  handleImageChange(e, setCustomerImage, "Customer image")
+                onChange={(event) =>
+                  handleImageChange(
+                    event,
+                    setCustomerImage,
+                    "Customer image"
+                  )
                 }
                 className={fileInputClass}
               />
@@ -507,9 +849,24 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
                     className="h-14 w-14 rounded-lg border border-gray-200 object-cover"
                   />
 
-                  <p className="truncate text-xs text-gray-600">
-                    {customerImage.name}
-                  </p>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs text-gray-600">
+                      {customerImage.name}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerImage(null);
+                        const input =
+                          document.getElementById("customerImage");
+                        if (input) input.value = "";
+                      }}
+                      className="mt-1 text-xs font-medium text-red-600 hover:text-red-700"
+                    >
+                      Remove image
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

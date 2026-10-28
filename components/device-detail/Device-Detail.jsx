@@ -1,10 +1,12 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { getDevices } from "@/services/api";
 import DeviceDetailForm from "./form";
+
+const PAGE_SIZE = 10;
 
 export function DeviceDetail() {
   const [devices, setDevices] = useState([]);
@@ -12,67 +14,70 @@ export function DeviceDetail() {
   const [error, setError] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const hasFetched = useRef(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalDevices, setTotalDevices] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  // Extract the devices array from common API response structures.
-  const extractDevices = (response) => {
-    const candidates = [
-      response,
-      response?.data,
-      response?.data?.data,
-      response?.data?.devices,
-      response?.data?.result,
-      response?.data?.results,
-      response?.data?.data?.data,
-      response?.data?.data?.devices,
-      response?.data?.data?.result,
-      response?.data?.data?.results,
-      response?.devices,
-      response?.result,
-      response?.results,
-    ];
-
-    for (const candidate of candidates) {
-      if (Array.isArray(candidate)) {
-        return candidate;
-      }
-    }
-
-    return null;
-  };
-
-  const fetchDevices = useCallback(async () => {
+  // Fetch paginated devices
+  const fetchDevices = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await getDevices();
+      const response = await getDevices({
+        page,
+        limit: PAGE_SIZE,
+      });
 
-      // Debug the real response if the structure is unexpected.
-      console.log("GET DEVICES RAW RESPONSE:", response);
+      console.log("GET DEVICES RESPONSE:", response);
 
-      const payload = response?.data ?? response;
+      const root = response?.data ?? response;
 
-      if (payload?.success === false) {
+      const payload = Array.isArray(root)
+        ? { data: root }
+        : Array.isArray(root?.data)
+          ? root
+          : Array.isArray(root?.devices)
+            ? { ...root, data: root.devices }
+            : Array.isArray(root?.result?.data)
+              ? root.result
+              : null;
+
+      if (!payload) {
         throw new Error(
-          payload?.message || "Failed to fetch devices."
+          "Invalid devices response received from the server."
         );
       }
 
-      const result = extractDevices(response);
+      const deviceList = payload.data;
 
-      if (!result) {
-        console.error(
-          "Unexpected GET DEVICES response structure:",
-          response
-        );
+      const pagination =
+        payload.pagination ??
+        root?.pagination ??
+        response?.pagination ??
+        {};
 
-        throw new Error(
-          "Devices array not found in API response. Check the GET DEVICES RAW RESPONSE in the browser console."
-        );
-      }
+      const total = Number(
+        pagination.total ??
+          payload.total ??
+          payload.count ??
+          deviceList.length
+      );
 
-      setDevices(result);
+      const pages = Number(
+        pagination.totalPages ??
+          Math.ceil(total / PAGE_SIZE)
+      );
+
+      setDevices(deviceList);
+      setTotalDevices(total);
+      setTotalPages(pages);
+
+      setCurrentPage(
+        Number(pagination.page) > 0
+          ? Number(pagination.page)
+          : page
+      );
     } catch (err) {
       console.error(
         "GET DEVICES ERROR:",
@@ -85,20 +90,21 @@ export function DeviceDetail() {
         "Failed to load devices.";
 
       setError(message);
-      toast.error(message);
       setDevices([]);
+      setTotalDevices(0);
+      setTotalPages(0);
+
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (hasFetched.current) return;
+    fetchDevices(currentPage);
+  }, [currentPage, fetchDevices]);
 
-    hasFetched.current = true;
-    fetchDevices();
-  }, [fetchDevices]);
-
+  // Resolve uploaded image URLs
   const getImageUrl = (imagePath) => {
     if (!imagePath) return "";
 
@@ -119,8 +125,12 @@ export function DeviceDetail() {
     return `${serverUrl}/${cleanPath}`;
   };
 
-  // Missing FOS or Distributor details should remain blank.
-  const renderPerson = (name, companyName, blankIfMissing = false) => {
+  // Display person and company details
+  const renderPerson = (
+    name,
+    companyName,
+    blankIfMissing = false
+  ) => {
     if (!name && blankIfMissing) {
       return null;
     }
@@ -150,17 +160,59 @@ export function DeviceDetail() {
     );
   };
 
+  const handleRefresh = () => {
+    fetchDevices(currentPage);
+  };
+
+  const handleAddSuccess = () => {
+    setShowAddForm(false);
+
+    if (currentPage === 1) {
+      fetchDevices(1);
+    } else {
+      setCurrentPage(1);
+    }
+  };
+
+  const getPageNumbers = () => {
+    if (totalPages <= 5) {
+      return Array.from(
+        { length: totalPages },
+        (_, index) => index + 1
+      );
+    }
+
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(totalPages, start + 4);
+
+    if (end === totalPages) {
+      start = Math.max(1, totalPages - 4);
+    }
+
+    return Array.from(
+      { length: end - start + 1 },
+      (_, index) => start + index
+    );
+  };
+
   if (showAddForm) {
     return (
       <DeviceDetailForm
         onCancel={() => setShowAddForm(false)}
-        onSuccess={() => {
-          setShowAddForm(false);
-          fetchDevices();
-        }}
+        onSuccess={handleAddSuccess}
       />
     );
   }
+
+  const startRecord =
+    totalDevices === 0
+      ? 0
+      : (currentPage - 1) * PAGE_SIZE + 1;
+
+  const endRecord = Math.min(
+    currentPage * PAGE_SIZE,
+    totalDevices
+  );
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -187,7 +239,7 @@ export function DeviceDetail() {
 
           <button
             type="button"
-            onClick={fetchDevices}
+            onClick={handleRefresh}
             disabled={loading}
             className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -196,12 +248,13 @@ export function DeviceDetail() {
         </div>
       </div>
 
-      {/* Device Count */}
-      {!loading && !error && (
+      {/* Total Devices */}
+      {!error && (
         <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-sm text-gray-500">Total Devices</p>
+
           <p className="mt-1 text-2xl font-bold text-gray-900">
-            {devices.length}
+            {totalDevices}
           </p>
         </div>
       )}
@@ -224,7 +277,7 @@ export function DeviceDetail() {
 
           <button
             type="button"
-            onClick={fetchDevices}
+            onClick={handleRefresh}
             className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
           >
             Try Again
@@ -277,7 +330,7 @@ export function DeviceDetail() {
                     className="transition hover:bg-gray-50"
                   >
                     <td className="whitespace-nowrap px-4 py-4 font-medium text-gray-900">
-                      {index + 1}
+                      {(currentPage - 1) * PAGE_SIZE + index + 1}
                     </td>
 
                     <td className="px-4 py-4">
@@ -285,7 +338,7 @@ export function DeviceDetail() {
                         <img
                           src={getImageUrl(device.brand)}
                           alt="Brand logo"
-                          className="h-10 w-16  border border-gray-200 bg-white "
+                          className="h-10 w-16 border border-gray-200 bg-white "
                           onError={(event) => {
                             event.currentTarget.style.display = "none";
                           }}
@@ -326,8 +379,23 @@ export function DeviceDetail() {
                       {device.registration_no || "-"}
                     </td>
 
+                    {/* Phone + Country Calling Code */}
                     <td className="whitespace-nowrap px-4 py-4 text-gray-600">
-                      {device.phone_number || "-"}
+                      <span className="font-medium text-gray-800">
+                        {device.phone_number
+                          ? `${String(
+                              device.country_code ||
+                                device.calling_code ||
+                                device.dial_code ||
+                                ""
+                            )
+                              .trim()
+                              .replace(/\s+/g, "")
+                              .replace(/^(?!\+)/, "+")} ${String(
+                              device.phone_number
+                            ).trim()}`.trim()
+                          : "-"}
+                      </span>
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-4 text-gray-600">
@@ -341,7 +409,8 @@ export function DeviceDetail() {
                     <td className="whitespace-nowrap px-4 py-4">
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          String(device.device_status).toLowerCase() === "active"
+                          String(device.device_status).toLowerCase() ===
+                          "active"
                             ? "bg-green-100 text-green-700"
                             : "bg-gray-100 text-gray-700"
                         }`}
@@ -354,6 +423,7 @@ export function DeviceDetail() {
                       {device.fl_version || "-"}
                     </td>
 
+                    {/* Retailer: device creator */}
                     <td className="px-4 py-4">
                       {renderPerson(
                         device.retailer_name,
@@ -361,6 +431,7 @@ export function DeviceDetail() {
                       )}
                     </td>
 
+                    {/* FOS: retailer's parent */}
                     <td className="px-4 py-4">
                       {renderPerson(
                         device.fos_name,
@@ -369,6 +440,7 @@ export function DeviceDetail() {
                       )}
                     </td>
 
+                    {/* Distributor: FOS's parent */}
                     <td className="px-4 py-4">
                       {renderPerson(
                         device.distributor_name,
@@ -386,9 +458,66 @@ export function DeviceDetail() {
             </table>
           </div>
 
-          <div className="border-t border-gray-200 px-4 py-3 text-sm text-gray-500">
-            Showing {devices.length} device
-            {devices.length !== 1 ? "s" : ""}
+          {/* Pagination */}
+          <div className="flex flex-col gap-4 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-gray-500">
+              Showing{" "}
+              <span className="font-semibold text-gray-800">
+                {startRecord}-{endRecord}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-gray-800">
+                {totalDevices}
+              </span>{" "}
+              devices
+            </p>
+
+            {totalPages > 1 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((page) => Math.max(1, page - 1))
+                  }
+                  disabled={loading || currentPage <= 1}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Previous
+                </button>
+
+                {getPageNumbers().map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    disabled={loading || page === currentPage}
+                    aria-current={
+                      page === currentPage ? "page" : undefined
+                    }
+                    className={`min-w-10 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                      page === currentPage
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                    } disabled:cursor-default`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.min(totalPages, page + 1)
+                    )
+                  }
+                  disabled={loading || currentPage >= totalPages}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
