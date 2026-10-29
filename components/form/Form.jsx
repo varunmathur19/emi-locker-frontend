@@ -1624,179 +1624,118 @@ export default function Form() {
 
         let cancelled = false;
 
-        const loadParents = async () => {
-            try {
-                const updatedUsers = {};
-                const updatedSelected = {
-                    ...selectedParents,
-                };
+    const loadParents = async () => {
+    try {
+        const updatedUsers = {};
+        const updatedSelected = {
+            ...selectedParents,
+        };
 
-                for (
-                    let index = 0;
-                    index < parents.length;
-                    index++
+        for (let index = 0; index < parents.length; index++) {
+            if (cancelled) return;
+
+            const currentRole = Number(parents[index]);
+
+            let parentId = null;
+
+            if (index === 0) {
+                if (currentRole === loggedInRoleId) {
+                    parentId = loggedInUserId;
+                }
+            } else if (currentRole === 6) {
+                // Retailer: prefer selected FOS, otherwise Distributor.
+                if (updatedSelected[5]) {
+                    parentId = Number(updatedSelected[5]);
+                } else if (updatedSelected[4]) {
+                    parentId = Number(updatedSelected[4]);
+                }
+            } else {
+                const previousRole = Number(parents[index - 1]);
+                const selectedParent = updatedSelected[previousRole];
+
+                parentId = selectedParent
+                    ? Number(selectedParent)
+                    : null;
+            }
+
+            const response = await getDropdownUsers(
+                currentRole,
+                parentId
+            );
+
+            let users = getUsersFromResponse(response);
+
+            // Keep users belonging to the requested role and parent.
+            if (currentRole === 5 || currentRole === 6) {
+                users = users.filter((user) => {
+                    const matchesRole =
+                        Number(user?.role_id) === currentRole;
+
+                    const matchesParent =
+                        parentId === null ||
+                        Number(user?.parent_id) === parentId;
+
+                    return matchesRole && matchesParent;
+                });
+            }
+
+            // Preserve the previously selected parent if it is not
+            // included in the initial dropdown response.
+            const selectedId = updatedSelected[currentRole];
+
+            if (
+                selectedId &&
+                !users.some(
+                    (user) => Number(user?.id) === Number(selectedId)
+                )
+            ) {
+                const fallbackResponse = await getDropdownUsers(
+                    currentRole,
+                    parentId,
+                    ""
+                );
+
+                const allUsers =
+                    getUsersFromResponse(fallbackResponse);
+
+                const selectedUser = allUsers.find(
+                    (user) => Number(user?.id) === Number(selectedId)
+                );
+
+                if (
+                    selectedUser &&
+                    !users.some(
+                        (user) =>
+                            Number(user?.id) === Number(selectedUser.id)
+                    )
                 ) {
-                    if (cancelled) {
-                        return;
-                    }
-
-                    const currentRole =
-                        Number(
-                            parents[index]
-                        );
-
-                    let parentId = null;
-
-                    if (index === 0) {
-                        if (
-                            currentRole ===
-                            loggedInRoleId
-                        ) {
-                            parentId =
-                                loggedInUserId;
-                        }
-                    } else {
-                        const previousRole =
-                            Number(
-                                parents[
-                                    index - 1
-                                ]
-                            );
-
-                        parentId =
-                            updatedSelected[
-                                previousRole
-                            ]
-                                ? Number(
-                                      updatedSelected[
-                                          previousRole
-                                      ]
-                                  )
-                                : null;
-                    }
-
-                    const response =
-                        await getDropdownUsers(
-                            currentRole,
-                            parentId
-                        );
-
-                    let users =
-                        getUsersFromResponse(
-                            response
-                        );
-
-                    if (currentRole === 5) {
-                        users =
-                            users.filter(
-                                (user) =>
-                                    Number(
-                                        user?.role_id
-                                    ) === 5 &&
-                                    (parentId ===
-                                        null ||
-                                        Number(
-                                            user?.parent_id
-                                        ) ===
-                                            Number(
-                                                parentId
-                                            ))
-                            );
-                    }
-
-                    const selectedId =
-                        updatedSelected[
-                            currentRole
-                        ];
-
-                    if (
-                        selectedId &&
-                        !users.some(
-                            (user) =>
-                                Number(
-                                    user?.id
-                                ) ===
-                                Number(
-                                    selectedId
-                                )
-                        )
-                    ) {
-                        const responseById =
-                            await getDropdownUsers(
-                                currentRole,
-                                parentId,
-                                ""
-                            );
-
-                        const allUsers =
-                            getUsersFromResponse(
-                                responseById
-                            );
-
-                        const selectedUser =
-                            allUsers.find(
-                                (user) =>
-                                    Number(
-                                        user?.id
-                                    ) ===
-                                    Number(
-                                        selectedId
-                                    )
-                            );
-
-                        if (selectedUser) {
-                            users = [
-                                ...users,
-                                selectedUser,
-                            ];
-                        }
-                    }
-
-                    updatedUsers[
-                        currentRole
-                    ] = users;
-                }
-
-                if (cancelled) {
-                    return;
-                }
-
-                setParentUsers(
-                    updatedUsers
-                );
-
-                setSelectedParents(
-                    updatedSelected
-                );
-
-                const lastRole =
-                    parents[
-                        parents.length - 1
-                    ];
-
-                const lastParentId =
-                    updatedSelected[
-                        Number(lastRole)
-                    ];
-
-                if (lastParentId) {
-                    setFormData((prev) => ({
-                        ...prev,
-                        parent_id:
-                            Number(
-                                lastParentId
-                            ),
-                    }));
-                }
-            } catch (error) {
-                if (!cancelled) {
-                    console.error(
-                        "LOAD PARENTS ERROR:",
-                        error
-                    );
+                    users = [...users, selectedUser];
                 }
             }
-        };
+
+            updatedUsers[currentRole] = users;
+        }
+
+        if (cancelled) return;
+
+        setParentUsers(updatedUsers);
+        setSelectedParents(updatedSelected);
+
+        const lastRole = parents[parents.length - 1];
+        const lastParentId = updatedSelected[Number(lastRole)];
+
+        if (lastParentId) {
+            setFormData((prev) => ({
+                ...prev,
+                parent_id: Number(lastParentId),
+            }));
+        }
+    } catch (error) {
+        if (!cancelled) {
+            console.error("LOAD PARENTS ERROR:", error);
+        }
+    }
+};
 
         loadParents();
 
@@ -1811,163 +1750,141 @@ export default function Form() {
         editUserLoaded,
     ]);
 
-    const loadNextParentUsers =
-        async (
-            selectedParentId,
-            nextRoleId
-        ) => {
-            if (
-                !selectedParentId ||
-                !nextRoleId
-            ) {
-                return;
-            }
+    const loadNextParentUsers = async (
+    selectedParentId,
+    nextRoleId
+) => {
+    if (!selectedParentId || !nextRoleId) return;
 
-            const nextRole =
-                Number(nextRoleId);
+    const nextRole = Number(nextRoleId);
+    const parentId = Number(selectedParentId);
 
-            try {
-                setSearchLoading(
-                    (prev) => ({
-                        ...prev,
-                        [nextRole]: true,
-                    })
-                );
-
-                const response =
-                    await getDropdownUsers(
-                        nextRole,
-                        Number(
-                            selectedParentId
-                        )
-                    );
-
-                let users =
-                    getUsersFromResponse(
-                        response
-                    );
-
-                if (nextRole === 5) {
-                    users =
-                        users.filter(
-                            (user) =>
-                                Number(
-                                    user?.role_id
-                                ) === 5 &&
-                                Number(
-                                    user?.parent_id
-                                ) ===
-                                    Number(
-                                        selectedParentId
-                                    )
-                        );
-                }
-
-                setParentUsers(
-                    (prev) => ({
-                        ...prev,
-                        [nextRole]: users,
-                    })
-                );
-            } catch (error) {
-                console.error(
-                    `LOAD ${getRoleName(
-                        nextRole
-                    )} ERROR:`,
-                    error
-                );
-
-                setParentUsers(
-                    (prev) => ({
-                        ...prev,
-                        [nextRole]: [],
-                    })
-                );
-            } finally {
-                setSearchLoading(
-                    (prev) => ({
-                        ...prev,
-                        [nextRole]: false,
-                    })
-                );
-            }
-        };
-
-    const handleParentChange = async (
-        parentRoleId,
-        parentId
-    ) => {
-        const roleId =
-            Number(parentRoleId);
-
-        const selectedId = parentId
-            ? Number(parentId)
-            : null;
-
-        const parents =
-            visibleParentRoles;
-
-        const currentIndex =
-            parents.indexOf(roleId);
-
-        const updatedSelected = {
-            ...selectedParents,
-        };
-
-        if (selectedId) {
-            updatedSelected[roleId] =
-                selectedId;
-        } else {
-            delete updatedSelected[
-                roleId
-            ];
-        }
-
-        parents
-            .slice(currentIndex + 1)
-            .forEach((childRoleId) => {
-                delete updatedSelected[
-                    Number(childRoleId)
-                ];
-            });
-
-        setSelectedParents(
-            updatedSelected
-        );
-
-        setFormData((prev) => ({
+    try {
+        setSearchLoading((prev) => ({
             ...prev,
-            parent_id: selectedId,
+            [nextRole]: true,
         }));
 
-        const updatedUsers = {
-            ...parentUsers,
-        };
+        const response = await getDropdownUsers(
+            nextRole,
+            parentId
+        );
 
-        parents
-            .slice(currentIndex + 1)
-            .forEach((childRoleId) => {
-                updatedUsers[
-                    Number(childRoleId)
-                ] = [];
+        let users = getUsersFromResponse(response);
+
+        // Keep only the selected parent's direct FOS users.
+        if (nextRole === 5 || nextRole === 6) {
+            users = users.filter((user) => {
+                const userRole = Number(user?.role_id);
+                const userParentId = Number(user?.parent_id);
+
+                return (
+                    userRole === nextRole &&
+                    userParentId === parentId
+                );
             });
-
-        setParentUsers(updatedUsers);
-
-        if (!selectedId) {
-            return;
         }
 
-        const nextRole =
-            parents[currentIndex + 1];
+        // Remove duplicate users, if any.
+        const uniqueUsers = new Map();
 
-        if (nextRole) {
+        users.forEach((user) => {
+            const id = Number(user?.id);
+
+            if (id) {
+                uniqueUsers.set(id, user);
+            }
+        });
+
+        setParentUsers((prev) => ({
+            ...prev,
+            [nextRole]: Array.from(uniqueUsers.values()),
+        }));
+    } catch (error) {
+        console.error(
+            `LOAD ${getRoleName(nextRole)} ERROR:`,
+            error
+        );
+
+        setParentUsers((prev) => ({
+            ...prev,
+            [nextRole]: [],
+        }));
+    } finally {
+        setSearchLoading((prev) => ({
+            ...prev,
+            [nextRole]: false,
+        }));
+    }
+};
+
+   const handleParentChange = async (parentRoleId, parentId) => {
+    const roleId = Number(parentRoleId);
+    const selectedId = parentId ? Number(parentId) : null;
+
+    const parents = visibleParentRoles;
+    const currentIndex = parents.indexOf(roleId);
+
+    const updatedSelected = {
+        ...selectedParents,
+    };
+
+    if (selectedId) {
+        updatedSelected[roleId] = selectedId;
+    } else {
+        delete updatedSelected[roleId];
+    }
+
+    // Clear selections below the changed parent.
+    parents.slice(currentIndex + 1).forEach((childRoleId) => {
+        delete updatedSelected[Number(childRoleId)];
+    });
+
+    setSelectedParents(updatedSelected);
+
+    setFormData((prev) => ({
+        ...prev,
+        parent_id: selectedId,
+    }));
+
+    const updatedUsers = {
+        ...parentUsers,
+    };
+
+    parents.slice(currentIndex + 1).forEach((childRoleId) => {
+        updatedUsers[Number(childRoleId)] = [];
+    });
+
+    setParentUsers(updatedUsers);
+
+    // If FOS is cleared, reload direct Retailers under Distributor.
+    if (!selectedId) {
+        if (roleId === 5 && updatedSelected[4]) {
             await loadNextParentUsers(
-                selectedId,
-                Number(nextRole)
+                updatedSelected[4],
+                6
             );
         }
-    };
+
+        return;
+    }
+
+    const nextRole = parents[currentIndex + 1];
+
+    // Load the next hierarchy dropdown.
+    if (nextRole) {
+        await loadNextParentUsers(
+            selectedId,
+            Number(nextRole)
+        );
+    }
+
+    // When Distributor is selected, load its direct Retailers too.
+    // The FOS dropdown is loaded above as usual.
+    if (roleId === 4 && parents.includes(6)) {
+        await loadNextParentUsers(selectedId, 6);
+    }
+};
 
     const handleChange = (e) => {
         const {

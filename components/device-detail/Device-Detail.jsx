@@ -433,7 +433,7 @@ export function DeviceDetail() {
                         <img
                           src={getImageUrl(device.brand)}
                           alt="Brand logo"
-                          className="h-10 w-16 border border-gray-200 bg-white object-contain"
+                          className="h-10 w-16 border border-gray-200 bg-white "
                           onError={(event) => {
                             event.currentTarget.style.display = "none";
                           }}
@@ -495,8 +495,8 @@ export function DeviceDetail() {
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-4 text-gray-600">
-                      {device.key_type || "-"}
-                    </td>
+  {device.key_name || device.key_type || "-"}
+</td>
 
                     <td className="whitespace-nowrap px-4 py-4">
                       <span
