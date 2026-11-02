@@ -273,9 +273,7 @@ export default function KeySetting() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
               Key Settings
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              View, rename, and manage key settings.
-            </p>
+        
           </div>
 
           <button

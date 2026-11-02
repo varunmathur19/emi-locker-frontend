@@ -983,7 +983,8 @@ const loadRoles = useCallback(async () => {
         (role) =>
           role?.role_id !== null &&
           role?.role_id !== undefined &&
-          Number.isInteger(Number(role.role_id))
+          Number.isInteger(Number(role.role_id)) &&
+          Number(role?.status ?? 1) === 1          // ← only active roles
       )
       .sort((a, b) => {
         const roleA = Number(a.role_id);
@@ -2507,6 +2508,18 @@ const transactionPinField = (
                 onSelect={handleTransferUserSelect}
               />
             </div>
+              <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Available Balance
+              </label>
+
+              <input
+                type="number"
+                value={availableBalance}
+                readOnly
+                className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none"
+              />
+            </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Transfer Point
@@ -2526,18 +2539,7 @@ const transactionPinField = (
 
          
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Available Balance
-              </label>
-
-              <input
-                type="number"
-                value={availableBalance}
-                readOnly
-                className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none"
-              />
-            </div>
+          
 
             {transactionPinEntryField}
           </div>

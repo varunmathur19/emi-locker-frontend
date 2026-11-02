@@ -215,7 +215,7 @@ function HierarchyDropdown({
         }}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-left text-sm text-slate-700 transition hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+        className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-left text-sm text-slate-700 transition hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 cursor-pointer"
       >
         <span className="truncate">
           {loading
@@ -267,7 +267,7 @@ function HierarchyDropdown({
                     role="option"
                     aria-selected={isSelected}
                     onClick={() => handleSelect(user)}
-                    className={`block w-full truncate px-4 py-2.5 text-left text-sm transition hover:bg-blue-50 ${
+                    className={`block w-full truncate px-4 py-2.5 text-left text-sm transition cursor-pointer hover:bg-blue-50 ${
                       isSelected
                         ? "bg-blue-50 font-medium text-blue-700"
                         : "text-slate-700"
@@ -348,7 +348,7 @@ function SearchableEnrollmentDropdown({
         }}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-left text-sm text-slate-700 transition hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+        className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-left text-sm text-slate-700 transition hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 cursor-pointer"
       >
         <span className="truncate">
           {loading
@@ -397,7 +397,7 @@ function SearchableEnrollmentDropdown({
                     role="option"
                     aria-selected={isSelected}
                     onClick={() => handleSelect(option)}
-                    className={`block w-full truncate px-4 py-2.5 text-left text-sm transition hover:bg-blue-50 ${
+                    className={`block w-full truncate px-4 py-2.5 text-left text-sm transition cursor-pointer hover:bg-blue-50 ${
                       isSelected
                         ? "bg-blue-50 font-medium text-blue-700"
                         : "text-slate-700"

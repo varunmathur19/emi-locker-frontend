@@ -317,10 +317,6 @@ const visibleModules = useMemo(() => {
     [profiles, selectedProfile]
   );
 
-  
-
-
-
 const getModuleSubModules = () => {
   return activeSubModules.filter(
     (subModule) => Number(subModule.status) === 1

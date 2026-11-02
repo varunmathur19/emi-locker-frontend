@@ -6,7 +6,8 @@ import { toast } from "react-toastify";
 import { FaPlus } from "react-icons/fa6";
 import { getDevices } from "@/services/api";
 import DeviceDetailForm from "./form";
-
+import { createPortal } from "react-dom";
+import { RxCross2 } from "react-icons/rx";
 const PAGE_SIZE = 10;
 const SKELETON_ROWS = 6;
 
@@ -131,8 +132,10 @@ function PersonCell({ name, companyName, blankIfMissing = false }) {
   );
 }
 
+
 function ImageCell({ path, alt, getImageUrl, className = "" }) {
   const [imageError, setImageError] = useState(false);
+  const [showImage, setShowImage] = useState(false);
 
   if (!path || imageError) {
     return (
@@ -142,20 +145,54 @@ function ImageCell({ path, alt, getImageUrl, className = "" }) {
     );
   }
 
+  const imageUrl = getImageUrl(path);
+
   return (
-    <td className="px-4 py-4">
-      <div className="group relative flex h-14 w-16 items-center justify-center">
-        <img
-          src={getImageUrl(path)}
-          alt={alt}
-          loading="lazy"
-          onError={() => setImageError(true)}
-          className={`h-12 max-w-16 rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}
-        />
-      </div>
-    </td>
+    <>
+      <td className="px-4 py-4">
+        <div className="flex h-14 w-16 items-center justify-center">
+          <img
+            src={imageUrl}
+            alt={alt}
+            loading="lazy"
+            onError={() => setImageError(true)}
+            onClick={() => setShowImage(true)}
+            className={`h-12 max-w-16 cursor-pointer rounded-lg border border-gray-200 bg-white object-cover shadow-sm transition-transform duration-200 hover:scale-110 hover:shadow-md ${className}`}
+          />
+        </div>
+      </td>
+
+      {/* Image Preview Modal */}
+      {showImage &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-4"
+            onClick={() => setShowImage(false)}
+          >
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowImage(false)}
+              className="absolute right-6 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-3xl text-white transition hover:bg-white/30"
+              aria-label="Close image preview "
+            >
+              <RxCross2 className="cursor-pointer" />
+            </button>
+
+            {/* Preview Image */}
+            <img
+              src={imageUrl}
+              alt={alt || "Image Preview"}
+              onClick={(e) => e.stopPropagation()}
+              className="max-h-[85vh] max-w-[90vw] rounded-md object-contain shadow-2xl"
+            />
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
+
 
 function TextCell({ children, className = "" }) {
   return (
@@ -188,7 +225,6 @@ export function DeviceDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
-
   const [currentPage, setCurrentPage] = useState(1);
   const [totalDevices, setTotalDevices] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -431,7 +467,7 @@ export function DeviceDetail() {
 
       {/* Device Table */}
       {!loading && !error && devices.length > 0 && (
-        <div className="mb-10 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+     <div className="mb-10 rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[3000px] text-left text-sm">
               <thead className="bg-gray-100 text-xs uppercase tracking-wider text-gray-600">
