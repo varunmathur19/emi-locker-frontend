@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { IoMdArrowDropdown } from "react-icons/io";
+import { RiLockPasswordLine } from "react-icons/ri";
 import {
   RiSearchLine,
   RiEyeLine,
@@ -1898,23 +1899,29 @@ if (!isActiveRole || !isValidRole) {
     }
   };
 
-  const transactionPinField = (
-    <div>
-      <label className="mb-2 block text-sm font-semibold text-gray-700">
-        Transaction PIN
-      </label>
+const transactionPinField = (
+  <div className="space-y-2">
+    <label className="block text-sm font-semibold text-gray-700">
+      Transaction PIN
+    </label>
 
-      <input
-        type="text"
-        value={transactionPinLoading ? "" : transactionPin}
-        readOnly
-        placeholder={
-          transactionPinLoading ? "Loading PIN..." : "Transaction PIN"
-        }
-        className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none"
-      />
-    </div>
-  );
+   <div className="relative w-full">
+  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+    <RiLockPasswordLine className="text-gray-400" size={19} />
+  </div>
+
+  <input
+    type="text"
+    value={transactionPinLoading ? "" : transactionPin}
+    readOnly
+    placeholder={
+      transactionPinLoading ? "Loading PIN..." : "Transaction PIN"
+    }
+    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50/80 pl-11 pr-4 text-sm font-semibold tracking-wider text-gray-700 outline-none transition-all placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+  />
+</div>
+  </div>
+);
 
   const transactionPinEntryField = (
     <div>

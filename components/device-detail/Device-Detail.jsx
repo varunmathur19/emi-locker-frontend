@@ -14,22 +14,22 @@ const TABLE_HEADERS = [
   "S. No.",
   "Serial Number",
   "Brand",
-  "Enrollment",
   "Customer Image",
   "Customer Name",
-  "Registration No.",
+  "Enrollment",
   "Phone",
-  "Guarantor Name",
-  "Guarantor Number",
+  "Registration No.",
   "IMEI 1",
   "IMEI 2",
   "Key Type",
   "Signature",
   "Status",
-  "FL Version",
   "Retailer",
   "FOS",
   "Distributor",
+  "FL Version",
+  "Guarantor Name",
+  "Guarantor Number",
   "Actions",
 ];
 
@@ -448,104 +448,123 @@ export function DeviceDetail() {
               </thead>
 
               <tbody className="divide-y divide-gray-100">
-                {devices.map((device, index) => (
-                  <tr
-                    key={device.id ?? index}
-                    className="transition hover:bg-gray-50"
-                  >
-                    {/* Serial Number in table */}
-                    <td className="whitespace-nowrap px-4 py-4 font-medium text-gray-900">
-                      {(currentPage - 1) * PAGE_SIZE + index + 1}
-                    </td>
+  {devices.map((device, index) => (
+    <tr
+      key={device.id ?? index}
+      className="transition hover:bg-gray-50"
+    >
+      {/* 1. S. No. */}
+      <td className="whitespace-nowrap px-4 py-4 font-medium text-gray-900">
+        {(currentPage - 1) * PAGE_SIZE + index + 1}
+      </td>
 
-                    <TextCell>{device.serial_number}</TextCell>
+      {/* 2. Serial Number */}
+      <TextCell>{device.serial_number}</TextCell>
 
-                    <ImageCell
-                      path={device.brand}
-                      alt="Brand"
-                      getImageUrl={getImageUrl}
-                    />
+      {/* 3. Brand */}
+      <ImageCell
+        path={device.brand}
+        alt="Brand"
+        getImageUrl={getImageUrl}
+      />
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold capitalize text-blue-700">
-                        {device.enrollment_name || "-"}
-                      </span>
-                    </td>
+      {/* 4. Customer Image */}
+      <ImageCell
+        path={device.customer_image}
+        alt={device.customer_name || "Customer"}
+        getImageUrl={getImageUrl}
+        className="object-cover"
+      />
 
-                    <ImageCell
-                      path={device.customer_image}
-                      alt={device.customer_name || "Customer"}
-                      getImageUrl={getImageUrl}
-                      className="object-cover"
-                    />
+      {/* 5. Customer Name */}
+      <TextCell className="font-medium text-gray-800">
+        {device.customer_name}
+      </TextCell>
 
-                    <TextCell className="font-medium text-gray-800">
-                      {device.customer_name}
-                    </TextCell>
+      {/* 6. Enrollment */}
+      <td className="whitespace-nowrap px-4 py-4">
+        <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold capitalize text-blue-700">
+          {device.enrollment_name || "-"}
+        </span>
+      </td>
 
-                    <TextCell>{device.registration_no}</TextCell>
+      {/* 7. Phone */}
+      <TextCell>
+        {device.phone_number
+          ? `${String(
+              device.country_code ??
+                device.calling_code ??
+                device.dial_code ??
+                ""
+            )
+              .trim()
+              .replace(/\s+/g, "")
+              .replace(/^(?!\+)/, "+")} ${String(
+              device.phone_number
+            ).trim()}`.trim()
+          : "-"}
+      </TextCell>
 
-                    <TextCell>
-                      {device.phone_number
-                        ? `${String(
-                            device.country_code ??
-                              device.calling_code ??
-                              device.dial_code ??
-                              ""
-                          )
-                            .trim()
-                            .replace(/\s+/g, "")
-                            .replace(/^(?!\+)/, "+")} ${String(
-                            device.phone_number
-                          ).trim()}`.trim()
-                        : "-"}
-                    </TextCell>
+      {/* 8. Registration No. */}
+      <TextCell>{device.registration_no}</TextCell>
 
-                    <TextCell>{device.guarantor_name}</TextCell>
+      {/* 9. IMEI 1 */}
+      <TextCell>{device.imei_1}</TextCell>
 
-                    <TextCell>{device.guarantor_number}</TextCell>
+      {/* 10. IMEI 2 */}
+      <TextCell>{device.imei_2}</TextCell>
 
-                    <TextCell>{device.imei_1}</TextCell>
+      {/* 11. Key Type */}
+      <TextCell>
+        {device.key_name || device.key_type}
+      </TextCell>
 
-                    <TextCell>{device.imei_2}</TextCell>
+      {/* 12. Signature */}
+      <ImageCell
+        path={device.signature}
+        alt="Device signature"
+        getImageUrl={getImageUrl}
+      />
 
-                    <TextCell>
-                      {device.key_name || device.key_type}
-                    </TextCell>
+      {/* 13. Status */}
+      <td className="whitespace-nowrap px-4 py-4">
+        <StatusBadge status={device.device_status} />
+      </td>
 
-                    <ImageCell
-                      path={device.signature}
-                      alt="Device signature"
-                      getImageUrl={getImageUrl}
-                    />
+      {/* 14. Retailer */}
+      <PersonCell
+        name={device.retailer_name}
+        companyName={device.retailer_company_name}
+      />
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <StatusBadge status={device.device_status} />
-                    </td>
+      {/* 15. FOS */}
+      <PersonCell
+        name={device.fos_name}
+        companyName={device.fos_company_name}
+        blankIfMissing
+      />
 
-                    <TextCell>{device.fl_version}</TextCell>
+      {/* 16. Distributor */}
+      <PersonCell
+        name={device.distributor_name}
+        companyName={device.distributor_company_name}
+        blankIfMissing
+      />
 
-                    <PersonCell
-                      name={device.retailer_name}
-                      companyName={device.retailer_company_name}
-                    />
+      {/* 17. FL Version */}
+      <TextCell>{device.fl_version}</TextCell>
 
-                    <PersonCell
-                      name={device.fos_name}
-                      companyName={device.fos_company_name}
-                      blankIfMissing
-                    />
+      {/* 18. Guarantor Name */}
+      <TextCell>{device.guarantor_name}</TextCell>
 
-                    <PersonCell
-                      name={device.distributor_name}
-                      companyName={device.distributor_company_name}
-                      blankIfMissing
-                    />
+      {/* 19. Guarantor Number */}
+      <TextCell>{device.guarantor_number}</TextCell>
 
-                    <TextCell>-</TextCell>
-                  </tr>
-                ))}
-              </tbody>
+      {/* 20. Actions */}
+      <TextCell>-</TextCell>
+    </tr>
+  ))}
+</tbody>
             </table>
           </div>
 
