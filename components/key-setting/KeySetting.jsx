@@ -1,24 +1,19 @@
-
 "use client";
 
-import { useCallback, useEffect, useMemo, useState ,useRef} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import {
-  getKeySettings,
-  updateKeySetting,
-} from "@/services/api";
+import { getKeySettings, updateKeySetting } from "@/services/api";
 
 const getSettingsArray = (response) => {
   const candidates = [
-    response,
-    response?.data,
-    response?.data?.data,
-    response?.settings,
-    response?.data?.settings,
-    response?.result,
-    response?.data?.result,
     response?.data?.data?.settings,
-    response?.data?.data?.result,
+    response?.data?.settings,
+    response?.data?.data,
+    response?.data?.result,
+    response?.data,
+    response?.settings,
+    response?.result,
+    response,
   ];
 
   return candidates.find(Array.isArray) || [];
@@ -34,37 +29,31 @@ export default function KeySetting() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [updatingIds, setUpdatingIds] = useState([]);
+  const [savingNameIds, setSavingNameIds] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [editingName, setEditingName] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
   const hasFetched = useRef(false);
 
-  // Fetch all records, including inactive records.
   const fetchKeySettings = useCallback(async () => {
     setLoading(true);
     setErrorMessage("");
 
     try {
       const response = await getKeySettings();
-
-      console.log("KEY SETTINGS API RESPONSE:", response);
+      const payload = response?.data ?? response;
 
       if (
-        response?.success === false &&
-        !Array.isArray(response?.data)
+        response?.success === false ||
+        payload?.success === false
       ) {
         throw new Error(
-          response?.message || "Unable to load key settings."
+          payload?.message || "Unable to load key settings."
         );
       }
 
-      const settings = getSettingsArray(response);
-
-      setKeySettings(settings);
-
-      if (settings.length === 0) {
-        console.warn(
-          "No key settings array found. Check the API response structure."
-        );
-      }
+      setKeySettings(getSettingsArray(response));
     } catch (error) {
       console.error("GET KEY SETTINGS ERROR:", error);
       setErrorMessage(getErrorMessage(error));
@@ -74,21 +63,20 @@ export default function KeySetting() {
     }
   }, []);
 
- useEffect(() => {
-  if (hasFetched.current) return;
+  useEffect(() => {
+    if (hasFetched.current) return;
 
-  hasFetched.current = true;
-  fetchKeySettings();
-}, [fetchKeySettings]);
+    hasFetched.current = true;
+    fetchKeySettings();
+  }, [fetchKeySettings]);
 
-  // Search all settings without filtering by status.
   const filteredSettings = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     if (!query) return keySettings;
 
-    return keySettings.filter((item) => {
-      const values = [
+    return keySettings.filter((item) =>
+      [
         item.id,
         item.root,
         item.root_id,
@@ -97,12 +85,10 @@ export default function KeySetting() {
         item.value,
         item.status,
         Number(item.status) === 1 ? "active" : "inactive",
-      ];
-
-      return values.some((value) =>
+      ].some((value) =>
         String(value ?? "").toLowerCase().includes(query)
-      );
-    });
+      )
+    );
   }, [keySettings, search]);
 
   const activeCount = keySettings.filter(
@@ -111,34 +97,43 @@ export default function KeySetting() {
 
   const inactiveCount = keySettings.length - activeCount;
 
-  const handleStatusChange = async (item) => {
+  const startEditing = (item) => {
+    setEditingId(item.id);
+    setEditingName(item.name ?? "");
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditingName("");
+  };
+
+  const handleNameSave = async (item) => {
     if (
       item.id == null ||
-      updatingIds.includes(item.id)
+      savingNameIds.some((id) => String(id) === String(item.id))
     ) {
       return;
     }
 
-    const oldStatus = Number(item.status) === 1 ? 1 : 0;
-    const newStatus = oldStatus === 1 ? 0 : 1;
+    const newName = editingName.trim();
 
-    setUpdatingIds((prev) => [...prev, item.id]);
+    if (!newName) {
+      toast.error("Name cannot be empty.");
+      return;
+    }
 
-    // Optimistically update the UI.
-    setKeySettings((prev) =>
-      prev.map((setting) =>
-        setting.id === item.id
-          ? { ...setting, status: newStatus }
-          : setting
-      )
-    );
+    if (newName === String(item.name ?? "").trim()) {
+      cancelEditing();
+      return;
+    }
+
+    setSavingNameIds((prev) => [...prev, item.id]);
 
     try {
+      // Only name is sent; status remains unchanged.
       const response = await updateKeySetting(item.id, {
-        status: newStatus,
+        name: newName,
       });
-
-      console.log("UPDATE KEY SETTING RESPONSE:", response);
 
       const payload = response?.data ?? response;
 
@@ -147,9 +142,7 @@ export default function KeySetting() {
         payload?.success === false
       ) {
         throw new Error(
-          payload?.message ||
-            response?.message ||
-            "Unable to update setting status."
+          payload?.message || "Unable to update key setting name."
         );
       }
 
@@ -165,42 +158,99 @@ export default function KeySetting() {
 
       setKeySettings((prev) =>
         prev.map((setting) =>
-          setting.id === item.id
-            ? {
-                ...setting,
-                ...updatedRecord,
-                status: newStatus,
-              }
+          String(setting.id) === String(item.id)
+            ? { ...setting, ...updatedRecord, name: newName }
             : setting
         )
       );
 
-      // Green toast for activation, red toast for deactivation.
+      toast.success("Key setting name updated successfully.");
+      cancelEditing();
+    } catch (error) {
+      console.error("UPDATE KEY SETTING NAME ERROR:", error);
+      toast.error(getErrorMessage(error));
+    } finally {
+      setSavingNameIds((prev) =>
+        prev.filter((id) => String(id) !== String(item.id))
+      );
+    }
+  };
+
+  const handleStatusChange = async (item) => {
+    if (
+      item.id == null ||
+      updatingIds.some((id) => String(id) === String(item.id))
+    ) {
+      return;
+    }
+
+    const oldStatus = Number(item.status) === 1 ? 1 : 0;
+    const newStatus = oldStatus === 1 ? 0 : 1;
+
+    setUpdatingIds((prev) => [...prev, item.id]);
+
+    // Optimistically update status.
+    setKeySettings((prev) =>
+      prev.map((setting) =>
+        String(setting.id) === String(item.id)
+          ? { ...setting, status: newStatus }
+          : setting
+      )
+    );
+
+    try {
+      // Only status is sent; name remains unchanged.
+      const response = await updateKeySetting(item.id, {
+        status: newStatus,
+      });
+
+      const payload = response?.data ?? response;
+
+      if (
+        response?.success === false ||
+        payload?.success === false
+      ) {
+        throw new Error(
+          payload?.message || "Unable to update setting status."
+        );
+      }
+
+      const updatedRecord =
+        payload?.data &&
+        !Array.isArray(payload.data) &&
+        typeof payload.data === "object"
+          ? payload.data
+          : payload?.setting &&
+              typeof payload.setting === "object"
+            ? payload.setting
+            : {};
+
+      setKeySettings((prev) =>
+        prev.map((setting) =>
+          String(setting.id) === String(item.id)
+            ? { ...setting, ...updatedRecord, status: newStatus }
+            : setting
+        )
+      );
+
+      // Activate = green success toast.
+      // Deactivate = red error-style toast.
       if (newStatus === 1) {
         toast.success(
           `${item.name || "Key setting"} activated successfully.`
         );
       } else {
         toast.error(
-          `${item.name || "Key setting"} deactivated successfully.`,
-          {
-            style: {
-              background: "#EF4444",
-              color: "#FFFFFF",
-            },
-            progressStyle: {
-              background: "#FFFFFF",
-            },
-          }
+          `${item.name || "Key setting"} deactivated successfully.`
         );
       }
     } catch (error) {
       console.error("UPDATE KEY SETTING STATUS ERROR:", error);
 
-      // Roll back the UI if the API update fails.
+      // Revert status if API update fails.
       setKeySettings((prev) =>
         prev.map((setting) =>
-          setting.id === item.id
+          String(setting.id) === String(item.id)
             ? { ...setting, status: oldStatus }
             : setting
         )
@@ -209,13 +259,13 @@ export default function KeySetting() {
       toast.error(getErrorMessage(error));
     } finally {
       setUpdatingIds((prev) =>
-        prev.filter((id) => id !== item.id)
+        prev.filter((id) => String(id) !== String(item.id))
       );
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/70 p-3 sm:p-5 lg:p-8">
+    <div className="min-h-screen">
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -224,7 +274,7 @@ export default function KeySetting() {
               Key Settings
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              View and manage all active and inactive key settings.
+              View, rename, and manage key settings.
             </p>
           </div>
 
@@ -254,32 +304,22 @@ export default function KeySetting() {
 
         {/* Summary Cards */}
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">
-              Total Settings
-            </p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">
-              {loading ? "—" : keySettings.length}
-            </p>
-          </div>
+          <SummaryCard
+            label="Total Settings"
+            value={loading ? "—" : keySettings.length}
+          />
 
-          <div className="rounded-2xl border border-green-100 bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">
-              Active
-            </p>
-            <p className="mt-2 text-3xl font-bold text-green-600">
-              {loading ? "—" : activeCount}
-            </p>
-          </div>
+          <SummaryCard
+            label="Active"
+            value={loading ? "—" : activeCount}
+            valueClass="text-green-600"
+          />
 
-          <div className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">
-              Inactive
-            </p>
-            <p className="mt-2 text-3xl font-bold text-red-500">
-              {loading ? "—" : inactiveCount}
-            </p>
-          </div>
+          <SummaryCard
+            label="Inactive"
+            value={loading ? "—" : inactiveCount}
+            valueClass="text-red-500"
+          />
         </div>
 
         {/* Settings Table */}
@@ -289,6 +329,7 @@ export default function KeySetting() {
               <h2 className="font-semibold text-slate-900">
                 All Key Settings
               </h2>
+
               <p className="mt-1 text-xs text-slate-500">
                 {loading
                   ? "Loading settings..."
@@ -296,36 +337,13 @@ export default function KeySetting() {
               </p>
             </div>
 
-            <div className="relative w-full sm:max-w-xs">
-              <svg
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-              >
-                <circle
-                  cx="11"
-                  cy="11"
-                  r="7"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <path
-                  d="m16 16 4 4"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by name, ID, status..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search by name, ID, status..."
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 sm:max-w-xs"
+            />
           </div>
 
           {errorMessage && (
@@ -333,7 +351,9 @@ export default function KeySetting() {
               <p className="font-semibold">
                 Failed to load key settings
               </p>
+
               <p className="mt-1">{errorMessage}</p>
+
               <button
                 type="button"
                 onClick={fetchKeySettings}
@@ -345,21 +365,13 @@ export default function KeySetting() {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] border-collapse text-left">
+            <table className="w-full min-w-[720px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    #
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Root / ID
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Name
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Status
-                  </th>
+                  <TableHeader>#</TableHeader>
+                  <TableHeader>Root / ID</TableHeader>
+                  <TableHeader>Name</TableHeader>
+                  <TableHeader align="right">Status</TableHeader>
                 </tr>
               </thead>
 
@@ -377,7 +389,17 @@ export default function KeySetting() {
                 ) : filteredSettings.length > 0 ? (
                   filteredSettings.map((item, index) => {
                     const isActive = Number(item.status) === 1;
-                    const isUpdating = updatingIds.includes(item.id);
+
+                    const isUpdating = updatingIds.some(
+                      (id) => String(id) === String(item.id)
+                    );
+
+                    const isSavingName = savingNameIds.some(
+                      (id) => String(id) === String(item.id)
+                    );
+
+                    const isEditing =
+                      String(editingId) === String(item.id);
 
                     return (
                       <tr
@@ -397,13 +419,92 @@ export default function KeySetting() {
                         </td>
 
                         <td className="px-6 py-5">
-                          <div className="font-semibold text-slate-800">
-                            {item.name || "Unnamed"}
-                          </div>
+                          {isEditing ? (
+                            <div className="flex min-w-[280px] flex-col gap-2 sm:flex-row sm:items-center">
+                              <input
+                                type="text"
+                                value={editingName}
+                                onChange={(event) =>
+                                  setEditingName(event.target.value)
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    handleNameSave(item);
+                                  }
 
-                          {item.key != null && (
-                            <div className="mt-1 break-all text-xs text-slate-500">
-                              Key: {String(item.key)}
+                                  if (event.key === "Escape") {
+                                    cancelEditing();
+                                  }
+                                }}
+                                autoFocus
+                                maxLength={150}
+                                disabled={isSavingName}
+                                className="w-full rounded-lg border border-blue-300 px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+                              />
+
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleNameSave(item)}
+                                  disabled={isSavingName}
+                                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                                >
+                                  {isSavingName ? "Saving..." : "Save"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={cancelEditing}
+                                  disabled={isSavingName}
+                                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="min-w-0">
+                                <div className="break-words font-semibold text-slate-800">
+                                  {item.name || "Unnamed"}
+                                </div>
+
+                                {item.key != null && (
+                                  <div className="mt-1 break-all text-xs text-slate-500">
+                                    Key: {String(item.key)}
+                                  </div>
+                                )}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => startEditing(item)}
+                                disabled={
+                                  item.id == null ||
+                                  savingNameIds.length > 0
+                                }
+                                aria-label={`Edit ${
+                                  item.name || "key setting"
+                                } name`}
+                                title="Edit name"
+                                className="shrink-0 rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50"
+                              >
+                                <svg
+                                  className="h-4 w-4"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  aria-hidden="true"
+                                >
+                                  <path
+                                    d="m14 6 4 4M4 20l4.2-.8L19 8.4a2.1 2.1 0 0 0-3-3L5.2 16.2 4 20Z"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </button>
                             </div>
                           )}
                         </td>
@@ -455,30 +556,7 @@ export default function KeySetting() {
                 ) : (
                   <tr>
                     <td colSpan={4} className="px-6 py-14 text-center">
-                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-                        <svg
-                          className="h-6 w-6 text-slate-400"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          aria-hidden="true"
-                        >
-                          <circle
-                            cx="11"
-                            cy="11"
-                            r="7"
-                            stroke="currentColor"
-                            strokeWidth="1.7"
-                          />
-                          <path
-                            d="m16 16 4 4"
-                            stroke="currentColor"
-                            strokeWidth="1.7"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </div>
-
-                      <p className="mt-3 font-semibold text-slate-700">
+                      <p className="font-semibold text-slate-700">
                         {search
                           ? "No matching settings found"
                           : "No key settings found"}
@@ -508,5 +586,32 @@ export default function KeySetting() {
         </div>
       </div>
     </div>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  valueClass = "text-slate-900",
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-sm font-medium text-slate-500">{label}</p>
+      <p className={`mt-2 text-3xl font-bold ${valueClass}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function TableHeader({ children, align = "left" }) {
+  return (
+    <th
+      className={`px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 ${
+        align === "right" ? "text-right" : "text-left"
+      }`}
+    >
+      {children}
+    </th>
   );
 }

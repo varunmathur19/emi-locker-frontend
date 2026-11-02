@@ -67,6 +67,7 @@ const SPECIAL_PATHS = {
   "user-list": "/dashboard/device-detail",
   transaction: "/dashboard/my-transaction",
   "my-transaction": "/dashboard/my-transaction",
+   "enrollment-setting": "/dashboard/enrollment",
 };
 
 const getModuleIcon = (iconName, size = 20) => {
@@ -211,7 +212,6 @@ export default function Sidebar({ sidebarOpen }) {
 
       setPermissions(null);
       localStorage.removeItem("staff_permission");
-      localStorage.removeItem("staff_permissions");
       removeInvalidPermissionKeys();
     } catch (error) {
       console.error("LOAD CURRENT USER ERROR:", error);
@@ -353,7 +353,6 @@ export default function Sidebar({ sidebarOpen }) {
       localStorage.removeItem("original_token");
       localStorage.removeItem("original_user");
       localStorage.removeItem("staff_permission");
-      localStorage.removeItem("staff_permissions");
       removeInvalidPermissionKeys();
       window.location.href = "/";
     }
@@ -472,6 +471,7 @@ export default function Sidebar({ sidebarOpen }) {
       if (slug === "system-control" && currentRole !== 0) return false;
       if (slug === "schema-transfer-point" && currentRole === 0) return false;
       if (slug === "key-settings" && currentRole !== 0) return false;
+      if (slug === "enrollment-setting" && currentRole !== 0) return false;
 
       // No unconditional exception for revert-point: staff permission is checked too.
       return hasModulePermission(moduleItem);

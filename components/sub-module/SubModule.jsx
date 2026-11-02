@@ -4,6 +4,9 @@
 import { useCallback, useEffect, useState ,useRef} from "react";
 import { toast } from "react-toastify";
 import { FiLayers, FiRefreshCw, FiSearch } from "react-icons/fi";
+import { RxCross1 } from "react-icons/rx";
+import { FaCheck } from "react-icons/fa6";
+import { FaAngleDown } from "react-icons/fa6";
 import {
   getModules,
   getSubModules,
@@ -218,7 +221,7 @@ export default function SubModule() {
               {activeCount}
             </h2>
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50 text-xl text-green-600">
-              ✓
+              <FaCheck  size={21}/>
             </span>
           </div>
         </div>
@@ -232,7 +235,7 @@ export default function SubModule() {
               {inactiveCount}
             </h2>
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-xl text-red-500">
-              ×
+             <RxCross1 size={21} />
             </span>
           </div>
         </div>
@@ -266,15 +269,22 @@ export default function SubModule() {
                 />
               </div>
 
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+           <div className="relative w-37">
+  <select
+    value={filterStatus}
+    onChange={(e) => setFilterStatus(e.target.value)}
+    className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 pr-9 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+  >
+    <option value="all">All Status</option>
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
+  </select>
+
+  <FaAngleDown
+    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+    size={14}
+  />
+</div>
             </div>
           </div>
         </div>

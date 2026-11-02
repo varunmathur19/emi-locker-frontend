@@ -661,3 +661,35 @@ export const getDevices = async ({ page = 1, limit = 10 } = {}) => {
   return response.data;
 };
 
+
+//getEnrollment  
+export const getEnrollment = async () => {
+  try {
+    const response = await api.get("/get-enrollment");
+    return response.data;
+  } catch (error) {
+    console.error("GET ENROLLMENT API ERROR:", error);
+    throw error;
+  }
+};
+
+export const updateEnrollment = async (id, data) => {
+  try {
+    const response = await api.put(`/update-enrollment/${id}`, data);
+    return response.data;
+  } catch (error) {
+    console.error("UPDATE ENROLLMENT API ERROR:", error);
+    throw error;
+  }
+};
+
+// Get All Brands
+export const getBrands = async () => {
+  try {
+    const response = await api.get("/get-Brands");
+    return response.data;
+  } catch (error) {
+    console.error("Get Brands API Error:", error);
+    throw error;
+  }
+};

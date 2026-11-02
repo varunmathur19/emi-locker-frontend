@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { IoMdArrowDropdown } from "react-icons/io";
+import { RiLockPasswordLine } from "react-icons/ri";
 import {
   RiSearchLine,
   RiEyeLine,
@@ -596,6 +597,9 @@ export default function TransferPoint() {
 
   const [transferUsers, setTransferUsers] = useState([]);
   const [selectedTransferUser, setSelectedTransferUser] = useState("");
+  const [selectedTransferRole, setSelectedTransferRole] = useState("");
+const [transferRoleDropdownOpen, setTransferRoleDropdownOpen] =
+  useState(false);
   const [transferUserSearch, setTransferUserSearch] = useState("");
   const [transferUserDropdownOpen, setTransferUserDropdownOpen] =
     useState(false);
@@ -676,15 +680,29 @@ export default function TransferPoint() {
     [roles, selectedSchemaRole]
   );
 
-  const availableRoleOptions = useMemo(
-    () => roles.filter((role) => Number(role?.role_id) !== Number(roleId)),
-    [roles, roleId]
-  );
+  // const availableRoleOptions = useMemo(
+  //   () => roles.filter((role) => Number(role?.role_id) !== Number(roleId)),
+  //   [roles, roleId]
+  // );
+  const adminTransferRoleOptions = useMemo(() => {
+  const currentRole = Number(roleId);
+
+  if (![0, 1].includes(currentRole)) return [];
+
+  return roles.filter((role) => {
+    const targetRole = Number(role?.role_id);
+
+    return (
+      targetRole > currentRole &&
+      targetRole <= 9 &&
+      Number(role?.status ?? 1) === 1
+    );
+  });
+}, [roles, roleId]);
 
 const revertRoleOptions = useMemo(() => {
   const currentRole = Number(roleId);
 
-  // Master Admin and Admin: show all roles except own role and Staff.
   if ([0, 1].includes(currentRole)) {
     return roles.filter(
       (role) =>
@@ -720,7 +738,6 @@ const schemaRoleOptions = useMemo(() => {
     return [];
   }
 
-  // Staff ko dropdown mein show nahi karna.
   if (currentRole === 9) {
     if (
       hierarchyRoleId === null ||
@@ -743,7 +760,6 @@ const schemaRoleOptions = useMemo(() => {
     });
   }
 
-  // Show roles below the logged-in role, excluding Staff.
   return roles.filter((role) => {
     const targetRole = Number(role?.role_id);
 
@@ -756,38 +772,54 @@ const schemaRoleOptions = useMemo(() => {
 }, [roles, roleId, hierarchyRoleId]);
 
   const nextRoleId = useMemo(() => {
-    if (roleId === null || roleId === undefined) return null;
+  if (roleId === null || roleId === undefined) return null;
 
-    const currentRole = Number(roleId);
+  const currentRole = Number(roleId);
 
-    if (!Number.isFinite(currentRole)) return null;
+  if (!Number.isFinite(currentRole)) return null;
 
-    if (currentRole === 9) {
-      const targetRole = Number(transferTargetRoleId);
+  // Master Admin and Admin: use manually selected role
+  if ([0, 1].includes(currentRole)) {
+    const targetRole = Number(selectedTransferRole);
 
-      return Number.isInteger(targetRole) && targetRole > 0
-        ? targetRole
-        : null;
-    }
+    return Number.isInteger(targetRole) &&
+      targetRole > currentRole &&
+      targetRole <= 9
+      ? targetRole
+      : null;
+  }
 
-    if (currentRole === 0) return 1;
+  // Staff
+  if (currentRole === 9) {
+    const targetRole = Number(transferTargetRoleId);
 
-    let targetRole = NEXT_ROLE_MAP[currentRole];
+    return Number.isInteger(targetRole) && targetRole > 0
+      ? targetRole
+      : null;
+  }
 
-    while (targetRole !== undefined && targetRole !== null) {
-      const activeRole = roles.find(
-        (role) =>
-          Number(role?.role_id) === Number(targetRole) &&
-          Number(role?.status ?? 1) === 1
-      );
+  // Other roles: existing hierarchy logic
+  let targetRole = NEXT_ROLE_MAP[currentRole];
 
-      if (activeRole) return Number(activeRole.role_id);
+  while (targetRole !== undefined && targetRole !== null) {
+    const activeRole = roles.find(
+      (role) =>
+        Number(role?.role_id) === Number(targetRole) &&
+        Number(role?.status ?? 1) === 1
+    );
 
-      targetRole = NEXT_ROLE_MAP[targetRole];
-    }
+    if (activeRole) return Number(activeRole.role_id);
 
-    return null;
-  }, [roleId, roles, transferTargetRoleId]);
+    targetRole = NEXT_ROLE_MAP[targetRole];
+  }
+
+  return null;
+}, [
+  roleId,
+  roles,
+  transferTargetRoleId,
+  selectedTransferRole,
+]);
 
   const nextRoleName = ROLE_NAMES[nextRoleId] || "";
 
@@ -895,7 +927,6 @@ const schemaRoleOptions = useMemo(() => {
     try {
       const response = await getKeySettings();
 
-      // Show only active key settings (status = 1) and keep their wallet metrics.
       const keys = getArrayFromResponse(response)
         .filter((item) => Number(item?.status) === 1)
         .map((item) => ({
@@ -962,7 +993,6 @@ const loadRoles = useCallback(async () => {
         if (roleA === 1) return -1;
         if (roleB === 1) return 1;
 
-        // Baaki roles role_id ke ascending order mein
         return roleA - roleB;
       });
 
@@ -1248,7 +1278,6 @@ const loadRevertUsers = useCallback(
 
       const isPrivilegedRole = [0, 1].includes(loggedInRoleId);
 
-      // Validate selected role.
       const isActiveRole = roles.some(
         (role) =>
           Number(role?.role_id) === selectedRoleId &&
@@ -1264,7 +1293,6 @@ if (!isActiveRole || !isValidRole) {
   return;
 }
 
-      // Non-admin users remain restricted to the next role in hierarchy.
       if (!isPrivilegedRole) {
         const expectedRoleId =
           REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
@@ -1386,113 +1414,134 @@ if (!isActiveRole || !isValidRole) {
   }, [transactionType]);
 
   useEffect(() => {
-    let cancelled = false;
+  let cancelled = false;
 
-    const initializePage = async () => {
-      setTransactionPinEntry("");
+  const initializePage = async () => {
+    setTransactionPinEntry("");
 
-      const currentType = Number(transactionType);
-      let request = initializationRequestRef.current;
+    const currentType = Number(transactionType);
+    let request = initializationRequestRef.current;
 
-      if (
-        !request.promise ||
-        request.transactionType !== currentType
-      ) {
-        const promise = Promise.all([
-          loadTransactionPin(),
-          loadKeySettings(),
-          loadRoles(),
-        ]);
+    if (
+      !request.promise ||
+      request.transactionType !== currentType
+    ) {
+      const promise = Promise.all([
+        loadTransactionPin(),
+        loadKeySettings(),
+        loadRoles(),
+      ]);
 
-        request = {
-          transactionType: currentType,
-          promise,
-        };
+      request = {
+        transactionType: currentType,
+        promise,
+      };
 
-        initializationRequestRef.current = request;
+      initializationRequestRef.current = request;
 
-        promise
-          .finally(() => {
-            if (
-              initializationRequestRef.current.promise === promise
-            ) {
-              initializationRequestRef.current = {
-                transactionType: null,
-                promise: null,
-              };
-            }
-          })
-          .catch(() => {});
-      }
+      promise
+        .finally(() => {
+          if (
+            initializationRequestRef.current.promise === promise
+          ) {
+            initializationRequestRef.current = {
+              transactionType: null,
+              promise: null,
+            };
+          }
+        })
+        .catch(() => {});
+    }
 
-      const [, , activeRoles] = await request.promise;
+    const [, , activeRoles] = await request.promise;
 
-      if (cancelled) return;
+    if (cancelled) return;
 
-      const rawRoleId = getRoleId();
+    const rawRoleId = getRoleId();
 
-      if (
-        rawRoleId === null ||
-        rawRoleId === undefined ||
-        String(rawRoleId).trim() === ""
-      ) {
-        console.error("Transfer Point: role ID is missing.");
-        setRoleId(null);
-        setTransferUsers([]);
-        return;
-      }
+    if (
+      rawRoleId === null ||
+      rawRoleId === undefined ||
+      String(rawRoleId).trim() === ""
+    ) {
+      console.error("Transfer Point: role ID is missing.");
 
-      const currentRole = Number(rawRoleId);
+      setRoleId(null);
+      setTransferUsers([]);
+      setSelectedTransferRole("");
+      setTransferTargetRoleId(null);
 
-      if (!Number.isFinite(currentRole)) {
-        console.error(
-          "Transfer Point: invalid role ID:",
-          rawRoleId
-        );
-        setRoleId(null);
-        setTransferUsers([]);
-        return;
-      }
+      return;
+    }
 
-      setRoleId(currentRole);
+    const currentRole = Number(rawRoleId);
 
-      if (currentType === TRANSACTION_TYPES.SCHEMA_TRANSFER) {
-        setTransferUsers([]);
-        setSchemaUsers([]);
-        setSelectedSchemaRole("");
-        setSelectedSchemaUser("");
-        setAvailableBalance(0);
-        return;
-      }
-
-      if (currentType === TRANSACTION_TYPES.REVERT) {
-        setTransferUsers([]);
-        setSelectedFromRole("");
-        setSelectedRevertUser("");
-        setRevertUsers([]);
-        return;
-      }
-
-      await loadTransferUsers(currentRole, activeRoles);
-    };
-
-    initializePage().catch((error) => {
+    if (!Number.isFinite(currentRole)) {
       console.error(
-        "TRANSFER PAGE INITIALIZATION ERROR:",
-        getErrorMessage(error)
+        "Transfer Point: invalid role ID:",
+        rawRoleId
       );
-    });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    transactionType,
-    loadTransactionPin,
-    loadKeySettings,
-    loadRoles,
-    loadTransferUsers,
-  ]);
+      setRoleId(null);
+      setTransferUsers([]);
+      setSelectedTransferRole("");
+      setTransferTargetRoleId(null);
+
+      return;
+    }
+
+    setRoleId(currentRole);
+
+    if (currentType === TRANSACTION_TYPES.SCHEMA_TRANSFER) {
+      setTransferUsers([]);
+      setSchemaUsers([]);
+      setSelectedSchemaRole("");
+      setSelectedSchemaUser("");
+      setAvailableBalance(0);
+
+      return;
+    }
+
+    if (currentType === TRANSACTION_TYPES.REVERT) {
+      setTransferUsers([]);
+      setSelectedFromRole("");
+      setSelectedRevertUser("");
+      setRevertUsers([]);
+
+      return;
+    }
+
+    if ([0, 1].includes(currentRole)) {
+      setSelectedTransferRole("");
+      setTransferTargetRoleId(null);
+      setTransferUsers([]);
+      setSelectedTransferUser("");
+      setTransferUserSearch("");
+      setAvailableBalance(0);
+
+      return;
+    }
+
+    await loadTransferUsers(currentRole, activeRoles);
+  };
+
+  initializePage().catch((error) => {
+    console.error(
+      "TRANSFER PAGE INITIALIZATION ERROR:",
+      getErrorMessage(error)
+    );
+  });
+
+  return () => {
+    cancelled = true;
+  };
+}, [
+  transactionType,
+  loadTransactionPin,
+  loadKeySettings,
+  loadRoles,
+  loadTransferUsers,
+]);
 
   useEffect(() => {
     const currentType = Number(transactionType);
@@ -1570,6 +1619,63 @@ if (!isActiveRole || !isValidRole) {
     setAvailableBalance(0);
     setTransactionPinEntry("");
   };
+
+const handleTransferRoleSelect = async (role) => {
+  const targetRoleId = Number(role?.role_id);
+  const currentRole = Number(getRoleId());
+
+  const isActiveRole = roles.some(
+    (item) =>
+      Number(item?.role_id) === targetRoleId &&
+      Number(item?.status ?? 1) === 1
+  );
+
+  if (
+    ![0, 1].includes(currentRole) ||
+    !Number.isInteger(targetRoleId) ||
+    targetRoleId <= currentRole ||
+    targetRoleId > 9 ||
+    !isActiveRole
+  ) {
+    toast.error("Please select a valid active role.");
+    return;
+  }
+
+  setSelectedTransferRole(String(targetRoleId));
+  setTransferRoleDropdownOpen(false);
+
+  setSelectedTransferUser("");
+  setTransferUserSearch("");
+  setTransferUserDropdownOpen(false);
+  setTransferUsers([]);
+
+  setTransferPoint("");
+  setAvailableBalance(0);
+  setTransactionPinEntry("");
+
+  setLoadingTransferUsers(true);
+
+  try {
+    const users = await loadUsersByRole(targetRoleId);
+    const currentUserId = Number(getUser()?.id);
+
+    const filteredUsers = users.filter(
+      (user) => Number(user?.id) !== currentUserId
+    );
+
+    setTransferUsers(filteredUsers);
+  } catch (error) {
+    console.error(
+      "GET ROLE USERS ERROR:",
+      getErrorMessage(error)
+    );
+
+    setTransferUsers([]);
+    toast.error("Failed to load users.");
+  } finally {
+    setLoadingTransferUsers(false);
+  }
+};
 
   const handleSchemaRoleSelect = async (role) => {
     const targetRoleId = Number(role?.role_id);
@@ -1723,7 +1829,6 @@ if (
     (user) => String(user?.id) === String(selectedRevertUser)
   );
 
-  // Ensure the selected role is active and valid.
   const isActiveRole = roles.some(
     (role) =>
       Number(role?.role_id) === selectedRoleId &&
@@ -1744,8 +1849,6 @@ if (!isActiveRole || !isValidRole) {
     return;
   }
 
-  // Master Admin and Admin can revert for any user in the selected role.
-  // Other roles remain restricted to their direct hierarchy.
   if (!isPrivilegedRole) {
     const expectedRoleId =
       REVERT_NEXT_ROLE_MAP[Number(hierarchyRoleId)];
@@ -1898,23 +2001,29 @@ if (!isActiveRole || !isValidRole) {
     }
   };
 
-  const transactionPinField = (
-    <div>
-      <label className="mb-2 block text-sm font-semibold text-gray-700">
-        Transaction PIN
-      </label>
+const transactionPinField = (
+  <div className="space-y-2">
+    <label className="block text-sm font-semibold text-gray-700">
+      Transaction PIN
+    </label>
 
-      <input
-        type="text"
-        value={transactionPinLoading ? "" : transactionPin}
-        readOnly
-        placeholder={
-          transactionPinLoading ? "Loading PIN..." : "Transaction PIN"
-        }
-        className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none"
-      />
-    </div>
-  );
+   <div className="relative w-full">
+  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+    <RiLockPasswordLine className="text-gray-400" size={19} />
+  </div>
+
+  <input
+    type="text"
+    value={transactionPinLoading ? "" : transactionPin}
+    readOnly
+    placeholder={
+      transactionPinLoading ? "Loading PIN..." : "Transaction PIN"
+    }
+    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50/80 pl-11 pr-4 text-sm font-semibold tracking-wider text-gray-700 outline-none transition-all placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+  />
+</div>
+  </div>
+);
 
   const transactionPinEntryField = (
     <div>
@@ -1958,17 +2067,21 @@ if (!isActiveRole || !isValidRole) {
     </div>
   );
 
-  const isSubmitDisabled =
-    transferLoading ||
-    loading ||
-    !selectedKey ||
-    !transferPoint ||
-    transactionPinEntry.length !== 4 ||
-    (isRevert
-      ? !selectedFromRole || !selectedRevertUser
-      : isSchemaTransfer
-        ? !selectedSchemaRole || !selectedSchemaUser
-        : !selectedTransferUser);
+ const isSubmitDisabled =
+  transferLoading ||
+  loading ||
+  !selectedKey ||
+  !transferPoint ||
+  transactionPinEntry.length !== 4 ||
+  (isRevert
+    ? !selectedFromRole || !selectedRevertUser
+    : isSchemaTransfer
+      ? !selectedSchemaRole || !selectedSchemaUser
+      : (
+          !selectedTransferUser ||
+          ([0, 1].includes(Number(roleId)) &&
+            !selectedTransferRole)
+        ));
 
   return (
     <div className="min-h-screen">
@@ -2332,7 +2445,35 @@ if (!isActiveRole || !isValidRole) {
             {transactionPinEntryField}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+          <div
+  className={`grid grid-cols-1 gap-4 ${
+    [0, 1].includes(Number(roleId))
+      ? "lg:grid-cols-5"
+      : "lg:grid-cols-4"
+  }`}
+>
+  {[0, 1].includes(Number(roleId)) && (
+  <div>
+    <label className="mb-2 block text-sm font-semibold text-gray-700">
+      Select Role
+    </label>
+
+    <RoleDropdown
+      value={selectedTransferRole}
+      roles={adminTransferRoleOptions}
+      open={transferRoleDropdownOpen}
+      setOpen={setTransferRoleDropdownOpen}
+      loading={loadingRoles}
+      disabled={
+        loadingRoles ||
+        transferLoading ||
+        adminTransferRoleOptions.length === 0
+      }
+      placeholder="Select Role"
+      onSelect={handleTransferRoleSelect}
+    />
+  </div>
+)}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Transfer Point
@@ -2452,7 +2593,6 @@ if (!isActiveRole || !isValidRole) {
     {recentTransactions.map((transaction) => {
       const points = getTransactionPoints(transaction);
 
-      // Original transaction parties
       const originalFromName = getTransactionUserName(
         transaction,
         "from"
@@ -2480,14 +2620,10 @@ if (!isActiveRole || !isValidRole) {
         "to"
       );
 
-      // Transfer = 0, Schema Transfer = 1, Revert = 2
       const isRevertTransaction =
         Number(transaction?.transaction_type) ===
         TRANSACTION_TYPES.REVERT;
 
-      // Normal transfer/schema: From = sender, To = receiver
-      // Revert: From = user whose points were reverted,
-      // To = admin who initiated the revert
       const fromName = isRevertTransaction
         ? originalToName
         : originalFromName;
@@ -2570,7 +2706,6 @@ if (!isActiveRole || !isValidRole) {
                 </p>
               </div>
 
-              {/* TO: Receiver, or admin who initiated the revert */}
               <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
                   To (Receiver)

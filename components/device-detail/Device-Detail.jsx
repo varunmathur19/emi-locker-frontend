@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { FaPlus } from "react-icons/fa6";
 import { getDevices } from "@/services/api";
 import DeviceDetailForm from "./form";
 
@@ -11,19 +12,24 @@ const SKELETON_ROWS = 6;
 
 const TABLE_HEADERS = [
   "S. No.",
+  "Serial Number",
   "Brand",
-  "Enrollment",
   "Customer Image",
   "Customer Name",
-  "Registration No.",
+  "Enrollment",
   "Phone",
-  "IMEI",
+  "Registration No.",
+  "IMEI 1",
+  "IMEI 2",
   "Key Type",
+  "Signature",
   "Status",
-  "FL Version",
   "Retailer",
   "FOS",
   "Distributor",
+  "FL Version",
+  "Guarantor Name",
+  "Guarantor Number",
   "Actions",
 ];
 
@@ -39,7 +45,7 @@ function DeviceTableSkeleton() {
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[2200px] text-left text-sm">
+        <table className="w-full min-w-[3000px] text-left text-sm">
           <thead className="bg-gray-100">
             <tr>
               {TABLE_HEADERS.map((header) => (
@@ -56,44 +62,19 @@ function DeviceTableSkeleton() {
           <tbody className="divide-y divide-gray-100">
             {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
               <tr key={index}>
-                <td className="px-4 py-4">
-                  <SkeletonLine className="h-4 w-6" />
-                </td>
-
-                <td className="px-4 py-4">
-                  <SkeletonLine className="h-10 w-16" />
-                </td>
-
-                <td className="px-4 py-4">
-                  <SkeletonLine className="h-6 w-20 rounded-full" />
-                </td>
-
-                <td className="px-4 py-4">
-                  <SkeletonLine className="h-12 w-12 rounded-lg" />
-                </td>
-
-                {Array.from({ length: 7 }).map((_, cellIndex) => (
-                  <td key={cellIndex} className="px-4 py-4">
+                {TABLE_HEADERS.map((header, cellIndex) => (
+                  <td key={`${header}-${cellIndex}`} className="px-4 py-4">
                     <SkeletonLine
                       className={`h-4 ${
-                        cellIndex % 2 === 0 ? "w-28" : "w-20"
+                        cellIndex === 2 || cellIndex === 4 || cellIndex === 13
+                          ? "h-10 w-12"
+                          : cellIndex >= 16 && cellIndex <= 18
+                            ? "w-28"
+                            : "w-20"
                       }`}
                     />
                   </td>
                 ))}
-
-                {Array.from({ length: 3 }).map((_, cellIndex) => (
-                  <td key={cellIndex} className="px-4 py-4">
-                    <div className="flex min-w-36 flex-col gap-2">
-                      <SkeletonLine className="h-4 w-28" />
-                      <SkeletonLine className="h-3 w-24" />
-                    </div>
-                  </td>
-                ))}
-
-                <td className="px-4 py-4">
-                  <SkeletonLine className="h-4 w-6" />
-                </td>
               </tr>
             ))}
           </tbody>
@@ -124,33 +105,81 @@ function TotalDevicesSkeleton() {
   );
 }
 
-function renderPerson(name, companyName, blankIfMissing = false) {
+function PersonCell({ name, companyName, blankIfMissing = false }) {
   if (!name && blankIfMissing) {
-    return null;
+    return <td className="px-4 py-4">-</td>;
   }
 
   return (
-    <div className="flex min-w-36 flex-col gap-1">
-      <span
-        className="whitespace-nowrap font-medium text-gray-800"
-        title={name || ""}
-      >
-        {name || (blankIfMissing ? "" : "-")}
-      </span>
+    <td className="px-4 py-4">
+      <div className="flex min-w-36 flex-col gap-1">
+        <span
+          className="whitespace-nowrap font-medium text-gray-800"
+          title={name || ""}
+        >
+          {name || "-"}
+        </span>
 
-      {companyName ? (
         <span
           className="max-w-52 truncate text-xs text-gray-500"
-          title={companyName}
+          title={companyName || ""}
         >
-          {companyName}
+          {companyName || "-"}
         </span>
-      ) : !blankIfMissing ? (
-        <span className="max-w-52 truncate text-xs text-gray-500">
-          -
-        </span>
-      ) : null}
-    </div>
+      </div>
+    </td>
+  );
+}
+
+function ImageCell({ path, alt, getImageUrl, className = "" }) {
+  const [imageError, setImageError] = useState(false);
+
+  if (!path || imageError) {
+    return (
+      <td className="px-4 py-4 text-gray-400">
+        -
+      </td>
+    );
+  }
+
+  return (
+    <td className="px-4 py-4">
+      <div className="group relative flex h-14 w-16 items-center justify-center">
+        <img
+          src={getImageUrl(path)}
+          alt={alt}
+          loading="lazy"
+          onError={() => setImageError(true)}
+          className={`h-12 max-w-16 rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}
+        />
+      </div>
+    </td>
+  );
+}
+
+function TextCell({ children, className = "" }) {
+  return (
+    <td
+      className={`whitespace-nowrap px-4 py-4 text-gray-600 ${className}`}
+    >
+      {children || "-"}
+    </td>
+  );
+}
+
+function StatusBadge({ status }) {
+  const isActive = String(status || "").toLowerCase() === "active";
+
+  return (
+    <span
+      className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${
+        isActive
+          ? "bg-green-100 text-green-700"
+          : "bg-gray-100 text-gray-700"
+      }`}
+    >
+      {status || "-"}
+    </span>
   );
 }
 
@@ -193,7 +222,6 @@ export function DeviceDetail() {
       }
 
       const deviceList = payload.data;
-
       const pagination =
         payload.pagination ??
         root?.pagination ??
@@ -247,7 +275,7 @@ export function DeviceDetail() {
     fetchDevices(currentPage);
   }, [currentPage, fetchDevices]);
 
-  const getImageUrl = (imagePath) => {
+  const getImageUrl = useCallback((imagePath) => {
     if (!imagePath) return "";
 
     const path = String(imagePath).trim();
@@ -265,7 +293,7 @@ export function DeviceDetail() {
     const cleanPath = path.replace(/^\/+/, "");
 
     return `${serverUrl}/${cleanPath}`;
-  };
+  }, []);
 
   const handleRefresh = () => {
     fetchDevices(currentPage);
@@ -326,7 +354,7 @@ export function DeviceDetail() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="whitespace-nowrap text-xl font-bold text-gray-900 sm:text-2xl">
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
             Device Details
           </h1>
 
@@ -339,9 +367,10 @@ export function DeviceDetail() {
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
-            className="cursor-pointer whitespace-nowrap rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700"
+            className="flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700"
           >
-            + Add Device
+            <FaPlus />
+            Add Device
           </button>
 
           <button
@@ -369,7 +398,7 @@ export function DeviceDetail() {
         )
       )}
 
-      {/* Skeleton Loading */}
+      {/* Loading */}
       {loading && <DeviceTableSkeleton />}
 
       {/* Error */}
@@ -404,7 +433,7 @@ export function DeviceDetail() {
       {!loading && !error && devices.length > 0 && (
         <div className="mb-10 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[2200px] text-left text-sm">
+            <table className="w-full min-w-[3000px] text-left text-sm">
               <thead className="bg-gray-100 text-xs uppercase tracking-wider text-gray-600">
                 <tr>
                   {TABLE_HEADERS.map((header) => (
@@ -419,131 +448,123 @@ export function DeviceDetail() {
               </thead>
 
               <tbody className="divide-y divide-gray-100">
-                {devices.map((device, index) => (
-                  <tr
-                    key={device.id ?? index}
-                    className="transition hover:bg-gray-50"
-                  >
-                    <td className="whitespace-nowrap px-4 py-4 font-medium text-gray-900">
-                      {(currentPage - 1) * PAGE_SIZE + index + 1}
-                    </td>
+  {devices.map((device, index) => (
+    <tr
+      key={device.id ?? index}
+      className="transition hover:bg-gray-50"
+    >
+      {/* 1. S. No. */}
+      <td className="whitespace-nowrap px-4 py-4 font-medium text-gray-900">
+        {(currentPage - 1) * PAGE_SIZE + index + 1}
+      </td>
 
-                    <td className="px-4 py-4">
-                      {device.brand ? (
-                        <img
-                          src={getImageUrl(device.brand)}
-                          alt="Brand logo"
-                          className="h-10 w-16 border border-gray-200 bg-white "
-                          onError={(event) => {
-                            event.currentTarget.style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        "-"
-                      )}
-                    </td>
+      {/* 2. Serial Number */}
+      <TextCell>{device.serial_number}</TextCell>
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold capitalize text-blue-700">
-                        {device.enrollment_type || "-"}
-                      </span>
-                    </td>
+      {/* 3. Brand */}
+      <ImageCell
+        path={device.brand}
+        alt="Brand"
+        getImageUrl={getImageUrl}
+      />
 
-                    <td className="px-4 py-4">
-                      {device.customer_image ? (
-                        <div className="group relative flex h-14 w-14 items-center justify-center">
-                          <img
-                            src={getImageUrl(device.customer_image)}
-                            alt={device.customer_name || "Customer"}
-                            className="relative z-0 h-12 w-12 cursor-zoom-in rounded-lg border border-gray-200 object-cover shadow-sm transition-all duration-300 group-hover:z-50 group-hover:scale-[2.5] group-hover:rounded-sm group-hover:border-blue-400 group-hover:shadow-xl"
-                            onError={(event) => {
-                              event.currentTarget.style.display = "none";
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
+      {/* 4. Customer Image */}
+      <ImageCell
+        path={device.customer_image}
+        alt={device.customer_name || "Customer"}
+        getImageUrl={getImageUrl}
+        className="object-cover"
+      />
 
-                    <td className="whitespace-nowrap px-4 py-4 font-medium text-gray-800">
-                      {device.customer_name || "-"}
-                    </td>
+      {/* 5. Customer Name */}
+      <TextCell className="font-medium text-gray-800">
+        {device.customer_name}
+      </TextCell>
 
-                    <td className="whitespace-nowrap px-4 py-4 text-gray-600">
-                      {device.registration_no || "-"}
-                    </td>
+      {/* 6. Enrollment */}
+      <td className="whitespace-nowrap px-4 py-4">
+        <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold capitalize text-blue-700">
+          {device.enrollment_name || "-"}
+        </span>
+      </td>
 
-                    <td className="whitespace-nowrap px-4 py-4 text-gray-600">
-                      {device.phone_number
-                        ? `${String(
-                            device.country_code ??
-                              device.calling_code ??
-                              device.dial_code ??
-                              ""
-                          )
-                            .trim()
-                            .replace(/\s+/g, "")
-                            .replace(/^(?!\+)/, "+")} ${String(
-                            device.phone_number
-                          ).trim()}`.trim()
-                        : "-"}
-                    </td>
+      {/* 7. Phone */}
+      <TextCell>
+        {device.phone_number
+          ? `${String(
+              device.country_code ??
+                device.calling_code ??
+                device.dial_code ??
+                ""
+            )
+              .trim()
+              .replace(/\s+/g, "")
+              .replace(/^(?!\+)/, "+")} ${String(
+              device.phone_number
+            ).trim()}`.trim()
+          : "-"}
+      </TextCell>
 
-                    <td className="whitespace-nowrap px-4 py-4 text-gray-600">
-                      {device.imei_1 || "-"}
-                    </td>
+      {/* 8. Registration No. */}
+      <TextCell>{device.registration_no}</TextCell>
 
-                    <td className="whitespace-nowrap px-4 py-4 text-gray-600">
-  {device.key_name || device.key_type || "-"}
-</td>
+      {/* 9. IMEI 1 */}
+      <TextCell>{device.imei_1}</TextCell>
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          String(device.device_status).toLowerCase() ===
-                          "active"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {device.device_status || "-"}
-                      </span>
-                    </td>
+      {/* 10. IMEI 2 */}
+      <TextCell>{device.imei_2}</TextCell>
 
-                    <td className="whitespace-nowrap px-4 py-4 text-gray-600">
-                      {device.fl_version || "-"}
-                    </td>
+      {/* 11. Key Type */}
+      <TextCell>
+        {device.key_name || device.key_type}
+      </TextCell>
 
-                    <td className="px-4 py-4">
-                      {renderPerson(
-                        device.retailer_name,
-                        device.retailer_company_name
-                      )}
-                    </td>
+      {/* 12. Signature */}
+      <ImageCell
+        path={device.signature}
+        alt="Device signature"
+        getImageUrl={getImageUrl}
+      />
 
-                    <td className="px-4 py-4">
-                      {renderPerson(
-                        device.fos_name,
-                        device.fos_company_name,
-                        true
-                      )}
-                    </td>
+      {/* 13. Status */}
+      <td className="whitespace-nowrap px-4 py-4">
+        <StatusBadge status={device.device_status} />
+      </td>
 
-                    <td className="px-4 py-4">
-                      {renderPerson(
-                        device.distributor_name,
-                        device.distributor_company_name,
-                        true
-                      )}
-                    </td>
+      {/* 14. Retailer */}
+      <PersonCell
+        name={device.retailer_name}
+        companyName={device.retailer_company_name}
+      />
 
-                    <td className="whitespace-nowrap px-4 py-4 text-gray-600">
-                      -
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+      {/* 15. FOS */}
+      <PersonCell
+        name={device.fos_name}
+        companyName={device.fos_company_name}
+        blankIfMissing
+      />
+
+      {/* 16. Distributor */}
+      <PersonCell
+        name={device.distributor_name}
+        companyName={device.distributor_company_name}
+        blankIfMissing
+      />
+
+      {/* 17. FL Version */}
+      <TextCell>{device.fl_version}</TextCell>
+
+      {/* 18. Guarantor Name */}
+      <TextCell>{device.guarantor_name}</TextCell>
+
+      {/* 19. Guarantor Number */}
+      <TextCell>{device.guarantor_number}</TextCell>
+
+      {/* 20. Actions */}
+      <TextCell>-</TextCell>
+    </tr>
+  ))}
+</tbody>
             </table>
           </div>
 

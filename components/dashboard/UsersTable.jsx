@@ -82,6 +82,7 @@ const getResponseUsers = (response) => {
   return [];
 };
 
+
 const parsePermissions = (value) => {
   if (!value) return null;
 
@@ -97,6 +98,8 @@ const parsePermissions = (value) => {
 
   return null;
 };
+
+
 
 const isPermissionEnabled = (value) => {
   if (value === undefined || value === null) return false;
