@@ -2352,7 +2352,7 @@ const transactionPinField = (
               />
             </div>
 
-            {transactionPinEntryField}
+            
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
@@ -2370,6 +2370,7 @@ const transactionPinField = (
                 className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
+            {transactionPinEntryField}
           </div>
         ) : isSchemaTransfer ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
@@ -2474,24 +2475,8 @@ const transactionPinField = (
     />
   </div>
 )}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Transfer Point
-              </label>
 
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={transferPoint}
-                onChange={handleTransferPointChange}
-                disabled={transferLoading}
-                placeholder="Enter amount"
-                className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
-              />
-            </div>
-
-            <div>
+   <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Transfer To
               </label>
@@ -2522,6 +2507,24 @@ const transactionPinField = (
                 onSelect={handleTransferUserSelect}
               />
             </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Transfer Point
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={transferPoint}
+                onChange={handleTransferPointChange}
+                disabled={transferLoading}
+                placeholder="Enter amount"
+                className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
+              />
+            </div>
+
+         
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
