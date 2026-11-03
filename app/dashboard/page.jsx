@@ -248,11 +248,27 @@ export default function Dashboard() {
 
         const activeRoles = data
           .filter((role) => Number(role?.status ?? 1) === 1)
-          .sort(
-            (a, b) =>
-              Number(a?.sequence ?? 0) -
-              Number(b?.sequence ?? 0)
-          );
+         .sort((a, b) => {
+  const roleOrder = {
+    1: 1, // Admin
+    2: 2, // CNF
+  };
+
+  const aRoleId = Number(a?.role_id);
+  const bRoleId = Number(b?.role_id);
+
+  const aOrder = roleOrder[aRoleId] ?? 999;
+  const bOrder = roleOrder[bRoleId] ?? 999;
+
+  if (aOrder !== bOrder) {
+    return aOrder - bOrder;
+  }
+
+  return (
+    Number(a?.sequence ?? 0) -
+    Number(b?.sequence ?? 0)
+  );
+});
 
         if (!cancelled) setRoles(activeRoles);
       } catch (error) {

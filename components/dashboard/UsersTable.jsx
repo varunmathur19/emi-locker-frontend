@@ -785,10 +785,16 @@ const handleLoginAsUser = async (user) => {
       }
 
       // Store staff permissions separately.
-      localStorage.setItem(
-        "staff_permission",
-        JSON.stringify(permissions)
-      );
+     localStorage.setItem(
+  "staff_permission",
+  JSON.stringify(permissions)
+);
+
+// Verify saved permission
+const savedPermission = localStorage.getItem("staff_permission");
+
+console.log("API Staff Permission:", permissions);
+console.log("LocalStorage Staff Permission:", savedPermission);
     }
 
     const {
@@ -800,7 +806,12 @@ const handleLoginAsUser = async (user) => {
     } = responseUser;
 
     saveToken(response.token);
-    saveUser(userWithoutPermissions);
+saveUser(userWithoutPermissions);
+
+console.log(
+  "Final Staff Permission:",
+  localStorage.getItem("staff_permission")
+);
 
     console.log("Login successful:", {
       roleId: targetRoleId,

@@ -983,7 +983,8 @@ const loadRoles = useCallback(async () => {
         (role) =>
           role?.role_id !== null &&
           role?.role_id !== undefined &&
-          Number.isInteger(Number(role.role_id))
+          Number.isInteger(Number(role.role_id)) &&
+          Number(role?.status ?? 1) === 1          // ← only active roles
       )
       .sort((a, b) => {
         const roleA = Number(a.role_id);
@@ -2352,7 +2353,7 @@ const transactionPinField = (
               />
             </div>
 
-            {transactionPinEntryField}
+            
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
@@ -2370,6 +2371,7 @@ const transactionPinField = (
                 className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
+            {transactionPinEntryField}
           </div>
         ) : isSchemaTransfer ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
@@ -2474,24 +2476,8 @@ const transactionPinField = (
     />
   </div>
 )}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Transfer Point
-              </label>
 
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={transferPoint}
-                onChange={handleTransferPointChange}
-                disabled={transferLoading}
-                placeholder="Enter amount"
-                className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
-              />
-            </div>
-
-            <div>
+   <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Transfer To
               </label>
@@ -2522,8 +2508,7 @@ const transactionPinField = (
                 onSelect={handleTransferUserSelect}
               />
             </div>
-
-            <div>
+              <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Available Balance
               </label>
@@ -2535,6 +2520,26 @@ const transactionPinField = (
                 className="h-[46px] w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none"
               />
             </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Transfer Point
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={transferPoint}
+                onChange={handleTransferPointChange}
+                disabled={transferLoading}
+                placeholder="Enter amount"
+                className="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50"
+              />
+            </div>
+
+         
+
+          
 
             {transactionPinEntryField}
           </div>
