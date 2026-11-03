@@ -11,6 +11,7 @@ import {
   getEnrollment,
   addDevice,
   getBrands,
+  getRoles
 } from "@/services/api";
 
 import { getUserFromToken } from "@/utils/token";
@@ -30,25 +31,7 @@ const initialFormData = {
   brand_id: "",
 };
 
-const ROLE_NAMES = {
-  0: "Master Admin",
-  1: "Admin",
-  2: "CNF",
-  3: "Super Distributor",
-  4: "Distributor",
-  5: "FOS",
-  6: "Retailer",
-};
 
-const ROLE_HIERARCHY = {
-  0: [1, 2, 3, 4, 5, 6],
-  1: [2, 3, 4, 5, 6],
-  2: [3, 4, 5, 6],
-  3: [4, 5, 6],
-  4: [5, 6],
-  5: [6],
-  6: [],
-};
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
 
@@ -668,6 +651,8 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
   const [brands, setBrands] = useState([]);
   const [brandsLoading, setBrandsLoading] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
+  const [roles, setRoles] = useState([]);
+const [rolesLoading, setRolesLoading] = useState(true);
 
   const [brandImage, setBrandImage] = useState(null);
   const [customerImage, setCustomerImage] = useState(null);
@@ -689,17 +674,88 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
   const [hierarchyUsers, setHierarchyUsers] = useState({});
   const [hierarchyLoading, setHierarchyLoading] = useState({});
 
-  const currentRoleId = Number(
-    loggedInUser?.role_id ?? loggedInUser?.roleId
+const currentRoleId = Number(
+  loggedInUser?.role_id ?? loggedInUser?.roleId
+);
+
+const currentUserId = Number(getUserId(loggedInUser));
+
+const hierarchyRoles = useMemo(() => {
+  if (!Number.isFinite(currentRoleId)) return [];
+
+  return roles
+    .filter((role) => {
+      const roleId = Number(role.role_id ?? role.id);
+
+      return roleId > currentRoleId && roleId <= 6;
+    })
+    .sort(
+      (a, b) =>
+        Number(a.role_id ?? a.id) - Number(b.role_id ?? b.id)
+    )
+    .map((role) => Number(role.role_id ?? role.id));
+}, [roles, currentRoleId]);
+
+const getRoleName = (roleId) => {
+  const role = roles.find(
+    (item) => Number(item.role_id ?? item.id) === Number(roleId)
   );
 
-  const currentUserId = Number(getUserId(loggedInUser));
-  const hierarchyRoles = ROLE_HIERARCHY[currentRoleId] || [];
+  return (
+    role?.role_name ??
+    role?.name ??
+    role?.title ??
+    `Role ${roleId}`
+  );
+};
 
   // Check Supreme Key enrollment
   const isSupremeKeyEnrollment = isSupremeKeyEnrollmentType(
     formData.enrollment_type
   );
+  useEffect(() => {
+  let isMounted = true;
+
+  const fetchRoles = async () => {
+    try {
+      setRolesLoading(true);
+
+      const response = await getRoles();
+
+      const list = getArrayFromResponse(response, "roles");
+
+      if (isMounted) {
+        setRoles(
+          list.filter((role) =>
+            isActiveStatus(role?.status ?? role?.is_active)
+          )
+        );
+      }
+    } catch (error) {
+      console.error("GET ROLES ERROR:", error);
+
+      if (isMounted) {
+        setRoles([]);
+
+        toast.error(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Failed to load roles."
+        );
+      }
+    } finally {
+      if (isMounted) {
+        setRolesLoading(false);
+      }
+    }
+  };
+
+  fetchRoles();
+
+  return () => {
+    isMounted = false;
+  };
+}, []);
 
   // Fetch brands only when Supreme Key is selected
   useEffect(() => {
@@ -1356,61 +1412,64 @@ export default function DeviceDetailForm({ onCancel, onSuccess }) {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {hierarchyRoles.map((roleId) => {
-                    const users = hierarchyUsers[roleId] || [];
-                    const selectedValue = hierarchySelections[roleId] || "";
-                    const loadingRole = Boolean(hierarchyLoading[roleId]);
+  {hierarchyRoles.map((roleId) => {
+    const roleName = getRoleName(roleId);
 
-                    const parentRoleIndex =
-                      hierarchyRoles.indexOf(roleId) - 1;
+    const users = hierarchyUsers[roleId] || [];
+    const selectedValue = hierarchySelections[roleId] || "";
+    const loadingRole = Boolean(hierarchyLoading[roleId]);
 
-                    const parentRole =
-                      parentRoleIndex >= 0
-                        ? hierarchyRoles[parentRoleIndex]
-                        : null;
+    const parentRoleIndex =
+      hierarchyRoles.indexOf(roleId) - 1;
 
-                    const directRetailersAvailable =
-                      roleId === 6 &&
-                      Number(currentRoleId) <= 4 &&
-                      Boolean(hierarchySelections[4]) &&
-                      users.length > 0;
+    const parentRole =
+      parentRoleIndex >= 0
+        ? hierarchyRoles[parentRoleIndex]
+        : null;
 
-                    const parentSelected =
-                      !parentRole ||
-                      Boolean(hierarchySelections[parentRole]) ||
-                      directRetailersAvailable;
+    const directRetailersAvailable =
+      roleId === 6 &&
+      Number(currentRoleId) <= 4 &&
+      Boolean(hierarchySelections[4]) &&
+      users.length > 0;
 
-                    let placeholder = `Select ${ROLE_NAMES[roleId]}`;
+    const parentSelected =
+      !parentRole ||
+      Boolean(hierarchySelections[parentRole]) ||
+      directRetailersAvailable;
 
-                    if (loadingRole) {
-                      placeholder = `Loading ${ROLE_NAMES[roleId]}...`;
-                    } else if (!parentSelected) {
-                      placeholder = `Select ${ROLE_NAMES[parentRole]} first`;
-                    } else if (users.length === 0) {
-                      placeholder = `No ${ROLE_NAMES[roleId]} found`;
-                    }
+    let placeholder = `Select ${roleName}`;
 
-                    return (
-                      <HierarchyDropdown
-                        key={roleId}
-                        id={`hierarchy_${roleId}`}
-                        label={ROLE_NAMES[roleId]}
-                        users={users}
-                        value={selectedValue}
-                        placeholder={placeholder}
-                        loading={loadingRole}
-                        disabled={
-                          loadingRole ||
-                          !parentSelected ||
-                          users.length === 0
-                        }
-                        onChange={(selectedUserId) =>
-                          handleHierarchyChange(roleId, selectedUserId)
-                        }
-                      />
-                    );
-                  })}
-                </div>
+    if (loadingRole) {
+      placeholder = `Loading ${roleName}...`;
+    } else if (!parentSelected) {
+      placeholder = `Select ${getRoleName(parentRole)} first`;
+    } else if (users.length === 0) {
+      placeholder = `No ${roleName} found`;
+    }
+
+    return (
+      <HierarchyDropdown
+        key={roleId}
+        id={`hierarchy_${roleId}`}
+        label={roleName}
+        users={users}
+        value={selectedValue}
+        placeholder={placeholder}
+        loading={loadingRole}
+        disabled={
+          rolesLoading ||
+          loadingRole ||
+          !parentSelected ||
+          users.length === 0
+        }
+        onChange={(selectedUserId) =>
+          handleHierarchyChange(roleId, selectedUserId)
+        }
+      />
+    );
+  })}
+</div>
               </section>
             )}
 
