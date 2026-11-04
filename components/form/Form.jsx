@@ -11,6 +11,7 @@ import {
     updateStaffData,
 } from "@/services/api";
 
+
 import { getUserFromToken } from "@/utils/token";
 
 import {
@@ -1871,7 +1872,6 @@ export default function Form() {
 
     const nextRole = parents[currentIndex + 1];
 
-    // Load the next hierarchy dropdown.
     if (nextRole) {
         await loadNextParentUsers(
             selectedId,
@@ -1879,8 +1879,6 @@ export default function Form() {
         );
     }
 
-    // When Distributor is selected, load its direct Retailers too.
-    // The FOS dropdown is loaded above as usual.
     if (roleId === 4 && parents.includes(6)) {
         await loadNextParentUsers(selectedId, 6);
     }
