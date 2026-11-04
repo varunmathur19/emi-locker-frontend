@@ -13,6 +13,7 @@ import {
   getBrands,
   getRoles
 } from "@/services/api";
+// import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 import { getUserFromToken } from "@/utils/token";
 
@@ -1709,7 +1710,6 @@ const getRoleName = (roleId) => {
                   required
                 />
 
-                {/* FL Version */}
                 <div className="min-w-0">
                   <label htmlFor="fl_version" className={LABEL_CLASS}>
                     FL Version
@@ -1728,7 +1728,6 @@ const getRoleName = (roleId) => {
                   />
                 </div>
 
-                {/* Optional Guarantor Name */}
                 <div className="min-w-0">
                   <label htmlFor="guarantor_name" className={LABEL_CLASS}>
                     Guarantor Name
@@ -1748,7 +1747,6 @@ const getRoleName = (roleId) => {
                   />
                 </div>
 
-                {/* Optional Guarantor Number */}
                 <div className="min-w-0">
                   <label htmlFor="guarantor_number" className={LABEL_CLASS}>
                     Guarantor Number
@@ -1776,7 +1774,6 @@ const getRoleName = (roleId) => {
                   />
                 </div>
 
-                {/* Required Signature Image */}
                 <ImageUploadField
                   id="signatureImage"
                   label="Signature Image"
@@ -1787,7 +1784,6 @@ const getRoleName = (roleId) => {
               </div>
             </section>
 
-            {/* Form actions */}
             <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row sm:justify-end">
               <button
                 type="button"

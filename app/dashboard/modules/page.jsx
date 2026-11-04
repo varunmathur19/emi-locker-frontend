@@ -643,10 +643,10 @@ useEffect(() => {
 
             <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+                {/* <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
                   <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                   System Configuration
-                </div>
+                </div> */}
 
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                   Module & Role Management
@@ -665,7 +665,7 @@ useEffect(() => {
                   loadRoles();
                 }}
                 disabled={loading || loadingRoles}
-                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-200 disabled:cursor-not-allowed cursor-pointer disabled:opacity-50"
               >
                 <RefreshIcon
                   spinning={loading || loadingRoles}

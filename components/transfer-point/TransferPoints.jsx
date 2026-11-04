@@ -1810,6 +1810,10 @@ if (
       toast.error("Please enter a valid 4-digit transaction PIN.");
       return;
     }
+    if (String(transactionPinEntry) !== String(transactionPin)) {
+    toast.error("Incorrect transaction PIN");
+    return;
+  }
 
    if (isRevert) {
   const isPrivilegedRole = [0, 1].includes(loggedInRole);
