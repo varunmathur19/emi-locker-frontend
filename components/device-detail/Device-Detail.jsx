@@ -8,6 +8,8 @@ import { getDevices } from "@/services/api";
 import DeviceDetailForm from "./form";
 import { createPortal } from "react-dom";
 import { RxCross2 } from "react-icons/rx";
+import UserDetail from "./User-Detail";
+
 
 const PAGE_SIZE = 10;
 const SKELETON_ROWS = 6;
@@ -126,6 +128,7 @@ function PersonCell({ name, companyName, blankIfMissing = false }) {
 function ImageCell({ path, alt, getImageUrl, className = "" }) {
   const [imageError, setImageError] = useState(false);
   const [showImage, setShowImage] = useState(false);
+  
 
   useEffect(() => {
     setImageError(false);
@@ -218,6 +221,7 @@ export function DeviceDetail() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalDevices, setTotalDevices] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [selectedDeviceId, setSelectedDeviceId] = useState(null);
 
   // Fetch device data
   const fetchDevices = useCallback(async (page = 1) => {
@@ -350,6 +354,15 @@ export function DeviceDetail() {
       (_, index) => start + index
     );
   };
+
+  if (selectedDeviceId) {
+  return (
+    <UserDetail
+      deviceId={selectedDeviceId}
+      onBack={() => setSelectedDeviceId(null)}
+    />
+  );
+}
 
   if (showAddForm) {
     return (
@@ -570,13 +583,15 @@ export function DeviceDetail() {
                     <TextCell>{device.guarantor_number}</TextCell>
 
                     {/* 20. Actions */}
-                   <td className="px-4 py-4">
-  <span
+                <td className="px-4 py-4">
+  <button
+    type="button"
     title="View Device"
+    onClick={() => setSelectedDeviceId(device.id)}
     className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-blue-50 text-blue-600 transition hover:bg-blue-100 hover:text-blue-700"
   >
     <FaEye size={16} />
-  </span>
+  </button>
 </td>
                   </tr>
                 ))}

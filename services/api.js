@@ -661,6 +661,17 @@ export const getDevices = async ({ page = 1, limit = 10 } = {}) => {
   return response.data;
 };
 
+//get device by id
+// Get Device By ID
+export const getDeviceById = async (id) => {
+  try {
+    const response = await api.get(`/devices/${id}`);
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
 
 //getEnrollment  
 export const getEnrollment = async () => {
