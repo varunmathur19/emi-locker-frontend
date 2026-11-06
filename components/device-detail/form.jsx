@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -5,19 +6,15 @@ import { toast } from "react-toastify";
 import { RiArrowDownSLine, RiSearchLine } from "react-icons/ri";
 
 import {
-  getKeySettings,
   getCountries,
   getDropdownUsers,
   getEnrollment,
+  getRoles,
   addDevice,
-  getBrands,
-  getRoles
 } from "@/services/api";
-// import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 import { getUserFromToken } from "@/utils/token";
 
-// Constants
 const initialFormData = {
   enrollment_type: "",
   serial_number: "",
@@ -27,12 +24,7 @@ const initialFormData = {
   imei_2: "",
   guarantor_name: "",
   guarantor_number: "",
-  key_type: "",
-  fl_version: "",
-  brand_id: "",
 };
-
-
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
 
@@ -44,44 +36,15 @@ const LABEL_CLASS = "mb-2 block text-sm font-medium text-gray-700";
 const FILE_INPUT_CLASS =
   "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:font-medium file:text-gray-700";
 
-// Utility functions
-const isIPhoneEnrollmentType = (value) =>
+const normalizeEnrollmentType = (value) =>
   String(value ?? "")
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .includes("iphone");
+    .replace(/[^a-z0-9]/g, "");
 
-const isSupremeKeyEnrollmentType = (value) =>
-  String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .includes("supremekey");
-
-const getArrayFromResponse = (response, key) => {
-  if (Array.isArray(response)) return response;
-
-  const candidates = [
-    response?.data?.data,
-    response?.data?.[key],
-    response?.data?.users,
-    response?.data?.enrollments,
-    response?.data?.settings,
-    response?.data?.countries,
-    response?.data?.brands,
-    response?.data?.result,
-    response?.users,
-    response?.enrollments,
-    response?.settings,
-    response?.countries,
-    response?.brands,
-    response?.[key],
-    response?.result,
-    response?.data,
-  ];
-
-  return candidates.find(Array.isArray) || [];
+const isSerialNumberEnrollmentType = (value) => {
+  const type = normalizeEnrollmentType(value);
+  return type.includes("iphone") || type.includes("googletv");
 };
 
 const isActiveStatus = (status) =>
@@ -149,132 +112,30 @@ const getUserDisplayName = (user) =>
   user?.username ??
   `User ${getUserId(user) ?? ""}`;
 
-// Searchable hierarchy dropdown
-function HierarchyDropdown({
-  id,
-  label,
-  users = [],
-  value,
-  onChange,
-  placeholder,
-  disabled = false,
-  loading = false,
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
+const getArrayFromResponse = (response, key) => {
+  if (Array.isArray(response)) return response;
 
-  const selectedUser = users.find(
-    (user) => String(getUserId(user)) === String(value)
-  );
+  const candidates = [
+    response?.data?.data,
+    response?.data?.[key],
+    response?.data?.users,
+    response?.data?.enrollments,
+    response?.data?.countries,
+    response?.data?.roles,
+    response?.data?.result,
+    response?.users,
+    response?.enrollments,
+    response?.countries,
+    response?.roles,
+    response?.[key],
+    response?.result,
+    response?.data,
+  ];
 
-  const filteredUsers = useMemo(() => {
-    const query = search.trim().toLowerCase();
+  return candidates.find(Array.isArray) || [];
+};
 
-    if (!query) return users;
-
-    return users.filter((user) =>
-      getUserDisplayName(user).toLowerCase().includes(query)
-    );
-  }, [users, search]);
-
-  const handleSelect = (user) => {
-    onChange(String(getUserId(user)));
-    setOpen(false);
-    setSearch("");
-  };
-
-  return (
-    <div className="relative min-w-0">
-      <label htmlFor={id} className={LABEL_CLASS}>
-        {label}
-      </label>
-
-      <button
-        id={id}
-        type="button"
-        disabled={disabled}
-        onClick={() => {
-          setOpen((previous) => !previous);
-          setSearch("");
-        }}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-left text-sm text-slate-700 transition hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 cursor-pointer"
-      >
-        <span className="truncate">
-          {loading
-            ? `Loading ${label}...`
-            : selectedUser
-              ? getUserDisplayName(selectedUser)
-              : placeholder}
-        </span>
-
-        <RiArrowDownSLine
-          size={22}
-          className={`shrink-0 text-slate-500 transition-transform ${
-            open ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-
-      {open && !disabled && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-          {users.length > 5 && (
-            <div className="border-b border-slate-100 p-2">
-              <div className="relative">
-                <RiSearchLine
-                  size={17}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder={`Search ${label}...`}
-                  className="w-full rounded-md border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="max-h-52 overflow-y-auto py-1" role="listbox">
-            {filteredUsers.length ? (
-              filteredUsers.map((user) => {
-                const userId = String(getUserId(user));
-                const isSelected = userId === String(value);
-
-                return (
-                  <button
-                    key={userId}
-                    type="button"
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => handleSelect(user)}
-                    className={`block w-full truncate px-4 py-2.5 text-left text-sm transition cursor-pointer hover:bg-blue-50 ${
-                      isSelected
-                        ? "bg-blue-50 font-medium text-blue-700"
-                        : "text-slate-700"
-                    }`}
-                  >
-                    {getUserDisplayName(user)}
-                  </button>
-                );
-              })
-            ) : (
-              <p className="px-4 py-3 text-center text-sm text-slate-400">
-                No users found
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Searchable enrollment and key dropdown
-function SearchableEnrollmentDropdown({
+function SearchableDropdown({
   id,
   name,
   label,
@@ -332,7 +193,7 @@ function SearchableEnrollmentDropdown({
         }}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-left text-sm text-slate-700 transition hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 cursor-pointer"
+        className="flex w-full cursor-pointer items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-left text-sm text-slate-700 transition hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
       >
         <span className="truncate">
           {loading
@@ -381,7 +242,7 @@ function SearchableEnrollmentDropdown({
                     role="option"
                     aria-selected={isSelected}
                     onClick={() => handleSelect(option)}
-                    className={`block w-full truncate px-4 py-2.5 text-left text-sm transition cursor-pointer hover:bg-blue-50 ${
+                    className={`block w-full cursor-pointer truncate px-4 py-2.5 text-left text-sm transition hover:bg-blue-50 ${
                       isSelected
                         ? "bg-blue-50 font-medium text-blue-700"
                         : "text-slate-700"
@@ -405,7 +266,129 @@ function SearchableEnrollmentDropdown({
   );
 }
 
-// Searchable country code dropdown
+function HierarchyDropdown({
+  id,
+  label,
+  users = [],
+  value,
+  onChange,
+  placeholder,
+  disabled = false,
+  loading = false,
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const selectedUser = users.find(
+    (user) => String(getUserId(user)) === String(value)
+  );
+
+  const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) return users;
+
+    return users.filter((user) =>
+      getUserDisplayName(user).toLowerCase().includes(query)
+    );
+  }, [users, search]);
+
+  const handleSelect = (user) => {
+    onChange(String(getUserId(user)));
+    setOpen(false);
+    setSearch("");
+  };
+
+  return (
+    <div className="relative min-w-0">
+      <label htmlFor={id} className={LABEL_CLASS}>
+        {label}
+      </label>
+
+      <button
+        id={id}
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          setOpen((previous) => !previous);
+          setSearch("");
+        }}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="flex w-full cursor-pointer items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-left text-sm text-slate-700 transition hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+      >
+        <span className="truncate">
+          {loading
+            ? `Loading ${label}...`
+            : selectedUser
+              ? getUserDisplayName(selectedUser)
+              : placeholder}
+        </span>
+
+        <RiArrowDownSLine
+          size={22}
+          className={`shrink-0 text-slate-500 transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {open && !disabled && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+          {users.length > 5 && (
+            <div className="border-b border-slate-100 p-2">
+              <div className="relative">
+                <RiSearchLine
+                  size={17}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={`Search ${label}...`}
+                  className="w-full rounded-md border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="max-h-52 overflow-y-auto py-1" role="listbox">
+            {filteredUsers.length ? (
+              filteredUsers.map((user) => {
+                const userId = String(getUserId(user));
+                const isSelected = userId === String(value);
+
+                return (
+                  <button
+                    key={userId}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => handleSelect(user)}
+                    className={`block w-full cursor-pointer truncate px-4 py-2.5 text-left text-sm transition hover:bg-blue-50 ${
+                      isSelected
+                        ? "bg-blue-50 font-medium text-blue-700"
+                        : "text-slate-700"
+                    }`}
+                  >
+                    {getUserDisplayName(user)}
+                  </button>
+                );
+              })
+            ) : (
+              <p className="px-4 py-3 text-center text-sm text-slate-400">
+                No users found
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SearchableCountryDropdown({
   countries,
   selectedCountryId,
@@ -454,7 +437,7 @@ function SearchableCountryDropdown({
         }}
         aria-label="Select phone country code"
         aria-expanded={open}
-        className="flex h-[42px] items-center gap-3 rounded-l-lg border border-gray-300 bg-gray-50 px-3 text-sm text-gray-700 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-[42px] cursor-pointer items-center gap-3 rounded-l-lg border border-gray-300 bg-gray-50 px-3 text-sm text-gray-700 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span className="flex min-w-0 items-center gap-1.5">
           {selectedCountry?.emoji && (
@@ -548,7 +531,6 @@ function SearchableCountryDropdown({
   );
 }
 
-// Image upload component
 function ImageUploadField({
   id,
   label,
@@ -623,9 +605,7 @@ function ImageUploadField({
           <img
             src={previewUrl}
             alt={`${label} preview`}
-            className={`h-14 w-14 shrink-0 rounded-lg border border-gray-200 p-1 ${
-              id === "customerImage" ? "object-cover" : "object-contain"
-            }`}
+            className="h-14 w-14 shrink-0 rounded-lg border border-gray-200 object-contain p-1"
           />
 
           <div className="min-w-0">
@@ -647,16 +627,9 @@ function ImageUploadField({
   );
 }
 
-// Main Device Detail Form
 export default function DeviceDetailForm({ onCancel, onSuccess }) {
-  const [brands, setBrands] = useState([]);
-  const [brandsLoading, setBrandsLoading] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
-  const [roles, setRoles] = useState([]);
-const [rolesLoading, setRolesLoading] = useState(true);
 
-  const [brandImage, setBrandImage] = useState(null);
-  const [customerImage, setCustomerImage] = useState(null);
   const [signatureImage, setSignatureImage] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -664,176 +637,68 @@ const [rolesLoading, setRolesLoading] = useState(true);
   const [countriesLoading, setCountriesLoading] = useState(true);
   const [selectedCountryId, setSelectedCountryId] = useState("");
 
-  const [keySettings, setKeySettings] = useState([]);
-  const [keySettingsLoading, setKeySettingsLoading] = useState(true);
-
   const [enrollments, setEnrollments] = useState([]);
   const [enrollmentsLoading, setEnrollmentsLoading] = useState(true);
 
   const [loggedInUser, setLoggedInUser] = useState(null);
+
+  const [roles, setRoles] = useState([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
+
   const [hierarchySelections, setHierarchySelections] = useState({});
   const [hierarchyUsers, setHierarchyUsers] = useState({});
   const [hierarchyLoading, setHierarchyLoading] = useState({});
 
-const currentRoleId = Number(
-  loggedInUser?.role_id ?? loggedInUser?.roleId
-);
+  const currentUserId = getUserId(loggedInUser);
 
-const currentUserId = Number(getUserId(loggedInUser));
-
-const hierarchyRoles = useMemo(() => {
-  if (!Number.isFinite(currentRoleId)) return [];
-
-  return roles
-    .filter((role) => {
-      const roleId = Number(role.role_id ?? role.id);
-
-      return roleId > currentRoleId && roleId <= 6;
-    })
-    .sort(
-      (a, b) =>
-        Number(a.role_id ?? a.id) - Number(b.role_id ?? b.id)
-    )
-    .map((role) => Number(role.role_id ?? role.id));
-}, [roles, currentRoleId]);
-
-const getRoleName = (roleId) => {
-  const role = roles.find(
-    (item) => Number(item.role_id ?? item.id) === Number(roleId)
+  const currentRoleId = Number(
+    loggedInUser?.role_id ?? loggedInUser?.roleId
   );
 
-  return (
-    role?.role_name ??
-    role?.name ??
-    role?.title ??
-    `Role ${roleId}`
+  const hierarchyRoles = useMemo(() => {
+    if (!Number.isFinite(currentRoleId)) return [];
+
+    return roles
+      .filter((role) => {
+        const roleId = Number(role.role_id ?? role.id);
+        return roleId > currentRoleId && roleId <= 6;
+      })
+      .sort(
+        (a, b) =>
+          Number(a.role_id ?? a.id) -
+          Number(b.role_id ?? b.id)
+      )
+      .map((role) => Number(role.role_id ?? role.id));
+  }, [roles, currentRoleId]);
+
+  const getRoleName = useCallback(
+    (roleId) => {
+      const role = roles.find(
+        (item) =>
+          Number(item.role_id ?? item.id) === Number(roleId)
+      );
+
+      return (
+        role?.role_name ??
+        role?.name ??
+        role?.title ??
+        `Role ${roleId}`
+      );
+    },
+    [roles]
   );
-};
 
-  // Check Supreme Key enrollment
-  const isSupremeKeyEnrollment = isSupremeKeyEnrollmentType(
-    formData.enrollment_type
-  );
-  useEffect(() => {
-  let isMounted = true;
 
-  const fetchRoles = async () => {
-    try {
-      setRolesLoading(true);
 
-      const response = await getRoles();
+  const selectedRetailerId =
+    currentRoleId === 6
+      ? currentUserId
+      : hierarchySelections[6] || "";
 
-      const list = getArrayFromResponse(response, "roles");
-
-      if (isMounted) {
-        setRoles(
-          list.filter((role) =>
-            isActiveStatus(role?.status ?? role?.is_active)
-          )
-        );
-      }
-    } catch (error) {
-      console.error("GET ROLES ERROR:", error);
-
-      if (isMounted) {
-        setRoles([]);
-
-        toast.error(
-          error?.response?.data?.message ||
-            error?.message ||
-            "Failed to load roles."
-        );
-      }
-    } finally {
-      if (isMounted) {
-        setRolesLoading(false);
-      }
-    }
-  };
-
-  fetchRoles();
-
-  return () => {
-    isMounted = false;
-  };
-}, []);
-
-  // Fetch brands only when Supreme Key is selected
-  useEffect(() => {
-    if (!isSupremeKeyEnrollment) {
-      setBrands([]);
-      setBrandsLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-
-    const fetchBrands = async () => {
-      try {
-        setBrandsLoading(true);
-
-        const response = await getBrands();
-
-        console.log("BRANDS API RESPONSE:", response);
-
-        // Robust extraction of brands array
-        const list = getArrayFromResponse(response, "brands");
-
-        console.log("BRANDS LIST:", list);
-
-        // Filter only active brands
-        const activeBrands = list.filter((item) =>
-          isActiveStatus(item?.is_active ?? item?.status)
-        );
-
-        console.log("ACTIVE BRANDS:", activeBrands);
-
-        if (isMounted) {
-          setBrands(activeBrands);
-        }
-      } catch (error) {
-        console.error(
-          "GET BRANDS ERROR:",
-          error?.response?.data || error
-        );
-
-        if (isMounted) {
-          setBrands([]);
-
-          toast.error(
-            error?.response?.data?.message ||
-              error?.message ||
-              "Failed to load brands."
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setBrandsLoading(false);
-        }
-      }
-    };
-
-    fetchBrands();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isSupremeKeyEnrollment]);
-
-  // Brand dropdown options
-  const brandOptions = useMemo(() => {
-    return brands
-      .map((item) => ({
-        value: String(item?.brand_id ?? item?.id ?? ""),
-        label: String(item?.brand_name ?? item?.name ?? ""),
-      }))
-      .filter((item) => item.value && item.label);
-  }, [brands]);
-
-  // Get logged-in user.
   useEffect(() => {
     try {
       const tokenUser = getUserFromToken?.() || {};
+
       const storedUser =
         typeof window !== "undefined"
           ? JSON.parse(localStorage.getItem("user") || "{}")
@@ -860,9 +725,8 @@ const getRoleName = (roleId) => {
       ) {
         setLoggedInUser(user);
       } else {
-        console.error("Unable to determine logged-in user or role.");
         toast.error(
-          "Unable to identify your login role. Please log in again."
+          "Unable to identify your login details. Please log in again."
         );
       }
     } catch (error) {
@@ -871,184 +735,106 @@ const getRoleName = (roleId) => {
     }
   }, []);
 
-  // Fetch active enrollment types.
   useEffect(() => {
     let isMounted = true;
 
-    const fetchEnrollments = async () => {
+    const fetchRoles = async () => {
       try {
-        setEnrollmentsLoading(true);
+        setRolesLoading(true);
 
-        const response = await getEnrollment();
-        const list = getArrayFromResponse(response, "enrollments");
+        const response = await getRoles();
+        const list = getArrayFromResponse(response, "roles");
 
         if (isMounted) {
-          setEnrollments(
-            list.filter((item) => isActiveStatus(item?.status))
+          setRoles(
+            list.filter((role) =>
+              isActiveStatus(role?.status ?? role?.is_active)
+            )
           );
         }
       } catch (error) {
-        console.error("GET ENROLLMENT ERROR:", error);
+        console.error("GET ROLES ERROR:", error);
 
         if (isMounted) {
-          setEnrollments([]);
+          setRoles([]);
           toast.error(
             error?.response?.data?.message ||
               error?.message ||
-              "Failed to load enrollment types."
+              "Failed to load roles."
           );
         }
       } finally {
-        if (isMounted) setEnrollmentsLoading(false);
+        if (isMounted) setRolesLoading(false);
       }
     };
 
-    fetchEnrollments();
+    fetchRoles();
 
     return () => {
       isMounted = false;
     };
   }, []);
 
-  // Fetch active key settings.
-  useEffect(() => {
-    let isMounted = true;
+  const loadHierarchyUsers = useCallback(
+    async (roleId, parentId) => {
+      if (roleId == null) return;
 
-    const fetchKeySettings = async () => {
+      setHierarchyLoading((previous) => ({
+        ...previous,
+        [roleId]: true,
+      }));
+
       try {
-        setKeySettingsLoading(true);
+        const response = await getDropdownUsers(
+          Number(roleId),
+          parentId == null ? null : Number(parentId)
+        );
 
-        const response = await getKeySettings();
-        const settings = getArrayFromResponse(response, "settings");
+        const users = getArrayFromResponse(response, "users").filter(
+          (user) => getUserId(user) != null
+        );
 
-        if (isMounted) {
-          setKeySettings(
-            settings.filter((item) => isActiveStatus(item?.status))
-          );
-        }
-      } catch (error) {
-        console.error("Failed to fetch key settings:", error);
+        setHierarchyUsers((previous) => {
+          const existingUsers = previous[roleId] || [];
 
-        if (isMounted) {
-          setKeySettings([]);
-          toast.error(
-            error?.response?.data?.message || "Failed to load key types."
-          );
-        }
-      } finally {
-        if (isMounted) setKeySettingsLoading(false);
-      }
-    };
+          if (Number(roleId) === 6) {
+            const uniqueUsers = new Map();
 
-    fetchKeySettings();
+            [...existingUsers, ...users].forEach((user) => {
+              uniqueUsers.set(String(getUserId(user)), user);
+            });
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Fetch countries and default to India.
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchCountries = async () => {
-      try {
-        setCountriesLoading(true);
-
-        const response = await getCountries();
-        const list = getArrayFromResponse(response, "countries");
-
-        if (!isMounted) return;
-
-        setCountries(list);
-
-        const defaultCountry = list.find(isIndia) || list[0];
-
-        if (defaultCountry) {
-          setSelectedCountryId(
-            getCountryId(defaultCountry, list.indexOf(defaultCountry))
-          );
-        }
-      } catch (error) {
-        console.error("Failed to fetch countries:", error);
-
-        if (isMounted) {
-          setCountries([]);
-          toast.error(
-            error?.response?.data?.message || "Failed to load countries."
-          );
-        }
-      } finally {
-        if (isMounted) setCountriesLoading(false);
-      }
-    };
-
-    fetchCountries();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Fetch hierarchy users.
-  const loadHierarchyUsers = useCallback(async (roleId, parentId) => {
-    if (roleId == null) return;
-
-    setHierarchyLoading((previous) => ({
-      ...previous,
-      [roleId]: true,
-    }));
-
-    try {
-      const response = await getDropdownUsers(
-        Number(roleId),
-        parentId == null ? null : Number(parentId)
-      );
-
-      const users = getArrayFromResponse(response, "users").filter(
-        (user) => getUserId(user) != null
-      );
-
-      setHierarchyUsers((previous) => {
-        const existingUsers = previous[roleId] || [];
-
-        if (Number(roleId) === 6) {
-          const uniqueUsers = new Map();
-
-          [...existingUsers, ...users].forEach((user) => {
-            uniqueUsers.set(String(getUserId(user)), user);
-          });
+            return {
+              ...previous,
+              [roleId]: Array.from(uniqueUsers.values()),
+            };
+          }
 
           return {
             ...previous,
-            [roleId]: Array.from(uniqueUsers.values()),
+            [roleId]: users,
           };
-        }
+        });
+      } catch (error) {
+        console.error(
+          "HIERARCHY API ERROR:",
+          error?.response?.data || error
+        );
 
-        return {
+        toast.error(
+          error?.response?.data?.message ||
+            `Failed to load ${getRoleName(roleId)} users.`
+        );
+      } finally {
+        setHierarchyLoading((previous) => ({
           ...previous,
-          [roleId]: users,
-        };
-      });
-    } catch (error) {
-      console.error(
-        "Hierarchy API error:",
-        error?.response?.data || error
-      );
+          [roleId]: false,
+        }));
+      }
+    },
+    [getRoleName]
+  );
 
-      toast.error(
-        error?.response?.data?.message ||
-          `Failed to load ${ROLE_NAMES[roleId]} users.`
-      );
-    } finally {
-      setHierarchyLoading((previous) => ({
-        ...previous,
-        [roleId]: false,
-      }));
-    }
-  }, []);
-
-  // Load the first level of the hierarchy.
   useEffect(() => {
     if (
       !loggedInUser ||
@@ -1068,68 +854,6 @@ const getRoleName = (roleId) => {
     loadHierarchyUsers,
   ]);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-
-    setFormData((previous) => ({
-      ...previous,
-      [name]: value,
-      ...(name === "enrollment_type" ? { brand_id: "" } : {}),
-    }));
-  };
-
-  // Enrollment dropdown options.
-  const enrollmentOptions = useMemo(
-    () =>
-      enrollments
-        .map((item) => {
-          const name =
-            item?.name ??
-            item?.enrollment_type ??
-            item?.enrollment_name ??
-            item?.title;
-
-          if (name == null || !String(name).trim()) return null;
-
-          return {
-            value: String(name).trim(),
-            label: String(name).trim(),
-          };
-        })
-        .filter(Boolean),
-    [enrollments]
-  );
-
-  const isIPhoneEnrollment = isIPhoneEnrollmentType(
-    formData.enrollment_type
-  );
-
-  // Key type dropdown options.
-  const keyTypeOptions = useMemo(
-    () =>
-      keySettings
-        .map((item) => {
-          const label =
-            item?.name ??
-            item?.key_name ??
-            item?.key_type ??
-            item?.title;
-
-          if (label == null || !String(label).trim()) return null;
-
-          const value =
-            item?.id ?? item?.key_setting_id ?? String(label).trim();
-
-          return {
-            value: String(value).trim(),
-            label: String(label).trim(),
-          };
-        })
-        .filter(Boolean),
-    [keySettings]
-  );
-
-  // Handle hierarchy selection.
   const handleHierarchyChange = async (roleId, selectedUserId) => {
     const selectedId = String(selectedUserId);
     const roleIndex = hierarchyRoles.indexOf(roleId);
@@ -1174,41 +898,148 @@ const getRoleName = (roleId) => {
     }
   };
 
-  const selectedRetailerId =
-    currentRoleId === 6
-      ? currentUserId
-      : Number(hierarchySelections[6]) || null;
+  useEffect(() => {
+    let isMounted = true;
 
-  // Validate and submit the form.
+    const fetchEnrollments = async () => {
+      try {
+        setEnrollmentsLoading(true);
+
+        const response = await getEnrollment();
+        const list = getArrayFromResponse(response, "enrollments");
+
+        if (isMounted) {
+          setEnrollments(
+            list.filter((item) => isActiveStatus(item?.status))
+          );
+        }
+      } catch (error) {
+        console.error("GET ENROLLMENT ERROR:", error);
+
+        if (isMounted) {
+          setEnrollments([]);
+
+          toast.error(
+            error?.response?.data?.message ||
+              "Failed to load enrollment types."
+          );
+        }
+      } finally {
+        if (isMounted) setEnrollmentsLoading(false);
+      }
+    };
+
+    fetchEnrollments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchCountries = async () => {
+      try {
+        setCountriesLoading(true);
+
+        const response = await getCountries();
+        const list = getArrayFromResponse(response, "countries");
+
+        if (!isMounted) return;
+
+        setCountries(list);
+
+        const defaultCountry = list.find(isIndia) || list[0];
+
+        if (defaultCountry) {
+          setSelectedCountryId(
+            getCountryId(defaultCountry, list.indexOf(defaultCountry))
+          );
+        }
+      } catch (error) {
+        console.error("GET COUNTRIES ERROR:", error);
+
+        if (isMounted) {
+          setCountries([]);
+
+          toast.error(
+            error?.response?.data?.message ||
+              "Failed to load countries."
+          );
+        }
+      } finally {
+        if (isMounted) setCountriesLoading(false);
+      }
+    };
+
+    fetchCountries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const enrollmentOptions = useMemo(
+    () =>
+      enrollments
+        .map((item) => {
+          const id =
+            item.id ?? item.enrollment_id ?? item.type_id;
+
+          const name =
+            item.name ??
+            item.enrollment_type ??
+            item.enrollment_name ??
+            item.title;
+
+          if (id == null || !name) return null;
+
+          return {
+            value: String(id),
+            label: String(name).trim(),
+          };
+        })
+        .filter(Boolean),
+    [enrollments]
+  );
+
+  const selectedEnrollment = enrollmentOptions.find(
+  (option) => String(option.value) === String(formData.enrollment_type)
+);
+
+const showSerialNumber = isSerialNumberEnrollmentType(
+  selectedEnrollment?.label
+);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setFormData((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (loading) return;
 
-    const isIPhoneEnrollment = isIPhoneEnrollmentType(
-      formData.enrollment_type
-    );
+   const selectedEnrollment = enrollmentOptions.find(
+  (option) => String(option.value) === String(formData.enrollment_type)
+);
 
-    const isSupremeKeyEnrollment = isSupremeKeyEnrollmentType(
-      formData.enrollment_type
-    );
+const isSerialNumber = isSerialNumberEnrollmentType(
+  selectedEnrollment?.label
+);
 
     const requiredFields = [
       ["enrollment_type", "Enrollment Type"],
-      ["serial_number", "Serial Number"],
       ["customer_name", "Customer Name"],
       ["phone_number", "Phone Number"],
-      ["imei_1", "IMEI 1"],
-      ["key_type", "Key Type"],
-      ["fl_version", "FL Version"],
     ];
 
-    // IMEI 2 is required except for iPhone
-    if (!isIPhoneEnrollment) {
-      requiredFields.push(["imei_2", "IMEI 2"]);
-    }
-
-    // Required field validation
     for (const [field, label] of requiredFields) {
       if (!String(formData[field] ?? "").trim()) {
         toast.error(`${label} is required.`);
@@ -1216,52 +1047,41 @@ const getRoleName = (roleId) => {
       }
     }
 
-    // Brand is required only for Supreme Key
-    if (isSupremeKeyEnrollment && !formData.brand_id) {
-      toast.error("Please select a brand.");
-      return;
+    if (isSerialNumber) {
+      if (!String(formData.serial_number ?? "").trim()) {
+        toast.error("Serial Number is required.");
+        return;
+      }
+    } else {
+      if (!/^\d{15}$/.test(String(formData.imei_1 ?? "").trim())) {
+        toast.error("IMEI 1 must contain exactly 15 numeric digits.");
+        return;
+      }
+
+      if (
+        String(formData.imei_2 ?? "").trim() &&
+        !/^\d{15}$/.test(String(formData.imei_2).trim())
+      ) {
+        toast.error("IMEI 2 must contain exactly 15 numeric digits.");
+        return;
+      }
     }
 
-    // Brand image validation
-    if (!brandImage) {
-      toast.error("Brand image is required.");
-      return;
-    }
-
-    // Signature image validation
     if (!signatureImage) {
       toast.error("Signature image is required.");
       return;
     }
 
-    // IMEI 1 validation
-    if (!/^\d{15}$/.test(String(formData.imei_1).trim())) {
-      toast.error("IMEI 1 must contain exactly 15 numeric digits.");
-      return;
-    }
-
-    // IMEI 2 validation (only when provided)
-    if (
-      String(formData.imei_2 ?? "").trim() &&
-      !/^\d{15}$/.test(String(formData.imei_2).trim())
-    ) {
-      toast.error("IMEI 2 must contain exactly 15 numeric digits.");
-      return;
-    }
-
-    // Phone number validation
     if (!/^\d+$/.test(String(formData.phone_number).trim())) {
       toast.error("Phone number must contain numeric digits only.");
       return;
     }
 
-    // Retailer validation
     if (!selectedRetailerId) {
       toast.error("Please select a retailer.");
       return;
     }
 
-    // Country validation
     const selectedCountry = countries.find(
       (country, index) =>
         getCountryId(country, index) === String(selectedCountryId)
@@ -1284,32 +1104,26 @@ const getRoleName = (roleId) => {
 
       const payload = new FormData();
 
-      // Append form fields
       Object.entries(formData).forEach(([key, value]) => {
-        // Send brand_id only for Supreme Key
-        if (key === "brand_id" && !isSupremeKeyEnrollment) {
+        if (
+          isSerialNumber &&
+          (key === "imei_1" || key === "imei_2")
+        ) {
+          return;
+        }
+
+        if (!isSerialNumber && key === "serial_number") {
           return;
         }
 
         payload.append(key, String(value ?? "").trim());
       });
 
-      // Every new device starts with pending status
       payload.set("device_status", "pending");
-
-      // Additional fields
       payload.append("country_code", countryCode);
       payload.append("retailer_id", String(selectedRetailerId));
-
-      // Upload images
-      payload.append("brandImage", brandImage);
       payload.append("signatureImage", signatureImage);
 
-      if (customerImage) {
-        payload.append("customerImage", customerImage);
-      }
-
-      // Add device API
       const result = await addDevice(payload);
 
       if (result?.success === false) {
@@ -1318,20 +1132,16 @@ const getRoleName = (roleId) => {
 
       toast.success(result?.message || "Device added successfully.");
 
-      // Reset form
       setFormData(initialFormData);
-      setBrandImage(null);
-      setCustomerImage(null);
       setSignatureImage(null);
       setHierarchySelections({});
 
-      // Reset image inputs
-      ["brandImage", "customerImage", "signatureImage"].forEach((id) => {
-        const input = document.getElementById(id);
-        if (input) input.value = "";
-      });
+      const signatureInput = document.getElementById("signatureImage");
 
-      // Reset country to India
+      if (signatureInput) {
+        signatureInput.value = "";
+      }
+
       const defaultCountry = countries.find(isIndia) || countries[0];
 
       if (defaultCountry) {
@@ -1342,7 +1152,10 @@ const getRoleName = (roleId) => {
 
       onSuccess?.(result);
     } catch (error) {
-      console.error("Add device error:", error?.response?.data || error);
+      console.error(
+        "ADD DEVICE ERROR:",
+        error?.response?.data || error
+      );
 
       toast.error(
         error?.response?.data?.message ||
@@ -1358,7 +1171,6 @@ const getRoleName = (roleId) => {
     <div className="w-full">
       <div className="mx-auto w-full">
         <div className="overflow-visible rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-8">
-          {/* Header */}
           <div className="relative mb-6 border-b border-gray-200 pb-4">
             <button
               type="button"
@@ -1378,18 +1190,19 @@ const getRoleName = (roleId) => {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                aria-hidden="true"
               >
                 <path d="M19 12H5" />
                 <path d="m12 19-7-7 7-7" />
               </svg>
             </button>
 
-            <h1 className="text-2xl font-bold text-gray-900">Add Device</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Add Device
+            </h1>
 
             <p className="mt-1 text-sm text-gray-500">
-              Enter device details, upload the required images, and select its
-              retailer.
+              Enter device details, upload the signature image, and
+              select its retailer.
             </p>
           </div>
 
@@ -1398,7 +1211,6 @@ const getRoleName = (roleId) => {
             className="space-y-6"
             autoComplete="off"
           >
-            {/* Retailer hierarchy */}
             {hierarchyRoles.length > 0 && (
               <section className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 sm:p-5">
                 <div className="mb-4">
@@ -1407,96 +1219,82 @@ const getRoleName = (roleId) => {
                   </h2>
 
                   <p className="mt-1 text-sm text-gray-500">
-                    Select the retailer under whom you want to register this
-                    device.
+                    Select the retailer under whom you want to register
+                    this device.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-  {hierarchyRoles.map((roleId) => {
-    const roleName = getRoleName(roleId);
+                  {hierarchyRoles.map((roleId) => {
+                    const roleName = getRoleName(roleId);
+                    const users = hierarchyUsers[roleId] || [];
+                    const selectedValue =
+                      hierarchySelections[roleId] || "";
+                    const loadingRole = Boolean(
+                      hierarchyLoading[roleId]
+                    );
 
-    const users = hierarchyUsers[roleId] || [];
-    const selectedValue = hierarchySelections[roleId] || "";
-    const loadingRole = Boolean(hierarchyLoading[roleId]);
+                    const parentRoleIndex =
+                      hierarchyRoles.indexOf(roleId) - 1;
 
-    const parentRoleIndex =
-      hierarchyRoles.indexOf(roleId) - 1;
+                    const parentRole =
+                      parentRoleIndex >= 0
+                        ? hierarchyRoles[parentRoleIndex]
+                        : null;
 
-    const parentRole =
-      parentRoleIndex >= 0
-        ? hierarchyRoles[parentRoleIndex]
-        : null;
+                    const directRetailersAvailable =
+                      roleId === 6 &&
+                      Number(currentRoleId) <= 4 &&
+                      Boolean(hierarchySelections[4]) &&
+                      users.length > 0;
 
-    const directRetailersAvailable =
-      roleId === 6 &&
-      Number(currentRoleId) <= 4 &&
-      Boolean(hierarchySelections[4]) &&
-      users.length > 0;
+                    const parentSelected =
+                      !parentRole ||
+                      Boolean(hierarchySelections[parentRole]) ||
+                      directRetailersAvailable;
 
-    const parentSelected =
-      !parentRole ||
-      Boolean(hierarchySelections[parentRole]) ||
-      directRetailersAvailable;
+                    let placeholder = `Select ${roleName}`;
 
-    let placeholder = `Select ${roleName}`;
+                    if (loadingRole) {
+                      placeholder = `Loading ${roleName}...`;
+                    } else if (!parentSelected) {
+                      placeholder = `Select ${getRoleName(parentRole)} first`;
+                    } else if (users.length === 0) {
+                      placeholder = `No ${roleName} found`;
+                    }
 
-    if (loadingRole) {
-      placeholder = `Loading ${roleName}...`;
-    } else if (!parentSelected) {
-      placeholder = `Select ${getRoleName(parentRole)} first`;
-    } else if (users.length === 0) {
-      placeholder = `No ${roleName} found`;
-    }
-
-    return (
-      <HierarchyDropdown
-        key={roleId}
-        id={`hierarchy_${roleId}`}
-        label={roleName}
-        users={users}
-        value={selectedValue}
-        placeholder={placeholder}
-        loading={loadingRole}
-        disabled={
-          rolesLoading ||
-          loadingRole ||
-          !parentSelected ||
-          users.length === 0
-        }
-        onChange={(selectedUserId) =>
-          handleHierarchyChange(roleId, selectedUserId)
-        }
-      />
-    );
-  })}
-</div>
+                    return (
+                      <HierarchyDropdown
+                        key={roleId}
+                        id={`hierarchy_${roleId}`}
+                        label={roleName}
+                        users={users}
+                        value={selectedValue}
+                        placeholder={placeholder}
+                        loading={loadingRole}
+                        disabled={
+                          rolesLoading ||
+                          loadingRole ||
+                          !parentSelected ||
+                          users.length === 0
+                        }
+                        onChange={(selectedUserId) =>
+                          handleHierarchyChange(roleId, selectedUserId)
+                        }
+                      />
+                    );
+                  })}
+                </div>
               </section>
             )}
 
-            {/* Device details */}
             <section>
               <h2 className="mb-4 text-base font-semibold text-gray-900">
                 Device Details
               </h2>
 
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                <ImageUploadField
-                  id="customerImage"
-                  label="Customer Image"
-                  image={customerImage}
-                  setImage={setCustomerImage}
-                />
-
-                <ImageUploadField
-                  id="brandImage"
-                  label="Brand Image"
-                  image={brandImage}
-                  setImage={setBrandImage}
-                  required
-                />
-
-                <SearchableEnrollmentDropdown
+                <SearchableDropdown
                   id="enrollment_type"
                   name="enrollment_type"
                   label="Enrollment Type"
@@ -1505,58 +1303,105 @@ const getRoleName = (roleId) => {
                   options={enrollmentOptions}
                   loading={enrollmentsLoading}
                   disabled={
-                    enrollmentsLoading || enrollmentOptions.length === 0
+                    enrollmentsLoading ||
+                    enrollmentOptions.length === 0
                   }
-                  placeholder={
-                    enrollmentOptions.length
-                      ? "Select enrollment type"
-                      : "No active enrollment types available"
-                  }
+                  placeholder="Select enrollment type"
                   required
                 />
 
-                {/* Brand - Only visible for Supreme Key */}
-                {isSupremeKeyEnrollment && (
-                  <SearchableEnrollmentDropdown
-                    id="brand_id"
-                    name="brand_id"
-                    label="Brand"
-                    value={formData.brand_id}
-                    onChange={handleChange}
-                    options={brandOptions}
-                    loading={brandsLoading}
-                    disabled={brandsLoading || brandOptions.length === 0}
-                    placeholder={
-                      brandsLoading
-                        ? "Loading brands..."
-                        : brandOptions.length
-                          ? "Select brand"
-                          : "No active brands available"
-                    }
-                    required
-                  />
+                {showSerialNumber ? (
+                  <div className="min-w-0">
+                    <label
+                      htmlFor="serial_number"
+                      className={LABEL_CLASS}
+                    >
+                      Serial Number
+                      <span className="ml-1 text-red-500">*</span>
+                    </label>
+
+                    <input
+                      id="serial_number"
+                      name="serial_number"
+                      type="text"
+                      value={formData.serial_number}
+                      onChange={handleChange}
+                      placeholder="Enter serial number"
+                      className={INPUT_CLASS}
+                      required
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="min-w-0">
+                      <label htmlFor="imei_1" className={LABEL_CLASS}>
+                        IMEI 1
+                        <span className="ml-1 text-red-500">*</span>
+                      </label>
+
+                      <input
+                        id="imei_1"
+                        name="imei_1"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={15}
+                        pattern="[0-9]{15}"
+                        value={formData.imei_1}
+                        onChange={(event) => {
+                          const value = event.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 15);
+
+                          setFormData((previous) => ({
+                            ...previous,
+                            imei_1: value,
+                          }));
+                        }}
+                        placeholder="Enter 15-digit IMEI 1"
+                        className={INPUT_CLASS}
+                        required
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="mb-2 flex items-center justify-between">
+                        <label
+                          htmlFor="imei_2"
+                          className="text-sm font-medium text-gray-700"
+                        >
+                          IMEI 2
+                        </label>
+
+                        <span className="text-xs font-medium text-gray-500">
+                          Optional
+                        </span>
+                      </div>
+
+                      <input
+                        id="imei_2"
+                        name="imei_2"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={15}
+                        pattern="[0-9]{15}"
+                        value={formData.imei_2}
+                        onChange={(event) => {
+                          const value = event.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 15);
+
+                          setFormData((previous) => ({
+                            ...previous,
+                            imei_2: value,
+                          }));
+                        }}
+                        placeholder="Enter 15-digit IMEI 2 (Optional)"
+                        className={INPUT_CLASS}
+                      />
+                    </div>
+                  </>
                 )}
 
-                {/* Serial Number */}
-                <div className="min-w-0">
-                  <label htmlFor="serial_number" className={LABEL_CLASS}>
-                    Serial Number
-                    <span className="ml-1 text-red-500">*</span>
-                  </label>
-
-                  <input
-                    id="serial_number"
-                    name="serial_number"
-                    type="text"
-                    value={formData.serial_number}
-                    onChange={handleChange}
-                    placeholder="Enter serial number"
-                    className={INPUT_CLASS}
-                    required
-                  />
-                </div>
-
-                {/* Customer Name */}
                 <div className="min-w-0">
                   <label htmlFor="customer_name" className={LABEL_CLASS}>
                     Customer Name
@@ -1575,7 +1420,6 @@ const getRoleName = (roleId) => {
                   />
                 </div>
 
-                {/* Phone Number */}
                 <div className="min-w-0">
                   <label htmlFor="phone_number" className={LABEL_CLASS}>
                     Phone Number
@@ -1611,125 +1455,11 @@ const getRoleName = (roleId) => {
                   </div>
                 </div>
 
-                {/* IMEI 1 */}
                 <div className="min-w-0">
-                  <label htmlFor="imei_1" className={LABEL_CLASS}>
-                    IMEI 1
-                    <span className="ml-1 text-red-500">*</span>
-                  </label>
-
-                  <input
-                    id="imei_1"
-                    name="imei_1"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{15}"
-                    maxLength={15}
-                    value={formData.imei_1}
-                    onChange={(event) => {
-                      const value = event.target.value
-                        .replace(/\D/g, "")
-                        .slice(0, 15);
-
-                      setFormData((previous) => ({
-                        ...previous,
-                        imei_1: value,
-                      }));
-                    }}
-                    placeholder="Enter 15-digit IMEI 1"
-                    className={INPUT_CLASS}
-                    required
-                  />
-                </div>
-
-                {/* IMEI 2 */}
-                <div className="min-w-0">
-                  <div className="mb-2 flex items-center justify-between">
-                    <label
-                      htmlFor="imei_2"
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      IMEI 2
-                      {!isIPhoneEnrollment && (
-                        <span className="ml-1 text-red-500">*</span>
-                      )}
-                    </label>
-
-                    {isIPhoneEnrollment && (
-                      <span className="text-xs font-medium text-gray-500">
-                        Optional
-                      </span>
-                    )}
-                  </div>
-
-                  <input
-                    id="imei_2"
-                    name="imei_2"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{15}"
-                    maxLength={15}
-                    value={formData.imei_2}
-                    onChange={(event) => {
-                      const value = event.target.value
-                        .replace(/\D/g, "")
-                        .slice(0, 15);
-
-                      setFormData((previous) => ({
-                        ...previous,
-                        imei_2: value,
-                      }));
-                    }}
-                    placeholder={
-                      isIPhoneEnrollment
-                        ? "Enter 15-digit IMEI 2 (Optional)"
-                        : "Enter 15-digit IMEI 2"
-                    }
-                    className={INPUT_CLASS}
-                    required={!isIPhoneEnrollment}
-                  />
-                </div>
-
-                {/* Key Type */}
-                <SearchableEnrollmentDropdown
-                  id="key_type"
-                  name="key_type"
-                  label="Key Type"
-                  value={formData.key_type}
-                  onChange={handleChange}
-                  options={keyTypeOptions}
-                  loading={keySettingsLoading}
-                  disabled={
-                    keySettingsLoading || keyTypeOptions.length === 0
-                  }
-                  placeholder={
-                    keyTypeOptions.length
-                      ? "Select key type"
-                      : "No active key types available"
-                  }
-                  required
-                />
-
-                <div className="min-w-0">
-                  <label htmlFor="fl_version" className={LABEL_CLASS}>
-                    FL Version
-                    <span className="ml-1 text-red-500">*</span>
-                  </label>
-
-                  <input
-                    id="fl_version"
-                    name="fl_version"
-                    type="text"
-                    value={formData.fl_version}
-                    onChange={handleChange}
-                    placeholder="Enter FL version"
-                    className={INPUT_CLASS}
-                    required
-                  />
-                </div>
-
-                <div className="min-w-0">
-                  <label htmlFor="guarantor_name" className={LABEL_CLASS}>
+                  <label
+                    htmlFor="guarantor_name"
+                    className={LABEL_CLASS}
+                  >
                     Guarantor Name
                     <span className="ml-1 text-xs font-normal text-gray-400">
                       (Optional)
@@ -1748,7 +1478,10 @@ const getRoleName = (roleId) => {
                 </div>
 
                 <div className="min-w-0">
-                  <label htmlFor="guarantor_number" className={LABEL_CLASS}>
+                  <label
+                    htmlFor="guarantor_number"
+                    className={LABEL_CLASS}
+                  >
                     Guarantor Number
                     <span className="ml-1 text-xs font-normal text-gray-400">
                       (Optional)
@@ -1799,18 +1532,15 @@ const getRoleName = (roleId) => {
                 disabled={
                   loading ||
                   !selectedRetailerId ||
+                  rolesLoading ||
+                  (currentRoleId !== 6 && hierarchyRoles.length > 0 &&
+                    !hierarchySelections[6]) ||
                   enrollmentsLoading ||
-                  keySettingsLoading ||
-                  enrollmentOptions.length === 0 ||
-                  keyTypeOptions.length === 0
+                  enrollmentOptions.length === 0
                 }
                 className="cursor-pointer rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading
-                  ? "Processing..."
-                  : isSupremeKeyEnrollment
-                    ? "Check Eligibility"
-                    : "Add Device"}
+                {loading ? "Processing..." : "Add Device"}
               </button>
             </div>
           </form>
