@@ -3,11 +3,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { FaPlus } from "react-icons/fa6";
+import { FaPlus ,FaEye } from "react-icons/fa6";
 import { getDevices } from "@/services/api";
 import DeviceDetailForm from "./form";
 import { createPortal } from "react-dom";
 import { RxCross2 } from "react-icons/rx";
+import UserDetail from "./User-Detail";
+
+
 const PAGE_SIZE = 10;
 const SKELETON_ROWS = 6;
 
@@ -22,13 +25,11 @@ const TABLE_HEADERS = [
   "Registration No.",
   "IMEI 1",
   "IMEI 2",
-  "Key Type",
   "Signature",
   "Status",
   "Retailer",
   "FOS",
   "Distributor",
-  "FL Version",
   "Guarantor Name",
   "Guarantor Number",
   "Actions",
@@ -36,9 +37,7 @@ const TABLE_HEADERS = [
 
 function SkeletonLine({ className = "" }) {
   return (
-    <div
-      className={`animate-pulse rounded-md bg-gray-200 ${className}`}
-    />
+    <div className={`animate-pulse rounded-md bg-gray-200 ${className}`} />
   );
 }
 
@@ -50,10 +49,7 @@ function DeviceTableSkeleton() {
           <thead className="bg-gray-100">
             <tr>
               {TABLE_HEADERS.map((header) => (
-                <th
-                  key={header}
-                  className="whitespace-nowrap px-4 py-4"
-                >
+                <th key={header} className="whitespace-nowrap px-4 py-4">
                   <SkeletonLine className="h-3 w-20" />
                 </th>
               ))}
@@ -86,10 +82,7 @@ function DeviceTableSkeleton() {
         <SkeletonLine className="h-4 w-48" />
         <div className="flex gap-2">
           {Array.from({ length: 5 }).map((_, index) => (
-            <SkeletonLine
-              key={index}
-              className="h-9 w-10 rounded-lg"
-            />
+            <SkeletonLine key={index} className="h-9 w-10 rounded-lg" />
           ))}
         </div>
       </div>
@@ -132,10 +125,14 @@ function PersonCell({ name, companyName, blankIfMissing = false }) {
   );
 }
 
-
 function ImageCell({ path, alt, getImageUrl, className = "" }) {
   const [imageError, setImageError] = useState(false);
   const [showImage, setShowImage] = useState(false);
+  
+
+  useEffect(() => {
+    setImageError(false);
+  }, [path]);
 
   if (!path || imageError) {
     return (
@@ -162,24 +159,21 @@ function ImageCell({ path, alt, getImageUrl, className = "" }) {
         </div>
       </td>
 
-      {/* Image Preview Modal */}
       {showImage &&
         createPortal(
           <div
             className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-4"
             onClick={() => setShowImage(false)}
           >
-            {/* Close Button */}
             <button
               type="button"
               onClick={() => setShowImage(false)}
               className="absolute right-6 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-3xl text-white transition hover:bg-white/30"
-              aria-label="Close image preview "
+              aria-label="Close image preview"
             >
-              <RxCross2 className="cursor-pointer" />
+              <RxCross2 />
             </button>
 
-            {/* Preview Image */}
             <img
               src={imageUrl}
               alt={alt || "Image Preview"}
@@ -193,13 +187,12 @@ function ImageCell({ path, alt, getImageUrl, className = "" }) {
   );
 }
 
-
 function TextCell({ children, className = "" }) {
   return (
-    <td
-      className={`whitespace-nowrap px-4 py-4 text-gray-600 ${className}`}
-    >
-      {children || "-"}
+    <td className={`whitespace-nowrap px-4 py-4 text-gray-600 ${className}`}>
+      {children === null || children === undefined || children === ""
+        ? "-"
+        : children}
     </td>
   );
 }
@@ -228,7 +221,9 @@ export function DeviceDetail() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalDevices, setTotalDevices] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [selectedDeviceId, setSelectedDeviceId] = useState(null);
 
+  // Fetch device data
   const fetchDevices = useCallback(async (page = 1) => {
     try {
       setLoading(true);
@@ -252,12 +247,11 @@ export function DeviceDetail() {
               : null;
 
       if (!payload) {
-        throw new Error(
-          "Invalid devices response received from the server."
-        );
+        throw new Error("Invalid devices response received from the server.");
       }
 
       const deviceList = payload.data;
+
       const pagination =
         payload.pagination ??
         root?.pagination ??
@@ -286,10 +280,7 @@ export function DeviceDetail() {
           : page
       );
     } catch (err) {
-      console.error(
-        "GET DEVICES ERROR:",
-        err?.response?.data || err
-      );
+      console.error("GET DEVICES ERROR:", err?.response?.data || err);
 
       const message =
         err?.response?.data?.message ||
@@ -311,6 +302,7 @@ export function DeviceDetail() {
     fetchDevices(currentPage);
   }, [currentPage, fetchDevices]);
 
+  // Image URL
   const getImageUrl = useCallback((imagePath) => {
     if (!imagePath) return "";
 
@@ -347,10 +339,7 @@ export function DeviceDetail() {
 
   const getPageNumbers = () => {
     if (totalPages <= 5) {
-      return Array.from(
-        { length: totalPages },
-        (_, index) => index + 1
-      );
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
     }
 
     let start = Math.max(1, currentPage - 2);
@@ -366,6 +355,15 @@ export function DeviceDetail() {
     );
   };
 
+  if (selectedDeviceId) {
+  return (
+    <UserDetail
+      deviceId={selectedDeviceId}
+      onBack={() => setSelectedDeviceId(null)}
+    />
+  );
+}
+
   if (showAddForm) {
     return (
       <DeviceDetailForm
@@ -376,14 +374,9 @@ export function DeviceDetail() {
   }
 
   const startRecord =
-    totalDevices === 0
-      ? 0
-      : (currentPage - 1) * PAGE_SIZE + 1;
+    totalDevices === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
 
-  const endRecord = Math.min(
-    currentPage * PAGE_SIZE,
-    totalDevices
-  );
+  const endRecord = Math.min(currentPage * PAGE_SIZE, totalDevices);
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -458,7 +451,6 @@ export function DeviceDetail() {
           <h2 className="text-lg font-semibold text-gray-800">
             No devices found
           </h2>
-
           <p className="mt-2 text-sm text-gray-500">
             No device records are currently available.
           </p>
@@ -467,16 +459,13 @@ export function DeviceDetail() {
 
       {/* Device Table */}
       {!loading && !error && devices.length > 0 && (
-     <div className="mb-10 rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="mb-10 rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[3000px] text-left text-sm">
               <thead className="bg-gray-100 text-xs uppercase tracking-wider text-gray-600">
                 <tr>
                   {TABLE_HEADERS.map((header) => (
-                    <th
-                      key={header}
-                      className="whitespace-nowrap px-4 py-4"
-                    >
+                    <th key={header} className="whitespace-nowrap px-4 py-4">
                       {header}
                     </th>
                   ))}
@@ -484,123 +473,129 @@ export function DeviceDetail() {
               </thead>
 
               <tbody className="divide-y divide-gray-100">
-  {devices.map((device, index) => (
-    <tr
-      key={device.id ?? index}
-      className="transition hover:bg-gray-50"
-    >
-      {/* 1. S. No. */}
-      <td className="whitespace-nowrap px-4 py-4 font-medium text-gray-900">
-        {(currentPage - 1) * PAGE_SIZE + index + 1}
-      </td>
+                {devices.map((device, index) => (
+                  <tr
+                    key={device.id ?? index}
+                    className="transition hover:bg-gray-50"
+                  >
+                    {/* 1. S. No. */}
+                    <td className="whitespace-nowrap px-4 py-4 font-medium text-gray-900">
+                      {(currentPage - 1) * PAGE_SIZE + index + 1}
+                    </td>
 
-      {/* 2. Serial Number */}
-      <TextCell>{device.serial_number}</TextCell>
+                    {/* 2. Serial Number */}
+                    <TextCell>{device.serial_number}</TextCell>
 
-      {/* 3. Brand */}
-      <ImageCell
-        path={device.brand}
-        alt="Brand"
-        getImageUrl={getImageUrl}
-      />
+                    {/* 3. Brand */}
+                    <ImageCell
+                      path={device.brand}
+                      alt="Brand"
+                      getImageUrl={getImageUrl}
+                    />
 
-      {/* 4. Customer Image */}
-      <ImageCell
-        path={device.customer_image}
-        alt={device.customer_name || "Customer"}
-        getImageUrl={getImageUrl}
-        className="object-cover"
-      />
+                    {/* 4. Customer Image */}
+                    <ImageCell
+                      path={device.customer_image}
+                      alt={device.customer_name || "Customer"}
+                      getImageUrl={getImageUrl}
+                      className="object-cover"
+                    />
 
-      {/* 5. Customer Name */}
-      <TextCell className="font-medium text-gray-800">
-        {device.customer_name}
-      </TextCell>
+                    {/* 5. Customer Name */}
+                    <TextCell className="font-medium text-gray-800">
+                      {device.customer_name}
+                    </TextCell>
 
-      {/* 6. Enrollment */}
-      <td className="whitespace-nowrap px-4 py-4">
-        <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold capitalize text-blue-700">
-          {device.enrollment_name || "-"}
-        </span>
-      </td>
+                    {/* 6. Enrollment */}
+                    <td className="whitespace-nowrap px-4 py-4">
+                      <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold capitalize text-blue-700">
+                        {device.enrollment_name || "-"}
+                      </span>
+                    </td>
 
-      {/* 7. Phone */}
-      <TextCell>
-        {device.phone_number
-          ? `${String(
-              device.country_code ??
-                device.calling_code ??
-                device.dial_code ??
-                ""
-            )
-              .trim()
-              .replace(/\s+/g, "")
-              .replace(/^(?!\+)/, "+")} ${String(
-              device.phone_number
-            ).trim()}`.trim()
-          : "-"}
-      </TextCell>
+                    {/* 7. Phone */}
+                    <TextCell>
+                      {device.phone_number
+                        ? `${String(
+                            device.country_code ??
+                              device.calling_code ??
+                              device.dial_code ??
+                              ""
+                          )
+                            .trim()
+                            .replace(/\s+/g, "")
+                            .replace(/^(?!\+)/, "+")} ${String(
+                            device.phone_number
+                          ).trim()}`.trim()
+                        : "-"}
+                    </TextCell>
 
-      {/* 8. Registration No. */}
-      <TextCell>{device.registration_no}</TextCell>
+                    {/* 8. Registration Number */}
+                    <TextCell>
+                      {device.registration_no ?? "-"}
+                    </TextCell>
 
-      {/* 9. IMEI 1 */}
-      <TextCell>{device.imei_1}</TextCell>
+                    {/* 9. IMEI 1 */}
+                    <TextCell>{device.imei_1}</TextCell>
 
-      {/* 10. IMEI 2 */}
-      <TextCell>{device.imei_2}</TextCell>
+                    {/* 10. IMEI 2 */}
+                    <TextCell>{device.imei_2}</TextCell>
 
-      {/* 11. Key Type */}
-      <TextCell>
-        {device.key_name || device.key_type}
-      </TextCell>
 
-      {/* 12. Signature */}
-      <ImageCell
-        path={device.signature}
-        alt="Device signature"
-        getImageUrl={getImageUrl}
-      />
+                    {/* 12. Signature */}
+                    <ImageCell
+                      path={device.signature}
+                      alt="Device signature"
+                      getImageUrl={getImageUrl}
+                    />
 
-      {/* 13. Status */}
-      <td className="whitespace-nowrap px-4 py-4">
-        <StatusBadge status={device.device_status} />
-      </td>
+                    {/* 13. Status */}
+                    <td className="whitespace-nowrap px-4 py-4">
+                      <StatusBadge status={device.device_status} />
+                    </td>
 
-      {/* 14. Retailer */}
-      <PersonCell
-        name={device.retailer_name}
-        companyName={device.retailer_company_name}
-      />
+                    {/* 14. Retailer */}
+                    <PersonCell
+                      name={device.retailer_name}
+                      companyName={device.retailer_company_name}
+                    />
 
-      {/* 15. FOS */}
-      <PersonCell
-        name={device.fos_name}
-        companyName={device.fos_company_name}
-        blankIfMissing
-      />
+                    {/* 15. FOS */}
+                    <PersonCell
+                      name={device.fos_name}
+                      companyName={device.fos_company_name}
+                      blankIfMissing
+                    />
 
-      {/* 16. Distributor */}
-      <PersonCell
-        name={device.distributor_name}
-        companyName={device.distributor_company_name}
-        blankIfMissing
-      />
+                    {/* 16. Distributor */}
+                    <PersonCell
+                      name={device.distributor_name}
+                      companyName={device.distributor_company_name}
+                      blankIfMissing
+                    />
 
-      {/* 17. FL Version */}
-      <TextCell>{device.fl_version}</TextCell>
+              
 
-      {/* 18. Guarantor Name */}
-      <TextCell>{device.guarantor_name}</TextCell>
+                    {/* 18. Guarantor Name */}
+                    <TextCell>{device.guarantor_name}</TextCell>
 
-      {/* 19. Guarantor Number */}
-      <TextCell>{device.guarantor_number}</TextCell>
+                    {/* 19. Guarantor Number */}
+                    <TextCell>{device.guarantor_number}</TextCell>
 
-      {/* 20. Actions */}
-      <TextCell>-</TextCell>
-    </tr>
-  ))}
-</tbody>
+                    {/* 20. Actions */}
+                <td className="px-4 py-4">
+  <button
+    type="button"
+    title="View Device"
+    onClick={() => setSelectedDeviceId(device.id)}
+    className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-blue-50 text-blue-600 transition hover:bg-blue-100 hover:text-blue-700"
+  >
+    <FaEye size={16} />
+  </button>
+</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
 
@@ -637,9 +632,7 @@ export function DeviceDetail() {
                     type="button"
                     onClick={() => setCurrentPage(page)}
                     disabled={loading || page === currentPage}
-                    aria-current={
-                      page === currentPage ? "page" : undefined
-                    }
+                    aria-current={page === currentPage ? "page" : undefined}
                     className={`min-w-10 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
                       page === currentPage
                         ? "border-blue-600 bg-blue-600 text-white"

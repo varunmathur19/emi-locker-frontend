@@ -17,6 +17,7 @@ import {
   getKeySettings,
   getNormalCompanySetting,
 } from "@/services/api";
+import { apiBaseUrl } from "@/utils/axios";
 
 const ALLOWED_ROLES_BY_ROLE = {
   0: [1],
@@ -480,8 +481,13 @@ export default function Sidebar({ sidebarOpen }) {
     ));
   };
 
-  const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/api\/?$/, "");
-  const companyLogoUrl = companyLogo ? `${apiBaseUrl}${companyLogo}` : null;
+ const imageBaseUrl = apiBaseUrl?.replace(/\/api\/?$/, "").replace(/\/$/, "");
+
+const companyLogoUrl = companyLogo
+  ? /^https?:\/\//i.test(companyLogo)
+    ? companyLogo
+    : `${imageBaseUrl}/${companyLogo.replace(/^\/+/, "")}`
+  : null;
 
   return (
     <aside className={`fixed left-0 top-0 z-[99] flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${sidebarOpen ? "w-68 p-5" : "w-0 p-0"}`}>
