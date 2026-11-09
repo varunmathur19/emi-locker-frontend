@@ -4,42 +4,150 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { FaArrowLeft } from "react-icons/fa";
-import { getDeviceById ,  } from "@/services/api";
+import { getDeviceById ,getDeviceKyc ,uploadDeviceKyc  } from "@/services/api";
+
 import {apiBaseUrl } from "@/utils/axios";
 
 export default function UserDetail({ deviceId, onBack }) {
   const [device, setDevice] = useState(null);
+  const [kyc, setKyc] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [uploadingField, setUploadingField] = useState(null);
+  
 
-  useEffect(() => {
-    if (!deviceId) return;
+useEffect(() => {
+  if (!deviceId) return;
 
-    const fetchDevice = async () => {
-      try {
-        setLoading(true);
+  const fetchDevice = async () => {
+    setLoading(true);
 
-        const response = await getDeviceById(deviceId);
-        const root = response?.data ?? response;
+    try {
+      // 1. Fetch Device Details
+      const response = await getDeviceById(deviceId);
 
-        setDevice(root?.data ?? root?.device ?? null);
-      } catch (error) {
-        console.error(
-          "GET DEVICE BY ID ERROR:",
-          error?.response?.data || error
-        );
+      console.log("DEVICE API RESPONSE:", response);
 
-        toast.error(
-          error?.response?.data?.message ||
-            "Failed to fetch device details."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+      const root = response?.data ?? response;
 
-    fetchDevice();
-  }, [deviceId]);
+      setDevice(
+        root?.data ?? root?.device ?? null
+      );
 
+    } catch (error) {
+      console.error(
+        "GET DEVICE ERROR:",
+        error?.response?.data || error
+      );
+
+      toast.error(
+        error?.response?.data?.message ||
+        "Failed to fetch device details."
+      );
+
+      setDevice(null);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Fetch KYC Details separately
+    try {
+      const kycResponse = await getDeviceKyc(deviceId);
+
+      console.log("KYC API RESPONSE:", kycResponse);
+
+      const kycData =
+        kycResponse?.data?.data ??
+        kycResponse?.data ??
+        kycResponse;
+
+      setKyc(kycData);
+
+    } catch (error) {
+      console.error(
+        "GET DEVICE KYC ERROR:",
+        error?.response?.data || error
+      );
+
+      setKyc(null);
+
+      toast.error(
+        error?.response?.data?.message ||
+        "Failed to fetch KYC documents."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchDevice();
+}, [deviceId]);
+
+
+const handleKycUpload = async (field, file) => {
+  if (!file || !deviceId) return;
+
+  const allowedTypes = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+  "application/x-pdf",
+];
+
+if (!allowedTypes.includes(file.type)) {
+  toast.error("Only PNG, JPG, JPEG, WEBP and PDF files are allowed.");
+  return;
+}
+
+if (file.size > 2 * 1024 * 1024) {
+  toast.error("File size must be less than 2 MB.");
+  return;
+}
+
+  if (file.size > 2 * 1024 * 1024) {
+    toast.error("Image size must be less than 2 MB.");
+    return;
+  }
+
+  try {
+    setUploadingField(field);
+
+    const formData = new FormData();
+    formData.append(field, file);
+
+    // Upload API
+    const uploadResponse = await uploadDeviceKyc(
+      deviceId,
+      formData
+    );
+
+    if (!uploadResponse?.success) {
+      throw new Error(uploadResponse?.message || "Upload failed.");
+    }
+
+    toast.success("KYC document uploaded successfully.");
+
+    // Get updated KYC data
+    const response = await getDeviceKyc(deviceId);
+
+    if (response?.success) {
+      setKyc(response.data);
+    }
+
+  } catch (error) {
+    console.error("KYC UPLOAD ERROR:", error?.response?.data || error);
+
+    toast.error(
+      error?.response?.data?.message ||
+      error.message ||
+      "Failed to upload KYC document."
+    );
+  } finally {
+    setUploadingField(null);
+  }
+};
   // Back Button
   const BackButton = () => (
     <button
@@ -138,6 +246,16 @@ const signatureUrl = device.signature
     : `${imageBaseUrl}/${device.signature.replace(/^\/+/, "")}`
   : null;
 
+  const getImageUrl = (imagePath) => {
+  if (!imagePath) return "";
+
+  if (/^https?:\/\//i.test(imagePath)) {
+    return imagePath;
+  }
+
+  return `${imageBaseUrl}/${imagePath.replace(/^\/+/, "")}`;
+};
+
   return (
     <div className="mx-auto max-w-7xl">
       {/* Header */}
@@ -192,6 +310,111 @@ const signatureUrl = device.signature
             />
           </div>
         )}
+        <div className="mt-8 border-t border-gray-200 pt-6">
+
+  <h3 className="mb-2 text-lg font-semibold text-gray-800">
+    Product Details
+  </h3>
+
+
+</div>
+{/* User KYC Section */}
+<div className="mt-8 border-t border-gray-200 pt-6">
+
+  <h3 className="mb-2 text-lg font-semibold text-gray-800">
+    User KYC
+  </h3>
+
+  <p className="mb-5 text-sm text-gray-500">
+    Click on any document to upload or replace.
+  </p>
+
+  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+    {[
+      { label: "User Photo", field: "user_photo" },
+      { label: "Aadhaar Front", field: "aadhaar_front" },
+      { label: "Aadhaar Back", field: "aadhaar_back" },
+      { label: "PAN Front", field: "pan_front" },
+      { label: "PAN Back", field: "pan_back" },
+      { label: "Passbook", field: "passbook" },
+      { label: "Signature", field: "signature" },
+    ].map((item) => {
+      const image = kyc?.[item.field];
+      const isUploading = uploadingField === item.field;
+
+      return (
+        <div
+          key={item.field}
+          className="rounded-lg border border-gray-200 bg-white p-4"
+        >
+          <p className="mb-3 text-sm font-medium text-gray-600">
+            {item.label}
+          </p>
+
+          <label className="group relative flex h-40 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50 transition hover:border-blue-400 hover:bg-blue-50">
+
+            {image ? (
+  image.toLowerCase().endsWith(".pdf") ? (
+    <div className="flex flex-col items-center gap-2">
+      <span className="text-3xl text-red-500">PDF</span>
+      <span className="text-xs text-gray-500">
+        Document Uploaded
+      </span>
+    </div>
+  ) : (
+    <img
+      src={getImageUrl(image)}
+      alt={item.label}
+      className="h-full w-full object-contain p-2"
+    />
+  )
+) : (
+              <div className="text-center">
+                <p className="text-sm text-gray-400">
+                  Click to upload
+                </p>
+              </div>
+            )}
+
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition group-hover:opacity-100">
+              <span className="text-sm font-semibold text-white">
+                {isUploading
+                  ? "Uploading..."
+                  :image
+  ? "Replace Document"
+  : "Upload Document"}
+              </span>
+            </div>
+
+            <input
+  type="file"
+  accept="image/png,image/jpeg,image/webp,image/heic,image/heif,application/pdf,.pdf"
+  className="hidden"
+  disabled={uploadingField !== null}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+
+                if (file) {
+                  handleKycUpload(item.field, file);
+                }
+
+                e.target.value = "";
+              }}
+            />
+
+          </label>
+
+          <p className="mt-2 text-xs text-gray-400">
+            Maximum file size: 2 MB
+          </p>
+        </div>
+      );
+    })}
+
+  </div>
+</div>
+
       </div>
     </div>
   );

@@ -704,3 +704,21 @@ export const getBrands = async () => {
     throw error;
   }
 };
+
+//upload kyc user -details
+export const uploadDeviceKyc = async (deviceId, formData) => {
+  const response = await api.post(
+    `/devices/${deviceId}/kyc`,
+    formData
+  );
+
+  return response.data;
+};
+
+//get user-detail by id//kyc
+
+export const getDeviceKyc = async (deviceId) => {
+  const response = await api.get(`/devices/${deviceId}/kyc`);
+  return response.data;
+};
+
