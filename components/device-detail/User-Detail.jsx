@@ -16,6 +16,7 @@ export default function UserDetail({ deviceId, onBack }) {
   const [uploadingField, setUploadingField] = useState(null);
   const [financeDetails, setFinanceDetails] = useState([]);
   
+  
 const [financeForm, setFinanceForm] = useState({
   loan_number: "",
   finance_type: "",
@@ -59,7 +60,29 @@ const deviceData = root?.data ?? root?.device ?? null;
 setDevice(deviceData);
 
 // Set finance details and EMI schedule from getDeviceById API
-setFinanceDetails(deviceData?.finance_details || []);
+const existingFinance = deviceData?.finance_details || [];
+
+setFinanceDetails(existingFinance);
+
+if (existingFinance.length > 0) {
+  const finance = existingFinance[0];
+
+  setFinanceForm({
+    loan_number: finance.loan_number || "",
+    finance_type: finance.finance_type || "",
+    product_price: finance.product_price ?? "",
+    down_payment_amount: finance.down_payment_amount ?? "",
+    other_charge: finance.other_charge ?? "0",
+    tenure_type: finance.tenure_type || "monthly",
+    tenure_value: finance.tenure_value ?? "",
+    interest_rate: finance.interest_rate ?? "",
+    due_date: finance.due_date
+      ? new Date(finance.due_date).toISOString().split("T")[0]
+      : "",
+    device_brand: finance.device_brand || "",
+    device_model: finance.device_model || "",
+  });
+}
 
     } catch (error) {
       console.error(
@@ -555,18 +578,27 @@ const signatureUrl = device.signature
                           {emi.status || "pending"}
                         </span>
                       </td>
+                      
 
                       <td className="px-4 py-3">
                         {emi.paid_at
                           ? new Date(emi.paid_at).toLocaleDateString("en-IN")
                           : "-"}
                       </td>
+                      <td className="px-4 py-3">
+  <input
+    type="checkbox"
+    checked={emi.status === "paid"}
+    readOnly
+    className="h-4 w-4 cursor-pointer accent-green-600"
+  />
+</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-4 py-5 text-center text-gray-500"
                     >
                       No EMI installments found.
@@ -585,90 +617,28 @@ const signatureUrl = device.signature
       
 
 {/* Product Details / Finance Form */}
-<form onSubmit={handleFinanceSubmit}>
-  
+
+{/* Product & Finance Details */}
+
+
 {/* Product & Finance Details */}
 
 <div className="mt-8 border-t border-gray-200 pt-6">
-  <h3 className="mb-5 text-lg font-semibold text-gray-800">
-    Product & Finance Details
-  </h3>
+  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <h3 className="text-lg font-semibold text-gray-800">
+      Product & Finance Details
+    </h3>
 
-{financeDetails.length > 0 ? (
-  <div className="space-y-5">
-    {financeDetails.map((finance) => (
-      <div
-        key={finance.id || finance.finance_id}
-        className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
-      >
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h4 className="text-base font-semibold text-gray-800">
-            Finance Information
-          </h4>
-
-          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-            Finance Created
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            ["Loan Number", finance.loan_number],
-            ["Finance Type", finance.finance_type],
-            ["Product Price", finance.product_price, true],
-            ["Down Payment", finance.down_payment_amount, true],
-            ["Other Charge", finance.other_charge, true],
-            ["Balance Amount", finance.balance_amount, true],
-            ["Interest Rate", `${finance.interest_rate}%`],
-            ["Tenure Type", finance.tenure_type],
-            [
-              "Tenure",
-              `${finance.tenure_value} ${
-                finance.tenure_type === "yearly" ? "Years" : "Months"
-              }`,
-            ],
-            ["Number of EMI", finance.number_of_emi],
-            ["Total EMI Amount", finance.total_emi_amount, true],
-            ["EMI Per Month", finance.emi_per_month, true],
-            ["Device Brand", finance.device_brand],
-            ["Device Model", finance.device_model],
-            [
-              "Due Date",
-              finance.due_date
-                ? new Date(finance.due_date).toLocaleDateString("en-IN")
-                : "-",
-            ],
-          ].map(([label, value, isAmount]) => (
-            <div key={label} className="border-b border-gray-100 pb-3">
-              <p className="text-sm text-gray-500">{label}</p>
-
-              <p className="mt-1 break-words font-semibold text-gray-800">
-                {isAmount
-                  ? `₹${Number(value || 0).toFixed(2)}`
-                  : value || "-"}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Update Button - Finance Details ke Niche */}
-        <div className="mt-6 flex justify-end border-t border-gray-100 pt-4">
-          <button
-            type="button"
-            onClick={() => {
-              // Update finance functionality yahan add hogi
-            }}
-            className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-          >
-            Update
-          </button>
-        </div>
-      </div>
-    ))}
+    {financeDetails.length > 0 && (
+      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+        Finance Created
+      </span>
+    )}
   </div>
-) : (
+
   <form onSubmit={handleFinanceSubmit}>
     <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+
       {/* Loan Number */}
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -917,20 +887,23 @@ const signatureUrl = device.signature
       </div>
     </div>
 
+    {/* Submit Button */}
     <div className="mt-6 flex justify-end">
       <button
         type="submit"
         disabled={financeSubmitting}
         className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {financeSubmitting ? "Saving Finance..." : "Create Finance"}
+        {financeSubmitting
+          ? "Saving Finance..."
+          : financeDetails.length > 0
+            ? "Update Finance"
+            : "Create Finance"}
       </button>
     </div>
   </form>
-)}
 </div>
 
-</form>
 
 
 
