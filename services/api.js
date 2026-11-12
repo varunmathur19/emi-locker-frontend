@@ -722,3 +722,20 @@ export const getDeviceKyc = async (deviceId) => {
   return response.data;
 };
 
+
+// ==========================================
+// POST API - CREATE FINANCE
+// ==========================================
+export const createFinance = async (data) => {
+  try {
+    const response = await api.post("/finance", data);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Create Finance API Error:",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
+};
+
