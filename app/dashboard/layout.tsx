@@ -27,7 +27,7 @@ export default function DashboardLayout({
           flex-col
           transition-all
           duration-300
-          ${sidebarOpen ? "md:ml-64 ml-0" : "ml-0"}
+         ${sidebarOpen ? "md:ml-68 ml-0" : "ml-16"}
         `}
       >
 
@@ -37,7 +37,7 @@ export default function DashboardLayout({
         />
 
 
-        <main className="flex-1 min-w-0 overflow-y-auto p-8 pt-20">
+        <main className="flex-1 min-w-0 overflow-y-auto p-5 pt-20">
           <AuthGuard>
           {children}
           </AuthGuard>

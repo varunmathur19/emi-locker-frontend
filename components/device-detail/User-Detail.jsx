@@ -15,6 +15,7 @@ export default function UserDetail({ deviceId, onBack }) {
   const [loading, setLoading] = useState(true);
   const [uploadingField, setUploadingField] = useState(null);
   const [financeDetails, setFinanceDetails] = useState([]);
+  const [emiConfirm, setEmiConfirm] = useState(null);
   
   
 const [financeForm, setFinanceForm] = useState({
@@ -580,55 +581,83 @@ const signatureUrl = device.signature
   (emi) => Number(emi.status) === 0
 );
 
+const paidEmi = emiSchedule.filter(
+  (emi) => Number(emi.status) === 1
+).length;
+
+const paidAmount = emiSchedule
+  .filter((emi) => Number(emi.status) === 1)
+  .reduce((total, emi) => total + Number(emi.amount || 0), 0);
+
+const remainingAmount = emiSchedule
+  .filter((emi) => Number(emi.status) === 0)
+  .reduce((total, emi) => total + Number(emi.amount || 0), 0);
+
         return (
           <div
             key={finance.id}
             className="overflow-hidden rounded-lg border border-gray-200"
           >
             {/* Finance Summary */}
-            <div className="grid grid-cols-1 gap-4 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <p className="text-xs text-gray-500">Loan Number</p>
-                <p className="font-semibold text-gray-800">
-                  {finance.loan_number || "-"}
-                </p>
-              </div>
+          <div className="grid grid-cols-1 gap-4 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
 
-              <div>
-                <p className="text-xs text-gray-500">Finance Type</p>
-                <p className="font-semibold text-gray-800">
-                  {finance.finance_type || "-"}
-                </p>
-              </div>
+  <div>
+    <p className="text-xs text-gray-500">Loan Number</p>
+    <p className="font-semibold text-gray-800">
+      {finance.loan_number || "-"}
+    </p>
+  </div>
 
-              <div>
-                <p className="text-xs text-gray-500">Total EMI</p>
-                <p className="font-semibold text-gray-800">
-                  {emiSchedule.length}
-                </p>
-              </div>
+  <div>
+    <p className="text-xs text-gray-500">Finance Type</p>
+    <p className="font-semibold text-gray-800">
+      {finance.finance_type || "-"}
+    </p>
+  </div>
 
-              <div>
-                <p className="text-xs text-gray-500">Pending EMI</p>
-                <p className="font-semibold text-orange-600">
-                  {pendingEmi}
-                </p>
-              </div>
+  <div>
+    <p className="text-xs text-gray-500">Total EMI</p>
+    <p className="font-semibold text-gray-800">
+      {emiSchedule.length}
+    </p>
+  </div>
 
-              <div>
-                <p className="text-xs text-gray-500">Total Amount</p>
-                <p className="font-semibold text-gray-800">
-                  ₹{Number(finance.total_emi_amount || 0).toFixed(2)}
-                </p>
-              </div>
+  <div>
+    <p className="text-xs text-gray-500">Pending EMI</p>
+    <p className="font-semibold text-orange-600">
+      {pendingEmi}
+    </p>
+  </div>
 
-              <div>
-                <p className="text-xs text-gray-500">EMI Per Month</p>
-                <p className="font-semibold text-gray-800">
-                  ₹{Number(finance.emi_per_month || 0).toFixed(2)}
-                </p>
-              </div>
-            </div>
+  <div>
+    <p className="text-xs text-gray-500">Total Amount</p>
+    <p className="font-semibold text-gray-800">
+      ₹{Number(finance.total_emi_amount || 0).toFixed(2)}
+    </p>
+  </div>
+
+  <div>
+    <p className="text-xs text-gray-500">EMI Per Month</p>
+    <p className="font-semibold text-gray-800">
+      ₹{Number(finance.emi_per_month || 0).toFixed(2)}
+    </p>
+  </div>
+
+  <div>
+    <p className="text-xs text-gray-500">Paid Amount</p>
+    <p className="font-semibold text-green-600">
+      ₹{paidAmount.toFixed(2)}
+    </p>
+  </div>
+
+  <div>
+    <p className="text-xs text-gray-500">Remaining Amount</p>
+    <p className="font-semibold text-red-600">
+      ₹{remainingAmount.toFixed(2)}
+    </p>
+  </div>
+
+</div>
 
             {/* EMI Table */}
            {/* EMI Table */}
@@ -714,13 +743,13 @@ const signatureUrl = device.signature
       (item) => Number(item.id) === Number(emi.id)
     ) !== firstPendingIndex
   }
-  onChange={() =>
-    handleEmiStatusUpdate(
-      finance.id,
-      emi.id,
-      emi.status
-    )
-  }
+ onChange={() =>
+  setEmiConfirm({
+    financeId: finance.id,
+    emiId: emi.id,
+    currentStatus: Number(emi.status),
+  })
+}
   className={`h-4 w-4 accent-green-600 ${
     Number(emi.status) === 0 &&
     emiSchedule.findIndex(
@@ -761,6 +790,59 @@ const signatureUrl = device.signature
     </div>
   )}
 </div>
+
+
+{/* EMI Confirmation Modal */}
+{emiConfirm && (
+  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+    <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-100">
+          <span className="text-2xl font-bold text-blue-600">!</span>
+        </div>
+
+        <h2 className="text-lg font-bold text-gray-800">
+          Confirm EMI Status
+        </h2>
+      </div>
+
+      <p className="mb-6 text-sm text-gray-600">
+        Are you sure you want to mark this EMI as{" "}
+        <span className="font-semibold text-gray-800">
+          {emiConfirm.currentStatus === 1 ? "Pending" : "Paid"}
+        </span>
+        ?
+      </p>
+
+      <div className="flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => setEmiConfirm(null)}
+          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          onClick={async () => {
+            await handleEmiStatusUpdate(
+              emiConfirm.financeId,
+              emiConfirm.emiId,
+              emiConfirm.currentStatus
+            );
+            setEmiConfirm(null);
+          }}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        >
+          Yes, Confirm
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
 
 
       
@@ -832,7 +914,6 @@ const signatureUrl = device.signature
           Product Price (₹)
         </label>
         <input
-          type="number"
           name="product_price"
           value={financeForm.product_price}
           onChange={handleFinanceChange}
@@ -851,7 +932,6 @@ const signatureUrl = device.signature
           Down Payment Amount (₹)
         </label>
         <input
-          type="number"
           name="down_payment_amount"
           value={financeForm.down_payment_amount}
           onChange={handleFinanceChange}
@@ -870,7 +950,6 @@ const signatureUrl = device.signature
           Other Charge (₹)
         </label>
         <input
-          type="number"
           name="other_charge"
           value={financeForm.other_charge}
           onChange={handleFinanceChange}
@@ -957,7 +1036,6 @@ const signatureUrl = device.signature
           Interest Rate (%)
         </label>
         <input
-          type="number"
           name="interest_rate"
           value={financeForm.interest_rate}
           onChange={handleFinanceChange}

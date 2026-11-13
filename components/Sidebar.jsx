@@ -400,14 +400,31 @@ export default function Sidebar({ sidebarOpen }) {
     const href = `/dashboard?role=${roleValue}&module=${encodeURIComponent(roleSlug)}`;
     const isActive = isRoleLinkActive(moduleItem);
 
-    return (
-      <Link href={href} className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${isActive ? "bg-blue-400 text-black" : "hover:bg-gray-700"}`}>
-        <span className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${isActive ? "text-black" : "text-white"}`}>
-          {getModuleIcon(moduleItem?.icon)}
-        </span>
-        <span className="truncate">{moduleItem?.name || ROLE_MAP[roleValue] || "Role"}</span>
-      </Link>
-    );
+ return (
+  <Link
+    href={href}
+    title={!sidebarOpen ? moduleItem?.name || ROLE_MAP[roleValue] || "Role" : ""}
+    className={`flex items-center ${
+      sidebarOpen ? "gap-3" : "justify-center"
+    } rounded p-3 font-semibold transition-all ${
+      isActive ? "bg-blue-400 text-black" : "hover:bg-gray-700"
+    }`}
+  >
+    <span
+      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
+        isActive ? "text-black" : "text-white"
+      }`}
+    >
+      {getModuleIcon(moduleItem?.icon)}
+    </span>
+
+    {sidebarOpen && (
+      <span className="truncate">
+        {moduleItem?.name || ROLE_MAP[roleValue] || "Role"}
+      </span>
+    )}
+  </Link>
+);
   };
 
   const ModuleLink = ({ moduleItem }) => {
@@ -422,20 +439,36 @@ export default function Sidebar({ sidebarOpen }) {
 
     const isActive = isModuleLinkActive(moduleItem);
     return (
-      <Link href={href} className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${isActive ? "bg-blue-400 text-black" : "hover:bg-gray-700"}`}>
-        <span className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${isActive ? "text-black" : "text-white"}`}>
-          {getModuleIcon(moduleItem?.icon)}
-        </span>
-        <span className="flex min-w-0 flex-1 items-center">
-          <span className="truncate">{label}</span>
-          {slug === "transfer-points" && (
-            <span className={`ml-auto shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold shadow-sm ${isActive ? "border-red-600 bg-red-600 text-white" : "border-red-500 bg-red-500 text-white"}`}>
-              {totalWalletBalance.toLocaleString("en-IN")}
-            </span>
-          )}
-        </span>
-      </Link>
-    );
+  <Link
+    href={href}
+    title={!sidebarOpen ? label : ""}
+    className={`flex items-center ${
+      sidebarOpen ? "gap-3" : "justify-center"
+    } rounded p-3 font-semibold transition-all ${
+      isActive ? "bg-blue-400 text-black" : "hover:bg-gray-700"
+    }`}
+  >
+    <span
+      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${
+        isActive ? "text-black" : "text-white"
+      }`}
+    >
+      {getModuleIcon(moduleItem?.icon)}
+    </span>
+
+    {sidebarOpen && (
+      <span className="flex min-w-0 flex-1 items-center">
+        <span className="truncate">{label}</span>
+
+        {slug === "transfer-points" && (
+          <span className="ml-auto shrink-0 rounded-md border border-red-500 bg-red-500 px-2.5 py-1 text-xs font-bold text-white shadow-sm">
+            {totalWalletBalance.toLocaleString("en-IN")}
+          </span>
+        )}
+      </span>
+    )}
+  </Link>
+);
   };
 
   const renderRoleLinks = () => {
@@ -490,43 +523,105 @@ const companyLogoUrl = companyLogo
   : null;
 
   return (
-    <aside className={`fixed left-0 top-0 z-[99] flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${sidebarOpen ? "w-68 p-5" : "w-0 p-0"}`}>
-      <h2 className="relative mb-6 flex h-8 w-[230px] items-center after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
-        {companyLogoUrl && <img src={companyLogoUrl} alt="Company Logo" className="h-8 w-[230px] object-contain object-center" />}
-      </h2>
+    <aside
+  className={`fixed left-0 top-0 z-[99] flex h-screen flex-col overflow-hidden bg-gray-900 text-white transition-all duration-300 ease-in-out ${
+    sidebarOpen
+      ? "w-68 p-5"
+      : "w-16 p-2"
+  }`}
+>
+      {sidebarOpen && (
+  <h2 className="relative mb-6 flex h-8 w-[230px] items-center after:absolute after:-bottom-3 after:left-0 after:h-px after:w-full after:bg-gray-300 after:content-['']">
+    {companyLogoUrl && (
+      <img
+        src={companyLogoUrl}
+        alt="Company Logo"
+        className="h-8 w-[230px] object-contain object-center"
+      />
+    )}
+  </h2>
+)}
 
       <div className="scrollbar-hide flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-5">
-        <Link href="/dashboard" className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${pathname === "/dashboard" && activeRole === null && !activeModule ? "bg-blue-400 text-black" : "hover:bg-gray-700"}`}>
-          <RiIcons.RiDashboardLine size={20} />
-          <span>Dashboard</span>
-        </Link>
+        <Link
+  href="/dashboard"
+  title={!sidebarOpen ? "Dashboard" : ""}
+  className={`flex items-center ${
+    sidebarOpen ? "gap-3" : "justify-center"
+  } rounded p-3 font-semibold transition-all ${
+    pathname === "/dashboard" &&
+    activeRole === null &&
+    !activeModule
+      ? "bg-blue-400 text-black"
+      : "hover:bg-gray-700"
+  }`}
+>
+  <RiIcons.RiDashboardLine size={20} />
+
+  {sidebarOpen && <span>Dashboard</span>}
+</Link>
 
         <div className="space-y-2">{renderRoleLinks()}</div>
 
         {Number(roleId) === 0 && (
           <>
-            <Link href="/dashboard/modules" className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${pathname === "/dashboard/modules" || pathname.startsWith("/dashboard/modules/") ? "bg-blue-400 text-black" : "hover:bg-gray-700"}`}>
-              <RiIcons.RiSettings3Line size={20} />
-              <span>Master Settings</span>
-            </Link>
-            <Link href="/dashboard/sub-modules" className={`flex items-center gap-3 rounded p-3 font-semibold transition-all ${pathname === "/dashboard/sub-modules" || pathname.startsWith("/dashboard/sub-modules/") ? "bg-blue-400 text-black" : "hover:bg-gray-700"}`}>
-              <RiIcons.RiStore2Line size={20} />
-              <span>Sub Module</span>
-            </Link>
+            <Link
+  href="/dashboard/modules"
+  title={!sidebarOpen ? "Master Settings" : ""}
+  className={`flex items-center ${
+    sidebarOpen ? "gap-3" : "justify-center"
+  } rounded p-3 font-semibold transition-all ${
+    pathname === "/dashboard/modules" ||
+    pathname.startsWith("/dashboard/modules/")
+      ? "bg-blue-400 text-black"
+      : "hover:bg-gray-700"
+  }`}
+>
+  <RiIcons.RiSettings3Line size={20} />
+  {sidebarOpen && <span>Master Settings</span>}
+</Link>
+
+<Link
+  href="/dashboard/sub-modules"
+  title={!sidebarOpen ? "Sub Module" : ""}
+  className={`flex items-center ${
+    sidebarOpen ? "gap-3" : "justify-center"
+  } rounded p-3 font-semibold transition-all ${
+    pathname === "/dashboard/sub-modules" ||
+    pathname.startsWith("/dashboard/sub-modules/")
+      ? "bg-blue-400 text-black"
+      : "hover:bg-gray-700"
+  }`}
+>
+  <RiIcons.RiStore2Line size={20} />
+  {sidebarOpen && <span>Sub Module</span>}
+</Link>
           </>
         )}
 
         <div className="space-y-2">{renderModuleLinks()}</div>
 
-        <button type="button" onClick={myLogin} className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-blue-500 px-4 py-3 font-semibold text-white transition-all hover:bg-blue-600">
-          <RiIcons.RiLoginBoxLine size={20} />
-          <span>My Login</span>
-        </button>
+        <button
+  type="button"
+  title={!sidebarOpen ? "My Login" : ""}
+  onClick={myLogin}
+  className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-blue-500 px-3 py-3 font-semibold text-white transition-all hover:bg-blue-600"
+>
+  <RiIcons.RiLoginBoxLine size={20} />
+  {sidebarOpen && <span>My Login</span>}
+</button>
 
-        <button type="button" onClick={logout} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-red-500 px-4 py-3 font-semibold text-white transition-all hover:bg-red-600">
-          <RiIcons.RiLogoutBoxLine size={20} />
-          <span>Logout</span>
-        </button>
+
+
+        <button
+  type="button"
+  title={!sidebarOpen ? "Logout" : ""}
+  onClick={logout}
+  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-red-500 px-3 py-3 font-semibold text-white transition-all hover:bg-red-600"
+>
+  <RiIcons.RiLogoutBoxLine size={20} />
+  {sidebarOpen && <span>Logout</span>}
+</button>
       </div>
     </aside>
   );

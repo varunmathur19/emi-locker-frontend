@@ -110,41 +110,43 @@ export default function Navbar({
 
   const roleName = roleNames[roleId] || "User";
 
-  return (
-    <nav
-      className={`fixed top-0 right-0 z-[99] flex h-16 items-center justify-between bg-gradient-to-r from-white via-white to-blue-200 pl-3 pr-8 shadow transition-all duration-300 ${
-        sidebarOpen ? "left-68" : "left-0"
-      }`}
-    >
-      <div className="flex items-center gap-1 md:gap-4">
-        <button
-          type="button"
-          onClick={() =>
-            setSidebarOpen(!sidebarOpen)
-          }
-          className="cursor-pointer text-3xl"
-        >
-          <RiMenuLine />
-        </button>
+ 
+return (
+  <nav
+    className={`fixed top-0 right-0 z-[99] flex h-16 items-center justify-between gap-2 bg-gradient-to-r from-white via-white to-blue-200 px-3 shadow transition-all duration-300 md:pr-8 ${
+      sidebarOpen ? "left-68" : "left-16"
+    }`}
+  >
+    {/* Left Section */}
+    <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-4">
+      <button
+        type="button"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="shrink-0 cursor-pointer text-2xl md:text-3xl"
+      >
+        <RiMenuLine />
+      </button>
 
-        <div>
-          <h1 className="text-[20px] font-bold text-blue-500 md:text-2xl">
-            {companyName || "Company"}
-          </h1>
+      <div className="min-w-0">
+        <h1 className="truncate text-sm font-bold text-blue-500 sm:text-base md:text-2xl">
+          {companyName || "Company"}
+        </h1>
+      </div>
+    </div>
+
+    {/* Right Section */}
+    <div className="flex shrink-0 items-center gap-2 md:gap-5">
+      <div className="flex min-w-0 items-center gap-1 md:gap-2">
+        <RiUserLine className="shrink-0" size={20} />
+
+        <div className="min-w-0">
+          <p className="max-w-[90px] truncate text-xs font-semibold sm:max-w-[130px] sm:text-sm md:max-w-none md:text-xl">
+            {user?.name || roleName}
+          </p>
         </div>
       </div>
+    </div>
+  </nav>
+);
 
-      <div className="flex items-center gap-5">
-        <div className="flex items-center gap-1 md:gap-2">
-          <RiUserLine size={22} />
-
-          <div>
-            <p className="text-[15px] font-semibold md:text-2xl">
-              {user?.name || roleName}
-            </p>
-          </div>
-        </div>
-      </div>
-    </nav>
-  );
 }
