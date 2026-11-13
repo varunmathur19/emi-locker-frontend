@@ -739,3 +739,20 @@ export const createFinance = async (data) => {
   }
 };
 
+
+export const updateFinancePaymentStatus = async (
+  id,
+  emi_id,
+  payment_status
+) => {
+  const response = await api.put(
+    `/finance/payment-status/${id}`,
+    {
+      emi_id,
+      payment_status,
+    }
+  );
+
+  return response.data;
+};
+

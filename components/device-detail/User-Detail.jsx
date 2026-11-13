@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { FaArrowLeft } from "react-icons/fa";
-import { getDeviceById ,getDeviceKyc ,uploadDeviceKyc ,createFinance } from "@/services/api";
+import { getDeviceById ,getDeviceKyc ,uploadDeviceKyc ,createFinance ,updateFinancePaymentStatus } from "@/services/api";
 import { FaAngleDown } from "react-icons/fa";
 
 import {apiBaseUrl } from "@/utils/axios";
@@ -30,6 +30,7 @@ const [financeForm, setFinanceForm] = useState({
   device_brand: "",
   device_model: "",
 });
+
 
 const [financeSubmitting, setFinanceSubmitting] = useState(false);
 
@@ -146,6 +147,8 @@ const totalInterest = (principal * interestRate) / 100;
 
 const totalEmiAmount = principal + totalInterest + otherCharge;
 
+
+
 const numberOfEmi =
   financeForm.tenure_type === "yearly"
     ? (Number(financeForm.tenure_value) || 0) * 12
@@ -155,7 +158,45 @@ const emiPerMonth =
   numberOfEmi > 0 ? totalEmiAmount / numberOfEmi : 0;
 
 const formatAmount = (amount) => Number(amount.toFixed(2));
+const fetchLatestDeviceFinance = async () => {
+  try {
+    const response = await getDeviceById(deviceId);
 
+    const root = response?.data ?? response;
+    const deviceData = root?.data ?? root?.device ?? null;
+
+    if (!deviceData) return;
+
+    setDevice(deviceData);
+
+    const existingFinance = deviceData.finance_details || [];
+
+    setFinanceDetails(existingFinance);
+
+    if (existingFinance.length > 0) {
+      const finance = existingFinance[0];
+
+      setFinanceForm({
+        loan_number: finance.loan_number || "",
+        finance_type: finance.finance_type || "",
+        product_price: finance.product_price ?? "",
+        down_payment_amount: finance.down_payment_amount ?? "",
+        other_charge: finance.other_charge ?? "0",
+        tenure_type: finance.tenure_type || "monthly",
+        tenure_value: finance.tenure_value ?? "",
+        interest_rate: finance.interest_rate ?? "",
+        due_date: finance.due_date
+          ? String(finance.due_date).split("T")[0]
+          : "",
+        device_brand: finance.device_brand || "",
+        device_model: finance.device_model || "",
+      });
+    }
+  } catch (error) {
+    console.error("REFRESH FINANCE ERROR:", error);
+    toast.error("Failed to refresh finance details.");
+  }
+};
 const handleFinanceSubmit = async (e) => {
   e.preventDefault();
 
@@ -192,6 +233,7 @@ const handleFinanceSubmit = async (e) => {
       device_model: financeForm.device_model,
     };
 
+    // 1. Create Finance API
     const response = await createFinance(payload);
 
     if (!response?.success) {
@@ -201,45 +243,87 @@ const handleFinanceSubmit = async (e) => {
 
     toast.success(response.message || "Finance created successfully.");
 
-    const createdFinance = response.data;
+    // 2. Fetch latest device and finance details
+    await fetchLatestDeviceFinance();
 
-    if (createdFinance) {
-      setFinanceDetails((prev) => [
-        ...prev,
-        {
-          ...createdFinance,
-          id: createdFinance.finance_id ?? createdFinance.id,
-          emi_schedule: createdFinance.emi_schedule ?? [],
-        },
-      ]);
-    }
-
-    setFinanceForm({
-      loan_number: "",
-      finance_type: "",
-      product_price: "",
-      down_payment_amount: "",
-      other_charge: "0",
-      tenure_type: "monthly",
-      tenure_value: "",
-      interest_rate: "",
-      due_date: "",
-      device_brand: "",
-      device_model: "",
-    });
   } catch (error) {
-    console.error("CREATE FINANCE ERROR:", error?.response?.data || error);
+    console.error(
+      "CREATE FINANCE ERROR:",
+      error?.response?.data || error
+    );
 
     toast.error(
       error?.response?.data?.message ||
       error.message ||
-      "Failed to create finance."
+      "Failed to save finance."
     );
   } finally {
     setFinanceSubmitting(false);
   }
 };
+const handleEmiStatusUpdate = async (financeId, emiId, currentStatus) => {
+  const newStatus = Number(currentStatus) === 1 ? 0 : 1;
 
+  try {
+    const response = await updateFinancePaymentStatus(
+      financeId,
+      emiId,
+      newStatus
+    );
+
+    if (response.success) {
+      setFinanceDetails((prev) =>
+        prev.map((finance) => {
+          if (Number(finance.id) !== Number(financeId)) {
+            return finance;
+          }
+
+          const emiSchedule =
+            typeof finance.emi_schedule === "string"
+              ? JSON.parse(finance.emi_schedule || "[]")
+              : finance.emi_schedule || [];
+
+          const updatedSchedule = emiSchedule.map((emi) =>
+            Number(emi.id) === Number(emiId)
+              ? { ...emi, status: newStatus }
+              : emi
+          );
+
+          return {
+            ...finance,
+            emi_schedule: updatedSchedule,
+          };
+        })
+      );
+
+      // Paid = Green Toast, Pending = Red Toast
+      if (newStatus === 1) {
+        toast.success("EMI marked as Paid");
+      } else {
+        toast.error("EMI marked as Pending");
+      }
+    }
+  } catch (error) {
+    toast.error(
+      error.response?.data?.message || "Failed to update EMI status"
+    );
+  }
+};
+
+
+// Check if at least one EMI is Paid
+const hasAnyPaidEmi = financeDetails.some((finance) => {
+  const emiSchedule =
+    typeof finance.emi_schedule === "string"
+      ? JSON.parse(finance.emi_schedule || "[]")
+      : finance.emi_schedule || [];
+
+  return emiSchedule.some(
+    (emi) => Number(emi.status) === 1
+  );
+});
+
+const canEditFinance = !hasAnyPaidEmi;
 const handleKycUpload = async (field, file) => {
   if (!file || !deviceId) return;
 
@@ -471,6 +555,7 @@ const signatureUrl = device.signature
 
         {/* EMI Schedule */}
 
+
 <div className="mt-8 border-t border-gray-200 pt-6">
   <h3 className="mb-5 text-lg font-semibold text-gray-800">
     EMI Schedule
@@ -482,146 +567,206 @@ const signatureUrl = device.signature
     </div>
   ) : (
     <div className="space-y-6">
-      {financeDetails.map((finance) => (
-        <div
-          key={finance.id}
-          className="overflow-hidden rounded-lg border border-gray-200"
-        >
-          {/* Finance Summary */}
-          <div className="grid grid-cols-1 gap-4 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <p className="text-xs text-gray-500">Loan Number</p>
-              <p className="font-semibold text-gray-800">
-                {finance.loan_number || "-"}
-              </p>
+      {financeDetails.map((finance) => {
+        const emiSchedule =
+          typeof finance.emi_schedule === "string"
+            ? JSON.parse(finance.emi_schedule || "[]")
+            : finance.emi_schedule || [];
+
+        const pendingEmi = emiSchedule.filter(
+          (emi) => Number(emi.status) === 0
+        ).length;
+        const firstPendingIndex = emiSchedule.findIndex(
+  (emi) => Number(emi.status) === 0
+);
+
+        return (
+          <div
+            key={finance.id}
+            className="overflow-hidden rounded-lg border border-gray-200"
+          >
+            {/* Finance Summary */}
+            <div className="grid grid-cols-1 gap-4 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <p className="text-xs text-gray-500">Loan Number</p>
+                <p className="font-semibold text-gray-800">
+                  {finance.loan_number || "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Finance Type</p>
+                <p className="font-semibold text-gray-800">
+                  {finance.finance_type || "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Total EMI</p>
+                <p className="font-semibold text-gray-800">
+                  {emiSchedule.length}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Pending EMI</p>
+                <p className="font-semibold text-orange-600">
+                  {pendingEmi}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Total Amount</p>
+                <p className="font-semibold text-gray-800">
+                  ₹{Number(finance.total_emi_amount || 0).toFixed(2)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">EMI Per Month</p>
+                <p className="font-semibold text-gray-800">
+                  ₹{Number(finance.emi_per_month || 0).toFixed(2)}
+                </p>
+              </div>
             </div>
 
-            <div>
-              <p className="text-xs text-gray-500">Finance Type</p>
-              <p className="font-semibold text-gray-800">
-                {finance.finance_type || "-"}
-              </p>
-            </div>
+            {/* EMI Table */}
+           {/* EMI Table */}
+<div className="overflow-x-auto">
+  <table className="w-full min-w-[850px] text-sm">
+    <thead className="bg-gray-100">
+      <tr>
+        <th className="px-4 py-3 text-left font-semibold text-gray-700">
+          EMI No.
+        </th>
+        <th className="px-4 py-3 text-left font-semibold text-gray-700">
+          Due Date
+        </th>
+        <th className="px-4 py-3 text-left font-semibold text-gray-700">
+          EMI Amount
+        </th>
+        <th className="px-4 py-3 text-left font-semibold text-gray-700">
+          Status
+        </th>
+        <th className="px-4 py-3 text-left font-semibold text-gray-700">
+          Created Date
+        </th>
+        <th className="px-4 py-3 text-center font-semibold text-gray-700">
+          Actions
+        </th>
+      </tr>
+    </thead>
 
-            <div>
-              <p className="text-xs text-gray-500">Total EMI</p>
-              <p className="font-semibold text-gray-800">
-                {finance.total_emi ?? finance.number_of_emi ?? 0}
-              </p>
-            </div>
+    <tbody>
+      {emiSchedule.length > 0 ? (
+        emiSchedule.map((emi) => (
+          <tr
+            key={emi.id}
+            className="border-t border-gray-200 transition hover:bg-gray-50"
+          >
+            {/* EMI Number */}
+            <td className="px-4 py-3 font-medium text-gray-800">
+              EMI {emi.id}
+            </td>
 
-            <div>
-              <p className="text-xs text-gray-500">Pending EMI</p>
-              <p className="font-semibold text-orange-600">
-                {finance.pending_emi ?? 0}
-              </p>
-            </div>
+            {/* Due Date */}
+            <td className="px-4 py-3 text-gray-600">
+              {emi.payment_date
+                ? new Date(
+                    `${emi.payment_date}T00:00:00`
+                  ).toLocaleDateString("en-IN")
+                : "-"}
+            </td>
 
-            <div>
-              <p className="text-xs text-gray-500">Total Amount</p>
-              <p className="font-semibold text-gray-800">
-                ₹{Number(finance.total_emi_amount || 0).toFixed(2)}
-              </p>
-            </div>
+            {/* EMI Amount */}
+            <td className="px-4 py-3 font-medium text-gray-800">
+              ₹{Number(emi.amount || 0).toFixed(2)}
+            </td>
 
-            <div>
-              <p className="text-xs text-gray-500">EMI Per Month</p>
-              <p className="font-semibold text-gray-800">
-                ₹{Number(finance.emi_per_month || 0).toFixed(2)}
-              </p>
-            </div>
+            {/* Status */}
+            <td className="px-4 py-3">
+              <span
+                className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+                  Number(emi.status) === 1
+                    ? "bg-green-100 text-green-700"
+                    : "bg-orange-100 text-orange-700"
+                }`}
+              >
+                {Number(emi.status) === 1 ? "Paid" : "Pending"}
+              </span>
+            </td>
+
+            {/* Created Date */}
+            <td className="px-4 py-3 text-gray-600">
+              {emi.created_date
+                ? new Date(emi.created_date).toLocaleDateString("en-IN")
+                : "-"}
+            </td>
+
+            {/* Actions */}
+            <td className="px-4 py-3 text-center">
+            <input
+  type="checkbox"
+  checked={Number(emi.status) === 1}
+  disabled={
+    Number(emi.status) === 0 &&
+    emiSchedule.findIndex(
+      (item) => Number(item.id) === Number(emi.id)
+    ) !== firstPendingIndex
+  }
+  onChange={() =>
+    handleEmiStatusUpdate(
+      finance.id,
+      emi.id,
+      emi.status
+    )
+  }
+  className={`h-4 w-4 accent-green-600 ${
+    Number(emi.status) === 0 &&
+    emiSchedule.findIndex(
+      (item) => Number(item.id) === Number(emi.id)
+    ) !== firstPendingIndex
+      ? "cursor-not-allowed opacity-40"
+      : "cursor-pointer"
+  }`}
+  title={
+    Number(emi.status) === 1
+      ? "Mark as Pending"
+      : emiSchedule.findIndex(
+          (item) => Number(item.id) === Number(emi.id)
+        ) !== firstPendingIndex
+        ? "Previous EMI must be paid first"
+        : "Mark as Paid"
+  }
+/>
+            </td>
+          </tr>
+        ))
+      ) : (
+        <tr>
+          <td
+            colSpan={6}
+            className="px-4 py-5 text-center text-gray-500"
+          >
+            No EMI installments found.
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>
           </div>
-
-          {/* EMI Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[650px] text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-4 py-3 text-left">EMI No.</th>
-                  <th className="px-4 py-3 text-left">Due Date</th>
-                  <th className="px-4 py-3 text-left">EMI Amount</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Paid At</th>
-                  <th className="px-4 py-3 text-left">Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {finance.emi_schedule?.length > 0 ? (
-                  finance.emi_schedule.map((emi) => (
-                    <tr
-                      key={emi.id || emi.emi_number}
-                      className="border-t border-gray-200"
-                    >
-                      <td className="px-4 py-3">
-                        EMI {emi.emi_number}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {emi.due_date
-                          ? new Date(emi.due_date).toLocaleDateString("en-IN")
-                          : "-"}
-                      </td>
-
-                      <td className="px-4 py-3 font-medium">
-                        ₹{Number(emi.emi_amount || 0).toFixed(2)}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-medium ${
-                            emi.status === "paid"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-orange-100 text-orange-700"
-                          }`}
-                        >
-                          {emi.status || "pending"}
-                        </span>
-                      </td>
-                      
-
-                      <td className="px-4 py-3">
-                        {emi.paid_at
-                          ? new Date(emi.paid_at).toLocaleDateString("en-IN")
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-3">
-  <input
-    type="checkbox"
-    checked={emi.status === "paid"}
-    readOnly
-    className="h-4 w-4 cursor-pointer accent-green-600"
-  />
-</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-5 text-center text-gray-500"
-                    >
-                      No EMI installments found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   )}
 </div>
+
 
       
 
 {/* Product Details / Finance Form */}
 
-{/* Product & Finance Details */}
-
-
-{/* Product & Finance Details */}
 
 <div className="mt-8 border-t border-gray-200 pt-6">
   <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -651,7 +796,8 @@ const signatureUrl = device.signature
           onChange={handleFinanceChange}
           placeholder="Enter loan number"
           required
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+          disabled={!canEditFinance}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-80"
         />
       </div>
 
@@ -665,7 +811,8 @@ const signatureUrl = device.signature
           value={financeForm.finance_type}
           onChange={handleFinanceChange}
           required
-          className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2.5 pr-10 outline-none focus:border-blue-500"
+          disabled={!canEditFinance}
+          className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2.5 pr-10 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-80"
         >
           <option value="">Select finance type</option>
           <option value="IDFC First">IDFC First</option>
@@ -693,7 +840,8 @@ const signatureUrl = device.signature
           min="0.01"
           step="0.01"
           required
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+          disabled={!canEditFinance}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-80"
         />
       </div>
 
@@ -711,7 +859,8 @@ const signatureUrl = device.signature
           min="0"
           step="0.01"
           required
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+          disabled={!canEditFinance}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-80"
         />
       </div>
 
@@ -729,7 +878,8 @@ const signatureUrl = device.signature
           min="0"
           step="0.01"
           required
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+          disabled={!canEditFinance}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-80"
         />
       </div>
 
@@ -742,6 +892,7 @@ const signatureUrl = device.signature
           type="number"
           value={formatAmount(balanceAmount)}
           readOnly
+          disabled
           className="w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2.5"
         />
       </div>
@@ -756,7 +907,8 @@ const signatureUrl = device.signature
           value={financeForm.tenure_type}
           onChange={handleFinanceChange}
           required
-          className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2.5 pr-10 outline-none focus:border-blue-500"
+          disabled={!canEditFinance}
+          className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2.5 pr-10 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-80"
         >
           <option value="monthly">Monthly</option>
           <option value="yearly">Yearly</option>
@@ -780,7 +932,8 @@ const signatureUrl = device.signature
           min="1"
           max={financeForm.tenure_type === "yearly" ? "50" : "600"}
           required
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+          disabled={!canEditFinance}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-80"
         />
       </div>
 
@@ -793,6 +946,7 @@ const signatureUrl = device.signature
           type="number"
           value={numberOfEmi}
           readOnly
+          disabled
           className="w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2.5"
         />
       </div>
@@ -811,7 +965,8 @@ const signatureUrl = device.signature
           min="0"
           step="0.01"
           required
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+          disabled={!canEditFinance}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-80"
         />
       </div>
 
@@ -824,6 +979,7 @@ const signatureUrl = device.signature
           type="number"
           value={formatAmount(totalEmiAmount)}
           readOnly
+          disabled
           className="w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2.5"
         />
       </div>
@@ -837,6 +993,7 @@ const signatureUrl = device.signature
           type="number"
           value={formatAmount(emiPerMonth)}
           readOnly
+          disabled
           className="w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2.5"
         />
       </div>
@@ -852,7 +1009,8 @@ const signatureUrl = device.signature
           value={financeForm.due_date}
           onChange={handleFinanceChange}
           required
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+          disabled={!canEditFinance}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-80"
         />
       </div>
 
@@ -867,7 +1025,8 @@ const signatureUrl = device.signature
           value={financeForm.device_brand}
           onChange={handleFinanceChange}
           placeholder="Enter device brand"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+          disabled={!canEditFinance}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-80"
         />
       </div>
 
@@ -882,32 +1041,30 @@ const signatureUrl = device.signature
           value={financeForm.device_model}
           onChange={handleFinanceChange}
           placeholder="Enter device model"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+          disabled={!canEditFinance}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-80"
         />
       </div>
     </div>
 
     {/* Submit Button */}
-    <div className="mt-6 flex justify-end">
-      <button
-        type="submit"
-        disabled={financeSubmitting}
-        className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {financeSubmitting
-          ? "Saving Finance..."
-          : financeDetails.length > 0
-            ? "Update Finance"
-            : "Create Finance"}
-      </button>
-    </div>
+    {canEditFinance && (
+      <div className="mt-6 flex justify-end">
+        <button
+          type="submit"
+          disabled={financeSubmitting}
+          className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {financeSubmitting
+            ? "Saving Finance..."
+            : financeDetails.length > 0
+              ? "Update Finance"
+              : "Create Finance"}
+        </button>
+      </div>
+    )}
   </form>
 </div>
-
-
-
-
-
 
 
 {/* User KYC Section */}
